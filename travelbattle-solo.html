@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TravelBattle: Field Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --map-bg:#2a2f22;
+    --map-cell:#3c4a34;
+    --map-cell-alt:#3f4e37;
+    --map-road:#8a7350;
+    --map-woods:#26361f;
+    --map-building:#6b5847;
+    --map-hill:#556b41;
+    --map-field:#8a7d3f;
+
+    --bg:#e9dfc4;
+    --paper:#e2d6b3;
+    --paper-2:#d8c99e;
+    --ink:#2e2415;
+    --ink-dim:#7a6b4d;
+    --brass:#a8823f;
+    --brass-dim:#8a6a34;
+    --panel:#e9dfc4;
+    --panel-2:#dccfa4;
+    --line:#c9b989;
+
+    --red:#8c2f2f;
+    --red-dim:#6b2422;
+    --blue:#2c3e63;
+    --blue-dim:#1c2740;
+    --ok:#4a7a4a;
+    --warn:#a8720b;
+    --danger:#a33330;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--map-bg);color:var(--ink);font-family:'Inter',sans-serif;height:100%;overflow:hidden;}
+  ::selection{background:var(--brass-dim);color:#fff;}
+
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 14px;background:var(--panel-2);border-bottom:2px solid var(--brass-dim);
+    flex-shrink:0;
+  }
+  header .title{
+    font-family:'Cinzel',serif;font-weight:700;letter-spacing:0.06em;
+    font-size:15px;text-transform:uppercase;color:var(--brass-dim);
+  }
+  header .title span{color:var(--ink-dim);font-weight:500;font-size:10px;display:block;letter-spacing:0.1em;margin-top:1px;font-family:'Inter',sans-serif;text-transform:none;}
+  #turnBadge{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 10px;border-radius:2px;
+    border:1px solid var(--brass-dim);letter-spacing:0.03em;background:var(--paper);
+  }
+
+  #phaseBar{
+    display:flex;gap:0;background:var(--panel-2);border-bottom:1px solid var(--line);flex-shrink:0;
+    font-family:'Cormorant Garamond',serif;font-weight:600;font-size:12.5px;letter-spacing:0.05em;text-transform:uppercase;
+  }
+  #phaseBar .step{flex:1;text-align:center;padding:5px 2px;color:var(--ink-dim);border-right:1px solid var(--line);position:relative;}
+  #phaseBar .step:last-child{border-right:none;}
+  #phaseBar .step.active{color:#fff;background:var(--brass-dim);}
+  #phaseBar .step.done{color:var(--ok);}
+
+  main{flex:1;display:flex;min-height:0;}
+
+  #brigadeStatus{
+    display:flex;justify-content:center;gap:22px;padding:4px 10px;background:var(--panel-2);
+    border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:10.5px;flex-shrink:0;
+  }
+  #brigadeStatus .side-status{display:flex;align-items:center;gap:6px;}
+  #brigadeStatus .pip{width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,0.35);}
+  #brigadeStatus .pip.alive{background:currentColor;}
+  #brigadeStatus .pip.broken{background:transparent;opacity:0.4;}
+
+  #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:auto;position:relative;padding:8px;}
+  canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;}
+
+  #sidebar{
+    width:250px;flex-shrink:0;background:var(--panel);border-left:2px solid var(--brass-dim);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  #sidebar h3{
+    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;
+    color:var(--brass-dim);margin:0;padding:8px 12px 4px;
+  }
+  #unitInfo{padding:0 12px 10px;font-size:12.5px;line-height:1.45;min-height:90px;border-bottom:1px solid var(--line);}
+  #unitInfo .empty{color:var(--ink-dim);font-style:italic;}
+  #unitInfo .u-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;margin-bottom:2px;}
+  #unitInfo .u-tags{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0;}
+  #unitInfo .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:2px 6px;border-radius:2px;background:var(--paper-2);color:var(--ink-dim);}
+  #unitInfo .tag.st-active{color:var(--ok);}
+  #unitInfo .tag.st-square{color:var(--warn);}
+  #unitInfo .tag.st-pushed{color:var(--danger);}
+
+  #actionRow{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  button{
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 11px;
+    background:var(--paper-2);color:var(--ink);border:1px solid var(--line);border-radius:3px;cursor:pointer;
+  }
+  button:hover:not(:disabled){background:#cbb98a;border-color:var(--brass-dim);}
+  button:disabled{opacity:0.4;cursor:default;}
+  button.primary{background:var(--brass-dim);border-color:var(--brass);color:#fdf6e3;font-weight:600;}
+  button.primary:hover:not(:disabled){background:var(--brass);}
+  button.danger{border-color:var(--danger);color:var(--danger);}
+
+  #logWrap{border-bottom:1px solid var(--line);}
+  #logToggle{
+    display:flex;align-items:center;justify-content:space-between;width:100%;
+    background:none;border:none;border-radius:0;padding:6px 12px;cursor:pointer;
+    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:var(--brass-dim);
+  }
+  #logToggle .chev{font-family:'Inter',sans-serif;font-size:11px;transition:transform 0.15s;}
+  #logToggle.collapsed .chev{transform:rotate(-90deg);}
+  #log{max-height:130px;overflow-y:auto;padding:0 12px 8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.5;}
+  #log.collapsed{display:none;}
+  #log .entry{margin-bottom:4px;padding-left:7px;border-left:2px solid var(--line);color:var(--ink-dim);}
+  #log .entry.red{border-color:var(--red);}
+  #log .entry.blue{border-color:var(--blue);}
+  #log .entry.combat{color:var(--warn);}
+  #log .entry.system{color:var(--brass-dim);}
+
+  #rosterPanel{display:none;flex-direction:column;flex:1;min-height:0;}
+  #rosterList{flex:1;overflow-y:auto;padding:6px 12px;}
+  .roster-chip{
+    display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:5px;border-radius:3px;
+    background:var(--paper-2);border:1px solid var(--line);cursor:pointer;font-size:12px;
+  }
+  .roster-chip.selected{border-color:var(--brass);background:var(--brass-dim);color:#fdf6e3;}
+  .roster-chip.placed{opacity:0.35;cursor:default;}
+  .roster-chip .swatch{width:15px;height:15px;border-radius:2px;flex-shrink:0;}
+
+  #overlay{
+    position:fixed;inset:0;background:rgba(20,16,8,0.72);display:none;align-items:center;justify-content:center;z-index:50;
+  }
+  #overlay.show{display:flex;}
+  #overlay .box{
+    background:var(--paper);border:2px solid var(--brass-dim);border-radius:4px;padding:24px 28px;max-width:380px;text-align:center;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  #overlay .box h2{font-family:'Cinzel',serif;color:var(--brass-dim);letter-spacing:0.05em;text-transform:uppercase;font-size:18px;margin:0 0 10px;}
+  #overlay .box p{font-size:13px;color:var(--ink-dim);line-height:1.55;margin:0 0 16px;font-family:'Cormorant Garamond',serif;font-size:15px;}
+
+  #diceTicker{
+    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+    background:rgba(233,223,196,0.97);border:2px solid var(--brass-dim);border-radius:3px;
+    padding:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;display:none;gap:14px;
+    box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  }
+  #diceTicker.show{display:flex;}
+  #diceTicker .d{padding:3px 9px;border-radius:2px;background:var(--paper-2);color:var(--ink);}
+  #diceTicker .d.win{color:var(--ok);border:1px solid var(--ok);}
+  #diceTicker .d.lose{color:var(--danger);border:1px solid var(--danger);}
+
+  /* Landscape-first: this is the default row layout above (board + narrow
+     sidebar), which already suits a landscape phone well. Portrait phones
+     get a stacked, scrollable layout instead. */
+  @media (max-width:900px) and (orientation:portrait){
+    main{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    #boardWrap{flex:none;width:100%;max-height:48vh;padding:8px;}
+    #sidebar{
+      position:static;width:100%;flex-shrink:0;
+      border-left:none;border-top:2px solid var(--brass-dim);
+      box-shadow:none;
+    }
+    header .title{font-size:12px;}
+    #brigadeStatus{flex-wrap:wrap;gap:5px 14px;font-size:9.5px;}
+  }
+  /* Short landscape viewports (phone chrome eating vertical space): compact the chrome */
+  @media (max-height:430px){
+    header{padding:4px 12px;}
+    header .title{font-size:12px;}
+    header .title span{display:none;}
+    #phaseBar .step{padding:3px 2px;font-size:11px;}
+    #brigadeStatus{padding:2px 10px;font-size:9.5px;}
+    #sidebar{width:210px;}
+    #log{max-height:80px;}
+  }
+  #sidebarToggle{display:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title">TravelBattle<span>Field Command &mdash; Solo Engine v1</span></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div id="turnBadge">&mdash;</div>
+      <button id="sidebarToggle">&#9776;</button>
+    </div>
+  </header>
+
+  <div id="phaseBar">
+    <div class="step" data-phase="deploy">Deploy</div>
+    <div class="step" data-phase="move">Move</div>
+    <div class="step" data-phase="fire">Artillery</div>
+    <div class="step" data-phase="fight">Fight</div>
+    <div class="step" data-phase="rally">Rally / Turnaround</div>
+  </div>
+  <div id="brigadeStatus"></div>
+
+  <main>
+    <div id="boardWrap">
+      <canvas id="board" width="900" height="900"></canvas>
+      <div id="diceTicker"></div>
+    </div>
+    <div id="sidebar">
+      <div id="rosterPanel">
+        <h3 id="rosterTitle">Deploy Brigade</h3>
+        <div id="rosterList"></div>
+        <div id="actionRow">
+          <button id="endDeployBtn" class="primary" disabled>Confirm Deployment</button>
+        </div>
+      </div>
+
+      <div id="battlePanel" style="display:none;flex-direction:column;flex:1;min-height:0;">
+        <h3>Selected</h3>
+        <div id="unitInfo"><span class="empty">No unit selected</span></div>
+        <div id="actionRow">
+          <button id="squareBtn" disabled>Form Square</button>
+          <button id="endMoveBtn" disabled>End Move Phase</button>
+          <button id="endFireBtn" style="display:none;">End Artillery Phase</button>
+          <button id="endFightBtn" style="display:none;">End Fight Phase</button>
+        </div>
+        <div id="logWrap">
+          <button id="logToggle" class="collapsed"><span>Field Report</span><span class="chev">&#9660;</span></button>
+          <div id="log" class="collapsed"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="overlay">
+  <div class="box">
+    <h2 id="overlayTitle">TravelBattle</h2>
+    <p id="overlayText"></p>
+    <button id="overlayBtn" class="primary">Begin</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG & CONSTANTS
+========================================================= */
+/* =========================================================
+   BOARD: TWO PHYSICAL BOARDS, PLACED SIDE BY SIDE
+   TravelBattle is played on two boards pushed together. They join
+   along a vertical seam; both players deploy along their own top/
+   bottom edge across the FULL combined width. Each half below
+   represents one physical board, full depth, half width.
+
+   BOARD_A_TERRAIN / BOARD_B_TERRAIN are traced from Matthew's actual
+   board photos (Aug 2026) — best-effort read of road/woods/building/
+   field placement, confirmed against his description. The light grey
+   blotches visible in the photos are decorative (rocks / cliff faces
+   on hill inclines) with no gameplay effect on their own, and no hill
+   terrain was confidently identifiable in either photo, so both boards
+   are currently coded with no HILL squares — flag this if either board
+   does have a hill area, since that would need adding explicitly.
+
+   Each game start: one board is randomly assigned to each side, then
+   each side rolls a d6 for that board's table orientation (1-3 =
+   forced rotation of that many 90° clockwise turns; 4-6 = that side's
+   player chooses the rotation) — see beginBoardSetup().
+========================================================= */
+const HALF_COLS = 10, ROWS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is 20 wide x 10 deep
+let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
+
+function emptyHalfBoard(){
+  const rows = [];
+  for(let y=0;y<ROWS;y++){ const row=[]; for(let x=0;x<HALF_COLS;x++) row.push('OPEN'); rows.push(row); }
+  return rows;
+}
+
+// Board A — traced from photo: crossroads with a branch curving to the
+// top edge and a branch running south to a village, then a road running
+// the full width along row 8 with fields below it.
+const BOARD_A_TERRAIN = (function(){
+  const b = emptyHalfBoard();
+  const road = [[0,3],[1,3],[2,3], [3,2],[4,2],[5,1],[6,0], [2,4],[2,5],[2,6],[2,7],[2,8],
+                [3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8]];
+  road.forEach(([x,y])=> b[y][x]='ROAD');
+  [[6,1],[7,1],[6,2],[7,2],[6,3],[7,3]].forEach(([x,y])=> b[y][x]='WOODS');
+  [[1,7],[1,8]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='BUILDING'; });
+  b[9][3]='FIELD'; b[9][4]='FIELD'; b[9][5]='FIELD'; b[9][6]='FIELD';
+  return b;
+})();
+
+// Board B — traced from photo: road entering the top edge, curving past
+// a building and a field cluster, past woods, exiting bottom-right, plus
+// two shorter road stubs (left edge, right edge).
+const BOARD_B_TERRAIN = (function(){
+  const b = emptyHalfBoard();
+  const road = [[2,0],[2,1],[2,2],[2,3],[3,4],[3,5],[4,6],[5,7],[6,8],[6,9],
+                [0,8],[1,8],[2,8],[2,7],
+                [7,1],[8,1]];
+  road.forEach(([x,y])=> b[y][x]='ROAD');
+  [[1,3]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='BUILDING'; });
+  [[4,6],[5,6],[4,7]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='WOODS'; });
+  [[0,4],[1,4],[1,5]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='FIELD'; });
+  [[6,1],[6,2]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='FIELD'; });
+  return b;
+})();
+
+// Rotate a square (N x N) grid 90° clockwise, `times` times.
+function rotateGrid90CW(grid){
+  const n = grid.length;
+  const out = [];
+  for(let y=0;y<n;y++){ const row=[]; for(let x=0;x<n;x++) row.push(null); out.push(row); }
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) out[x][n-1-y] = grid[y][x];
+  return out;
+}
+function rotateGridTimes(grid, times){
+  let g = grid;
+  const n = ((times%4)+4)%4;
+  for(let i=0;i<n;i++) g = rotateGrid90CW(g);
+  return g;
+}
+
+function boardTerrainFor(key, rotation){
+  const base = key==='A' ? BOARD_A_TERRAIN : BOARD_B_TERRAIN;
+  return rotateGridTimes(base, rotation||0);
+}
+
+function buildTerrainMap(assignment, rotation){
+  assignment = assignment || { red:'A', blue:'B' };
+  rotation = rotation || { red:0, blue:0 };
+  const leftGrid = boardTerrainFor(assignment.red, rotation.red);
+  const rightGrid = boardTerrainFor(assignment.blue, rotation.blue);
+  const map = [];
+  for(let y=0;y<ROWS;y++) map.push(leftGrid[y].concat(rightGrid[y]));
+  return map;
+}
+const SIDES = { RED: 'red', BLUE: 'blue' };
+const SIDE_LABEL = { red: 'Britain (Red)', blue: 'France (Blue)' };
+const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
+const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
+
+const UNIT_TYPES = {
+  BRIGADIER:   { key:'BRIGADIER',   label:'Brigadier',    move:2, canFight:false, reroll:false, shape:'star' },
+  INFANTRY:    { key:'INFANTRY',    label:'Infantry',     move:1, canFight:true,  reroll:false, shape:'square', canFormSquare:true },
+  GUARD:       { key:'GUARD',       label:'Guard Infantry',move:1,canFight:true,  reroll:true,   shape:'square', canFormSquare:true },
+  HEAVY_CAV:   { key:'HEAVY_CAV',   label:'Heavy Cavalry', move:2, canFight:true,  reroll:true,   shape:'triangle', isCavalry:true },
+  LIGHT_CAV:   { key:'LIGHT_CAV',   label:'Light Cavalry', move:2, canFight:true,  reroll:false,  shape:'triangle', isCavalry:true },
+  ARTILLERY:   { key:'ARTILLERY',   label:'Artillery',    move:1, canFight:true,  reroll:false,  shape:'diamond', isArtillery:true }
+};
+
+// Full army per side, split into 3 Brigades — matches the physical box contents
+// (3 Brigadiers, 2 Guard Infantry, 6 Infantry, 2 Heavy Cavalry, 2 Light Cavalry, 2 Artillery)
+const BRIGADE_COMPOSITIONS = [
+  ['BRIGADIER','GUARD','INFANTRY','INFANTRY','LIGHT_CAV','ARTILLERY'],
+  ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','ARTILLERY'],
+  ['BRIGADIER','GUARD','INFANTRY','INFANTRY','HEAVY_CAV','LIGHT_CAV']
+];
+
+const TERRAIN = {
+  OPEN:     { key:'OPEN', elevation:0, infantryOnly:false, allowDouble:true },
+  FIELD:    { key:'FIELD', elevation:0, infantryOnly:false, allowDouble:true }, // cosmetic crop field, plays exactly like open ground
+  ROAD:     { key:'ROAD', elevation:0, infantryOnly:false, allowDouble:true, isRoad:true },
+  WOODS:    { key:'WOODS', elevation:0, infantryOnly:true, allowDouble:false, blocksLOS:true },
+  BUILDING: { key:'BUILDING', elevation:0, infantryOnly:false, allowDouble:false, blocksLOS:true, defenseBonus:true },
+  HILL:     { key:'HILL', elevation:1, infantryOnly:false, allowDouble:true }
+};
+
+/* =========================================================
+   STATE
+========================================================= */
+let state = {
+  gameOver: false,
+  mode: 'hotseat',  // 'hotseat' | 'ai'
+  aiSide: null,     // side controlled by the AI, when mode==='ai'
+  terrain: buildTerrainMap(),
+  units: [],       // {id, side, type, x, y, hp:'active', formation:'line'|'square', pushed:false, mustTurnOnly:false, facing}
+  turn: null,      // 'red' | 'blue'
+  phase: 'deploy',
+  deployQueue: [],
+  deployTurn: null,
+  selectedUnitId: null,
+  moved: new Set(), // unit ids that have moved/declined this turn
+  fired: new Set(),
+  fought: new Set(),
+  pendingTurnarounds: [], // units that must spend next phase turning around only
+  log: []
+};
+let uidCounter = 1;
+
+function newUnit(side, typeKey, x, y, brigadeId){
+  return {
+    id: 'u'+(uidCounter++), side, type: typeKey, brigadeId,
+    x, y, removed:false, formation:'line', pushed:false,
+    turnOnly:false, // true = can only turn around this coming turn
+    rallying:false
+  };
+}
+
+/* =========================================================
+   LOGGING
+========================================================= */
+function log(msg, cls){
+  const el = document.getElementById('log');
+  const div = document.createElement('div');
+  div.className = 'entry'+(cls?(' '+cls):'');
+  div.textContent = msg;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+function showDice(rolls){
+  const t = document.getElementById('diceTicker');
+  t.innerHTML = rolls.map(r=>`<span class="d ${r.cls||''}">${r.label}: ${r.value}</span>`).join('');
+  t.classList.add('show');
+  clearTimeout(showDice._t);
+  showDice._t = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+
+/* =========================================================
+   GEOMETRY HELPERS
+========================================================= */
+function inBounds(x,y){ return x>=0 && x<COLS && y>=0 && y<ROWS; }
+function terrainAt(x,y){ return TERRAIN[state.terrain[y][x]]; }
+function unitsAt(x,y){ return state.units.filter(u=>!u.removed && u.x===x && u.y===y); }
+function unitAt(x,y, excludeId){ return state.units.find(u=>!u.removed && u.x===x && u.y===y && u.id!==excludeId); }
+
+// Stacked squares (doubled infantry in open terrain) hold up to 2 units.
+// A single tap only ever reached the first one — repeated taps on the same
+// square now cycle through whichever units are actually there.
+function pickUnitAtCell(x,y){
+  const list = unitsAt(x,y);
+  if(list.length===0) return null;
+  if(list.length===1) return list[0];
+  const key = x+','+y;
+  if(state._stackCycle && state._stackCycle.key===key){
+    state._stackCycle.idx = (state._stackCycle.idx+1) % list.length;
+  } else {
+    state._stackCycle = {key, idx:0};
+  }
+  return list[state._stackCycle.idx];
+}
+function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
+function neighbors8(x,y){
+  const out=[];
+  for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+    if(dx===0&&dy===0) continue;
+    const nx=x+dx, ny=y+dy;
+    if(inBounds(nx,ny)) out.push({x:nx,y:ny,dx,dy});
+  }
+  return out;
+}
+
+/* =========================================================
+   COHESION: which units in a brigade can currently move
+   (must trace a touching-chain, incl. diagonal, back to the Brigadier)
+   Computed per-Brigade — a side fields 3 independent Brigades, each
+   with its own Brigadier and its own chain.
+========================================================= */
+function movableUnitsForSide(side){
+  const mine = state.units.filter(u=>!u.removed && u.side===side);
+  const brigadeIds = [...new Set(mine.map(u=>u.brigadeId))];
+  const connected = new Set();
+  for(const bId of brigadeIds){
+    const group = mine.filter(u=>u.brigadeId===bId);
+    const brig = group.find(u=>u.type==='BRIGADIER');
+    if(!brig){ group.forEach(u=>connected.add(u.id)); continue; } // Brigadier down: this Brigade's survivors act independently
+    const local = new Set([brig.id]);
+    let changed = true;
+    while(changed){
+      changed = false;
+      for(const u of group){
+        if(local.has(u.id)) continue;
+        for(const other of group){
+          if(!local.has(other.id)) continue;
+          if(isAdjacent(u, other)){ local.add(u.id); changed = true; break; }
+        }
+      }
+    }
+    local.forEach(id=>connected.add(id));
+  }
+  return connected;
+}
+
+/* =========================================================
+   MOVEMENT: BFS over grid, diagonal = 1 step, respects terrain
+   and stacking, road bonus if start & end both on road.
+========================================================= */
+function unitBaseMove(u){ return UNIT_TYPES[u.type].move; }
+
+function legalMoves(u){
+  if(u.formation==='square') return []; // squares don't move
+  if(u.turnOnly) return [];
+  if(state.moved && state.moved.has(u.id)) return []; // already moved (or explicitly stood pat) this phase
+  const connected = movableUnitsForSide(u.side);
+  if(!connected.has(u.id)) return [];
+
+  let allowance = unitBaseMove(u);
+  const startRoad = terrainAt(u.x,u.y).isRoad;
+
+  const dist = new Map();
+  const startKey = u.x+','+u.y;
+  dist.set(startKey, 0);
+  const queue = [{x:u.x,y:u.y,d:0}];
+  const results = [];
+  const maxSteps = allowance + (startRoad?1:0); // optimistic cap; road bonus validated per-destination below
+
+  while(queue.length){
+    const cur = queue.shift();
+    if(cur.d >= maxSteps) continue;
+    for(const n of neighbors8(cur.x, cur.y)){
+      const key = n.x+','+n.y;
+      const nd = cur.d + 1;
+      if(dist.has(key) && dist.get(key) <= nd) continue;
+      const terr = terrainAt(n.x,n.y);
+      const t = UNIT_TYPES[u.type];
+      if(terr.infantryOnly && !(t.key==='INFANTRY' || t.key==='GUARD')) continue;
+      // occupancy check
+      const occ = unitsAt(n.x,n.y).filter(o=>o.id!==u.id && o.side===u.side);
+      const enemyOcc = unitsAt(n.x,n.y).some(o=>o.side!==u.side);
+      if(enemyOcc) continue; // can't move onto an enemy square (that's a fight, not a move)
+      if(occ.length>0){
+        const canDouble = terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.length<2;
+        if(!canDouble) continue;
+      }
+      dist.set(key, nd);
+      queue.push({x:n.x,y:n.y,d:nd});
+    }
+  }
+
+  for(const [key,d] of dist){
+    if(key===startKey) continue;
+    const [x,y] = key.split(',').map(Number);
+    const endRoad = terrainAt(x,y).isRoad;
+    const effAllowance = (startRoad && endRoad) ? allowance+1 : allowance;
+    if(d <= effAllowance) results.push({x,y,steps:d});
+  }
+  return results;
+}
+
+/* =========================================================
+   ARTILLERY: RANGE, LINE OF SIGHT
+========================================================= */
+function chebyshev(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)); }
+
+function lineCells(a,b){
+  // Bresenham-ish supercover line between cell centers, used for LOS sampling
+  const cells = [];
+  let x0=a.x, y0=a.y, x1=b.x, y1=b.y;
+  const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  const sx = x0<x1?1:-1, sy = y0<y1?1:-1;
+  let err = dx-dy, x=x0, y=y0;
+  while(true){
+    cells.push({x,y});
+    if(x===x1 && y===y1) break;
+    const e2 = 2*err;
+    if(e2 > -dy){ err -= dy; x += sx; }
+    if(e2 < dx){ err += dx; y += sy; }
+  }
+  return cells;
+}
+
+function hasLOS(gun, target){
+  if(chebyshev(gun,target) > 6) return false;
+  const path = lineCells(gun,target).slice(1,-1); // exclude endpoints
+  const gunElev = terrainAt(gun.x,gun.y).elevation;
+  const tgtElev = terrainAt(target.x,target.y).elevation;
+  const shooterElevated = gunElev > 0 || tgtElev > 0;
+  let blockedCount = 0;
+  for(const c of path){
+    const terr = terrainAt(c.x,c.y);
+    const occ = unitsAt(c.x,c.y).length>0;
+    const blocksHere = terr.blocksLOS || occ;
+    if(blocksHere){
+      // overhead fire allowed if gun or target is on higher ground than the obstruction
+      if(shooterElevated && terr.elevation <= Math.max(gunElev,tgtElev)) continue;
+      blockedCount++;
+    }
+  }
+  // "needs to see half or more of target" -> simplified: no more than half the path may be blocked
+  return blockedCount === 0 || (blockedCount / Math.max(path.length,1)) < 0.5;
+}
+
+function artilleryTargets(gun){
+  if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
+  if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
+  if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
+  return state.units.filter(t=>!t.removed && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
+}
+function isInActiveFight(u){
+  return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
+}
+
+/* =========================================================
+   COMBAT
+========================================================= */
+function rollD6(){ return 1+Math.floor(Math.random()*6); }
+function rollBest(n){ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all}; }
+
+function bonusDiceCount(unit, opponent, defending){
+  const t = UNIT_TYPES[unit.type];
+  let n = 1;
+  if(t.reroll) n = 2; // Guard Infantry / Heavy Cavalry re-roll (treated as best-of-2)
+  const terr = terrainAt(unit.x,unit.y);
+  if(defending && terr.defenseBonus && (t.key==='INFANTRY'||t.key==='GUARD')) n = Math.max(n,2);
+  const oppT = UNIT_TYPES[opponent.type];
+  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square') n = Math.max(n,2);
+  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation!=='square' && false) {} // cavalry vs non-square infantry bonus goes to the CAVALRY, handled by caller
+  return n;
+}
+
+function resolveFight(attacker, defender){
+  const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
+  let aDice = bonusDiceCount(attacker, defender, false);
+  let dDice = bonusDiceCount(defender, attacker, true);
+  // cavalry fighting non-square infantry: cavalry gets bonus die
+  if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square') aDice = Math.max(aDice,2);
+  if(dType.isCavalry && (aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square') dDice = Math.max(dDice,2);
+  // non-square infantry fighting square infantry: the non-square side gets bonus die
+  if(aType.key==='INFANTRY' && attacker.formation!=='square' && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation==='square') aDice = Math.max(aDice,2);
+  if(dType.key==='INFANTRY' && defender.formation!=='square' && (aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation==='square') dDice = Math.max(dDice,2);
+
+  const aRoll = rollBest(aDice);
+  const dRoll = rollBest(dDice);
+
+  showDice([
+    {label:SIDE_LABEL[attacker.side].split(' ')[0], value:aRoll.value, cls:aRoll.value>dRoll.value?'win':(aRoll.value<dRoll.value?'lose':'')},
+    {label:SIDE_LABEL[defender.side].split(' ')[0], value:dRoll.value, cls:dRoll.value>aRoll.value?'win':(dRoll.value<aRoll.value?'lose':'')}
+  ]);
+
+  if(aRoll.value === dRoll.value){
+    log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
+    return;
+  }
+  const winnerIsAttacker = aRoll.value > dRoll.value;
+  const winner = winnerIsAttacker ? attacker : defender;
+  const loser = winnerIsAttacker ? defender : attacker;
+  const diff = Math.abs(aRoll.value - dRoll.value);
+  log(`${aType.label} (${SIDE_LABEL[attacker.side]}) vs ${dType.label} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${UNIT_TYPES[loser.type].label} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
+
+  if(diff===1){
+    pushBack(loser, winner);
+  } else if(diff===2){
+    retreatAndRally(loser);
+  } else {
+    removeUnit(loser, 'destroyed in combat');
+  }
+}
+
+function pushBack(loser, winner){
+  const dx = Math.sign(loser.x - winner.x) || 0;
+  const dy = Math.sign(loser.y - winner.y) || 0;
+  const nx = loser.x + dx, ny = loser.y + dy;
+  if(inBounds(nx,ny) && !unitsAt(nx,ny).some(o=>o.side!==loser.side)){
+    loser.x = nx; loser.y = ny;
+  }
+  loser.turnOnly = true;
+  log(`${UNIT_TYPES[loser.type].label} pushed back and turned around; can only turn around next turn.`, 'combat');
+}
+
+function retreatAndRally(loser){
+  const brig = state.units.find(u=>!u.removed && u.side===loser.side && u.type==='BRIGADIER' && u.brigadeId===loser.brigadeId);
+  const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
+  const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
+  const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
+  loser.x = cell.x; loser.y = cell.y;
+  loser.turnOnly = true;
+  loser.rallying = true;
+  const t = UNIT_TYPES[loser.type];
+  let successOn = [4,5,6];
+  if(t.key==='GUARD') successOn = [3,4,5,6];
+  if(t.key==='ARTILLERY') successOn = [5,6];
+  const r = rollD6();
+  showDice([{label:'Rally', value:r, cls: successOn.includes(r)?'win':'lose'}]);
+  if(successOn.includes(r)){
+    log(`${t.label} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
+  } else {
+    log(`${t.label} fails to rally (rolled ${r}) and is removed from the field.`, 'combat');
+    removeUnit(loser, 'failed rally');
+  }
+}
+
+function findNearestFreeEdgeCell(edgeY, preferredX, excludeId){
+  let candidates = [];
+  for(let x=0;x<COLS;x++){
+    if(unitsAt(x,edgeY).some(o=>o.id!==excludeId)) continue;
+    candidates.push({x, y:edgeY, dist: Math.abs(x-preferredX)});
+  }
+  if(candidates.length===0) return {x:clamp(preferredX,0,COLS-1), y:edgeY}; // edge is full — fall back to overlap rather than throw
+  candidates.sort((a,b)=>a.dist-b.dist);
+  return candidates[0];
+}
+
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+function removeUnit(u, reason){
+  u.removed = true;
+  log(`${UNIT_TYPES[u.type].label} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
+  checkWinCondition();
+  renderBrigadeStatus();
+}
+
+function checkWinCondition(){
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    let brokenCount = 0;
+    for(let bId=0; bId<3; bId++){
+      const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
+      if(group.length===0) continue;
+      const remaining = group.filter(u=>!u.removed && u.type!=='BRIGADIER');
+      if(remaining.length===0) brokenCount++;
+    }
+    if(brokenCount>=2){
+      const winner = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+      endGame(winner);
+      return;
+    }
+  }
+}
+
+function endGame(winner){
+  state.gameOver = true;
+  document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
+  document.getElementById('overlayText').textContent = `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
+  const modeChoices = document.getElementById('modeChoices');
+  if(modeChoices) modeChoices.style.display = 'none';
+  document.getElementById('overlayBtn').style.display = 'inline-block';
+  document.getElementById('overlayBtn').textContent = 'New Battle';
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('overlayBtn').onclick = ()=> location.reload();
+}
+
+/* =========================================================
+   RENDERING
+========================================================= */
+// You always sit behind your own troops on screen, regardless of which
+// side you're playing. Purely a rendering/input transform — internal
+// board coordinates, movement, LOS, and board rotation are untouched.
+// Self-inverse (flipping twice returns the original), so the same
+// function converts board->screen and screen->board.
+function screenFlipActive(){
+  return state.mode==='ai' && state.aiSide===SIDES.RED; // human is playing France (Blue), whose zone is internally "top"
+}
+function sy(y){
+  return screenFlipActive() ? (ROWS-1-y) : y;
+}
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+
+function computeCellSize(){
+  const wrap = document.getElementById('boardWrap');
+  const availW = Math.max(200, wrap.clientWidth - 16);
+  const availH = Math.max(200, wrap.clientHeight - 16);
+  const byWidth = Math.floor(availW / COLS);
+  const byHeight = Math.floor(availH / ROWS);
+  return Math.max(22, Math.min(byWidth, byHeight, 68));
+}
+
+function sizeCanvas(){
+  CELL = computeCellSize();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = (COLS*CELL) + 'px';
+  canvas.style.height = (ROWS*CELL) + 'px';
+  canvas.width = COLS*CELL*dpr;
+  canvas.height = ROWS*CELL*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+
+function terrainColor(key){
+  return { OPEN: '#3c4a34', FIELD:'#8a7d3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#556b41' }[key];
+}
+
+function draw(){
+  const flip = screenFlipActive();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // terrain
+  for(let y=0;y<ROWS;y++){
+    const sy_ = sy(y);
+    for(let x=0;x<COLS;x++){
+      ctx.fillStyle = terrainColor(state.terrain[y][x]);
+      ctx.fillRect(x*CELL,sy_*CELL,CELL,CELL);
+      if(state.terrain[y][x]==='HILL'){
+        ctx.strokeStyle='rgba(255,255,255,0.08)';
+        ctx.lineWidth=1;
+        ctx.strokeRect(x*CELL+3,sy_*CELL+3,CELL-6,CELL-6);
+      }
+    }
+  }
+  // grid
+  ctx.strokeStyle = 'rgba(184,147,79,0.18)';
+  ctx.lineWidth = 1;
+  for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
+  for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
+
+  // seam between the two physical boards
+  ctx.strokeStyle = 'rgba(233,228,214,0.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(HALF_COLS*CELL,0); ctx.lineTo(HALF_COLS*CELL,ROWS*CELL); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+
+  // deployment zone tint during deploy phase (Blue = rows 0-1, Red = rows ROWS-2..ROWS-1)
+  if(state.phase==='deploy'){
+    const blueTop = Math.min(sy(0), sy(1));
+    ctx.fillStyle = 'rgba(46,69,102,0.14)';
+    ctx.fillRect(0, blueTop*CELL, COLS*CELL, 2*CELL);
+    const redTop = Math.min(sy(ROWS-2), sy(ROWS-1));
+    ctx.fillStyle = 'rgba(163,64,58,0.10)';
+    ctx.fillRect(0, redTop*CELL, COLS*CELL, 2*CELL);
+  }
+
+  // movement / target highlights
+  if(highlightCells && highlightCells.length){
+    for(const c of highlightCells){
+      ctx.fillStyle = c.kind==='move' ? 'rgba(184,147,79,0.35)' : 'rgba(181,69,63,0.4)';
+      ctx.fillRect(c.x*CELL+3, sy(c.y)*CELL+3, CELL-6, CELL-6);
+    }
+  }
+
+  // units — stacked squares (doubled infantry) are offset so both are visible
+  const stackGroups = {};
+  for(const u of state.units){
+    if(u.removed) continue;
+    const key = u.x+','+u.y;
+    (stackGroups[key] = stackGroups[key] || []).push(u);
+  }
+  const STACK_OFFSETS = [{dx:-0.15,dy:-0.15,scale:0.72},{dx:0.15,dy:0.15,scale:0.72}];
+  for(const key in stackGroups){
+    const list = stackGroups[key];
+    if(list.length===1){ drawUnit(list[0]); }
+    else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
+  }
+}
+
+function drawUnit(u, off){
+  off = off || {dx:0, dy:0, scale:1};
+  const cx = u.x*CELL+CELL/2 + off.dx*CELL, cy = sy(u.y)*CELL+CELL/2 + off.dy*CELL;
+  const t = UNIT_TYPES[u.type];
+  const isSel = state.selectedUnitId===u.id;
+  const col = SIDE_COLOR[u.side];
+  const r = CELL*0.30*off.scale;
+
+  ctx.save();
+  ctx.translate(cx,cy);
+  if(u.formation==='square') ctx.rotate(Math.PI/4);
+
+  ctx.fillStyle = col;
+  ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = isSel ? 3 : 1.5;
+
+  switch(t.shape){
+    case 'square':
+      ctx.beginPath(); ctx.rect(-r,-r,r*2,r*2); ctx.fill(); ctx.stroke();
+      break;
+    case 'triangle':
+      ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r,r); ctx.lineTo(-r,r); ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'diamond':
+      ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r,0); ctx.lineTo(0,r); ctx.lineTo(-r,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'star':
+      ctx.beginPath();
+      for(let i=0;i<5;i++){
+        const ang = -Math.PI/2 + i*(2*Math.PI/5);
+        const ang2 = ang + Math.PI/5;
+        ctx.lineTo(Math.cos(ang)*r, Math.sin(ang)*r);
+        ctx.lineTo(Math.cos(ang2)*r*0.45, Math.sin(ang2)*r*0.45);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+  }
+  ctx.restore();
+
+  // status pips
+  if(u.turnOnly){
+    ctx.fillStyle = '#c9a24a';
+    ctx.beginPath(); ctx.arc(cx+r*0.9, cy-r*0.9, 5, 0, Math.PI*2); ctx.fill();
+  }
+  if(t.reroll){
+    ctx.fillStyle='#f4e9c9';
+    ctx.font='9px IBM Plex Mono';
+    ctx.textAlign='center';
+    ctx.fillText('★', cx, cy+r+11);
+  }
+}
+
+let highlightCells = [];
+
+/* =========================================================
+   DEPLOYMENT PHASE
+   Rulebook: players alternate placing whole Brigades, not individual
+   units. state.deployQueue[side] holds the 3 Brigades' remaining unit
+   lists; state.deployBrigadeIndex[side] tracks which Brigade a side is
+   currently placing. Control only passes to the other side once the
+   active side's current Brigade is fully placed.
+========================================================= */
+function initDeployment(){
+  state.deployQueue = {
+    red: BRIGADE_COMPOSITIONS.map(b=>[...b]),
+    blue: BRIGADE_COMPOSITIONS.map(b=>[...b])
+  };
+  state.deployBrigadeIndex = { red: 0, blue: 0 };
+  state.deployTurn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
+  log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
+  document.getElementById('rosterPanel').style.display='flex';
+  document.getElementById('battlePanel').style.display='none';
+  renderRoster();
+  updateHeader();
+  if(state.mode==='ai' && state.deployTurn===state.aiSide){
+    setTimeout(aiDeployStep, 500);
+  }
+}
+
+function currentBrigadeRemaining(side){
+  const idx = state.deployBrigadeIndex[side];
+  if(idx>=3) return null;
+  return state.deployQueue[side][idx];
+}
+function sideFullyDeployed(side){ return state.deployBrigadeIndex[side] >= 3; }
+
+let selectedDeployType = null;
+function renderRoster(){
+  const list = document.getElementById('rosterList');
+  list.innerHTML = '';
+  const side = state.deployTurn;
+  const bIdx = state.deployBrigadeIndex[side];
+  document.getElementById('rosterTitle').textContent = sideFullyDeployed(side)
+    ? `${SIDE_LABEL[side]}: fully deployed`
+    : `${SIDE_LABEL[side]}: Brigade ${bIdx+1} of 3`;
+  const remaining = currentBrigadeRemaining(side);
+  if(!remaining || remaining.length===0){
+    list.innerHTML = '<div style="color:var(--ink-dim);font-size:12px;">Waiting…</div>';
+    checkDeployAdvance();
+    return;
+  }
+  remaining.forEach((typeKey, idx)=>{
+    const t = UNIT_TYPES[typeKey];
+    const chip = document.createElement('div');
+    chip.className = 'roster-chip' + (selectedDeployType===idx ? ' selected' : '');
+    chip.innerHTML = `<div class="swatch" style="background:${SIDE_COLOR[side]}"></div><div>${t.label}</div>`;
+    chip.onclick = ()=>{ selectedDeployType = idx; renderRoster(); };
+    list.appendChild(chip);
+  });
+  draw();
+}
+
+function checkDeployAdvance(){
+  if(sideFullyDeployed(SIDES.RED) && sideFullyDeployed(SIDES.BLUE)){
+    document.getElementById('endDeployBtn').disabled = false;
+  }
+}
+
+function handleDeployClick(x,y){
+  const side = state.deployTurn;
+  if(state.mode==='ai' && side===state.aiSide) return; // not human's turn to click
+  const zoneOk = side===SIDES.RED ? (y>=ROWS-2) : (y<=1);
+  if(!zoneOk){ log('Deployment must be within your first two rows.', 'system'); return; }
+  if(selectedDeployType===null){ log('Select a unit from the roster first.', 'system'); return; }
+  const terr = terrainAt(x,y);
+  const remaining = currentBrigadeRemaining(side);
+  if(!remaining){ return; }
+  const typeKey = remaining[selectedDeployType];
+  if(terr.infantryOnly && !(typeKey==='INFANTRY'||typeKey==='GUARD')){ log('Only Infantry may deploy in woods.', 'system'); return; }
+  const occ = unitsAt(x,y);
+  if(occ.length>0){ log('Square already occupied.', 'system'); return; }
+
+  placeUnit(side, selectedDeployType, x, y);
+  selectedDeployType = null;
+}
+
+// Shared by human clicks and the AI: places the current Brigade's
+// remaining[idxInRemaining] at (x,y). Control passes to the other side
+// only once the whole Brigade is placed (matches alternate-Brigade rule).
+function placeUnit(side, idxInRemaining, x, y){
+  const bIdx = state.deployBrigadeIndex[side];
+  const remaining = currentBrigadeRemaining(side);
+  const typeKey = remaining[idxInRemaining];
+  const t = UNIT_TYPES[typeKey];
+  const u = newUnit(side, typeKey, x, y, bIdx);
+  state.units.push(u);
+  remaining.splice(idxInRemaining,1);
+  log(`${SIDE_LABEL[side]} deploys ${t.label} (Brigade ${bIdx+1}) at (${x},${y}).`);
+
+  if(remaining.length===0){
+    state.deployBrigadeIndex[side]++;
+    log(`${SIDE_LABEL[side]}'s Brigade ${bIdx+1} is fully deployed.`, 'system');
+    const other = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    if(!sideFullyDeployed(other)){
+      state.deployTurn = other;
+    } // else: other side already finished all 3 — this side keeps going on its own remaining brigades
+  }
+
+  renderRoster();
+  updateHeader();
+  draw();
+
+  if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
+    setTimeout(aiDeployStep, 450);
+  }
+}
+
+/* =========================================================
+   AI: DEPLOYMENT
+   One formation plan per Brigade, each anchored to its own column
+   band so every Brigade starts as its own connected cluster.
+   Front = the row of the AI's 2-row zone closer to the enemy.
+========================================================= */
+const AI_DEPLOY_PLANS = [
+  // Brigade 0 — cols 2-5 (matches BRIGADE_COMPOSITIONS[0])
+  [
+    { type:'LIGHT_CAV',  col:2, front:true  },
+    { type:'GUARD',      col:3, front:true  },
+    { type:'INFANTRY',   col:4, front:true  },
+    { type:'INFANTRY',   col:5, front:true  },
+    { type:'ARTILLERY',  col:3, front:false },
+    { type:'BRIGADIER',  col:4, front:false }
+  ],
+  // Brigade 1 — cols 9-11 (matches BRIGADE_COMPOSITIONS[1])
+  [
+    { type:'INFANTRY',   col:9,  front:true  },
+    { type:'INFANTRY',   col:10, front:true  },
+    { type:'HEAVY_CAV',  col:11, front:true  },
+    { type:'ARTILLERY',  col:9,  front:false },
+    { type:'BRIGADIER',  col:10, front:false }
+  ],
+  // Brigade 2 — cols 15-18 (matches BRIGADE_COMPOSITIONS[2])
+  [
+    { type:'LIGHT_CAV',  col:15, front:true  },
+    { type:'GUARD',      col:16, front:true  },
+    { type:'INFANTRY',   col:17, front:true  },
+    { type:'INFANTRY',   col:18, front:true  },
+    { type:'HEAVY_CAV',  col:16, front:false },
+    { type:'BRIGADIER',  col:17, front:false }
+  ]
+];
+
+function aiDeployStep(){
+  const side = state.aiSide;
+  if(sideFullyDeployed(side)) return;
+  const bIdx = state.deployBrigadeIndex[side];
+  const remaining = currentBrigadeRemaining(side);
+  if(!remaining || remaining.length===0) return;
+
+  const usedPlanEntries = (state._aiPlanUsed || (state._aiPlanUsed = {red:new Set(), blue:new Set()}))[side];
+  const plan = AI_DEPLOY_PLANS[bIdx];
+  let planEntry = plan.find(p => !usedPlanEntries.has(p) && remaining.includes(p.type));
+  if(!planEntry) planEntry = { type: remaining[0], col: 5, front: true }; // fallback
+
+  usedPlanEntries.add(planEntry);
+  const idx = remaining.indexOf(planEntry.type);
+
+  const frontRow = side===SIDES.RED ? ROWS-2 : 1;
+  const backRow  = side===SIDES.RED ? ROWS-1 : 0;
+  const targetRow = planEntry.front ? frontRow : backRow;
+  const cell = findNearestFreeDeployCell(side, planEntry.col, targetRow, planEntry.type);
+
+  placeUnit(side, idx, cell.x, cell.y);
+}
+
+function findNearestFreeDeployCell(side, col, row, typeKey){
+  const zoneRows = side===SIDES.RED ? [ROWS-2, ROWS-1] : [0,1];
+  const candidates = [];
+  for(const y of zoneRows){
+    for(let x=0;x<COLS;x++){
+      const terr = terrainAt(x,y);
+      if(terr.infantryOnly && !(typeKey==='INFANTRY'||typeKey==='GUARD')) continue;
+      if(unitsAt(x,y).length>0) continue;
+      const dist = Math.abs(x-col) + Math.abs(y-row)*0.5;
+      candidates.push({x,y,dist});
+    }
+  }
+  candidates.sort((a,b)=>a.dist-b.dist);
+  return candidates[0] || {x:col,y:row};
+}
+
+/* =========================================================
+   AI: EVALUATION
+========================================================= */
+const AI_UNIT_VALUE = { BRIGADIER:2, INFANTRY:4, GUARD:5, HEAVY_CAV:5, LIGHT_CAV:4, ARTILLERY:6 };
+
+function evaluateState(perspective){
+  let score = 0;
+  const enemy = perspective===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  const connMine  = movableUnitsForSide(perspective);
+  const connEnemy = movableUnitsForSide(enemy);
+  for(const u of state.units){
+    if(u.removed) continue;
+    let unitScore = AI_UNIT_VALUE[u.type];
+    const terr = terrainAt(u.x,u.y);
+    if(terr.defenseBonus && (u.type==='INFANTRY'||u.type==='GUARD')) unitScore += 0.6;
+    if(terr.elevation>0) unitScore += 0.3;
+    if(u.formation==='square') unitScore += 0.4;
+    const conn = u.side===perspective ? connMine : connEnemy;
+    if(!conn.has(u.id)) unitScore -= 1.0;
+    score += (u.side===perspective ? 1 : -1) * unitScore;
+  }
+  return score;
+}
+
+// Rough estimate of how exposed `unit` would be, standing where it is now,
+// to enemy units that could reach + fight it on their next turn.
+function threatPenalty(unit, side){
+  let penalty = 0;
+  const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  for(const e of state.units){
+    if(e.removed || e.side!==enemy) continue;
+    const eType = UNIT_TYPES[e.type];
+    if(!eType.canFight) continue;
+    const reach = unitBaseMove(e) + 1; // move then engage
+    if(chebyshev(e,unit) <= reach){
+      let w = 1;
+      if(eType.isCavalry && (unit.type==='INFANTRY'||unit.type==='GUARD') && unit.formation!=='square') w = 1.6;
+      if(eType.isArtillery) w = 0.6;
+      penalty += w;
+    }
+  }
+  return penalty;
+}
+
+/* =========================================================
+   AI: MOVEMENT
+========================================================= */
+function orderAiUnitsForMove(side){
+  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
+  // penalized for their own "disconnection" — see movableUnitsForSide), so
+  // leading with them gives everyone else a new, already-moved anchor to
+  // path toward. Moving them last caused a standoff: nobody wants to be the
+  // first unit to step away from the Brigadier's stale position, so an
+  // entire Brigade could freeze in place once no immediate threat pushed it.
+  const pri = { BRIGADIER:0, INFANTRY:1, GUARD:1, LIGHT_CAV:2, HEAVY_CAV:2, ARTILLERY:3 };
+  return state.units.filter(u=>!u.removed && u.side===side).sort((a,b)=>pri[a.type]-pri[b.type]).map(u=>u.id);
+}
+
+function nearestEnemyDist(pos, side){
+  const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  let best = 999;
+  for(const e of state.units){
+    if(e.removed || e.side!==enemy) continue;
+    const d = chebyshev(pos, e);
+    if(d<best) best = d;
+  }
+  return best;
+}
+
+function aiDecideAndExecuteMove(u){
+  if(u.removed || u.turnOnly) return;
+  const side = u.side;
+  const t = UNIT_TYPES[u.type];
+
+  if(u.formation==='square'){
+    // Reconsider every phase: leaving Square costs this whole move phase (per rulebook),
+    // so only bother once the threat that justified it has actually passed.
+    if(threatPenalty(u, side) < 0.8){
+      u.formation = 'line';
+      state.moved.add(u.id);
+      log(`${t.label} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
+    }
+    return; // whether it left Square or stayed, a squared unit takes no other move action this phase
+  }
+
+  const candidates = [{x:u.x,y:u.y,stay:true}].concat(legalMoves(u));
+
+  let best = candidates[0], bestScore = -Infinity;
+  for(const c of candidates){
+    const ox=u.x, oy=u.y;
+    u.x=c.x; u.y=c.y;
+    let s = evaluateState(side) - 0.5*threatPenalty(u, side);
+    // Without some positional pull, every "safe" square scores identically and the
+    // AI never closes to fight. Infantry/cavalry are pulled toward the nearest enemy;
+    // artillery is pulled toward its ideal firing band (3-5 squares) instead.
+    if(t.isArtillery){
+      const d = nearestEnemyDist(c, side);
+      s -= Math.abs(d-4) * 0.06;
+    } else {
+      s -= nearestEnemyDist(c, side) * 0.12;
+    }
+    s += Math.random() * 0.03; // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
+    u.x=ox; u.y=oy;
+    if(s>bestScore){ bestScore=s; best=c; }
+  }
+
+  const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING';
+  if(canSquare && threatPenalty(u, side) >= 1.4){
+    const origForm = u.formation;
+    u.formation = 'square';
+    const squareScore = evaluateState(side) - 0.15*threatPenalty(u, side);
+    u.formation = origForm;
+    if(squareScore > bestScore){
+      u.formation = 'square';
+      state.moved.add(u.id);
+      log(`${t.label} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
+      return;
+    }
+  }
+
+  if(best && !best.stay){
+    u.x = best.x; u.y = best.y;
+    log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+  }
+  state.moved.add(u.id);
+}
+
+function aiDoMovePhase(){
+  const order = orderAiUnitsForMove(state.aiSide);
+  let i = 0;
+  function step(){
+    if(state.gameOver) return;
+    if(i>=order.length){ endMovePhase(); return; }
+    const u = state.units.find(x=>x.id===order[i]); i++;
+    aiDecideAndExecuteMove(u);
+    draw();
+    setTimeout(step, 200);
+  }
+  step();
+}
+
+/* =========================================================
+   AI: ARTILLERY FIRE
+========================================================= */
+function aiFireDecision(gun){
+  const targets = artilleryTargets(gun);
+  if(targets.length===0){ state.fired.add(gun.id); return; }
+  let best=null, bestScore=-Infinity;
+  for(const t of targets){
+    const dist = chebyshev(gun,t);
+    const pHit = dist<=1 ? 1 : Math.max(0,(7-dist))/6;
+    const score = pHit * AI_UNIT_VALUE[t.type];
+    if(score>bestScore){ bestScore=score; best=t; }
+  }
+  fireArtillery(gun, best);
+}
+
+function aiDoFirePhase(){
+  const guns = state.units.filter(u=>!u.removed && u.side===state.aiSide && UNIT_TYPES[u.type].isArtillery && !state.fired.has(u.id));
+  let i=0;
+  function step(){
+    if(state.gameOver) return;
+    if(i>=guns.length){ endFirePhase(); return; }
+    const gun = guns[i]; i++;
+    if(!gun.removed) aiFireDecision(gun);
+    draw();
+    setTimeout(step, 450);
+  }
+  step();
+}
+
+/* =========================================================
+   AI: FIGHTING
+========================================================= */
+function estimateFightValue(a, t){
+  let aD = bonusDiceCount(a, t, false);
+  let dD = bonusDiceCount(t, a, true);
+  const aType = UNIT_TYPES[a.type], tType = UNIT_TYPES[t.type];
+  if(aType.isCavalry && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation!=='square') aD = Math.max(aD,2);
+  if(tType.isCavalry && (aType.key==='INFANTRY'||aType.key==='GUARD') && a.formation!=='square') dD = Math.max(dD,2);
+  if(aType.key==='INFANTRY' && a.formation!=='square' && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation==='square') aD = Math.max(aD,2);
+  const edge = aD - dD;
+  return edge*2 + AI_UNIT_VALUE[t.type]*0.4 - AI_UNIT_VALUE[a.type]*0.15;
+}
+
+function aiDoFightPhase(){
+  function step(){
+    if(state.gameOver) return;
+    const attackers = state.units.filter(u=>u.side===state.aiSide && canInitiateFight(u) && !state.fought.has(u.id) &&
+      state.units.some(o=>!o.removed && o.side!==state.aiSide && isAdjacent(u,o)));
+    if(attackers.length===0){ endFightPhase(); return; }
+    let bestA=null, bestT=null, bestScore=-Infinity;
+    for(const a of attackers){
+      const targets = state.units.filter(o=>!o.removed && o.side!==state.aiSide && isAdjacent(a,o));
+      for(const t of targets){
+        const s = estimateFightValue(a,t);
+        if(s>bestScore){ bestScore=s; bestA=a; bestT=t; }
+      }
+    }
+    if(bestA){
+      resolveFight(bestA, bestT);
+      state.fought.add(bestA.id);
+    }
+    draw();
+    setTimeout(step, 650);
+  }
+  step();
+}
+
+/* =========================================================
+   MAIN GAME FLOW
+========================================================= */
+function startBattle(){
+  document.getElementById('overlay').classList.remove('show');
+  state.turn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
+  log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
+  document.getElementById('rosterPanel').style.display='none';
+  document.getElementById('battlePanel').style.display='flex';
+  beginMovePhase();
+}
+
+function updateHeader(){
+  const badge = document.getElementById('turnBadge');
+  if(state.phase==='deploy'){
+    badge.textContent = `Deploying: ${SIDE_LABEL[state.deployTurn]}`;
+    badge.style.borderColor = SIDE_COLOR[state.deployTurn];
+  } else {
+    badge.textContent = `${SIDE_LABEL[state.turn]} — ${phaseLabel(state.phase)}`;
+    badge.style.borderColor = SIDE_COLOR[state.turn];
+  }
+  document.querySelectorAll('#phaseBar .step').forEach(el=>{
+    el.classList.toggle('active', el.dataset.phase===state.phase);
+  });
+  renderBrigadeStatus();
+}
+function phaseLabel(p){
+  return {deploy:'Deployment', move:'Movement', fire:'Artillery Fire', fight:'Fighting', rally:'Rally / Turnaround'}[p] || p;
+}
+
+function brigadeBrokenStatus(side){
+  // Returns an array of 3 booleans (broken/not) — a Brigade with no units yet (pre-deployment) counts as not broken.
+  const out = [];
+  for(let bId=0; bId<3; bId++){
+    const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
+    if(group.length===0){ out.push(false); continue; }
+    out.push(group.filter(u=>!u.removed && u.type!=='BRIGADIER').length===0);
+  }
+  return out;
+}
+
+function renderBrigadeStatus(){
+  const el = document.getElementById('brigadeStatus');
+  if(!el) return;
+  const renderSide = (side)=>{
+    const statuses = brigadeBrokenStatus(side);
+    const pips = statuses.map(broken=>`<span class="pip ${broken?'broken':'alive'}"></span>`).join('');
+    const brokenCount = statuses.filter(Boolean).length;
+    return `<span class="side-status" style="color:${SIDE_COLOR[side]}">${SIDE_LABEL[side]}: ${pips} <span style="color:var(--ink-dim);margin-left:2px;">(${brokenCount}/3 broken)</span></span>`;
+  };
+  el.innerHTML = renderSide(SIDES.RED) + renderSide(SIDES.BLUE);
+}
+
+function beginMovePhase(){
+  if(state.gameOver) return;
+  state.phase = 'move';
+  state.moved = new Set();
+  clearPendingTurnaroundFlagsIfDue();
+  document.getElementById('endMoveBtn').style.display='inline-block';
+  document.getElementById('endFireBtn').style.display='none';
+  document.getElementById('endFightBtn').style.display='none';
+  selectUnit(null);
+  updateHeader();
+  draw();
+  const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
+  document.getElementById('endMoveBtn').disabled = aiTurn;
+  if(aiTurn) setTimeout(aiDoMovePhase, 500);
+}
+
+function clearPendingTurnaroundFlagsIfDue(){
+  // units flagged turnOnly get exactly one phase of "turn around only", then are free again
+  for(const u of state.units){
+    if(u.side===state.turn && u._turnOnlyConsumed){
+      u.turnOnly = false;
+      u._turnOnlyConsumed = false;
+    } else if(u.side===state.turn && u.turnOnly){
+      u._turnOnlyConsumed = true;
+    }
+  }
+}
+
+function beginFirePhase(){
+  state.phase = 'fire';
+  state.fired = new Set();
+  document.getElementById('endMoveBtn').style.display='none';
+  document.getElementById('endFireBtn').style.display='inline-block';
+  selectUnit(null);
+  updateHeader();
+  draw();
+  const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
+  document.getElementById('endFireBtn').disabled = aiTurn;
+  if(aiTurn) setTimeout(aiDoFirePhase, 400);
+}
+
+function beginFightPhase(){
+  state.phase = 'fight';
+  state.fought = new Set();
+  document.getElementById('endFireBtn').style.display='none';
+  document.getElementById('endFightBtn').style.display='inline-block';
+  selectUnit(null);
+  updateHeader();
+  draw();
+  const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
+  document.getElementById('endFightBtn').disabled = aiTurn;
+  if(aiTurn){
+    if(!anyFightsAvailable(state.turn)){ setTimeout(endFightPhase, 400); return; }
+    setTimeout(aiDoFightPhase, 500);
+    return;
+  }
+  // auto-skip if no fights available (human turn)
+  if(!anyFightsAvailable(state.turn)){
+    log('No units in contact — skipping Fight phase.', 'system');
+    setTimeout(endFightPhase, 400);
+  }
+}
+function canInitiateFight(u){
+  return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !(state.fought && state.fought.has(u.id));
+}
+function anyFightsAvailable(side){
+  return state.units.some(u=>u.side===side && canInitiateFight(u) &&
+    state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o)));
+}
+
+function endMovePhase(){ beginFirePhase(); }
+function endFirePhase(){ beginFightPhase(); }
+function endFightPhase(){
+  if(state.gameOver) return;
+  if(anyFightsAvailable(state.turn)){
+    log('Units in contact must fight before the phase can end.', 'system');
+    return;
+  }
+  state.phase = 'rally';
+  updateHeader();
+  log(`${SIDE_LABEL[state.turn]} turn complete.`, 'system');
+  setTimeout(()=>{
+    state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    beginMovePhase();
+  }, 300);
+}
+
+/* =========================================================
+   SELECTION & INTERACTION
+========================================================= */
+function selectUnit(id){
+  state.selectedUnitId = id;
+  highlightCells = [];
+  const u = id ? state.units.find(x=>x.id===id) : null;
+  renderUnitInfo(u);
+  if(u && u.side===state.turn){
+    if(state.phase==='move'){
+      const moves = legalMoves(u);
+      highlightCells = moves.map(m=>({x:m.x,y:m.y,kind:'move'}));
+    } else if(state.phase==='fire' && UNIT_TYPES[u.type].isArtillery){
+      const targets = artilleryTargets(u);
+      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+    } else if(state.phase==='fight'){
+      const targets = state.units.filter(o=>!o.removed && o.side!==u.side && isAdjacent(u,o));
+      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+    }
+  }
+  draw();
+}
+
+function renderUnitInfo(u){
+  const el = document.getElementById('unitInfo');
+  const sqBtn = document.getElementById('squareBtn');
+  if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; return; }
+  const t = UNIT_TYPES[u.type];
+  const terr = terrainAt(u.x,u.y);
+  el.innerHTML = `
+    <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${t.label}</div>
+    <div style="color:var(--ink-dim);font-size:11px;">${SIDE_LABEL[u.side]} &middot; (${u.x},${u.y}) &middot; ${terr.key}</div>
+    <div class="u-tags">
+      <span class="tag st-active">Move ${t.move}</span>
+      ${t.reroll?'<span class="tag">Re-roll ★</span>':''}
+      ${u.formation==='square'?'<span class="tag st-square">SQUARE</span>':''}
+      ${u.turnOnly?'<span class="tag st-pushed">Turning Around</span>':''}
+      ${u.rallying?'<span class="tag">Rallying</span>':''}
+    </div>
+  `;
+  sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
+  const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
+  if(u.formation==='square'){
+    sqBtn.disabled = !baseOk;
+  } else {
+    sqBtn.disabled = !(baseOk && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING');
+  }
+}
+
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX-rect.left)/CELL);
+  const screenY = Math.floor((e.clientY-rect.top)/CELL);
+  const y = sy(screenY);
+  if(!inBounds(x,y)) return;
+  onCellClick(x,y);
+});
+
+function onCellClick(x,y){
+  if(state.gameOver) return;
+  if(state.phase==='deploy'){ handleDeployClick(x,y); return; }
+  if(state.mode==='ai' && state.turn===state.aiSide) return; // AI's turn, ignore human clicks
+
+  const clicked = pickUnitAtCell(x,y);
+  const sel = state.selectedUnitId ? state.units.find(u=>u.id===state.selectedUnitId) : null;
+
+  if(state.phase==='move'){
+    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
+      sel.x = x; sel.y = y;
+      state.moved.add(sel.id);
+      log(`${UNIT_TYPES[sel.type].label} moves to (${x},${y}).`, sel.side);
+      selectUnit(sel.id);
+      return;
+    }
+    if(clicked && clicked.side===state.turn){ selectUnit(clicked.id); return; }
+    selectUnit(null);
+  } else if(state.phase==='fire'){
+    if(sel && UNIT_TYPES[sel.type].isArtillery && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
+      const target = pickUnitAtCell(x,y);
+      fireArtillery(sel, target);
+      return;
+    }
+    if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
+    selectUnit(null);
+  } else if(state.phase==='fight'){
+    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
+      const target = pickUnitAtCell(x,y);
+      resolveFight(sel, target);
+      state.fought.add(sel.id);
+      selectUnit(null);
+      if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
+      return;
+    }
+    if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
+    selectUnit(null);
+  }
+}
+
+function fireArtillery(gun, target){
+  const dist = chebyshev(gun,target);
+  if(dist<=1){ resolveFight(gun, target); state.fired.add(gun.id); selectUnit(null); return; }
+  let dice = 1;
+  const needed = dist; // to-hit number: a target at range N needs a roll of N or higher (rulebook table)
+  const t = UNIT_TYPES[target.type];
+  let bonus = 0;
+  if(target.formation==='square') bonus = 1;
+  const occSame = unitsAt(target.x,target.y).length;
+  if(occSame>1) bonus = Math.max(bonus,1);
+  const roll = rollD6();
+  const adjRoll = roll+bonus;
+  const hit = adjRoll >= needed;
+  showDice([{label:'Fire', value:roll, cls:hit?'win':'lose'}]);
+  log(`Artillery fires at ${t.label} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
+  if(hit){
+    let effRoll = rollD6();
+    if(terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING') effRoll = Math.max(1, effRoll-1);
+    showDice([{label:'Effect', value:effRoll}]);
+    // Stacked units (doubled infantry in open terrain) suffer the same effect roll together, per rulebook.
+    const stack = unitsAt(target.x, target.y);
+    if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
+    stack.forEach(u => applyArtilleryEffect(u, effRoll));
+  } else {
+    log('Shot falls wide.', 'combat');
+  }
+  state.fired.add(gun.id);
+  selectUnit(null);
+}
+
+function applyArtilleryEffect(u, roll){
+  const t = UNIT_TYPES[u.type];
+  if(roll<=3){ log(`${t.label} carries on regardless.`, 'combat'); }
+  else if(roll===4){ u.turnOnly=true; log(`${t.label} is shaken — cannot move next turn, turns to face.`, 'combat'); }
+  else if(roll===5){ retreatAndRally(u); }
+  else { removeUnit(u,'destroyed by artillery'); }
+}
+
+document.getElementById('logToggle').onclick = ()=>{
+  const btn = document.getElementById('logToggle');
+  const log = document.getElementById('log');
+  const collapsed = btn.classList.toggle('collapsed');
+  log.classList.toggle('collapsed', collapsed);
+  if(!collapsed) log.scrollTop = log.scrollHeight;
+};
+
+document.getElementById('squareBtn').onclick = ()=>{
+  const u = state.units.find(x=>x.id===state.selectedUnitId);
+  if(!u) return;
+  if(u.formation==='square'){
+    u.formation = 'line';
+    state.moved.add(u.id);
+    log(`${UNIT_TYPES[u.type].label} reforms Line.`, u.side);
+  } else {
+    u.formation = 'square';
+    state.moved.add(u.id);
+    log(`${UNIT_TYPES[u.type].label} forms Square.`, u.side);
+  }
+  selectUnit(u.id);
+  draw();
+};
+
+document.getElementById('endMoveBtn').onclick = endMovePhase;
+document.getElementById('endFireBtn').onclick = endFirePhase;
+document.getElementById('endFightBtn').onclick = endFightPhase;
+document.getElementById('endDeployBtn').onclick = startBattle;
+document.getElementById('sidebarToggle').onclick = ()=> document.getElementById('sidebar').classList.toggle('open');
+
+document.getElementById('overlayBtn').onclick = ()=>{
+  document.getElementById('overlay').classList.remove('show');
+};
+
+/* =========================================================
+   BOOT
+========================================================= */
+window.addEventListener('resize', sizeCanvas);
+window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
+
+function showOverlay(title, html, btnLabel, onClick){
+  document.getElementById('overlayTitle').textContent = title;
+  const textEl = document.getElementById('overlayText');
+  textEl.innerHTML = html;
+  const btn = document.getElementById('overlayBtn');
+  btn.style.display = btnLabel ? 'inline-block' : 'none';
+  btn.textContent = btnLabel || '';
+  btn.onclick = onClick || null;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showModeSelect(){
+  const box = document.querySelector('#overlay .box');
+  document.getElementById('overlayTitle').textContent = 'TravelBattle: Field Command';
+  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge — then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
+  document.getElementById('overlayBtn').style.display = 'none';
+  let extra = document.getElementById('modeChoices');
+  if(!extra){
+    extra = document.createElement('div');
+    extra.id = 'modeChoices';
+    extra.style.display = 'flex';
+    extra.style.gap = '8px';
+    extra.style.justifyContent = 'center';
+    box.appendChild(extra);
+  }
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const hotseatBtn = document.createElement('button');
+  hotseatBtn.className = 'primary';
+  hotseatBtn.textContent = 'Hotseat (2 players)';
+  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.onclick = ()=>{ extra.style.display='none'; showSideSelect(); };
+  extra.appendChild(hotseatBtn);
+  extra.appendChild(aiBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showSideSelect(){
+  const box = document.querySelector('#overlay .box');
+  document.getElementById('overlayTitle').textContent = 'Choose Your Side';
+  document.getElementById('overlayText').innerHTML = 'The AI takes the other Brigade and will deploy, move, fire and fight on its own turns.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const redBtn = document.createElement('button');
+  redBtn.className = 'primary';
+  redBtn.textContent = 'Play Britain (Red)';
+  redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  const blueBtn = document.createElement('button');
+  blueBtn.textContent = 'Play France (Blue)';
+  blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  extra.appendChild(redBtn);
+  extra.appendChild(blueBtn);
+}
+
+/* =========================================================
+   BOARD SETUP: random board assignment + dice-roll orientation
+   Each side is given one of the two boards at random. Each side then
+   rolls 1d6 for that board's table orientation: 1-3 forces a rotation
+   of that many 90° clockwise turns; 4-6 lets that side's player choose
+   the rotation. A human-controlled side gets an on-screen choice; the
+   AI picks for itself when it's the AI's board.
+========================================================= */
+function beginBoardSetup(){
+  const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
+  state.boardAssignment = { red: keys[0], blue: keys[1] };
+  state.boardRotation = { red: 0, blue: 0 };
+  processBoardRoll([SIDES.RED, SIDES.BLUE], 0);
+}
+
+function processBoardRoll(sides, i){
+  if(i >= sides.length){
+    document.getElementById('overlay').classList.remove('show');
+    state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+    initDeployment();
+    return;
+  }
+  const side = sides[i];
+  const roll = rollD6();
+  log(`${SIDE_LABEL[side]} rolls a ${roll} for Board ${state.boardAssignment[side]}'s table orientation.`, 'system');
+  if(roll <= 3){
+    state.boardRotation[side] = roll;
+    log(`${SIDE_LABEL[side]}'s board is rotated ${roll*90}\u00b0 clockwise.`, 'system');
+    processBoardRoll(sides, i+1);
+  } else {
+    const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
+    if(isHumanControlled){
+      showRotationChoice(side, (chosen)=>{
+        state.boardRotation[side] = chosen;
+        log(`${SIDE_LABEL[side]} chooses a ${chosen*90}\u00b0 rotation for their board.`, 'system');
+        processBoardRoll(sides, i+1);
+      });
+    } else {
+      const chosen = Math.floor(Math.random()*4);
+      state.boardRotation[side] = chosen;
+      log(`${SIDE_LABEL[side]} (AI) chooses a ${chosen*90}\u00b0 rotation for their board.`, 'system');
+      processBoardRoll(sides, i+1);
+    }
+  }
+}
+
+function showRotationChoice(side, callback){
+  const box = document.querySelector('#overlay .box');
+  document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[side]}: Choose Board Orientation`;
+  document.getElementById('overlayText').innerHTML = `You rolled a 4, 5 or 6 — you may choose which way your board faces.`;
+  document.getElementById('overlayBtn').style.display = 'none';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexWrap = 'wrap';
+  [0,1,2,3].forEach(n=>{
+    const btn = document.createElement('button');
+    btn.className = n===0 ? 'primary' : '';
+    btn.textContent = (n*90) + '\u00b0';
+    btn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback(n); };
+    extra.appendChild(btn);
+  });
+  document.getElementById('overlay').classList.add('show');
+}
+
+showModeSelect();
+sizeCanvas();
+</script>
+</body>
+</html>
