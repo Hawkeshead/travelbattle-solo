@@ -145,16 +145,33 @@
   #overlay .box h2{font-family:'Cinzel',serif;color:var(--brass-dim);letter-spacing:0.05em;text-transform:uppercase;font-size:18px;margin:0 0 10px;}
   #overlay .box p{font-size:13px;color:var(--ink-dim);line-height:1.55;margin:0 0 16px;font-family:'Cormorant Garamond',serif;font-size:15px;}
 
-  #diceTicker{
-    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-    background:rgba(233,223,196,0.97);border:2px solid var(--brass-dim);border-radius:3px;
-    padding:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;display:none;gap:14px;
-    box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  #diceOverlay{
+    position:absolute; top:10px; left:50%; transform:translateX(-50%) translateY(-8px);
+    opacity:0; pointer-events:none; transition:opacity 0.18s ease, transform 0.18s ease; z-index:20;
   }
-  #diceTicker.show{display:flex;}
-  #diceTicker .d{padding:3px 9px;border-radius:2px;background:var(--paper-2);color:var(--ink);}
-  #diceTicker .d.win{color:var(--ok);border:1px solid var(--ok);}
-  #diceTicker .d.lose{color:var(--danger);border:1px solid var(--danger);}
+  #diceOverlay.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .dice-panel{
+    background:rgba(233,223,196,0.97); border:2px solid var(--brass-dim); border-radius:6px;
+    padding:9px 16px 8px; box-shadow:0 6px 22px rgba(0,0,0,0.4); text-align:center;
+  }
+  .dice-groups{ display:flex; align-items:center; justify-content:center; gap:12px; }
+  .dice-group{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .dice-group .glabel{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); letter-spacing:0.03em; }
+  .dice-set{ display:flex; gap:4px; }
+  .dice-vs{ font-family:'Cinzel',serif; font-size:11px; color:var(--ink-dim); align-self:center; padding-top:12px; }
+  .die{
+    width:32px;height:32px; background:#fdf6e3; border:2px solid var(--ink); border-radius:6px;
+    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+    padding:4px; gap:1px; transition:border-color 0.15s, opacity 0.15s;
+  }
+  .die.rolling{ border-color:var(--ink-dim); }
+  .die.kept{ border-color:var(--brass-dim); box-shadow:0 0 0 2px var(--brass-dim); }
+  .die.discard{ opacity:0.4; }
+  .die .pip{ border-radius:50%; background:var(--ink); align-self:center; justify-self:center; width:65%; height:65%; }
+  .dice-result{ margin-top:5px; font-family:'Cormorant Garamond',serif; font-weight:700; font-size:14px; color:var(--ink); min-height:18px; }
+  .dice-result.win{ color:var(--ok); }
+  .dice-result.lose{ color:var(--danger); }
+  .dice-result.draw{ color:var(--warn); }
 
   /* Landscape-first: this is the default row layout above (board + narrow
      sidebar), which already suits a landscape phone well. Portrait phones
@@ -205,7 +222,7 @@
   <main>
     <div id="boardWrap">
       <canvas id="board" width="900" height="900"></canvas>
-      <div id="diceTicker"></div>
+      <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div class="dice-result"></div></div></div>
     </div>
     <div id="sidebar">
       <div id="rosterPanel">
@@ -408,12 +425,54 @@ function log(msg, cls){
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
-function showDice(rolls){
-  const t = document.getElementById('diceTicker');
-  t.innerHTML = rolls.map(r=>`<span class="d ${r.cls||''}">${r.label}: ${r.value}</span>`).join('');
-  t.classList.add('show');
-  clearTimeout(showDice._t);
-  showDice._t = setTimeout(()=>t.classList.remove('show'), 3200);
+const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function dieFaceHTML(value, extraClass){
+  const active = PIP_LAYOUT[value] || [];
+  let cells = '';
+  for(let i=0;i<9;i++) cells += active.includes(i) ? '<span class="pip"></span>' : '<span></span>';
+  return `<div class="die ${extraClass||''}">${cells}</div>`;
+}
+
+// groups: [{label, rolls:[1,4], keptValue:4, ...}] — rolls is every die actually
+// rolled for that side (bonus/re-roll dice included), keptValue is the one that counts.
+// The animation is purely cosmetic: the real values are already decided by the time
+// this is called, so it briefly flickers random faces before settling on them.
+function showDice(groups, resultText, resultCls){
+  const overlay = document.getElementById('diceOverlay');
+  const groupsEl = overlay.querySelector('.dice-groups');
+  const resultEl = overlay.querySelector('.dice-result');
+  clearTimeout(showDice._fadeT);
+  clearInterval(showDice._rollT);
+
+  function renderFrame(final){
+    groupsEl.innerHTML = groups.map((g,i)=>{
+      const diceHTML = g.rolls.map(v=>{
+        const shown = final ? v : (1+Math.floor(Math.random()*6));
+        const cls = final ? (v===g.keptValue ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
+        return dieFaceHTML(shown, cls);
+      }).join('');
+      const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
+      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div></div>${sep}`;
+    }).join('');
+  }
+
+  overlay.classList.add('show');
+  resultEl.textContent = '';
+  resultEl.className = 'dice-result';
+  renderFrame(false);
+  let ticks = 0;
+  showDice._rollT = setInterval(()=>{
+    ticks++;
+    if(ticks>=4){
+      clearInterval(showDice._rollT);
+      renderFrame(true);
+      resultEl.textContent = resultText || '';
+      resultEl.className = 'dice-result ' + (resultCls||'');
+    } else {
+      renderFrame(false);
+    }
+  }, 90);
+  showDice._fadeT = setTimeout(()=>overlay.classList.remove('show'), 1700);
 }
 
 /* =========================================================
@@ -622,10 +681,15 @@ function resolveFight(attacker, defender){
   const aRoll = rollBest(aDice);
   const dRoll = rollBest(dDice);
 
+  const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
+  let resultText, resultCls;
+  if(aRoll.value === dRoll.value){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+  else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
+  else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
   showDice([
-    {label:SIDE_LABEL[attacker.side].split(' ')[0], value:aRoll.value, cls:aRoll.value>dRoll.value?'win':(aRoll.value<dRoll.value?'lose':'')},
-    {label:SIDE_LABEL[defender.side].split(' ')[0], value:dRoll.value, cls:dRoll.value>aRoll.value?'win':(dRoll.value<aRoll.value?'lose':'')}
-  ]);
+    {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value},
+    {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value}
+  ], resultText, resultCls);
 
   if(aRoll.value === dRoll.value){
     log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
@@ -670,7 +734,7 @@ function retreatAndRally(loser){
   if(t.key==='GUARD') successOn = [3,4,5,6];
   if(t.key==='ARTILLERY') successOn = [5,6];
   const r = rollD6();
-  showDice([{label:'Rally', value:r, cls: successOn.includes(r)?'win':'lose'}]);
+  showDice([{label:'Rally', rolls:[r], keptValue:r}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
   if(successOn.includes(r)){
     log(`${t.label} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
   } else {
@@ -773,19 +837,56 @@ function terrainColor(key){
 function draw(){
   const flip = screenFlipActive();
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  // terrain
+  // terrain base fill — road cells fill as open ground; the road itself is drawn as a line afterward
   for(let y=0;y<ROWS;y++){
     const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
-      ctx.fillStyle = terrainColor(state.terrain[y][x]);
+      const key = state.terrain[y][x];
+      ctx.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
       ctx.fillRect(x*CELL,sy_*CELL,CELL,CELL);
-      if(state.terrain[y][x]==='HILL'){
+      if(key==='HILL'){
         ctx.strokeStyle='rgba(255,255,255,0.08)';
         ctx.lineWidth=1;
         ctx.strokeRect(x*CELL+3,sy_*CELL+3,CELL-6,CELL-6);
       }
     }
   }
+
+  // roads: thin line through cell centers, following connectivity to orthogonal neighbours
+  ctx.strokeStyle = terrainColor('ROAD');
+  ctx.lineWidth = Math.max(3, CELL*0.16);
+  ctx.lineCap = 'round';
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      if(state.terrain[y][x]!=='ROAD') continue;
+      const cx = x*CELL+CELL/2, cy = sy(y)*CELL+CELL/2;
+      const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+      let connections = 0;
+      for(const [dx,dy] of dirs){
+        const nx=x+dx, ny=y+dy;
+        if(inBounds(nx,ny) && state.terrain[ny][nx]==='ROAD'){
+          connections++;
+          const ex = x*CELL+CELL/2 + dx*CELL/2, ey = sy(y)*CELL+CELL/2 + dy*CELL/2;
+          ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ex,ey); ctx.stroke();
+        }
+      }
+      if(connections===0){ ctx.beginPath(); ctx.arc(cx,cy,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
+    }
+  }
+  ctx.lineCap = 'butt';
+
+  // terrain icons: quick at-a-glance recognition for field/woods/hill/building
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = Math.floor(CELL*0.46)+'px sans-serif';
+  const ICONS = { FIELD:'\u{1F33E}', WOODS:'\u{1F332}', HILL:'\u{26F0}', BUILDING:'\u{1F3E0}' };
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const icon = ICONS[state.terrain[y][x]];
+      if(!icon) continue;
+      ctx.fillText(icon, x*CELL+CELL/2, sy(y)*CELL+CELL/2);
+    }
+  }
+
   // grid
   ctx.strokeStyle = 'rgba(184,147,79,0.18)';
   ctx.lineWidth = 1;
@@ -1534,12 +1635,14 @@ function fireArtillery(gun, target){
   const roll = rollD6();
   const adjRoll = roll+bonus;
   const hit = adjRoll >= needed;
-  showDice([{label:'Fire', value:roll, cls:hit?'win':'lose'}]);
+  showDice([{label:'To Hit', rolls:[roll], keptValue:roll}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
   log(`Artillery fires at ${t.label} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
   if(hit){
     let effRoll = rollD6();
     if(terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING') effRoll = Math.max(1, effRoll-1);
-    showDice([{label:'Effect', value:effRoll}]);
+    const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
+    const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
+    showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll}], effLabel, effCls);
     // Stacked units (doubled infantry in open terrain) suffer the same effect roll together, per rulebook.
     const stack = unitsAt(target.x, target.y);
     if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
