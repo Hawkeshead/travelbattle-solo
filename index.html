@@ -452,6 +452,8 @@ function undoLastAction(){
   if(undoStack.length===0) return;
   const snap = undoStack.pop();
   restoreState(snap);
+  unitAnimations = {};
+  activeActionLine = null;
   selectedDeployType = null;
   dragState = null;
   highlightCells = [];
@@ -473,7 +475,10 @@ function newUnit(side, typeKey, x, y, brigadeId){
     id: 'u'+(uidCounter++), side, type: typeKey, brigadeId,
     x, y, removed:false, formation:'line', pushed:false,
     turnOnly:false, // true = can only turn around this coming turn
-    rallying:false
+    rallying:false,
+    charged:false,          // clean 2-square Cavalry run this turn — wins ties in the ensuing fight
+    leadershipUsed:false,   // Brigadiers only: one guaranteed Rally save per match
+    hidden:false            // Woodland Ambush — invisible to artillery and to the AI's own targeting
   };
 }
 
@@ -623,6 +628,20 @@ function brigadeHasCavalryEscort(u){
   return state.units.some(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && UNIT_TYPES[o.type].isCavalry);
 }
 
+// A clean 2-square Cavalry run in one consistent direction (no pivot), not
+// crossing a ploughed field. Detected purely from start/end coordinates:
+// covering a 2-square straight-line displacement in exactly 2 steps is only
+// possible without a pivot, so no separate path-tracking is needed.
+function checkAndSetCharge(u, fromX, fromY){
+  u.charged = false;
+  if(!UNIT_TYPES[u.type].isCavalry) return;
+  const dx = u.x - fromX, dy = u.y - fromY;
+  const straight = (dx===0 || Math.abs(dx)===2) && (dy===0 || Math.abs(dy)===2) && !(dx===0 && dy===0);
+  if(!straight) return;
+  if(terrainAt(fromX,fromY).plough || terrainAt(u.x,u.y).plough) return; // can't charge through/onto a ploughed field
+  u.charged = true;
+}
+
 function unitBaseMove(u){
   if(isHorseArtillery(u)) return UNIT_TYPES.HEAVY_CAV.move;
   return UNIT_TYPES[u.type].move;
@@ -744,6 +763,14 @@ function isInActiveFight(u){
 function rollD6(){ return 1+Math.floor(Math.random()*6); }
 function rollBest(n){ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all}; }
 
+// Two Infantry/Guard units doubled into the same open-terrain square form
+// a Column: a genuine combat bonus, not just shared artillery vulnerability.
+function stackPartner(u){
+  if(!(u.type==='INFANTRY'||u.type==='GUARD')) return null;
+  return state.units.find(o=>!o.removed && o.id!==u.id && o.side===u.side && o.x===u.x && o.y===u.y && (o.type==='INFANTRY'||o.type==='GUARD'));
+}
+function isInColumn(u){ return !!stackPartner(u); }
+
 function bonusDiceCount(unit, opponent, defending){
   const t = UNIT_TYPES[unit.type];
   let n = 1;
@@ -752,11 +779,12 @@ function bonusDiceCount(unit, opponent, defending){
   if(defending && terr.defenseBonus && (t.key==='INFANTRY'||t.key==='GUARD')) n = Math.max(n,2);
   const oppT = UNIT_TYPES[opponent.type];
   if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square') n = Math.max(n,2);
-  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation!=='square' && false) {} // cavalry vs non-square infantry bonus goes to the CAVALRY, handled by caller
+  if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)) n = Math.max(n,2); // Attack Column
   return n;
 }
 
 function resolveFight(attacker, defender){
+  showActionLine(attacker, defender, '#a8720b', 1900);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
   let aDice = bonusDiceCount(attacker, defender, false);
   let dDice = bonusDiceCount(defender, attacker, true);
@@ -771,14 +799,28 @@ function resolveFight(attacker, defender){
   const dRoll = rollBest(dDice);
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
+  const isTie = aRoll.value === dRoll.value;
 
   // A defender on higher ground wins any tie against an attacker from lower ground.
-  const defenderHillTieWin = aRoll.value === dRoll.value &&
+  const defenderHillTieWin = isTie &&
     terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
 
+  // A clean 2-square Cavalry charge wins ties in this first fight — but not uphill, and not against a Square.
+  const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
+    UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
+    terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
+
+  // An Attack Column (2 Infantry/Guard stacked) wins ties while attacking.
+  const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
+    (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
+
+  const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
+
   let resultText, resultCls;
-  if(aRoll.value === dRoll.value && !defenderHillTieWin){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+  if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
   else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; }
+  else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; }
+  else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; }
   else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
   else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
   showDice([
@@ -786,7 +828,9 @@ function resolveFight(attacker, defender){
     {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value}
   ], resultText, resultCls);
 
-  if(aRoll.value === dRoll.value && !defenderHillTieWin){
+  attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
+
+  if(genuineDraw){
     log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
     return;
   }
@@ -795,18 +839,27 @@ function resolveFight(attacker, defender){
     pushBack(attacker, defender);
     return;
   }
+  if(attackerChargeTieWin || attackerColumnTieWin){
+    const reason = attackerChargeTieWin ? 'a clean charge' : 'a Column formation';
+    log(`${aType.label}'s ${reason} carries the ${aRoll.value}-${dRoll.value} tie against ${dType.label}.`, 'combat');
+    pushBack(defender, attacker);
+    return;
+  }
   const winnerIsAttacker = aRoll.value > dRoll.value;
   const winner = winnerIsAttacker ? attacker : defender;
   const loser = winnerIsAttacker ? defender : attacker;
   const diff = Math.abs(aRoll.value - dRoll.value);
   log(`${aType.label} (${SIDE_LABEL[attacker.side]}) vs ${dType.label} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${UNIT_TYPES[loser.type].label} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
+  const columnPartner = stackPartner(loser); // a broken Column takes both units with it
   if(diff===1){
     pushBack(loser, winner);
   } else if(diff===2){
     retreatAndRally(loser);
+    if(columnPartner) retreatAndRally(columnPartner);
   } else {
     removeUnit(loser, 'destroyed in combat');
+    if(columnPartner) removeUnit(columnPartner, 'Column broken alongside its partner');
   }
 }
 
@@ -821,13 +874,14 @@ function pushBack(loser, winner){
     if(blocker){
       const bx = nx+dx, by = ny+dy;
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
-        blocker.x = bx; blocker.y = by; blocker.turnOnly = true;
+        animateUnitTo(blocker, bx, by);
+        blocker.turnOnly = true;
         log(`${UNIT_TYPES[blocker.type].label} is shoved back by the retreat.`, 'combat');
       } else {
         landingClear = false; // nowhere for the blocker to go — loser can't retreat into it either
       }
     }
-    if(landingClear){ loser.x = nx; loser.y = ny; }
+    if(landingClear){ animateUnitTo(loser, nx, ny); }
   }
   loser.turnOnly = true;
   log(`${UNIT_TYPES[loser.type].label} pushed back and turned around; can only turn around next turn.`, 'combat');
@@ -838,7 +892,7 @@ function retreatAndRally(loser){
   const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
   const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
   const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
-  loser.x = cell.x; loser.y = cell.y;
+  animateUnitTo(loser, cell.x, cell.y);
   loser.turnOnly = true;
   loser.rallying = true;
   const t = UNIT_TYPES[loser.type];
@@ -917,6 +971,56 @@ function screenFlipActive(){
 }
 function sy(y){
   return screenFlipActive() ? (ROWS-1-y) : y;
+}
+
+/* =========================================================
+   UNIT MOVEMENT ANIMATION
+   Units jumped instantly to their new square, which made rapid AI
+   turns hard to follow. animateUnitTo() updates the logical position
+   immediately (game logic never waits on animation) but the VISUAL
+   position eases toward it over a short duration; drawUnit reads the
+   interpolated position instead of u.x/u.y directly.
+========================================================= */
+let unitAnimations = {}; // unitId -> {fromX, fromY, toX, toY, startTime, duration}
+let activeActionLine = null; // {fromX, fromY, toX, toY, color, expiresAt} — who's firing/fighting whom
+let animFrameHandle = null;
+
+function getUnitVisualPos(u){
+  const anim = unitAnimations[u.id];
+  if(!anim) return {x:u.x, y:u.y};
+  const elapsed = Date.now() - anim.startTime;
+  const t = Math.min(1, elapsed/anim.duration);
+  if(t>=1){ delete unitAnimations[u.id]; return {x:u.x, y:u.y}; }
+  const eased = 1 - Math.pow(1-t, 2); // ease-out — starts fast, settles gently
+  return { x: anim.fromX + (anim.toX-anim.fromX)*eased, y: anim.fromY + (anim.toY-anim.fromY)*eased };
+}
+
+function animateUnitTo(u, newX, newY){
+  const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
+  u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
+  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:260 };
+  ensureAnimationLoopRunning();
+}
+
+function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
+  activeActionLine = { fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, expiresAt: Date.now()+(durationMs||1800) };
+  ensureAnimationLoopRunning();
+}
+
+function ensureAnimationLoopRunning(){
+  if(animFrameHandle) return;
+  function tick(){
+    draw();
+    const stillAnimating = Object.keys(unitAnimations).length>0;
+    const lineActive = activeActionLine && Date.now() < activeActionLine.expiresAt;
+    if(!lineActive) activeActionLine = null;
+    if(stillAnimating || lineActive){
+      animFrameHandle = requestAnimationFrame(tick);
+    } else {
+      animFrameHandle = null;
+    }
+  }
+  animFrameHandle = requestAnimationFrame(tick);
 }
 
 const canvas = document.getElementById('board');
@@ -1039,6 +1143,33 @@ function draw(){
     ctx.strokeRect(dragState.hoverCell.x*CELL+2, sy(dragState.hoverCell.y)*CELL+2, CELL-4, CELL-4);
   }
 
+  // who's firing/fighting whom — fades out on its own after a couple of seconds
+  if(activeActionLine && Date.now() < activeActionLine.expiresAt){
+    const ln = activeActionLine;
+    const fx = ln.fromX*CELL+CELL/2, fy = sy(ln.fromY)*CELL+CELL/2;
+    const tx = ln.toX*CELL+CELL/2, ty = sy(ln.toY)*CELL+CELL/2;
+    const remaining = (ln.expiresAt - Date.now()) / 1900;
+    const alpha = Math.max(0, Math.min(1, remaining*2.2)); // hold steady, then fade in the last stretch
+    ctx.save();
+    ctx.strokeStyle = ln.color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = Math.max(2, CELL*0.06);
+    if(ln.dashed) ctx.setLineDash([CELL*0.12, CELL*0.10]);
+    ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.setLineDash([]);
+    // arrowhead at the target end
+    const ang = Math.atan2(ty-fy, tx-fx);
+    const ah = CELL*0.16;
+    ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.lineTo(tx-ah*Math.cos(ang-Math.PI/7), ty-ah*Math.sin(ang-Math.PI/7));
+    ctx.lineTo(tx-ah*Math.cos(ang+Math.PI/7), ty-ah*Math.sin(ang+Math.PI/7));
+    ctx.closePath();
+    ctx.fillStyle = ln.color;
+    ctx.fill();
+    ctx.restore();
+  }
+
   // units — stacked squares (doubled infantry) are offset so both are visible
   const stackGroups = {};
   for(const u of state.units){
@@ -1056,7 +1187,8 @@ function draw(){
 
 function drawUnit(u, off){
   off = off || {dx:0, dy:0, scale:1};
-  const cx = u.x*CELL+CELL/2 + off.dx*CELL, cy = sy(u.y)*CELL+CELL/2 + off.dy*CELL;
+  const vp = getUnitVisualPos(u);
+  const cx = vp.x*CELL+CELL/2 + off.dx*CELL, cy = sy(vp.y)*CELL+CELL/2 + off.dy*CELL;
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
   const col = SIDE_COLOR[u.side];
@@ -1560,7 +1692,9 @@ function aiDecideAndExecuteMove(u){
   }
 
   if(best && !best.stay){
-    u.x = best.x; u.y = best.y;
+    const fromX=u.x, fromY=u.y;
+    animateUnitTo(u, best.x, best.y);
+    checkAndSetCharge(u, fromX, fromY);
     log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
   }
   state.moved.add(u.id);
@@ -1575,7 +1709,7 @@ function aiDoMovePhase(){
     const u = state.units.find(x=>x.id===order[i]); i++;
     aiDecideAndExecuteMove(u);
     draw();
-    setTimeout(step, 200);
+    setTimeout(step, 340);
   }
   step();
 }
@@ -1863,7 +1997,9 @@ function onCellClick(x,y){
   if(state.phase==='move'){
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
       pushUndoSnapshot();
-      sel.x = x; sel.y = y;
+      const fromX=sel.x, fromY=sel.y;
+      animateUnitTo(sel, x, y);
+      checkAndSetCharge(sel, fromX, fromY);
       state.moved.add(sel.id);
       log(`${UNIT_TYPES[sel.type].label} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
@@ -1898,6 +2034,7 @@ function onCellClick(x,y){
 function fireArtillery(gun, target){
   const dist = chebyshev(gun,target);
   if(dist<=1){ resolveFight(gun, target); state.fired.add(gun.id); selectUnit(null); return; }
+  showActionLine(gun, target, '#a33330', 1900, true);
   let dice = 1;
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher (rulebook table)
   const t = UNIT_TYPES[target.type];
