@@ -822,7 +822,7 @@ function artilleryTargets(gun){
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
-  return state.units.filter(t=>!t.removed && !t.hidden && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
+  return state.units.filter(t=>!t.removed && !t.hidden && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
 }
 function isInActiveFight(u){
   return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
@@ -1005,6 +1005,16 @@ function removeUnit(u, reason){
   u.removed = true;
   addDeathEffect(u.x, u.y);
   log(`${UNIT_TYPES[u.type].label} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
+  if(u.type!=='BRIGADIER'){
+    const brig = state.units.find(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type==='BRIGADIER');
+    if(brig){
+      const remaining = state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type!=='BRIGADIER');
+      if(remaining.length===0){
+        brig.removed = true; // withdraws, not killed — no death effect for a non-combat unit
+        log(`${SIDE_LABEL[brig.side]}'s Brigadier withdraws — the Brigade is broken.`, 'system');
+      }
+    }
+  }
   checkWinCondition();
   renderBrigadeStatus();
 }
@@ -1742,8 +1752,9 @@ function updateDragHoverCell(clientX, clientY){
   if(clientX<rect.left || clientX>rect.right || clientY<rect.top || clientY>rect.bottom){
     dragState.hoverCell = null; return;
   }
-  const x = Math.floor((clientX-rect.left)/CELL);
-  const screenY = Math.floor((clientY-rect.top)/CELL);
+  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
+  const x = Math.floor((clientX-rect.left)/cellPxX);
+  const screenY = Math.floor((clientY-rect.top)/cellPxY);
   const y = sy(screenY);
   dragState.hoverCell = inBounds(x,y) ? {x,y} : null;
 }
@@ -2276,7 +2287,11 @@ function canInitiateFight(u){
   return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !u.noActionThisTurn && !(state.fought && state.fought.has(u.id));
 }
 // Cavalry cannot attack a unit sheltering inside a building under any circumstance.
+// A Brigadier is never a valid target at all — he's not a combat unit, only a
+// chain-of-command marker. He's immune to being attacked and simply withdraws
+// from the board once every other unit in his Brigade is gone (see removeUnit).
 function canAttackTarget(attacker, defender){
+  if(defender.type==='BRIGADIER') return false;
   if(UNIT_TYPES[attacker.type].isCavalry && terrainAt(defender.x,defender.y).key==='BUILDING') return false;
   return true;
 }
@@ -2450,8 +2465,9 @@ function renderUnitInfo(u){
 
 canvas.addEventListener('click', (e)=>{
   const rect = canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX-rect.left)/CELL);
-  const screenY = Math.floor((e.clientY-rect.top)/CELL);
+  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
+  const x = Math.floor((e.clientX-rect.left)/cellPxX);
+  const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
   const y = sy(screenY);
   if(!inBounds(x,y)) return;
   onCellClick(x,y);
