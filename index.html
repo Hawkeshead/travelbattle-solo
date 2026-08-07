@@ -78,7 +78,7 @@
   #brigadeStatus .pip.broken{background:transparent;opacity:0.4;}
 
   #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:auto;position:relative;padding:8px;}
-  canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;}
+  canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;max-width:100%;height:auto;}
 
   #sidebar{
     width:250px;flex-shrink:0;background:var(--panel);border-left:2px solid var(--brass-dim);
@@ -253,6 +253,7 @@
         <div id="unitInfo"><span class="empty">No unit selected</span></div>
         <div id="actionRow">
           <button id="squareBtn" disabled>Form Square</button>
+          <button id="ambushBtn" style="display:none;" disabled>Lay Ambush</button>
           <button id="endMoveBtn" disabled>End Move Phase</button>
           <button id="endFireBtn" style="display:none;">End Artillery Phase</button>
           <button id="endFightBtn" style="display:none;">End Fight Phase</button>
@@ -304,41 +305,36 @@
 const HALF_COLS = 10, ROWS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is 20 wide x 10 deep
 let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
 
-function emptyHalfBoard(){
-  const rows = [];
-  for(let y=0;y<ROWS;y++){ const row=[]; for(let x=0;x<HALF_COLS;x++) row.push('OPEN'); rows.push(row); }
-  return rows;
-}
+// Board A — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
+// Roads are stored as a full ROAD square for gameplay (any unit in the square
+// gets the bonus) but rendered as a thin line through the cell centre — see
+// the road-drawing pass in draw() — so the visual doesn't fill the whole tile.
+const BOARD_A_TERRAIN = [
+  ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'ROAD', 'ROAD', 'OPEN', 'OPEN'],
+  ['OPEN', 'HILL', 'HILL', 'HILL', 'HILL', 'OPEN', 'ROAD', 'WOODS', 'HILL', 'HILL'],
+  ['ROAD', 'HILL', 'HILL', 'OPEN', 'OPEN', 'ROAD', 'ROAD', 'WOODS', 'HILL', 'HILL'],
+  ['ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'OPEN', 'HILL', 'HILL', 'HILL'],
+  ['OPEN', 'OPEN', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'HILL', 'HILL', 'HILL'],
+  ['OPEN', 'OPEN', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'HILL', 'HILL', 'HILL'],
+  ['OPEN', 'BUILDING', 'BUILDING', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'HILL', 'HILL'],
+  ['OPEN', 'BUILDING', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD', 'ROAD'],
+  ['OPEN', 'OPEN', 'ROAD', 'PLOUGHED_FIELD', 'PLOUGHED_FIELD', 'PLOUGHED_FIELD', 'PLOUGHED_FIELD', 'OPEN', 'OPEN', 'OPEN'],
+  ['OPEN', 'OPEN', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN'],
+];
 
-// Board A — traced from photo: crossroads with a branch curving to the
-// top edge and a branch running south to a village, then a road running
-// the full width along row 8 with fields below it.
-const BOARD_A_TERRAIN = (function(){
-  const b = emptyHalfBoard();
-  const road = [[0,3],[1,3],[2,3], [3,2],[4,2],[5,1],[6,0], [2,4],[2,5],[2,6],[2,7],[2,8],
-                [3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8]];
-  road.forEach(([x,y])=> b[y][x]='ROAD');
-  [[6,1],[7,1],[6,2],[7,2],[6,3],[7,3]].forEach(([x,y])=> b[y][x]='WOODS');
-  [[1,7],[1,8]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='BUILDING'; });
-  b[9][3]='FIELD'; b[9][4]='FIELD'; b[9][5]='FIELD'; b[9][6]='FIELD';
-  return b;
-})();
-
-// Board B — traced from photo: road entering the top edge, curving past
-// a building and a field cluster, past woods, exiting bottom-right, plus
-// two shorter road stubs (left edge, right edge).
-const BOARD_B_TERRAIN = (function(){
-  const b = emptyHalfBoard();
-  const road = [[2,0],[2,1],[2,2],[2,3],[3,4],[3,5],[4,6],[5,7],[6,8],[6,9],
-                [0,8],[1,8],[2,8],[2,7],
-                [7,1],[8,1]];
-  road.forEach(([x,y])=> b[y][x]='ROAD');
-  [[1,3]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='BUILDING'; });
-  [[4,6],[5,6],[4,7]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='WOODS'; });
-  [[0,4],[1,4],[1,5]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='FIELD'; });
-  [[6,1],[6,2]].forEach(([x,y])=> { if(b[y][x]!=='ROAD') b[y][x]='FIELD'; });
-  return b;
-})();
+// Board B — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
+const BOARD_B_TERRAIN = [
+  ['OPEN', 'OPEN', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN'],
+  ['HILL', 'HILL', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'PLOUGHED_FIELD', 'OPEN', 'OPEN'],
+  ['HILL', 'HILL', 'ROAD', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'PLOUGHED_FIELD', 'BUILDING', 'ROAD'],
+  ['OPEN', 'ROAD', 'BUILDING', 'ROAD', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN'],
+  ['OPEN', 'ROAD', 'PLOUGHED_FIELD', 'OPEN', 'ROAD', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN'],
+  ['OPEN', 'ROAD', 'PLOUGHED_FIELD', 'ROAD', 'ROAD', 'ROAD', 'OPEN', 'OPEN', 'OPEN', 'OPEN'],
+  ['ROAD', 'ROAD', 'ROAD', 'ROAD', 'WOODS', 'ROAD', 'ROAD', 'ROAD', 'HILL', 'OPEN'],
+  ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'WOODS', 'WOODS', 'OPEN', 'ROAD', 'HILL', 'HILL'],
+  ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'ROAD', 'HILL', 'HILL'],
+  ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'ROAD', 'HILL', 'HILL'],
+];
 
 // Rotate a square (N x N) grid 90° clockwise, `times` times.
 function rotateGrid90CW(grid){
@@ -360,6 +356,36 @@ function boardTerrainFor(key, rotation){
   return rotateGridTimes(base, rotation||0);
 }
 
+// Specific road-to-road connections to NOT draw, even though the cells are
+// adjacent ROAD squares — a visually redundant loop where the road already
+// connects one square earlier (Matthew's note, Aug 2026). Coordinates are
+// LOCAL to that physical board (0..HALF_COLS-1), before rotation/placement.
+const BOARD_EXCLUDED_ROAD_EDGES = {
+  A: [],
+  B: [ {x1:4,y1:4,x2:4,y2:5} ] // left edge of the 2x2 block — the road already connects one square earlier
+};
+
+function rotatePointCW(x, y, n, times){
+  let px=x, py=y;
+  const t = ((times%4)+4)%4;
+  for(let i=0;i<t;i++){ const nx = n-1-py, ny = px; px=nx; py=ny; }
+  return [px, py];
+}
+
+// Excluded edges for one physical board, transformed by its rotation and
+// shifted by colOffset (0 if it landed on the left half, HALF_COLS if right).
+function excludedEdgesForBoard(boardKey, rotation, colOffset){
+  return (BOARD_EXCLUDED_ROAD_EDGES[boardKey]||[]).map(e=>{
+    const [rx1,ry1] = rotatePointCW(e.x1,e.y1,HALF_COLS,rotation);
+    const [rx2,ry2] = rotatePointCW(e.x2,e.y2,HALF_COLS,rotation);
+    return { x1:rx1+colOffset, y1:ry1, x2:rx2+colOffset, y2:ry2 };
+  });
+}
+function edgeKey(x1,y1,x2,y2){
+  // undirected — normalize so (a,b) and (b,a) produce the same key
+  return (x1<x2 || (x1===x2 && y1<y2)) ? `${x1},${y1}-${x2},${y2}` : `${x2},${y2}-${x1},${y1}`;
+}
+
 function buildTerrainMap(assignment, rotation){
   assignment = assignment || { red:'A', blue:'B' };
   rotation = rotation || { red:0, blue:0 };
@@ -368,6 +394,18 @@ function buildTerrainMap(assignment, rotation){
   const map = [];
   for(let y=0;y<ROWS;y++) map.push(leftGrid[y].concat(rightGrid[y]));
   return map;
+}
+
+function buildExcludedRoadEdgeSet(assignment, rotation){
+  assignment = assignment || { red:'A', blue:'B' };
+  rotation = rotation || { red:0, blue:0 };
+  const edges = [
+    ...excludedEdgesForBoard(assignment.red, rotation.red, 0),
+    ...excludedEdgesForBoard(assignment.blue, rotation.blue, HALF_COLS)
+  ];
+  const set = new Set();
+  edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
+  return set;
 }
 const SIDES = { RED: 'red', BLUE: 'blue' };
 const SIDE_LABEL = { red: 'Britain (Red)', blue: 'France (Blue)' };
@@ -392,13 +430,13 @@ const BRIGADE_COMPOSITIONS = [
 ];
 
 const TERRAIN = {
-  OPEN:          { key:'OPEN', elevation:0, infantryOnly:false, allowDouble:true },
-  FIELD:         { key:'FIELD', elevation:0, infantryOnly:false, allowDouble:true }, // cosmetic crop field, plays exactly like open ground
-  PLOUGHED_FIELD:{ key:'PLOUGHED_FIELD', elevation:0, infantryOnly:false, allowDouble:true, plough:true }, // hard going for horses and guns — see Movement rules
-  ROAD:          { key:'ROAD', elevation:0, infantryOnly:false, allowDouble:true, isRoad:true },
-  WOODS:         { key:'WOODS', elevation:0, infantryOnly:true, allowDouble:false, blocksLOS:true },
-  BUILDING:      { key:'BUILDING', elevation:0, infantryOnly:false, allowDouble:false, blocksLOS:true, defenseBonus:true },
-  HILL:          { key:'HILL', elevation:1, infantryOnly:false, allowDouble:true }
+  OPEN:          { key:'OPEN', elevation:0, restrictTo:null, allowDouble:true },
+  FIELD:         { key:'FIELD', elevation:0, restrictTo:null, allowDouble:true }, // cosmetic crop field, plays exactly like open ground
+  PLOUGHED_FIELD:{ key:'PLOUGHED_FIELD', elevation:0, restrictTo:null, allowDouble:true, plough:true }, // hard going for horses and guns — see Movement rules
+  ROAD:          { key:'ROAD', elevation:0, restrictTo:null, allowDouble:true, isRoad:true },
+  WOODS:         { key:'WOODS', elevation:0, restrictTo:['INFANTRY','GUARD'], allowDouble:false, blocksLOS:true, defenseBonus:true },
+  BUILDING:      { key:'BUILDING', elevation:0, restrictTo:['INFANTRY','GUARD','ARTILLERY'], allowDouble:false, blocksLOS:true, defenseBonus:true },
+  HILL:          { key:'HILL', elevation:1, restrictTo:null, allowDouble:true }
 };
 
 /* =========================================================
@@ -409,6 +447,8 @@ let state = {
   mode: 'hotseat',  // 'hotseat' | 'ai'
   aiSide: null,     // side controlled by the AI, when mode==='ai'
   terrain: buildTerrainMap(),
+  excludedRoadEdges: buildExcludedRoadEdgeSet(),
+  craters: [], // {x,y} — every square an Artillery shot has hit, persists for the whole match
   units: [],       // {id, side, type, x, y, hp:'active', formation:'line'|'square', pushed:false, mustTurnOnly:false, facing}
   turn: null,      // 'red' | 'blue'
   phase: 'deploy',
@@ -454,15 +494,29 @@ function undoLastAction(){
   restoreState(snap);
   unitAnimations = {};
   activeActionLine = null;
+  deathEffects = [];
   selectedDeployType = null;
   dragState = null;
   highlightCells = [];
   if(state.phase==='deploy') renderRoster();
   else selectUnit(null);
+  syncPhaseButtons();
   updateHeader();
   draw();
   log('Undone.', 'system');
   updateUndoButtons();
+}
+// Ensures the visible End-Phase button always matches state.phase — called
+// after undo as a defensive re-sync (the undo stack is now scoped so it can
+// never actually cross a phase boundary, but this keeps the UI honest regardless).
+function syncPhaseButtons(){
+  const moveBtn = document.getElementById('endMoveBtn');
+  const fireBtn = document.getElementById('endFireBtn');
+  const fightBtn = document.getElementById('endFightBtn');
+  if(!moveBtn || !fireBtn || !fightBtn) return;
+  moveBtn.style.display = state.phase==='move' ? 'inline-block' : 'none';
+  fireBtn.style.display = state.phase==='fire' ? 'inline-block' : 'none';
+  fightBtn.style.display = state.phase==='fight' ? 'inline-block' : 'none';
 }
 function updateUndoButtons(){
   const disabled = undoStack.length===0;
@@ -478,7 +532,10 @@ function newUnit(side, typeKey, x, y, brigadeId){
     rallying:false,
     charged:false,          // clean 2-square Cavalry run this turn — wins ties in the ensuing fight
     leadershipUsed:false,   // Brigadiers only: one guaranteed Rally save per match
-    hidden:false            // Woodland Ambush — invisible to artillery and to the AI's own targeting
+    hidden:false,           // Woodland Ambush — invisible to artillery and to the AI's own targeting
+    ambushSpentThisRound:false, // sprang an ambush this round — no woods defence bonus until side's next turn
+    noActionThisTurn:false, // stood down an ambush without springing — can't move or fight for the rest of this turn
+    smokeActive:false       // fired this cycle — shows muzzle smoke until this unit's side's next turn
   };
 }
 
@@ -539,8 +596,8 @@ function showDice(groups, resultText, resultCls){
     } else {
       renderFrame(false);
     }
-  }, 90);
-  showDice._fadeT = setTimeout(()=>overlay.classList.remove('show'), 1700);
+  }, 180);
+  showDice._fadeT = setTimeout(()=>overlay.classList.remove('show'), 3400);
 }
 
 /* =========================================================
@@ -624,8 +681,19 @@ function isHorseArtillery(u){
 function isCavalryOrHorseArtillery(u){
   return UNIT_TYPES[u.type].isCavalry || isHorseArtillery(u);
 }
+function brigadeCavalryCount(u){
+  return state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && UNIT_TYPES[o.type].isCavalry).length;
+}
 function brigadeHasCavalryEscort(u){
-  return state.units.some(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && UNIT_TYPES[o.type].isCavalry);
+  const available = brigadeCavalryCount(u);
+  const key = u.side+'-'+u.brigadeId;
+  const used = (state.ploughEscortUsed && state.ploughEscortUsed[key]) || 0;
+  return used < available;
+}
+function consumePloughEscort(u){
+  if(!state.ploughEscortUsed) state.ploughEscortUsed = {};
+  const key = u.side+'-'+u.brigadeId;
+  state.ploughEscortUsed[key] = (state.ploughEscortUsed[key]||0) + 1;
 }
 
 // A clean 2-square Cavalry run in one consistent direction (no pivot), not
@@ -638,7 +706,8 @@ function checkAndSetCharge(u, fromX, fromY){
   const dx = u.x - fromX, dy = u.y - fromY;
   const straight = (dx===0 || Math.abs(dx)===2) && (dy===0 || Math.abs(dy)===2) && !(dx===0 && dy===0);
   if(!straight) return;
-  if(terrainAt(fromX,fromY).plough || terrainAt(u.x,u.y).plough) return; // can't charge through/onto a ploughed field
+  const midX = fromX + dx/2, midY = fromY + dy/2;
+  if(terrainAt(fromX,fromY).plough || terrainAt(midX,midY).plough || terrainAt(u.x,u.y).plough) return; // can't charge through/onto a ploughed field
   u.charged = true;
 }
 
@@ -676,12 +745,13 @@ function legalMoves(u){
       if(dist.has(key) && dist.get(key) <= nd) continue;
       const terr = terrainAt(n.x,n.y);
       const t = UNIT_TYPES[u.type];
-      if(terr.infantryOnly && !(t.key==='INFANTRY' || t.key==='GUARD')) continue;
+      if(terr.restrictTo && !terr.restrictTo.includes(t.key)) continue;
       if(terr.plough && isFootArtillery && !hasEscort) continue; // Foot Artillery needs a Cavalry escort in its Brigade to cross a ploughed field
       // occupancy check
       const occ = unitsAt(n.x,n.y).filter(o=>o.id!==u.id && o.side===u.side);
-      const enemyOcc = unitsAt(n.x,n.y).some(o=>o.side!==u.side);
-      if(enemyOcc) continue; // can't move onto an enemy square (that's a fight, not a move)
+      const enemyUnitsHere = unitsAt(n.x,n.y).filter(o=>o.side!==u.side);
+      const enemyOcc = enemyUnitsHere.length>0 && !(enemyUnitsHere.length===1 && enemyUnitsHere[0].type==='BRIGADIER');
+      if(enemyOcc) continue; // can't move onto an enemy square (that's a fight, not a move) — except a lone Brigadier, who gets shoved aside instead
       if(occ.length>0){
         const canDouble = terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.length<2;
         if(!canDouble) continue;
@@ -750,8 +820,9 @@ function hasLOS(gun, target){
 function artilleryTargets(gun){
   if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
+  if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
-  return state.units.filter(t=>!t.removed && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
+  return state.units.filter(t=>!t.removed && !t.hidden && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
 }
 function isInActiveFight(u){
   return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
@@ -776,18 +847,22 @@ function bonusDiceCount(unit, opponent, defending){
   let n = 1;
   if(t.reroll) n = 2; // Guard Infantry / Heavy Cavalry re-roll (treated as best-of-2)
   const terr = terrainAt(unit.x,unit.y);
-  if(defending && terr.defenseBonus && (t.key==='INFANTRY'||t.key==='GUARD')) n = Math.max(n,2);
+  const eligibleDefender = t.key==='INFANTRY' || t.key==='GUARD' || t.key==='ARTILLERY';
+  // A unit that sprang a Woodland Ambush this round gets no woods defence bonus until its side's next turn.
+  const ambushSuppressed = terr.key==='WOODS' && unit.ambushSpentThisRound;
+  if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed) n = Math.max(n,2);
   const oppT = UNIT_TYPES[opponent.type];
   if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square') n = Math.max(n,2);
   if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)) n = Math.max(n,2); // Attack Column
   return n;
 }
 
-function resolveFight(attacker, defender){
-  showActionLine(attacker, defender, '#a8720b', 1900);
+function resolveFight(attacker, defender, ambushMode){
+  showActionLine(attacker, defender, '#a8720b', 3800);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
   let aDice = bonusDiceCount(attacker, defender, false);
   let dDice = bonusDiceCount(defender, attacker, true);
+  if(ambushMode==='advance') aDice = Math.max(aDice, 2); // committing to advance also grants a genuine second die
   // cavalry fighting non-square infantry: cavalry gets bonus die
   if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square') aDice = Math.max(aDice,2);
   if(dType.isCavalry && (aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square') dDice = Math.max(dDice,2);
@@ -797,6 +872,7 @@ function resolveFight(attacker, defender){
 
   const aRoll = rollBest(aDice);
   const dRoll = rollBest(dDice);
+  if(ambushMode){ aRoll.value = Math.min(6, aRoll.value+1); } // ambush: +1 to the rolled value, capped at 6
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
   const isTie = aRoll.value === dRoll.value;
@@ -903,6 +979,9 @@ function retreatAndRally(loser){
   showDice([{label:'Rally', rolls:[r], keptValue:r}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
   if(successOn.includes(r)){
     log(`${t.label} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
+  } else if(brig && !brig.leadershipUsed){
+    brig.leadershipUsed = true;
+    log(`${t.label} fails to rally (rolled ${r}), but the Brigadier's Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
   } else {
     log(`${t.label} fails to rally (rolled ${r}) and is removed from the field.`, 'combat');
     removeUnit(loser, 'failed rally');
@@ -924,6 +1003,7 @@ function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 function removeUnit(u, reason){
   u.removed = true;
+  addDeathEffect(u.x, u.y);
   log(`${UNIT_TYPES[u.type].label} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
   checkWinCondition();
   renderBrigadeStatus();
@@ -983,7 +1063,18 @@ function sy(y){
 ========================================================= */
 let unitAnimations = {}; // unitId -> {fromX, fromY, toX, toY, startTime, duration}
 let activeActionLine = null; // {fromX, fromY, toX, toY, color, expiresAt} — who's firing/fighting whom
+let deathEffects = []; // {x, y, startTime} — skull for 2s, then smoke fades over another 2s
 let animFrameHandle = null;
+
+const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
+function addDeathEffect(x, y){
+  deathEffects.push({x, y, startTime: Date.now()});
+  ensureAnimationLoopRunning();
+}
+function addCrater(x, y){
+  if(state.craters.some(c=>c.x===x && c.y===y)) return; // already scarred, don't stack markers
+  state.craters.push({x, y});
+}
 
 function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
@@ -995,10 +1086,31 @@ function getUnitVisualPos(u){
   return { x: anim.fromX + (anim.toX-anim.fromX)*eased, y: anim.fromY + (anim.toY-anim.fromY)*eased };
 }
 
+// A Brigadier is never blocked from having an enemy move into his square —
+// he's simply shoved 1-2 squares clear. Called right before completing a
+// move onto a square a lone enemy Brigadier currently occupies.
+function displaceBrigadierIfPresent(x, y, fromX, fromY){
+  const occupant = state.units.find(o=>!o.removed && o.x===x && o.y===y && o.type==='BRIGADIER');
+  if(!occupant) return;
+  const dx = Math.sign(x-fromX) || 0, dy = Math.sign(y-fromY) || 0;
+  const candidates = [
+    {x:x+dx*2, y:y+dy*2}, {x:x+dx, y:y+dy},
+    {x:x+dx, y:y}, {x:x, y:y+dy},
+    ...neighbors8(x,y)
+  ];
+  for(const c of candidates){
+    if(inBounds(c.x,c.y) && unitsAt(c.x,c.y).length===0){
+      occupant.x = c.x; occupant.y = c.y;
+      log(`${SIDE_LABEL[occupant.side]}'s Brigadier is shoved clear.`, 'system');
+      return;
+    }
+  }
+}
+
 function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
-  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:260 };
+  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:520 };
   ensureAnimationLoopRunning();
 }
 
@@ -1014,7 +1126,10 @@ function ensureAnimationLoopRunning(){
     const stillAnimating = Object.keys(unitAnimations).length>0;
     const lineActive = activeActionLine && Date.now() < activeActionLine.expiresAt;
     if(!lineActive) activeActionLine = null;
-    if(stillAnimating || lineActive){
+    const now = Date.now();
+    deathEffects = deathEffects.filter(d => now - d.startTime < DEATH_SKULL_MS + DEATH_SMOKE_MS);
+    const deathActive = deathEffects.length>0;
+    if(stillAnimating || lineActive || deathActive){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;
@@ -1028,7 +1143,8 @@ const ctx = canvas.getContext('2d');
 
 function computeCellSize(){
   const wrap = document.getElementById('boardWrap');
-  const availW = Math.max(200, wrap.clientWidth - 16);
+  const viewportW = document.documentElement.clientWidth || window.innerWidth;
+  const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - 16);
   const availH = Math.max(200, wrap.clientHeight - 16);
   const byWidth = Math.floor(availW / COLS);
   const byHeight = Math.floor(availH / ROWS);
@@ -1047,60 +1163,249 @@ function sizeCanvas(){
 }
 
 function terrainColor(key){
-  return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#6b5636', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#556b41' }[key];
+  return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#3c4a34' }[key];
+}
+
+/* =========================================================
+   TERRAIN RENDERING HELPERS
+   The map is meant to read as geomorphic and analogue, not a rigid
+   grid — the grid only matters for movement/LOS/combat range. These
+   helpers group same-type terrain into connected regions and render
+   them as one organic shape rather than a tile-by-tile stamp.
+========================================================= */
+function findConnectedRegions(terrain, key){
+  const h = terrain.length, w = terrain[0].length;
+  const regions = [];
+  const visited = new Set();
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      if(terrain[y][x]!==key) continue;
+      const k = x+','+y;
+      if(visited.has(k)) continue;
+      const region = [];
+      const stack = [[x,y]];
+      visited.add(k);
+      while(stack.length){
+        const [cx,cy] = stack.pop();
+        region.push([cx,cy]);
+        for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+          const nx=cx+dx, ny=cy+dy;
+          if(nx<0||nx>=w||ny<0||ny>=h) continue;
+          const nk = nx+','+ny;
+          if(visited.has(nk) || terrain[ny][nx]!==key) continue;
+          visited.add(nk);
+          stack.push([nx,ny]);
+        }
+      }
+      regions.push(region);
+    }
+  }
+  return regions;
+}
+function seededWobble(seed){
+  const v = Math.sin(seed*12.9898)*43758.5453;
+  return (v - Math.floor(v)) - 0.5; // -0.5..0.5
+}
+function roundedBlobPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
 }
 
 function draw(){
   const flip = screenFlipActive();
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  // terrain base fill — road cells fill as open ground; the road itself is drawn as a line afterward
+  const terrain = state.terrain;
+
+  // base fill — road cells fill as open ground; Hill matches Open (elevation is
+  // shown by its border, not a colour change); the ploughed-field/woods passes
+  // paint over their own cells next.
   for(let y=0;y<ROWS;y++){
     const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
-      const key = state.terrain[y][x];
+      const key = terrain[y][x];
       ctx.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
       ctx.fillRect(x*CELL,sy_*CELL,CELL,CELL);
-      if(key==='HILL'){
-        ctx.strokeStyle='rgba(255,255,255,0.08)';
-        ctx.lineWidth=1;
-        ctx.strokeRect(x*CELL+3,sy_*CELL+3,CELL-6,CELL-6);
-      }
     }
   }
 
-  // roads: thin line through cell centers, following connectivity to orthogonal neighbours
+  // Ploughed fields: wheat yellow with furrow lines along the field's long axis,
+  // computed per contiguous group so a whole field reads as one shape.
+  const ploughRegions = findConnectedRegions(terrain, 'PLOUGHED_FIELD');
+  for(const region of ploughRegions){
+    ctx.save();
+    ctx.beginPath();
+    for(const [x,y] of region) ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+    ctx.clip();
+    const screenYs = region.map(([,y])=>sy(y));
+    const minX=Math.min(...region.map(c=>c[0])), maxX=Math.max(...region.map(c=>c[0]));
+    const minSY=Math.min(...screenYs), maxSY=Math.max(...screenYs);
+    const widthPx = (maxX-minX+1)*CELL, heightPx = (maxSY-minSY+1)*CELL;
+    const horizontal = widthPx >= heightPx;
+    ctx.strokeStyle = 'rgba(120,88,32,0.55)';
+    ctx.lineWidth = Math.max(1, CELL*0.045);
+    const spacing = CELL*0.24;
+    if(horizontal){
+      for(let ly=minSY*CELL; ly<(maxSY+1)*CELL; ly+=spacing){
+        ctx.beginPath(); ctx.moveTo(minX*CELL,ly); ctx.lineTo((maxX+1)*CELL,ly); ctx.stroke();
+      }
+    } else {
+      for(let lx=minX*CELL; lx<(maxX+1)*CELL; lx+=spacing){
+        ctx.beginPath(); ctx.moveTo(lx,minSY*CELL); ctx.lineTo(lx,(maxSY+1)*CELL); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Woods: each cell is an inflated, jittered rounded blob; adjacent woods
+  // cells overlap into one organic tree-mass instead of a grid of squares.
+  const woodsRegions = findConnectedRegions(terrain, 'WOODS');
+  ctx.fillStyle = terrainColor('WOODS');
+  for(const region of woodsRegions){
+    for(const [x,y] of region){
+      const sy_ = sy(y);
+      const jx = seededWobble(x*13+y*71+1) * CELL*0.12;
+      const jy = seededWobble(x*47+y*19+2) * CELL*0.12;
+      const pad = CELL*0.10, rad = CELL*0.34;
+      roundedBlobPath(ctx, x*CELL-pad+jx, sy_*CELL-pad+jy, CELL+pad*2, CELL+pad*2, rad);
+      ctx.fill();
+    }
+  }
+
+  // Roads: one gently-curved stroke per unique connection, not filling the
+  // whole square. 90-degree turns pull their anchor toward the inside corner
+  // instead of routing dead-through the cell centre, softening the bend. A
+  // small deterministic wobble per edge gives a hand-drawn feel rather than
+  // rigid geometry, and stays stable across redraws (not re-randomized).
+  function roadPoint(x,y){ return { x:x*CELL+CELL/2, y:sy(y)*CELL+CELL/2 }; }
+  const excluded = state.excludedRoadEdges || new Set();
+  const roadConn = {};
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    if(terrain[y][x]!=='ROAD') continue;
+    const list = [];
+    for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+      const nx=x+dx, ny=y+dy;
+      if(!inBounds(nx,ny) || terrain[ny][nx]!=='ROAD') continue;
+      const ekey = (x<nx || (x===nx && y<ny)) ? `${x},${y}-${nx},${ny}` : `${nx},${ny}-${x},${y}`;
+      if(excluded.has(ekey)) continue;
+      list.push({x:nx,y:ny});
+    }
+    roadConn[x+','+y] = list;
+  }
+  function roadAnchor(x,y){
+    const list = roadConn[x+','+y] || [];
+    const center = roadPoint(x,y);
+    if(list.length !== 2) return center;
+    const isOpposite = (list[0].x-x)===-(list[1].x-x) && (list[0].y-y)===-(list[1].y-y);
+    if(isOpposite) return center; // straight through, no turn to soften
+    const p1 = roadPoint(list[0].x,list[0].y), p2 = roadPoint(list[1].x,list[1].y);
+    const midX=(p1.x+p2.x)/2, midY=(p1.y+p2.y)/2;
+    const dirX=midX-center.x, dirY=midY-center.y;
+    const len = Math.hypot(dirX,dirY) || 1;
+    const pull = CELL*0.20;
+    return { x:center.x+(dirX/len)*pull, y:center.y+(dirY/len)*pull };
+  }
   ctx.strokeStyle = terrainColor('ROAD');
   ctx.lineWidth = Math.max(3, CELL*0.16);
   ctx.lineCap = 'round';
+  const drawnEdges = new Set();
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
-      if(state.terrain[y][x]!=='ROAD') continue;
-      const cx = x*CELL+CELL/2, cy = sy(y)*CELL+CELL/2;
-      const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
-      let connections = 0;
-      for(const [dx,dy] of dirs){
-        const nx=x+dx, ny=y+dy;
-        if(inBounds(nx,ny) && state.terrain[ny][nx]==='ROAD'){
-          connections++;
-          const ex = x*CELL+CELL/2 + dx*CELL/2, ey = sy(y)*CELL+CELL/2 + dy*CELL/2;
-          ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ex,ey); ctx.stroke();
-        }
+      if(terrain[y][x]!=='ROAD') continue;
+      const list = roadConn[x+','+y] || [];
+      const a1 = roadAnchor(x,y);
+      for(const n of list){
+        const key = (x<n.x || (x===n.x && y<n.y)) ? `${x},${y}-${n.x},${n.y}` : `${n.x},${n.y}-${x},${y}`;
+        if(drawnEdges.has(key)) continue;
+        drawnEdges.add(key);
+        const a2 = roadAnchor(n.x,n.y);
+        const seed = x*17 + y*131 + n.x*29 + n.y*271;
+        const wobble = seededWobble(seed) * CELL * 0.28;
+        const dx=a2.x-a1.x, dy=a2.y-a1.y, len=Math.hypot(dx,dy)||1;
+        const px=-dy/len, py=dx/len;
+        const mx=(a1.x+a2.x)/2+px*wobble, my=(a1.y+a2.y)/2+py*wobble;
+        ctx.beginPath(); ctx.moveTo(a1.x,a1.y); ctx.quadraticCurveTo(mx,my,a2.x,a2.y); ctx.stroke();
       }
-      if(connections===0){ ctx.beginPath(); ctx.arc(cx,cy,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
+      // a short stub into any adjacent Building, so roads visibly reach the buildings they serve
+      for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+        const nx=x+dx, ny=y+dy;
+        if(!inBounds(nx,ny) || terrain[ny][nx]!=='BUILDING') continue;
+        const p1 = a1, p2 = roadPoint(nx,ny);
+        ctx.beginPath();
+        ctx.moveTo(p1.x + (p2.x-p1.x)*0.35, p1.y + (p2.y-p1.y)*0.35);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+      if(list.length===0){ const c = roadPoint(x,y); ctx.beginPath(); ctx.arc(c.x,c.y,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
     }
   }
   ctx.lineCap = 'butt';
 
-  // terrain icons: quick at-a-glance recognition for field/woods/hill/building
+  // Hills: same grass fill as Open — elevation reads through a light rocky
+  // border traced around the outer edge of each connected hill mass, not
+  // per-tile, so a cluster reads as one landform (matches the real boards).
+  const hillRegions = findConnectedRegions(terrain, 'HILL');
+  ctx.strokeStyle = 'rgba(176,172,156,0.95)';
+  ctx.lineWidth = Math.max(2, CELL*0.09);
+  ctx.lineCap = 'round';
+  for(const region of hillRegions){
+    const cellSet = new Set(region.map(([x,y])=>x+','+y));
+    for(const [x,y] of region){
+      for(const {dx,dy} of [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}]){
+        const nx=x+dx, ny=y+dy;
+        if(inBounds(nx,ny) && cellSet.has(nx+','+ny)) continue; // interior edge, no border needed
+        const sy0 = sy(y);
+        let p1,p2;
+        if(dy===-1){
+          const nsy = sy(y-1);
+          if(nsy<sy0){ p1=[x*CELL,sy0*CELL]; p2=[(x+1)*CELL,sy0*CELL]; }
+          else { p1=[x*CELL,(sy0+1)*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
+        } else if(dy===1){
+          const nsy = sy(y+1);
+          if(nsy<sy0){ p1=[x*CELL,sy0*CELL]; p2=[(x+1)*CELL,sy0*CELL]; }
+          else { p1=[x*CELL,(sy0+1)*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
+        } else if(dx===-1){ p1=[x*CELL,sy0*CELL]; p2=[x*CELL,(sy0+1)*CELL]; }
+        else { p1=[(x+1)*CELL,sy0*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
+        const seed = x*31 + y*57 + dx*211 + dy*97;
+        const wobble = seededWobble(seed) * CELL * 0.22;
+        const mx=(p1[0]+p2[0])/2, my=(p1[1]+p2[1])/2;
+        const perpX=-(p2[1]-p1[1]), perpY=(p2[0]-p1[0]);
+        const plen = Math.hypot(perpX,perpY) || 1;
+        const cx_ = mx+(perpX/plen)*wobble, cy_ = my+(perpY/plen)*wobble;
+        ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.quadraticCurveTo(cx_,cy_,p2[0],p2[1]); ctx.stroke();
+      }
+    }
+  }
+  ctx.lineCap = 'butt';
+
+  // terrain icons: quick at-a-glance recognition for hill/building (woods/field
+  // are already visually distinct via their new shapes/colour, no icon needed)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = Math.floor(CELL*0.46)+'px sans-serif';
-  const ICONS = { FIELD:'\u{1F33E}', WOODS:'\u{1F332}', HILL:'\u{26F0}', BUILDING:'\u{1F3E0}' };
+  const ICONS = { HILL:'\u{26F0}', BUILDING:'\u{1F3E0}' };
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
-      const icon = ICONS[state.terrain[y][x]];
+      const icon = ICONS[terrain[y][x]];
       if(!icon) continue;
       ctx.fillText(icon, x*CELL+CELL/2, sy(y)*CELL+CELL/2);
     }
+  }
+
+  // craters: every square Artillery has hit this match, above terrain, below units
+  for(const c of state.craters){
+    const cx = c.x*CELL+CELL/2, cy = sy(c.y)*CELL+CELL/2;
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#1a1710';
+    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.20, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = '#3a332a';
+    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.30, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
   }
 
   // grid
@@ -1148,7 +1453,7 @@ function draw(){
     const ln = activeActionLine;
     const fx = ln.fromX*CELL+CELL/2, fy = sy(ln.fromY)*CELL+CELL/2;
     const tx = ln.toX*CELL+CELL/2, ty = sy(ln.toY)*CELL+CELL/2;
-    const remaining = (ln.expiresAt - Date.now()) / 1900;
+    const remaining = (ln.expiresAt - Date.now()) / 3800;
     const alpha = Math.max(0, Math.min(1, remaining*2.2)); // hold steady, then fade in the last stretch
     ctx.save();
     ctx.strokeStyle = ln.color;
@@ -1183,6 +1488,46 @@ function draw(){
     if(list.length===1){ drawUnit(list[0]); }
     else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
   }
+
+  // muzzle smoke: lingers around a gun from the moment it fires until its side's next turn
+  for(const u of state.units){
+    if(u.removed || !u.smokeActive) continue;
+    const vp = getUnitVisualPos(u);
+    const cx = vp.x*CELL+CELL/2, cy = sy(vp.y)*CELL+CELL/2;
+    ctx.save();
+    ctx.fillStyle = '#f4f1e8';
+    [[-0.22,-0.30,0.16],[0.10,-0.36,0.13],[0.28,-0.18,0.11]].forEach(([ox,oy,r])=>{
+      ctx.globalAlpha = 0.45;
+      ctx.beginPath(); ctx.arc(cx+ox*CELL, cy+oy*CELL, r*CELL, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // death markers: skull holds for a beat, then fades into drifting smoke
+  const now = Date.now();
+  for(const d of deathEffects){
+    const elapsed = now - d.startTime;
+    const cx = d.x*CELL+CELL/2, cy = sy(d.y)*CELL+CELL/2;
+    if(elapsed < DEATH_SKULL_MS){
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font = Math.floor(CELL*0.5)+'px sans-serif';
+      ctx.fillText('\u{1F480}', cx, cy);
+      ctx.restore();
+    } else {
+      const smokeT = (elapsed - DEATH_SKULL_MS) / DEATH_SMOKE_MS; // 0..1
+      const fade = 1 - smokeT;
+      ctx.save();
+      ctx.fillStyle = '#d8d4c8';
+      [[-0.15,-0.1,0.18],[0.15,-0.15,0.15],[0,0.05,0.20]].forEach(([ox,oy,r])=>{
+        ctx.globalAlpha = 0.4*fade;
+        const drift = smokeT*0.25;
+        ctx.beginPath(); ctx.arc(cx+ox*CELL, cy+(oy-drift)*CELL, (r+smokeT*0.15)*CELL, 0, Math.PI*2); ctx.fill();
+      });
+      ctx.restore();
+    }
+  }
 }
 
 function drawUnit(u, off){
@@ -1198,9 +1543,11 @@ function drawUnit(u, off){
   ctx.translate(cx,cy);
   if(u.formation==='square') ctx.rotate(Math.PI/4);
 
+  ctx.globalAlpha = u.hidden ? 0.55 : 1;
   ctx.fillStyle = col;
   ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
   ctx.lineWidth = isSel ? 3 : 1.5;
+  if(u.hidden) ctx.setLineDash([3,2]);
 
   switch(t.shape){
     case 'square':
@@ -1223,6 +1570,8 @@ function drawUnit(u, off){
       ctx.closePath(); ctx.fill(); ctx.stroke();
       break;
   }
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   // status pips
@@ -1406,7 +1755,7 @@ function attemptDeployAt(typeKey, x, y){
   const zoneOk = side===SIDES.RED ? (y>=ROWS-2) : (y<=1);
   if(!zoneOk){ log('Deployment must be within your first two rows.', 'system'); return false; }
   const terr = terrainAt(x,y);
-  if(terr.infantryOnly && !(typeKey==='INFANTRY'||typeKey==='GUARD')){ log('Only Infantry may deploy in woods.', 'system'); return false; }
+  if(terr.restrictTo && !terr.restrictTo.includes(typeKey)){ log(`${UNIT_TYPES[typeKey].label} cannot deploy there.`, 'system'); return false; }
   const occ = unitsAt(x,y);
   if(occ.length>0){ log('Square already occupied.', 'system'); return false; }
   placeUnit(side, typeKey, x, y);
@@ -1561,7 +1910,7 @@ function findNearestFreeDeployCell(side, col, row, typeKey){
   for(const y of zoneRows){
     for(let x=0;x<COLS;x++){
       const terr = terrainAt(x,y);
-      if(terr.infantryOnly && !(typeKey==='INFANTRY'||typeKey==='GUARD')) continue;
+      if(terr.restrictTo && !terr.restrictTo.includes(typeKey)) continue;
       if(unitsAt(x,y).length>0) continue;
       const dist = Math.abs(x-col) + Math.abs(y-row)*0.5;
       candidates.push({x,y,dist});
@@ -1601,7 +1950,7 @@ function threatPenalty(unit, side){
   let penalty = 0;
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   for(const e of state.units){
-    if(e.removed || e.side!==enemy) continue;
+    if(e.removed || e.side!==enemy || e.hidden) continue;
     const eType = UNIT_TYPES[e.type];
     if(!eType.canFight) continue;
     const reach = unitBaseMove(e) + 1; // move then engage
@@ -1633,7 +1982,7 @@ function nearestEnemyDist(pos, side){
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   let best = 999;
   for(const e of state.units){
-    if(e.removed || e.side!==enemy) continue;
+    if(e.removed || e.side!==enemy || e.hidden) continue;
     const d = chebyshev(pos, e);
     if(d<best) best = d;
   }
@@ -1693,11 +2042,13 @@ function aiDecideAndExecuteMove(u){
 
   if(best && !best.stay){
     const fromX=u.x, fromY=u.y;
+    displaceBrigadierIfPresent(best.x, best.y, fromX, fromY);
+    if(t.isArtillery && !isHorseArtillery(u) && terrainAt(best.x,best.y).plough) consumePloughEscort(u);
     animateUnitTo(u, best.x, best.y);
     checkAndSetCharge(u, fromX, fromY);
     log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+    state.moved.add(u.id);
   }
-  state.moved.add(u.id);
 }
 
 function aiDoMovePhase(){
@@ -1855,18 +2206,25 @@ function beginMovePhase(){
 function clearPendingTurnaroundFlagsIfDue(){
   // units flagged turnOnly get exactly one phase of "turn around only", then are free again
   for(const u of state.units){
-    if(u.side===state.turn && u._turnOnlyConsumed){
+    if(u.side!==state.turn) continue;
+    if(u._turnOnlyConsumed){
       u.turnOnly = false;
       u._turnOnlyConsumed = false;
-    } else if(u.side===state.turn && u.turnOnly){
+    } else if(u.turnOnly){
       u._turnOnlyConsumed = true;
     }
+    // ambush cooldown and stand-down both last only until this side's next turn
+    u.ambushSpentThisRound = false;
+    u.noActionThisTurn = false;
+    u.smokeActive = false;
   }
+  state.ploughEscortUsed = {};
 }
 
 function beginFirePhase(){
   state.phase = 'fire';
   state.fired = new Set();
+  resetUndoStack();
   document.getElementById('endMoveBtn').style.display='none';
   document.getElementById('endFireBtn').style.display='inline-block';
   selectUnit(null);
@@ -1880,6 +2238,7 @@ function beginFirePhase(){
 function beginFightPhase(){
   state.phase = 'fight';
   state.fought = new Set();
+  resetUndoStack();
   document.getElementById('endFireBtn').style.display='none';
   document.getElementById('endFightBtn').style.display='inline-block';
   selectUnit(null);
@@ -1898,8 +2257,23 @@ function beginFightPhase(){
     setTimeout(endFightPhase, 400);
   }
 }
+// Woodland Ambush: an Infantry-class unit in woods, untouched by the enemy,
+// that hasn't already acted this Move phase, may lie in wait instead of
+// moving. It's invisible to artillery and to the AI's own tactical reads
+// (see threatPenalty/nearestEnemyDist) until it springs.
+function canLayAmbush(u){
+  const t = UNIT_TYPES[u.type];
+  if(!(t.key==='INFANTRY'||t.key==='GUARD')) return false;
+  if(u.hidden) return false;
+  if(state.phase!=='move' || u.side!==state.turn || (state.moved && state.moved.has(u.id)) || u.turnOnly) return false;
+  if(terrainAt(u.x,u.y).key!=='WOODS') return false;
+  if(unitsAt(u.x,u.y).length>1) return false; // Square-style formations need the square to itself, same for an ambush position
+  const adjacentEnemy = state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(u,o));
+  return !adjacentEnemy;
+}
+
 function canInitiateFight(u){
-  return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !(state.fought && state.fought.has(u.id));
+  return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !u.noActionThisTurn && !(state.fought && state.fought.has(u.id));
 }
 // Cavalry cannot attack a unit sheltering inside a building under any circumstance.
 function canAttackTarget(attacker, defender){
@@ -1911,7 +2285,89 @@ function anyFightsAvailable(side){
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
-function endMovePhase(){ beginFirePhase(); }
+function endMovePhase(){
+  const springs = collectAmbushSprings();
+  processAmbushSpringsSequentially(springs, 0, beginFirePhase);
+}
+
+// Detects (but does not resolve) any hidden unit now adjacent to an enemy
+// that just moved. Resolution is handled separately since a human-owned
+// ambush needs to pause for the Hold/Advance choice before any dice are rolled.
+function collectAmbushSprings(){
+  const movingSide = state.turn;
+  const ambushSide = movingSide===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  const ambushers = state.units.filter(u=>!u.removed && u.side===ambushSide && u.hidden);
+  const springs = [];
+  for(const amb of ambushers){
+    const targets = state.units.filter(o=>!o.removed && o.side===movingSide && isAdjacent(amb,o));
+    if(targets.length===0) continue;
+    let best=null, bestScore=-Infinity;
+    for(const t of targets){
+      const s = estimateFightValue(amb, t);
+      if(s>bestScore){ bestScore=s; best=t; }
+    }
+    springs.push({ambusherId:amb.id, targetId:best.id});
+  }
+  return springs;
+}
+
+function processAmbushSpringsSequentially(springs, idx, onDone){
+  if(idx >= springs.length){ onDone(); return; }
+  const amb = state.units.find(u=>u.id===springs[idx].ambusherId);
+  const target = state.units.find(u=>u.id===springs[idx].targetId);
+  if(!amb || amb.removed || !amb.hidden || !target || target.removed){
+    processAmbushSpringsSequentially(springs, idx+1, onDone); return; // already resolved (e.g. shared target)
+  }
+  const isHumanOwner = !(state.mode==='ai' && amb.side===state.aiSide);
+  if(isHumanOwner){
+    showAmbushChoice(amb, target, (mode)=>{
+      springAmbush(amb, target, mode);
+      processAmbushSpringsSequentially(springs, idx+1, onDone);
+    });
+  } else {
+    springAmbush(amb, target, 'hold'); // AI doesn't lay ambush itself, but resolve gracefully if it ever inherits one
+    processAmbushSpringsSequentially(springs, idx+1, onDone);
+  }
+}
+
+function showAmbushChoice(ambusher, target, callback){
+  document.getElementById('overlayTitle').textContent = `AMBUSH! ${SIDE_LABEL[ambusher.side]}`;
+  document.getElementById('overlayText').innerHTML =
+    `Your ${UNIT_TYPES[ambusher.type].label} springs on ${UNIT_TYPES[target.type].label}. +1 to the roll either way. `+
+    `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`;
+  document.getElementById('overlayBtn').style.display = 'none';
+  const canvas = document.getElementById('rotationPreviewCanvas');
+  if(canvas) canvas.style.display = 'none';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexWrap = 'wrap';
+  const holdBtn = document.createElement('button');
+  holdBtn.textContent = 'Hold Position';
+  holdBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('hold'); };
+  const advBtn = document.createElement('button');
+  advBtn.className = 'primary';
+  advBtn.textContent = 'Commit to Advance';
+  advBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('advance'); };
+  extra.appendChild(holdBtn);
+  extra.appendChild(advBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function springAmbush(ambusher, target, mode){
+  ambusher.hidden = false;
+  ambusher.ambushSpentThisRound = true;
+  log(`AMBUSH! ${UNIT_TYPES[ambusher.type].label} springs from the woods on ${UNIT_TYPES[target.type].label} (${mode}).`, 'combat');
+  const beforeX = target.x, beforeY = target.y;
+  resolveFight(ambusher, target, mode);
+  if(mode==='advance'){
+    const stillThere = state.units.some(o=>!o.removed && o.id===target.id && o.x===beforeX && o.y===beforeY);
+    if(!stillThere && unitsAt(beforeX,beforeY).length===0 && isAdjacent(ambusher,{x:beforeX,y:beforeY})){
+      animateUnitTo(ambusher, beforeX, beforeY);
+      log(`${UNIT_TYPES[ambusher.type].label} advances into the vacated ground.`, 'combat');
+    }
+  }
+}
 function endFirePhase(){ beginFightPhase(); }
 function endFightPhase(){
   if(state.gameOver) return;
@@ -1954,7 +2410,8 @@ function selectUnit(id){
 function renderUnitInfo(u){
   const el = document.getElementById('unitInfo');
   const sqBtn = document.getElementById('squareBtn');
-  if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; return; }
+  const ambBtn = document.getElementById('ambushBtn');
+  if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; return; }
   const t = UNIT_TYPES[u.type];
   const terr = terrainAt(u.x,u.y);
   el.innerHTML = `
@@ -1966,6 +2423,8 @@ function renderUnitInfo(u){
       ${u.formation==='square'?'<span class="tag st-square">SQUARE</span>':''}
       ${u.turnOnly?'<span class="tag st-pushed">Turning Around</span>':''}
       ${u.rallying?'<span class="tag">Rallying</span>':''}
+      ${u.hidden?'<span class="tag st-square">IN AMBUSH</span>':''}
+      ${u.charged?'<span class="tag st-active">CHARGED</span>':''}
     </div>
   `;
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
@@ -1974,6 +2433,18 @@ function renderUnitInfo(u){
     sqBtn.disabled = !baseOk;
   } else {
     sqBtn.disabled = !(baseOk && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1);
+  }
+
+  if(u.hidden){
+    ambBtn.style.display = 'inline-block';
+    ambBtn.textContent = 'Stand Down';
+    ambBtn.disabled = !(state.phase==='move' && u.side===state.turn && !state.moved.has(u.id));
+  } else if(canLayAmbush(u)){
+    ambBtn.style.display = 'inline-block';
+    ambBtn.textContent = 'Lay Ambush';
+    ambBtn.disabled = false;
+  } else {
+    ambBtn.style.display = 'none';
   }
 }
 
@@ -1998,6 +2469,8 @@ function onCellClick(x,y){
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
+      displaceBrigadierIfPresent(x, y, fromX, fromY);
+      if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
       animateUnitTo(sel, x, y);
       checkAndSetCharge(sel, fromX, fromY);
       state.moved.add(sel.id);
@@ -2006,7 +2479,7 @@ function onCellClick(x,y){
       return;
     }
     if(clicked && clicked.side===state.turn){ selectUnit(clicked.id); return; }
-    selectUnit(null);
+    selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fire'){
     if(sel && UNIT_TYPES[sel.type].isArtillery && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
@@ -2015,7 +2488,7 @@ function onCellClick(x,y){
       return;
     }
     if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
-    selectUnit(null);
+    selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fight'){
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
@@ -2027,14 +2500,16 @@ function onCellClick(x,y){
       return;
     }
     if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
-    selectUnit(null);
+    selectUnit(clicked ? clicked.id : null);
   }
 }
 
 function fireArtillery(gun, target){
   const dist = chebyshev(gun,target);
   if(dist<=1){ resolveFight(gun, target); state.fired.add(gun.id); selectUnit(null); return; }
-  showActionLine(gun, target, '#a33330', 1900, true);
+  gun.smokeActive = true;
+  ensureAnimationLoopRunning();
+  showActionLine(gun, target, '#a33330', 3800, true);
   let dice = 1;
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher (rulebook table)
   const t = UNIT_TYPES[target.type];
@@ -2048,6 +2523,7 @@ function fireArtillery(gun, target){
   showDice([{label:'To Hit', rolls:[roll], keptValue:roll}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
   log(`Artillery fires at ${t.label} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
   if(hit){
+    addCrater(target.x, target.y);
     let effRoll = rollD6();
     if(terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING') effRoll = Math.max(1, effRoll-1);
     const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
@@ -2097,6 +2573,24 @@ document.getElementById('squareBtn').onclick = ()=>{
   draw();
 };
 
+document.getElementById('ambushBtn').onclick = ()=>{
+  const u = state.units.find(x=>x.id===state.selectedUnitId);
+  if(!u) return;
+  pushUndoSnapshot();
+  if(u.hidden){
+    u.hidden = false;
+    state.moved.add(u.id);
+    u.noActionThisTurn = true;
+    log(`${UNIT_TYPES[u.type].label} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+  } else if(canLayAmbush(u)){
+    u.hidden = true;
+    state.moved.add(u.id);
+    log(`${UNIT_TYPES[u.type].label} lies in ambush in the woods.`, u.side);
+  }
+  selectUnit(u.id);
+  draw();
+};
+
 document.getElementById('endMoveBtn').onclick = endMovePhase;
 document.getElementById('endFireBtn').onclick = endFirePhase;
 document.getElementById('endFightBtn').onclick = endFightPhase;
@@ -2115,6 +2609,7 @@ document.getElementById('overlayBtn').onclick = ()=>{
 ========================================================= */
 window.addEventListener('resize', sizeCanvas);
 window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
+window.addEventListener('load', ()=> setTimeout(sizeCanvas, 60));
 
 function showOverlay(title, html, btnLabel, onClick){
   document.getElementById('overlayTitle').textContent = title;
@@ -2192,6 +2687,7 @@ function processBoardRoll(sides, i){
   if(i >= sides.length){
     document.getElementById('overlay').classList.remove('show');
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+    state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
     initDeployment();
     return;
   }
