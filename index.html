@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>TravelBattle: Field Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -254,6 +257,7 @@
         <div id="actionRow">
           <button id="squareBtn" disabled>Form Square</button>
           <button id="ambushBtn" style="display:none;" disabled>Lay Ambush</button>
+          <button id="chargeBtn" style="display:none;" disabled>Charge</button>
           <button id="endMoveBtn" disabled>End Move Phase</button>
           <button id="endFireBtn" style="display:none;">End Artillery Phase</button>
           <button id="endFightBtn" style="display:none;">End Fight Phase</button>
@@ -446,6 +450,7 @@ let state = {
   gameOver: false,
   mode: 'hotseat',  // 'hotseat' | 'ai'
   aiSide: null,     // side controlled by the AI, when mode==='ai'
+  aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
   terrain: buildTerrainMap(),
   excludedRoadEdges: buildExcludedRoadEdgeSet(),
   craters: [], // {x,y} — every square an Artillery shot has hit, persists for the whole match
@@ -700,15 +705,27 @@ function consumePloughEscort(u){
 // crossing a ploughed field. Detected purely from start/end coordinates:
 // covering a 2-square straight-line displacement in exactly 2 steps is only
 // possible without a pivot, so no separate path-tracking is needed.
-function checkAndSetCharge(u, fromX, fromY){
-  u.charged = false;
-  if(!UNIT_TYPES[u.type].isCavalry) return;
-  const dx = u.x - fromX, dy = u.y - fromY;
+function isCleanChargeRun(fromX, fromY, toX, toY){
+  const dx = toX - fromX, dy = toY - fromY;
   const straight = (dx===0 || Math.abs(dx)===2) && (dy===0 || Math.abs(dy)===2) && !(dx===0 && dy===0);
-  if(!straight) return;
+  if(!straight) return false;
   const midX = fromX + dx/2, midY = fromY + dy/2;
-  if(terrainAt(fromX,fromY).plough || terrainAt(midX,midY).plough || terrainAt(u.x,u.y).plough) return; // can't charge through/onto a ploughed field
-  u.charged = true;
+  if(terrainAt(fromX,fromY).plough || terrainAt(midX,midY).plough || terrainAt(toX,toY).plough) return false;
+  return true;
+}
+// Is `pos` adjacent to at least one enemy this side could legally charge? (not in
+// Square, and not on higher ground than the charging destination — matches the
+// "can't charge uphill or against a Square" restriction).
+function hasChargeableTargetAt(side, pos){
+  return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(pos,o) &&
+    o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(pos.x,pos.y).elevation);
+}
+// Every legal move for a Cavalry unit that would count as a clean charge run
+// AND land it adjacent to something worth charging — the set of squares the
+// Charge button highlights.
+function computeChargeDestinations(u){
+  if(!UNIT_TYPES[u.type].isCavalry) return [];
+  return legalMoves(u).filter(m => isCleanChargeRun(u.x,u.y,m.x,m.y) && hasChargeableTargetAt(u.side, m));
 }
 
 function unitBaseMove(u){
@@ -1445,7 +1462,7 @@ function draw(){
   // movement / target highlights
   if(highlightCells && highlightCells.length){
     for(const c of highlightCells){
-      ctx.fillStyle = c.kind==='move' ? 'rgba(184,147,79,0.35)' : 'rgba(181,69,63,0.4)';
+      ctx.fillStyle = c.kind==='move' ? 'rgba(184,147,79,0.35)' : c.kind==='charge' ? 'rgba(224,110,30,0.5)' : 'rgba(181,69,63,0.4)';
       ctx.fillRect(c.x*CELL+3, sy(c.y)*CELL+3, CELL-6, CELL-6);
     }
   }
@@ -2017,6 +2034,20 @@ function aiDecideAndExecuteMove(u){
   }
 
   const candidates = [{x:u.x,y:u.y,stay:true}].concat(legalMoves(u));
+  const seekTactics = state.aiDifficulty !== 'easy';
+
+  // Hard only: lay an ambush instead of advancing, when an enemy is close enough
+  // to plausibly walk into it but not already close enough that fighting normally
+  // is clearly better. A first-pass heuristic, not a deep tactical read.
+  if(state.aiDifficulty==='hard' && canLayAmbush(u)){
+    const near = nearestEnemyDist(u, side);
+    if(near>=2 && near<=5){
+      u.hidden = true;
+      state.moved.add(u.id);
+      log(`${t.label} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
+      return;
+    }
+  }
 
   let best = candidates[0], bestScore = -Infinity;
   for(const c of candidates){
@@ -2032,6 +2063,20 @@ function aiDecideAndExecuteMove(u){
     } else {
       s -= nearestEnemyDist(c, side) * 0.12;
     }
+
+    // Medium+: deliberately seek out a Charge instead of only charging by accident.
+    if(seekTactics && t.isCavalry && !c.stay && isCleanChargeRun(ox,oy,c.x,c.y)){
+      const chargeable = state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) &&
+        o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(c.x,c.y).elevation);
+      if(chargeable) s += 2.2;
+    }
+    // Medium+: deliberately form an Attack Column ahead of a fight it can already see coming,
+    // instead of doubling up only as an accidental byproduct of two units picking the same square.
+    if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD') && !c.stay){
+      const occ = unitsAt(c.x,c.y).filter(o=>!o.removed && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
+      if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += 1.4;
+    }
+
     s += Math.random() * 0.03; // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
     if(s>bestScore){ bestScore=s; best=c; }
@@ -2056,8 +2101,12 @@ function aiDecideAndExecuteMove(u){
     displaceBrigadierIfPresent(best.x, best.y, fromX, fromY);
     if(t.isArtillery && !isHorseArtillery(u) && terrainAt(best.x,best.y).plough) consumePloughEscort(u);
     animateUnitTo(u, best.x, best.y);
-    checkAndSetCharge(u, fromX, fromY);
-    log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+    if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
+      u.charged = true;
+      log(`${t.label} (${SIDE_LABEL[side]}) charges to engage!`, side);
+    } else {
+      log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+    }
     state.moved.add(u.id);
   }
 }
@@ -2086,7 +2135,8 @@ function aiFireDecision(gun){
   for(const t of targets){
     const dist = chebyshev(gun,t);
     const pHit = dist<=1 ? 1 : Math.max(0,(7-dist))/6;
-    const score = pHit * AI_UNIT_VALUE[t.type];
+    let score = pHit * AI_UNIT_VALUE[t.type];
+    if(state.aiDifficulty!=='easy') score += pHit * brigadeBreakBonus(t);
     if(score>bestScore){ bestScore=score; best=t; }
   }
   fireArtillery(gun, best);
@@ -2120,6 +2170,52 @@ function estimateFightValue(a, t){
   return edge*2 + AI_UNIT_VALUE[t.type]*0.4 - AI_UNIT_VALUE[a.type]*0.15;
 }
 
+// Medium+: how much finishing off `target` matters for actually winning the game —
+// Easy has no concept of this and just takes the best immediate trade available.
+function brigadeBreakBonus(target){
+  const remaining = state.units.filter(o=>!o.removed && o.side===target.side && o.brigadeId===target.brigadeId && o.type!=='BRIGADIER').length;
+  if(remaining<=1) return 6;   // this IS the Brigade's last unit — taking it breaks the Brigade outright
+  if(remaining===2) return 2.5; // one hit from breaking
+  return 0;
+}
+
+// Hard only: a cheap, deterministic stand-in for real lookahead. Rather than a
+// single random roll, use the EXPECTED margin from the dice-count edge to predict
+// the likely outcome bucket, apply it to a temporary clone of the two units, score
+// the resulting position with evaluateState, then revert. Not true minimax — the
+// branching factor here doesn't justify that — but a genuine step past the
+// immediate trade instead of a static heuristic.
+function simulateFightAftermathScore(attacker, defender, side){
+  const aD = bonusDiceCount(attacker, defender, false);
+  const dD = bonusDiceCount(defender, attacker, true);
+  const EV_BY_DICE = {1:3.5, 2:4.47};
+  const margin = (EV_BY_DICE[Math.min(aD,2)]||3.5) - (EV_BY_DICE[Math.min(dD,2)]||3.5);
+
+  const snap = { aRemoved:attacker.removed, aX:attacker.x, aY:attacker.y, aTurnOnly:attacker.turnOnly,
+                 dRemoved:defender.removed, dX:defender.x, dY:defender.y, dTurnOnly:defender.turnOnly };
+
+  if(margin >= 3){ defender.removed = true; }
+  else if(margin >= 1){ defender.turnOnly = true; }
+  else if(margin <= -3){ attacker.removed = true; }
+  else if(margin <= -1){ attacker.turnOnly = true; }
+  // roughly even (|margin|<1): treat as a draw, no change — matches the real rule's tie-continues behaviour
+
+  const score = evaluateState(side) + brigadeBreakBonus(defender)*0.5;
+
+  attacker.removed=snap.aRemoved; attacker.x=snap.aX; attacker.y=snap.aY; attacker.turnOnly=snap.aTurnOnly;
+  defender.removed=snap.dRemoved; defender.x=snap.dX; defender.y=snap.dY; defender.turnOnly=snap.dTurnOnly;
+
+  return score;
+}
+
+// Single entry point the AI's Fight-phase loop calls — branches on difficulty,
+// Easy's exact original behaviour untouched.
+function aiEstimateFightValue(a, t, side){
+  if(state.aiDifficulty==='hard') return simulateFightAftermathScore(a, t, side) + estimateFightValue(a,t)*0.15;
+  if(state.aiDifficulty==='medium') return estimateFightValue(a,t) + brigadeBreakBonus(t);
+  return estimateFightValue(a,t);
+}
+
 function aiDoFightPhase(){
   function step(){
     if(state.gameOver) return;
@@ -2130,7 +2226,7 @@ function aiDoFightPhase(){
     for(const a of attackers){
       const targets = state.units.filter(o=>!o.removed && o.side!==state.aiSide && isAdjacent(a,o) && canAttackTarget(a,o));
       for(const t of targets){
-        const s = estimateFightValue(a,t);
+        const s = aiEstimateFightValue(a, t, state.aiSide);
         if(s>bestScore){ bestScore=s; bestA=a; bestT=t; }
       }
     }
@@ -2228,6 +2324,7 @@ function clearPendingTurnaroundFlagsIfDue(){
     u.ambushSpentThisRound = false;
     u.noActionThisTurn = false;
     u.smokeActive = false;
+    u.charged = false; // a declared charge only counts for the turn it was made
   }
   state.ploughEscortUsed = {};
 }
@@ -2461,6 +2558,15 @@ function renderUnitInfo(u){
   } else {
     ambBtn.style.display = 'none';
   }
+
+  const chargeBtn = document.getElementById('chargeBtn');
+  const chargeOk = t.isCavalry && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
+  if(chargeOk && computeChargeDestinations(u).length>0){
+    chargeBtn.style.display = 'inline-block';
+    chargeBtn.disabled = false;
+  } else {
+    chargeBtn.style.display = 'none';
+  }
 }
 
 canvas.addEventListener('click', (e)=>{
@@ -2482,13 +2588,23 @@ function onCellClick(x,y){
   const sel = state.selectedUnitId ? state.units.find(u=>u.id===state.selectedUnitId) : null;
 
   if(state.phase==='move'){
+    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='charge')){
+      pushUndoSnapshot();
+      const fromX=sel.x, fromY=sel.y;
+      displaceBrigadierIfPresent(x, y, fromX, fromY);
+      animateUnitTo(sel, x, y);
+      sel.charged = true;
+      state.moved.add(sel.id);
+      log(`${UNIT_TYPES[sel.type].label} charges to engage!`, sel.side);
+      selectUnit(sel.id);
+      return;
+    }
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
       if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
       animateUnitTo(sel, x, y);
-      checkAndSetCharge(sel, fromX, fromY);
       state.moved.add(sel.id);
       log(`${UNIT_TYPES[sel.type].label} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
@@ -2607,6 +2723,14 @@ document.getElementById('ambushBtn').onclick = ()=>{
   draw();
 };
 
+document.getElementById('chargeBtn').onclick = ()=>{
+  const u = state.units.find(x=>x.id===state.selectedUnitId);
+  if(!u) return;
+  const dests = computeChargeDestinations(u);
+  highlightCells = dests.map(m=>({x:m.x, y:m.y, kind:'charge'}));
+  draw();
+};
+
 document.getElementById('endMoveBtn').onclick = endMovePhase;
 document.getElementById('endFireBtn').onclick = endFirePhase;
 document.getElementById('endFightBtn').onclick = endFightPhase;
@@ -2676,12 +2800,38 @@ function showSideSelect(){
   const redBtn = document.createElement('button');
   redBtn.className = 'primary';
   redBtn.textContent = 'Play Britain (Red)';
-  redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; showDifficultySelect(); };
   const blueBtn = document.createElement('button');
   blueBtn.textContent = 'Play France (Blue)';
-  blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; showDifficultySelect(); };
   extra.appendChild(redBtn);
   extra.appendChild(blueBtn);
+}
+
+function showDifficultySelect(){
+  document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
+  document.getElementById('overlayText').innerHTML =
+    '<b>Easy</b>: straightforward, reactive tactics. <b>Medium</b>: prioritises finishing off weakened Brigades, uses Charge and Attack Column deliberately. <b>Hard</b>: all of Medium, plus looks a step past the immediate trade before committing to a fight, and can lay ambushes proactively.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexWrap = 'wrap';
+  const mk = (label, value, primary)=>{
+    const b = document.createElement('button');
+    if(primary) b.className = 'primary';
+    b.textContent = label;
+    b.onclick = ()=>{
+      state.aiDifficulty = value;
+      extra.style.display='none';
+      document.getElementById('overlay').classList.remove('show');
+      beginBoardSetup();
+    };
+    return b;
+  };
+  extra.appendChild(mk('Easy', 'easy', false));
+  extra.appendChild(mk('Medium', 'medium', true));
+  extra.appendChild(mk('Hard', 'hard', false));
+  document.getElementById('overlay').classList.add('show');
 }
 
 /* =========================================================
