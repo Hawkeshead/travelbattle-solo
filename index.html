@@ -99,6 +99,8 @@
   #unitInfo .tag.st-active{color:var(--ok);}
   #unitInfo .tag.st-square{color:var(--warn);}
   #unitInfo .tag.st-pushed{color:var(--danger);}
+  .bio-toggle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brass-dim);cursor:pointer;margin-top:6px;user-select:none;}
+  .bio-text{font-family:'Cormorant Garamond',serif;font-size:12.5px;line-height:1.5;color:var(--ink-dim);margin-top:4px;padding-top:4px;border-top:1px solid var(--line);}
 
   #actionRow{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
   button{
@@ -429,6 +431,149 @@ const UNIT_TYPES = {
 
 // Full army per side, split into 3 Brigades — matches the physical box contents
 // (3 Brigadiers, 2 Guard Infantry, 6 Infantry, 2 Heavy Cavalry, 2 Light Cavalry, 2 Artillery)
+const UNIT_ARCHIVE = {
+  red: {
+    BRIGADIER: [
+      { name:'Wellington', bio:'Arthur Wellesley, Duke of Wellington, built his reputation in India before six years commanding the Peninsular campaign against Napoleon\'s marshals, mastering the reverse-slope defence and the disciplined volley line that broke French columns at Salamanca and Vitoria. Cautious by temperament and famously unsentimental about his own men, he preferred to fight on ground of his own choosing and let the enemy exhaust itself first. At Waterloo he commanded a scratch Anglo-Allied army and held the ridge at Mont-Saint-Jean through a full day of assault until the Prussians arrived. He never lost a pitched battle he commanded outright. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+      { name:'Thomas Graham', bio:'Thomas Graham, later 1st Baron Lynedoch, took up soldiering unusually late in life after the death of his wife, joining the army in his forties and rising through the Peninsular War on sheer aptitude rather than patronage. He commanded the Anglo-Portuguese-Spanish force that won the Battle of Barrosa in 1811, a hard-fought action in which his troops captured a French Imperial Eagle. Wellington rated him among his most capable subordinates and trusted him with independent commands, including the operations around Cádiz. He retired from active field command before Waterloo but remained one of the era\'s most respected British generals. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+      { name:'Uxbridge', bio:'Henry Paget, 2nd Earl of Uxbridge, commanded the Allied cavalry at Waterloo, leading the famous, costly charge of the Household and Union Brigades that shattered d\'Erlon\'s advancing infantry columns before running out of control into the French guns. A skilled and aggressive cavalry commander with Peninsular experience, he lost a leg to one of the last cannon shots of the battle, reputedly telling Wellington \'By God, sir, I\'ve lost my leg!\' and receiving the reply \'By God, sir, so you have!\'. He later served as a senior political and military figure and was created Marquess of Anglesey. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+    ],
+    GUARD: [
+      { name:'42nd Black Watch', bio:'The 42nd (Royal Highland) Regiment of Foot, the Black Watch, traces its roots to independent Highland companies raised in the 1720s to police the Highlands, later formed into a regiment of the line in 1739. Renowned for their dark tartan and unbending discipline, they fought with distinction throughout the Napoleonic Wars, including at Quatre Bras in 1815 where they were caught in the open by French cavalry and formed square under fire, holding despite heavy losses. Their reputation for steadiness under pressure made them one of the most trusted infantry regiments in Wellington\'s army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'92nd Gordon Highlanders', bio:'Raised in 1794 by the Duke of Gordon, the 92nd Regiment of Foot became one of the most celebrated Highland regiments of the era, fighting through Egypt, the Peninsula, and the Waterloo campaign. At Quatre Bras and again at Waterloo they distinguished themselves alongside the Scots Greys, with a famous, much-embellished tradition holding that Highlanders clung to the cavalry\'s stirrups as they charged together into the French lines. Their kilted, tightly-drilled ranks became a symbol of Highland fighting spirit in British popular memory. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+    ],
+    INFANTRY: [
+      { name:'95th Rifles', bio:'Formed in 1800 as an experimental corps and issued the Baker rifle rather than the standard musket, the 95th Rifles pioneered skirmishing tactics for the British Army: fighting in loose order, picking off officers and gun crews at range, and screening the main battle line. Dressed in dark green rather than red to help them blend into cover, they became the elite reconnaissance and sharpshooting arm of Wellington\'s Peninsular army and fought at nearly every major action from Vimeiro to Waterloo. Their distinctive role later inspired countless popular depictions of the Napoleonic rifleman. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'Corsican Rangers', bio:'Formed from Corsican exiles who had fought alongside the British on their home island in the 1790s, the Royal Corsican Rangers were reconstituted in 1803 as a light infantry corps of riflemen for Mediterranean service. Filled out with recruits from Sicily, Sardinia and Naples, they fought at the Battle of Maida in 1806 and spent most of the wars campaigning around the Ionian Islands, far from the main Peninsular theatre. Their green uniforms and skirmishing role made them a natural companion to the more famous rifle regiments, though their service is much less well known. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'44th East Essex', bio:'The 44th (East Essex) Regiment of Foot served through the Peninsular War and the Waterloo campaign, forming part of Picton\'s 5th Division alongside the Highland regiments. At Quatre Bras they held their ground against repeated French attacks in confused, close-quarters fighting through the crops and hedgerows around the crossroads. Steady, unglamorous line infantry of exactly the kind Wellington relied on to hold a position under sustained pressure, the 44th\'s Waterloo campaign service later earned it a battle honour still carried by its successor regiments. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'28th North Gloucestershire', bio:'The 28th (North Gloucestershire) Regiment of Foot earned a unique distinction in Egypt in 1801: attacked from front and rear simultaneously at the Battle of Alexandria, the regiment\'s rear rank turned about to fight back-to-back with the front rank, a feat commemorated ever after by the regiment wearing its cap badge on both the front and back of its headdress. By Waterloo they were veteran Peninsular infantry serving in Picton\'s division, fighting at Quatre Bras and standing in the thick of the fighting near La Haye Sainte on the day of the main battle. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'3rd Regiment of Foot Guards', bio:'The 3rd Regiment of Foot Guards, later the Scots Guards, served as part of the elite Guards brigades that anchored Wellington\'s Peninsular and Waterloo armies. At the Battle of Barrosa in 1811 under Thomas Graham, elements of the regiment took part in the assault that captured a French Imperial Eagle, one of the first taken by the British in the wars. Guards regiments were held to the highest standard of drill and discipline in the army and were routinely trusted with the most exposed or decisive ground in a battle line. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'Brunswick Oels Jägers', bio:'Raised in 1809 by Frederick William, Duke of Brunswick, as part of his volunteer \'Black Brunswickers\' corps, the Oels Jägers wore mourning black in defiance of Napoleon\'s occupation of their homeland and fought their way across Germany before taking refuge in British service. They served through the Peninsular War at Fuentes de Oñoro, Salamanca and Vitoria, then returned for the Hundred Days in 1815, where the Duke himself was killed at Quatre Bras. A scratch, hard-luck unit patched together from refugees and volunteers, they nonetheless fought on to Waterloo under Wellington\'s command. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+    ],
+    HEAVY_CAV: [
+      { name:'Scots Greys', bio:'The 2nd Dragoons, universally known as the Scots Greys for their distinctive grey horses, are the single most famous cavalry regiment of Waterloo. In the great charge of the Union Brigade they smashed into d\'Erlon\'s advancing infantry columns and captured the Eagle of the French 45e Régiment de Ligne, a feat still commemorated in British military tradition. Like the rest of the Union Brigade they charged too far and were badly cut up by French cavalry and artillery on the counter-charge, but their initial impact broke the back of Napoleon\'s first great infantry assault. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+      { name:'Royal Horse Guards – The Blues', bio:'The Royal Horse Guards, nicknamed \'The Blues\' for their distinctive blue coats among an otherwise scarlet-clad heavy cavalry, formed part of the Household Brigade at Waterloo alongside the Life Guards. They took part in the same devastating charge that broke the leading French cuirassier and infantry attacks in the early afternoon of the battle, before being thrown into repeated cavalry melees for the rest of the day. As one of the most senior and prestigious regiments in the British Army, they were entrusted with a central position near Wellington\'s own command post on the ridge. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+    ],
+    LIGHT_CAV: [
+      { name:'10th Hussars', bio:'The 10th (Prince of Wales\'s Own Royal) Hussars carried the personal patronage of the future King George IV, who served as their Colonel and dressed them in some of the most extravagant uniforms in the British Army. Peninsular veterans of Vitoria and the Pyrenees, they returned to service for the Waterloo campaign as part of the Allied light cavalry screen, tasked with scouting, skirmishing and covering the army\'s flanks rather than the shock charges of the heavies. Their reputation for dash and fashionable extravagance made them one of the most talked-about regiments of the era. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+      { name:'15th Hussars', bio:'The 15th (King\'s) Hussars were among the first British cavalry regiments converted to the hussar role in the 1800s, adopting the fast, lightly-equipped style pioneered by continental light cavalry. They served with distinction throughout the Peninsular War, including a celebrated action at Sahagún in 1808 where they routed a larger French cavalry force in a dawn surprise attack. By 1815 they were experienced Peninsular veterans, well suited to the harrying, scouting and flank-guard duties expected of light cavalry in a general engagement. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+    ],
+    ARTILLERY: [
+      { name:'Royal Artillery, Battery A', bio:'British artillery batteries in the Napoleonic era were organised around six guns apiece, typically a mix of 6- or 9-pounder cannon and howitzers, crewed by professional gunners of the Royal Artillery rather than regimental soldiers. At Waterloo, Wellington\'s guns were deployed along the ridge line and did brutal execution on the massed French infantry and cavalry columns advancing across the valley, though the batteries themselves were repeatedly overrun and retaken as the French cavalry surged past them. Gunners were trained to spike their own pieces and shelter beneath the guns rather than abandon them outright. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field.' },
+      { name:'Royal Artillery, Battery B', bio:'By 1815 the Royal Artillery had developed into one of the most professional and best-drilled arms in any European army, its gun crews capable of firing several rounds a minute of case shot at point-blank range into approaching infantry and cavalry. Batteries like this one formed the backbone of Wellington\'s defensive line at Waterloo, their fire credited with breaking up the momentum of both d\'Erlon\'s infantry assault and the great French cavalry charges that followed. Horse artillery batteries could also move at the gallop to reinforce a threatened point of the line at short notice. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field.' },
+    ],
+  },
+  blue: {
+    BRIGADIER: [
+      { name:'Napoleon', bio:'Napoleon Bonaparte rose from Corsican artillery officer to Emperor of the French, reshaping European warfare with his mastery of rapid manoeuvre, concentrated artillery and the corps system that let his armies move and fight independently before combining for the decisive blow. Exiled to Elba in 1814, he returned to France in 1815 for the Hundred Days, rebuilding an army in weeks and marching north to strike the Allied and Prussian forces before they could unite. At Waterloo he commanded in person, holding the Imperial Guard back as his last reserve until it was almost too late, and his defeat there ended his rule for good. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+      { name:'Soult', bio:'Nicolas Jean-de-Dieu Soult was one of Napoleon\'s most capable marshals, a veteran of Austerlitz and years of hard campaigning against Wellington in the Peninsula, where the two men developed a deep mutual respect as adversaries. At Waterloo he served as Napoleon\'s chief of staff, a role for which contemporaries judged him poorly suited compared to the more meticulous Berthier, and several of the army\'s communication failures during the battle have been laid at his door. Despite this, his record as a battlefield commander in his own right was formidable, and he later served as a French statesman. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+      { name:'Murat', bio:'Joachim Murat, King of Naples and Napoleon\'s brother-in-law, was widely regarded as the finest cavalry commander of the age, famous for leading charges in person at the head of his men in flamboyant, plumed uniforms of his own design. He commanded the Grande Armée\'s cavalry reserve through its greatest campaigns, from Austerlitz to the retreat from Moscow, using speed and shock action to break enemy lines before the infantry arrived. He was not present at Waterloo, having been estranged from Napoleon after his own attempt to keep his throne in 1814, but his reputation as the embodiment of aggressive cavalry leadership endured. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command.' },
+    ],
+    GUARD: [
+      { name:'1er Grenadiers à Pied', bio:'The 1er Régiment de Grenadiers à Pied de la Garde Impériale were the senior regiment of Napoleon\'s Old Guard, an elite corps of veteran soldiers who had to meet strict service and height requirements and were paid and equipped far better than ordinary line infantry. Held back as the army\'s last reserve in almost every major battle, they were thrown into the fighting only at the decisive moment, most famously in their final, doomed advance up the ridge at Waterloo in the evening of 18 June 1815. Their repulse, unprecedented in the Guard\'s history, was the moment the French army\'s morale finally broke. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'2e Grenadiers à Pied', bio:'The 2e Régiment de Grenadiers à Pied served alongside the 1er Grenadiers as part of the Old Guard\'s Grenadier division, an intensely proud formation that considered itself the finest infantry in Europe. Their distinctive bearskin caps and blue uniforms with white facings made them instantly recognisable, and their presence in reserve was often enough to steady a wavering French line simply by being visible on the field. Like the rest of the Guard, they were committed at Waterloo only once the battle had reached its crisis, advancing into the Allied line as dusk approached. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+    ],
+    INFANTRY: [
+      { name:'9e Légère', bio:'The 9e Régiment d\'Infanterie Légère, light infantry trained for skirmishing and rapid manoeuvre ahead of the main battle line, served through many of Napoleon\'s Peninsular and German campaigns. Light infantry regiments like the 9e Légère screened the advance of the heavier line formations, harassing the enemy with sustained musketry from loose order before falling back to let the massed columns deliver the decisive blow. Voltigeur companies within regiments like this one were specifically trained as elite skirmishers, drawn from the most agile and accurate marksmen in the unit. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'17e Légère', bio:'The 17e Régiment d\'Infanterie Légère fought through the Napoleonic Wars as part of France\'s light infantry arm, prized for speed and independence of action on campaigns that increasingly relied on rapid marching and flexible deployment. Légère regiments carried a certain esprit de corps distinct from the line infantry, considering themselves the more dashing, skirmish-hardened troops of Napoleon\'s armies. By the time of the Hundred Days in 1815, regiments like the 17e were largely made up of hardened veterans recalled to service for one final campaign. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'1er Ligne', bio:'The 1er Régiment de Ligne carried the seniority of being the first-numbered infantry regiment in Napoleon\'s army, a lineage stretching back through the Revolutionary Wars. Ligne regiments formed the backbone of French infantry tactics, advancing in dense columns designed to punch through an enemy line with weight and momentum rather than the extended firing lines favoured by the British. By 1815 most Ligne regiments were rebuilt around a core of Napoleonic veterans mixed with fresh conscripts hurriedly called up for the Hundred Days campaign. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'4e Ligne', bio:'The 4e Régiment de Ligne served as standard French line infantry throughout the Napoleonic Wars, trained to advance in massed column formation and rely on the bayonet and sheer weight of numbers to break an enemy position. Regiments like the 4e formed the bulk of d\'Erlon\'s I Corps at Waterloo, the great infantry assault that opened the battle\'s main fighting and was ultimately broken by the British infantry line and the charge of the Union and Household Brigades. Their voltigeur companies screened the advance with skirmish fire before the main column closed to contact. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'45e Ligne', bio:'The 45e Régiment de Ligne holds a grim distinction in British military memory: it was this regiment\'s Imperial Eagle that was captured by Sergeant Charles Ewart of the Scots Greys during the Union Brigade\'s charge at Waterloo, one of the most celebrated trophies of the battle and still commemorated in British regimental tradition today. The loss of an Eagle was considered a catastrophic disgrace in the French army, akin to losing a regiment\'s soul, and the 45e\'s story is inseparable from that single moment of the battle. The regiment itself, like the rest of d\'Erlon\'s Corps, was broken in the same attack that cost it its standard. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+      { name:'105e Ligne', bio:'The 105e Régiment de Ligne fought as line infantry in Napoleon\'s armies, one of many regiments whose voltigeur companies were trained as skirmishers to screen the advance of the main column. Regiments numbered this high in the French army\'s order of battle were often raised relatively late in the wars, reflecting the constant expansion and reorganisation Napoleon\'s manpower demands forced on the army. By 1815 the 105e, like its counterparts, was a mix of hardened survivors of earlier campaigns and fresh recruits swept up for the Hundred Days. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving.' },
+    ],
+    HEAVY_CAV: [
+      { name:'5e Cuirassiers', bio:'The 5e Régiment de Cuirassiers rode as heavy shock cavalry, protected by steel breastplates and backplates that gave the cuirassiers their name and made them instantly recognisable thundering across a battlefield. At Waterloo, massed French cuirassier charges repeatedly slammed into the British infantry squares along the ridge, unable to break the disciplined formations but inflicting terror and heavy losses on the gunners caught in the open between charges. Their armour made them formidable against infantry fire and sabre cuts alike, though it could do little against a square that held its nerve and its volleys. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+      { name:'Carabiniers-à-Cheval', bio:'The Carabiniers-à-Cheval were among the most elite heavy cavalry in Napoleon\'s army, originally distinguished by ornate uniforms before being issued cuirasses like their cuirassier counterparts after suffering heavy losses without armour earlier in the wars. Considered a match for any cavalry in Europe, they were held as a shock reserve to be committed at the decisive moment of a battle, their charge intended to finish off an enemy line already broken by infantry and artillery. Their presence on a battlefield signalled that a commander was ready to gamble on a single, war-deciding blow. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+    ],
+    LIGHT_CAV: [
+      { name:'7e Hussards', bio:'The 7e Régiment de Hussards served as fast, lightly-equipped cavalry in the French light cavalry arm, tasked with scouting, screening the army\'s movements and harassing an enemy\'s flanks and supply lines rather than delivering the heavy shock charges of the cuirassiers. Hussar regiments prided themselves on dash and individual horsemanship, adopting elaborate braided uniforms inspired by Hungarian cavalry traditions. By the Hundred Days, regiments like the 7e were essential to Napoleon\'s ability to track Allied and Prussian troop movements across the Belgian countryside in the days before Waterloo. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+      { name:'11e Hussards', bio:'The 11e Régiment de Hussards fought as part of Napoleon\'s light cavalry screen, relied upon for the unglamorous but essential work of reconnaissance, outpost duty and rapid pursuit of a beaten enemy. Hussars were expected to range far ahead of the main army, and a regiment\'s reputation rested as much on the reliability of the intelligence it brought back as on its performance in a charge. In the fast-moving, information-starved opening days of the Waterloo campaign, light cavalry like the 11e played a critical role in each side\'s attempts to work out where the other\'s army actually was. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight.' },
+    ],
+    ARTILLERY: [
+      { name:'French Foot Artillery, Battery A', bio:'Napoleon began his career as an artillery officer and never lost his conviction that guns, concentrated in mass and used aggressively, could decide a battle before the infantry ever closed. French foot artillery batteries were the tool of his signature \'grand battery\' tactic: massing dozens of guns to smash a single point in the enemy line before sending infantry columns through the gap. At Waterloo, French artillery pounded the Allied ridge for hours, though the reverse-slope positions Wellington favoured sheltered many of his infantry from the worst of the bombardment. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field.' },
+      { name:'French Foot Artillery, Battery B', bio:'French gunners were widely regarded as the best-drilled artillery arm in Europe, a legacy of the technical, mathematically-minded training culture Napoleon himself had come up through as a young officer. Batteries like this one were expected to move forward aggressively to support an infantry advance, unlimbering close to the enemy line to fire canister at point-blank range, a far riskier doctrine than the more static defensive gunnery favoured by British batteries. This aggression made French artillery devastating when it worked, but exposed the guns and their crews to heavy losses when a charge or advance stalled. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field.' },
+    ],
+  },
+};
+
+/* =========================================================
+   OPERATIONS — asymmetrical scenario battles, distinct from a standard
+   full-army fight. Each `sides.X.units` array is deployed as 3 nominal
+   Brigades (matching the deployment UI's fixed assumption) even when
+   very small or uneven, since that keeps this addition contained to
+   data + the objective system rather than generalizing brigade count
+   throughout the UI. Forces, objectives and turn limits are drawn from
+   the project's Battles & Operations document.
+   4 of the eventual 14 are authored here as a proven template — one
+   per objective type, spanning all three campaigns.
+========================================================= */
+const SCENARIOS = [
+  {
+    id: 'op-lincelles',
+    campaign: 'Flanders',
+    title: 'Battle of Lincelles',
+    date: '18 August 1793',
+    brief: "A French force has seized the village of Lincelles, threatening the Allied line. British Guards, supported by Dutch troops, must recapture it after intense street fighting.",
+    objectiveText: 'Capture and hold the village for 2 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','GUARD','GUARD','INFANTRY','BRIGADIER','INFANTRY','ARTILLERY','BRIGADIER','LIGHT_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','BRIGADIER','ARTILLERY'] }
+    },
+    turnLimit: null,
+    objective: { combinator:'any', conditions:[
+      { type:'CAPTURE_ZONE', params:{ zoneSquares:[{x:1,y:6},{x:2,y:6},{x:1,y:7}], holdForTurns:2 } }
+    ]}
+  },
+  {
+    id: 'op-caesars-camp',
+    campaign: 'Flanders',
+    title: "Battle of Caesar's Camp",
+    date: '7-8 August 1793',
+    brief: "French troops attack the Allied defensive position at Caesar's Camp. British and Austrian forces must hold the elevated ground against repeated assaults.",
+    objectiveText: 'Hold the hill for 8 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','ARTILLERY','BRIGADIER','GUARD','INFANTRY','BRIGADIER','LIGHT_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','BRIGADIER','INFANTRY','INFANTRY','ARTILLERY','BRIGADIER','LIGHT_CAV','INFANTRY'] }
+    },
+    turnLimit: 8,
+    objective: { combinator:'any', conditions:[
+      { type:'SURVIVE_TURNS', params:{ defender:'red', minUnits:2 } }
+    ]}
+  },
+  {
+    id: 'op-beaumont',
+    campaign: 'Flanders',
+    title: 'Battle of Beaumont',
+    date: '26 April 1794',
+    brief: "French forces launch a surprise dawn attack on Coalition outposts. British and Austrian troops are forced into a fighting withdrawal, needing to escape encirclement while preserving their guns.",
+    objectiveText: 'Get at least 3 units off the south edge, with your Artillery still alive.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','ARTILLERY','BRIGADIER','LIGHT_CAV','INFANTRY','BRIGADIER','GUARD'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','BRIGADIER','INFANTRY','LIGHT_CAV','ARTILLERY','BRIGADIER','INFANTRY','INFANTRY'] }
+    },
+    turnLimit: 10,
+    objective: { combinator:'all', conditions:[
+      { type:'ESCAPE_ZONE', params:{ escapingSide:'red', edgeRows:[9], minUnitsToEscape:3 } },
+      { type:'PROTECT_UNIT', params:{ protectSide:'red', unitTypes:['ARTILLERY'] } }
+    ]}
+  },
+  {
+    id: 'op-garcia-hernandez',
+    campaign: 'Peninsular',
+    title: 'Combat of García Hernández',
+    date: '23 July 1812',
+    brief: "Immediately after Salamanca, King's German Legion cavalry charges French infantry squares in one of the war's most remarkable cavalry successes, running down the shattered remnants of the retreat.",
+    objectiveText: 'Destroy 4 French units before they can rally and withdraw.',
+    sides: {
+      red: { units: ['BRIGADIER','HEAVY_CAV','HEAVY_CAV','BRIGADIER','LIGHT_CAV','LIGHT_CAV','BRIGADIER','HEAVY_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','ARTILLERY','INFANTRY'] }
+    },
+    turnLimit: 12,
+    objective: { combinator:'any', conditions:[
+      { type:'ELIMINATE_TARGET', params:{ targetSide:'blue', targetCount:4 } }
+    ]}
+  }
+];
 const BRIGADE_COMPOSITIONS = [
   ['BRIGADIER','GUARD','INFANTRY','INFANTRY','LIGHT_CAV','ARTILLERY'],
   ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','ARTILLERY'],
@@ -453,6 +598,9 @@ let state = {
   mode: 'hotseat',  // 'hotseat' | 'ai'
   aiSide: null,     // side controlled by the AI, when mode==='ai'
   aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
+  scenario: null,   // active Operation, or null for a standard full-army battle
+  turnNumber: 1,    // increments every side-turn (2 per round)
+  captureHoldCounter: { red:0, blue:0 }, // consecutive turns each side has held a CAPTURE_ZONE objective
   terrain: buildTerrainMap(),
   excludedRoadEdges: buildExcludedRoadEdgeSet(),
   craters: [], // {x,y} — every square an Artillery shot has hit, persists for the whole match
@@ -531,7 +679,14 @@ function updateUndoButtons(){
   const b2 = document.getElementById('undoBtnBattle'); if(b2) b2.disabled = disabled;
 }
 
+let historicalSlotCounters = { red:{}, blue:{} };
+function resetHistoricalIdentities(){ historicalSlotCounters = { red:{}, blue:{} }; }
 function newUnit(side, typeKey, x, y, brigadeId){
+  const counters = historicalSlotCounters[side];
+  const idx = counters[typeKey] || 0;
+  counters[typeKey] = idx + 1;
+  const archiveList = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][typeKey]) || [];
+  const historical = archiveList.length ? archiveList[idx % archiveList.length] : null;
   return {
     id: 'u'+(uidCounter++), side, type: typeKey, brigadeId,
     x, y, removed:false, formation:'line', pushed:false,
@@ -542,7 +697,9 @@ function newUnit(side, typeKey, x, y, brigadeId){
     hidden:false,           // Woodland Ambush — invisible to artillery and to the AI's own targeting
     ambushSpentThisRound:false, // sprang an ambush this round — no woods defence bonus until side's next turn
     noActionThisTurn:false, // stood down an ambush without springing — can't move or fight for the rest of this turn
-    smokeActive:false       // fired this cycle — shows muzzle smoke until this unit's side's next turn
+    smokeActive:false,      // fired this cycle — shows muzzle smoke until this unit's side's next turn
+    historicalName: historical ? historical.name : null,
+    historicalBio: historical ? historical.bio : null
   };
 }
 
@@ -960,7 +1117,7 @@ function resolveFight(attacker, defender, ambushMode){
   const winner = winnerIsAttacker ? attacker : defender;
   const loser = winnerIsAttacker ? defender : attacker;
   const diff = Math.abs(aRoll.value - dRoll.value);
-  log(`${aType.label} (${SIDE_LABEL[attacker.side]}) vs ${dType.label} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${UNIT_TYPES[loser.type].label} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
+  log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
   const columnPartner = stackPartner(loser); // a broken Column takes both units with it
   if(diff===1){
@@ -987,7 +1144,7 @@ function pushBack(loser, winner){
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
         animateUnitTo(blocker, bx, by);
         blocker.turnOnly = true;
-        log(`${UNIT_TYPES[blocker.type].label} is shoved back by the retreat.`, 'combat');
+        log(`${unitLabel(blocker)} is shoved back by the retreat.`, 'combat');
       } else {
         landingClear = false; // nowhere for the blocker to go — loser can't retreat into it either
       }
@@ -995,7 +1152,7 @@ function pushBack(loser, winner){
     if(landingClear){ animateUnitTo(loser, nx, ny); }
   }
   loser.turnOnly = true;
-  log(`${UNIT_TYPES[loser.type].label} pushed back and turned around; can only turn around next turn.`, 'combat');
+  log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
 }
 
 function retreatAndRally(loser){
@@ -1014,12 +1171,12 @@ function retreatAndRally(loser){
   const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+'] : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
   showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
   if(successOn.includes(r)){
-    log(`${t.label} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
+    log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
   } else if(brig && !brig.leadershipUsed){
     brig.leadershipUsed = true;
-    log(`${t.label} fails to rally (rolled ${r}), but the Brigadier's Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
+    log(`${unitLabel(loser)} fails to rally (rolled ${r}), but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
   } else {
-    log(`${t.label} fails to rally (rolled ${r}) and is removed from the field.`, 'combat');
+    log(`${unitLabel(loser)} fails to rally (rolled ${r}) and is removed from the field.`, 'combat');
     removeUnit(loser, 'failed rally');
   }
 }
@@ -1040,14 +1197,14 @@ function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 function removeUnit(u, reason){
   u.removed = true;
   addDeathEffect(u.x, u.y);
-  log(`${UNIT_TYPES[u.type].label} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
+  log(`${unitLabel(u)} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
   if(u.type!=='BRIGADIER'){
     const brig = state.units.find(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type==='BRIGADIER');
     if(brig){
       const remaining = state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type!=='BRIGADIER');
       if(remaining.length===0){
         brig.removed = true; // withdraws, not killed — no death effect for a non-combat unit
-        log(`${SIDE_LABEL[brig.side]}'s Brigadier withdraws — the Brigade is broken.`, 'system');
+        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws — the Brigade is broken.`, 'system');
       }
     }
   }
@@ -1056,6 +1213,7 @@ function removeUnit(u, reason){
 }
 
 function checkWinCondition(){
+  if(state.scenario){ checkScenarioObjective(); return; }
   for(const side of [SIDES.RED, SIDES.BLUE]){
     let brokenCount = 0;
     for(let bId=0; bId<3; bId++){
@@ -1072,10 +1230,104 @@ function checkWinCondition(){
   }
 }
 
+/* =========================================================
+   OPERATIONS — pluggable scenario objectives.
+   Five reusable objective types cover all 14 catalogued Operations
+   without needing bespoke code per scenario. A scenario's `objective`
+   field is { combinator:'all'|'any', conditions:[{type,params}, ...] }.
+   Each condition checker returns 'red', 'blue', or null (undecided).
+========================================================= */
+function otherSide(side){ return side===SIDES.RED ? SIDES.BLUE : SIDES.RED; }
+
+function checkCaptureZone(params){
+  const { zoneSquares, holdForTurns } = params;
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const enemy = otherSide(side);
+    const controls = zoneSquares.every(({x,y}) => {
+      const here = unitsAt(x,y).filter(u=>!u.removed);
+      return here.some(u=>u.side===side) && !here.some(u=>u.side===enemy);
+    });
+    if(controls){
+      state.captureHoldCounter[side]++;
+      state.captureHoldCounter[enemy] = 0;
+      if(state.captureHoldCounter[side] >= holdForTurns) return side;
+    } else if(state.captureHoldCounter[side] > 0 && zoneSquares.some(({x,y})=>unitsAt(x,y).some(u=>!u.removed && u.side===side))){
+      // partial presence, no full control this check — hold streak broken but not reset by the enemy specifically
+      state.captureHoldCounter[side] = 0;
+    }
+  }
+  return null;
+}
+
+function checkSurviveTurns(params){
+  const { defender, minUnits } = params;
+  const attacker = otherSide(defender);
+  const defRemaining = state.units.filter(u=>u.side===defender && !u.removed && u.type!=='BRIGADIER').length;
+  if(defRemaining < (minUnits||1)) return attacker; // defender's force collapsed before time ran out
+  if(state.turnNumber >= state.scenario.turnLimit) return defender; // held out to the end
+  return null;
+}
+
+function checkEscapeZone(params){
+  const { escapingSide, edgeRows, minUnitsToEscape } = params;
+  const escaped = state.units.filter(u=>u.side===escapingSide && !u.removed && edgeRows.includes(u.y)).length;
+  if(escaped >= minUnitsToEscape) return escapingSide;
+  const remaining = state.units.filter(u=>u.side===escapingSide && !u.removed && u.type!=='BRIGADIER').length;
+  if(remaining < minUnitsToEscape - escaped) return otherSide(escapingSide); // can't possibly reach the count anymore
+  return null;
+}
+
+function checkEliminateTarget(params){
+  const { targetSide, targetCount } = params;
+  const eliminated = state.units.filter(u=>u.side===targetSide && u.removed).length;
+  if(eliminated >= targetCount) return otherSide(targetSide);
+  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) return targetSide; // ran out the clock
+  return null;
+}
+
+function checkProtectUnit(params){
+  const { protectSide, unitTypes } = params;
+  const assets = state.units.filter(u=>u.side===protectSide && unitTypes.includes(u.type));
+  const anyLost = assets.some(u=>u.removed);
+  if(anyLost) return otherSide(protectSide);
+  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) return protectSide;
+  return null;
+}
+
+const OBJECTIVE_CHECKERS = {
+  CAPTURE_ZONE: checkCaptureZone,
+  SURVIVE_TURNS: checkSurviveTurns,
+  ESCAPE_ZONE: checkEscapeZone,
+  ELIMINATE_TARGET: checkEliminateTarget,
+  PROTECT_UNIT: checkProtectUnit
+};
+
+function checkScenarioObjective(){
+  const obj = state.scenario.objective;
+  const results = obj.conditions.map(c => OBJECTIVE_CHECKERS[c.type](c.params));
+  let winner = null;
+  if(obj.combinator === 'any'){
+    winner = results.find(r => r !== null) || null;
+  } else { // 'all' — every condition must agree on the SAME winner
+    if(results.every(r => r !== null) && results.every(r => r === results[0])) winner = results[0];
+  }
+  if(winner) endGame(winner);
+}
+
+function checkScenarioTurnLimit(){
+  // Some objective types (SURVIVE_TURNS, ELIMINATE_TARGET, PROTECT_UNIT) resolve
+  // their own turn-limit outcome inside their checker; this just forces a check
+  // at the moment the limit is reached in case nothing else has triggered it yet.
+  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) checkScenarioObjective();
+}
+
 function endGame(winner){
   state.gameOver = true;
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
-  document.getElementById('overlayText').textContent = `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
+  const bodyText = state.scenario
+    ? `${SIDE_LABEL[winner]} achieves the objective: ${state.scenario.title}.`
+    : `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
+  document.getElementById('overlayText').textContent = bodyText;
   const modeChoices = document.getElementById('modeChoices');
   if(modeChoices) modeChoices.style.display = 'none';
   document.getElementById('overlayBtn').style.display = 'inline-block';
@@ -1649,7 +1901,14 @@ let highlightCells = [];
 const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
 
 function initDeployment(){
-  state.deployPool = { red: [...FULL_ARMY_POOL], blue: [...FULL_ARMY_POOL] };
+  resetHistoricalIdentities();
+  state.captureHoldCounter = { red:0, blue:0 };
+  state.turnNumber = 1;
+  if(state.scenario){
+    state.deployPool = { red: [...state.scenario.sides.red.units], blue: [...state.scenario.sides.blue.units] };
+  } else {
+    state.deployPool = { red: [...FULL_ARMY_POOL], blue: [...FULL_ARMY_POOL] };
+  }
   state.deployBrigadeIndex = { red: 0, blue: 0 };
   state.currentBrigadeHasBrigadier = { red: false, blue: false };
   state.currentBrigadeCount = { red: 0, blue: 0 };
@@ -1837,7 +2096,7 @@ function placeUnit(side, typeKey, x, y){
   const u = newUnit(side, typeKey, x, y, bIdx);
   state.units.push(u);
   pool.splice(poolIdx,1);
-  log(`${SIDE_LABEL[side]} deploys ${t.label} (Brigade ${bIdx+1}) at (${x},${y}).`);
+  log(`${SIDE_LABEL[side]} deploys ${unitLabel(u)} (Brigade ${bIdx+1}) at (${x},${y}).`);
 
   if(typeKey==='BRIGADIER'){
     state.currentBrigadeHasBrigadier[side] = true;
@@ -2047,7 +2306,7 @@ function aiDecideAndExecuteMove(u){
     if(threatPenalty(u, side) < 0.8){
       u.formation = 'line';
       state.moved.add(u.id);
-      log(`${t.label} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
     }
     return; // whether it left Square or stayed, a squared unit takes no other move action this phase
   }
@@ -2063,7 +2322,7 @@ function aiDecideAndExecuteMove(u){
     if(near>=2 && near<=5){
       u.hidden = true;
       state.moved.add(u.id);
-      log(`${t.label} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
       return;
     }
   }
@@ -2110,7 +2369,7 @@ function aiDecideAndExecuteMove(u){
     if(squareScore > bestScore){
       u.formation = 'square';
       state.moved.add(u.id);
-      log(`${t.label} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
       return;
     }
   }
@@ -2122,9 +2381,9 @@ function aiDecideAndExecuteMove(u){
     animateUnitTo(u, best.x, best.y);
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
-      log(`${t.label} (${SIDE_LABEL[side]}) charges to engage!`, side);
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);
     } else {
-      log(`${t.label} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
     }
     state.moved.add(u.id);
   }
@@ -2463,7 +2722,7 @@ function processAmbushSpringsSequentially(springs, idx, onDone){
 function showAmbushChoice(ambusher, target, callback){
   document.getElementById('overlayTitle').textContent = `AMBUSH! ${SIDE_LABEL[ambusher.side]}`;
   document.getElementById('overlayText').innerHTML =
-    `Your ${UNIT_TYPES[ambusher.type].label} springs on ${UNIT_TYPES[target.type].label}. +1 to the roll either way. `+
+    `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. `+
     `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`;
   document.getElementById('overlayBtn').style.display = 'none';
   const canvas = document.getElementById('rotationPreviewCanvas');
@@ -2487,14 +2746,14 @@ function showAmbushChoice(ambusher, target, callback){
 function springAmbush(ambusher, target, mode){
   ambusher.hidden = false;
   ambusher.ambushSpentThisRound = true;
-  log(`AMBUSH! ${UNIT_TYPES[ambusher.type].label} springs from the woods on ${UNIT_TYPES[target.type].label} (${mode}).`, 'combat');
+  log(`AMBUSH! ${unitLabel(ambusher)} springs from the woods on ${unitLabel(target)} (${mode}).`, 'combat');
   const beforeX = target.x, beforeY = target.y;
   resolveFight(ambusher, target, mode);
   if(mode==='advance'){
     const stillThere = state.units.some(o=>!o.removed && o.id===target.id && o.x===beforeX && o.y===beforeY);
     if(!stillThere && unitsAt(beforeX,beforeY).length===0 && isAdjacent(ambusher,{x:beforeX,y:beforeY})){
       animateUnitTo(ambusher, beforeX, beforeY);
-      log(`${UNIT_TYPES[ambusher.type].label} advances into the vacated ground.`, 'combat');
+      log(`${unitLabel(ambusher)} advances into the vacated ground.`, 'combat');
     }
   }
 }
@@ -2510,7 +2769,9 @@ function endFightPhase(){
   log(`${SIDE_LABEL[state.turn]} turn complete.`, 'system');
   setTimeout(()=>{
     state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
-    beginMovePhase();
+    state.turnNumber++;
+    if(state.scenario && !state.gameOver) checkScenarioTurnLimit();
+    if(!state.gameOver) beginMovePhase();
   }, 300);
 }
 
@@ -2537,6 +2798,15 @@ function selectUnit(id){
   draw();
 }
 
+function unitLabel(u){ return (u && u.historicalName) || UNIT_TYPES[u.type].label; }
+function toggleUnitBio(){
+  const bioText = document.getElementById('bioText');
+  const btn = document.getElementById('bioToggleBtn');
+  if(!bioText || !btn) return;
+  const showing = bioText.style.display !== 'none';
+  bioText.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? 'History ▾' : 'History ▴';
+}
 function renderUnitInfo(u){
   const el = document.getElementById('unitInfo');
   const sqBtn = document.getElementById('squareBtn');
@@ -2544,9 +2814,11 @@ function renderUnitInfo(u){
   if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; return; }
   const t = UNIT_TYPES[u.type];
   const terr = terrainAt(u.x,u.y);
+  const heading = u.historicalName || t.label;
+  const subheading = u.historicalName ? t.label : null;
   el.innerHTML = `
-    <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${t.label}</div>
-    <div style="color:var(--ink-dim);font-size:11px;">${SIDE_LABEL[u.side]} &middot; (${u.x},${u.y}) &middot; ${terr.key}</div>
+    <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${heading}</div>
+    <div style="color:var(--ink-dim);font-size:11px;">${SIDE_LABEL[u.side]}${subheading?(' &middot; '+subheading):''} &middot; (${u.x},${u.y}) &middot; ${terr.key}</div>
     <div class="u-tags">
       <span class="tag st-active">Move ${t.move}</span>
       ${t.reroll?'<span class="tag">Re-roll ★</span>':''}
@@ -2556,6 +2828,7 @@ function renderUnitInfo(u){
       ${u.hidden?'<span class="tag st-square">IN AMBUSH</span>':''}
       ${u.charged?'<span class="tag st-active">CHARGED</span>':''}
     </div>
+    ${u.historicalBio ? `<div class="bio-toggle" id="bioToggleBtn" onclick="toggleUnitBio()">History ▾</div><div class="bio-text" id="bioText" style="display:none;">${u.historicalBio}</div>` : ''}
   `;
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
   const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
@@ -2613,7 +2886,7 @@ function onCellClick(x,y){
       animateUnitTo(sel, x, y);
       sel.charged = true;
       state.moved.add(sel.id);
-      log(`${UNIT_TYPES[sel.type].label} charges to engage!`, sel.side);
+      log(`${unitLabel(sel)} charges to engage!`, sel.side);
       selectUnit(sel.id);
       return;
     }
@@ -2624,7 +2897,7 @@ function onCellClick(x,y){
       if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
       animateUnitTo(sel, x, y);
       state.moved.add(sel.id);
-      log(`${UNIT_TYPES[sel.type].label} moves to (${x},${y}).`, sel.side);
+      log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
       return;
     }
@@ -2672,7 +2945,7 @@ function fireArtillery(gun, target){
   const hit = adjRoll >= needed;
   const hitNotes = bonus>0 ? [target.formation==='square' ? '+1 to hit: Square formation' : '+1 to hit: doubled Infantry'] : [];
   showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
-  log(`Artillery fires at ${t.label} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
+  log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
   if(hit){
     addCrater(target.x, target.y);
     const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
@@ -2695,8 +2968,8 @@ function fireArtillery(gun, target){
 
 function applyArtilleryEffect(u, roll){
   const t = UNIT_TYPES[u.type];
-  if(roll<=3){ log(`${t.label} carries on regardless.`, 'combat'); }
-  else if(roll===4){ u.turnOnly=true; log(`${t.label} is shaken — cannot move next turn, turns to face.`, 'combat'); }
+  if(roll<=3){ log(`${unitLabel(u)} carries on regardless.`, 'combat'); }
+  else if(roll===4){ u.turnOnly=true; log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); }
   else if(roll===5){ retreatAndRally(u); }
   else { removeUnit(u,'destroyed by artillery'); }
 }
@@ -2716,11 +2989,11 @@ document.getElementById('squareBtn').onclick = ()=>{
   if(u.formation==='square'){
     u.formation = 'line';
     state.moved.add(u.id);
-    log(`${UNIT_TYPES[u.type].label} reforms Line.`, u.side);
+    log(`${unitLabel(u)} reforms Line.`, u.side);
   } else {
     u.formation = 'square';
     state.moved.add(u.id);
-    log(`${UNIT_TYPES[u.type].label} forms Square.`, u.side);
+    log(`${unitLabel(u)} forms Square.`, u.side);
   }
   selectUnit(u.id);
   draw();
@@ -2734,11 +3007,11 @@ document.getElementById('ambushBtn').onclick = ()=>{
     u.hidden = false;
     state.moved.add(u.id);
     u.noActionThisTurn = true;
-    log(`${UNIT_TYPES[u.type].label} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+    log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
   } else if(canLayAmbush(u)){
     u.hidden = true;
     state.moved.add(u.id);
-    log(`${UNIT_TYPES[u.type].label} lies in ambush in the woods.`, u.side);
+    log(`${unitLabel(u)} lies in ambush in the woods.`, u.side);
   }
   selectUnit(u.id);
   draw();
@@ -2797,6 +3070,85 @@ function showModeSelect(){
     extra.style.justifyContent = 'center';
     box.appendChild(extra);
   }
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const hotseatBtn = document.createElement('button');
+  hotseatBtn.className = 'primary';
+  hotseatBtn.textContent = 'Hotseat (2 players)';
+  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.onclick = ()=>{ state.scenario=null; extra.style.display='none'; showSideSelect(); };
+  const opsBtn = document.createElement('button');
+  opsBtn.textContent = 'Operations';
+  opsBtn.onclick = ()=>{ extra.style.display='none'; showOperationsMenu(); };
+  extra.appendChild(hotseatBtn);
+  extra.appendChild(aiBtn);
+  extra.appendChild(opsBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showOperationsMenu(){
+  document.getElementById('overlayTitle').textContent = 'Operations';
+  document.getElementById('overlayText').innerHTML =
+    'Smaller, asymmetrical scenarios drawn from real actions of the period — different forces, different objectives, not always "break 2 of 3 Brigades."';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexDirection = 'column';
+  extra.style.gap = '6px';
+  const campaigns = [...new Set(SCENARIOS.map(s=>s.campaign))];
+  for(const camp of campaigns){
+    const header = document.createElement('div');
+    header.textContent = camp;
+    header.style.cssText = 'font-family:Cinzel,serif;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--brass-dim);margin-top:6px;text-align:left;';
+    extra.appendChild(header);
+    for(const s of SCENARIOS.filter(x=>x.campaign===camp)){
+      const b = document.createElement('button');
+      b.style.textAlign = 'left';
+      b.textContent = `${s.title} — ${s.objectiveText}`;
+      b.onclick = ()=>{ showOperationBrief(s); };
+      extra.appendChild(b);
+    }
+  }
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← Back';
+  backBtn.onclick = ()=>{ showModeSelect(); };
+  extra.appendChild(backBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showOperationBrief(scenario){
+  document.getElementById('overlayTitle').textContent = scenario.title;
+  document.getElementById('overlayText').innerHTML =
+    `<b>${scenario.date}</b><br><br>${scenario.brief}<br><br><b>Objective:</b> ${scenario.objectiveText}` +
+    (scenario.turnLimit ? `<br><b>Turn limit:</b> ${scenario.turnLimit}` : '');
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexDirection = 'row';
+  extra.style.gap = '8px';
+  const beginBtn = document.createElement('button');
+  beginBtn.className = 'primary';
+  beginBtn.textContent = 'Begin Operation';
+  beginBtn.onclick = ()=>{
+    state.scenario = scenario;
+    extra.style.display = 'none';
+    showOperationModeSelect(scenario);
+  };
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← Back';
+  backBtn.onclick = ()=>{ showOperationsMenu(); };
+  extra.appendChild(beginBtn);
+  extra.appendChild(backBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showOperationModeSelect(scenario){
+  document.getElementById('overlayTitle').textContent = 'How will you play this Operation?';
+  document.getElementById('overlayText').innerHTML =
+    'Note: the AI plays Operations with the same tactics as a standard battle — it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
+  let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.style.display = 'flex';
   const hotseatBtn = document.createElement('button');
