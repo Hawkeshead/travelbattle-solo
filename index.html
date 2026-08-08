@@ -85,7 +85,7 @@
 
   #sidebar{
     width:250px;flex-shrink:0;background:var(--panel);border-left:2px solid var(--brass-dim);
-    display:flex;flex-direction:column;min-height:0;
+    display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   }
   #sidebar h3{
     font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;
@@ -169,6 +169,8 @@
   .dice-groups{ display:flex; align-items:center; justify-content:center; gap:12px; }
   .dice-group{ display:flex; flex-direction:column; align-items:center; gap:4px; }
   .dice-group .glabel{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); letter-spacing:0.03em; }
+  .dice-notes{ display:flex; flex-direction:column; gap:1px; margin-top:3px; max-width:110px; }
+  .dice-notes span{ font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--brass-dim); line-height:1.3; white-space:normal; }
   .dice-set{ display:flex; gap:4px; }
   .dice-vs{ font-family:'Cinzel',serif; font-size:11px; color:var(--ink-dim); align-self:center; padding-top:12px; }
   .die{
@@ -581,8 +583,10 @@ function showDice(groups, resultText, resultCls){
         const cls = final ? (v===g.keptValue ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
         return dieFaceHTML(shown, cls);
       }).join('');
+      const notesHTML = (final && g.notes && g.notes.length) ?
+        `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
       const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div></div>${sep}`;
+      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
     }).join('');
   }
 
@@ -862,34 +866,48 @@ function isInColumn(u){ return !!stackPartner(u); }
 function bonusDiceCount(unit, opponent, defending){
   const t = UNIT_TYPES[unit.type];
   let n = 1;
-  if(t.reroll) n = 2; // Guard Infantry / Heavy Cavalry re-roll (treated as best-of-2)
+  const reasons = [];
+  if(t.reroll){ n = 2; reasons.push('Re-roll (Guard/Hvy Cav)'); }
   const terr = terrainAt(unit.x,unit.y);
   const eligibleDefender = t.key==='INFANTRY' || t.key==='GUARD' || t.key==='ARTILLERY';
   // A unit that sprang a Woodland Ambush this round gets no woods defence bonus until its side's next turn.
   const ambushSuppressed = terr.key==='WOODS' && unit.ambushSpentThisRound;
-  if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed) n = Math.max(n,2);
+  if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed){
+    n = Math.max(n,2);
+    reasons.push(terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building');
+  }
   const oppT = UNIT_TYPES[opponent.type];
-  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square') n = Math.max(n,2);
-  if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)) n = Math.max(n,2); // Attack Column
-  return n;
+  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
+    n = Math.max(n,2);
+    reasons.push('Square vs Cavalry');
+  }
+  if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)){
+    n = Math.max(n,2);
+    reasons.push('Attack Column');
+  }
+  return { count:n, reasons };
 }
 
 function resolveFight(attacker, defender, ambushMode){
   showActionLine(attacker, defender, '#a8720b', 3800);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
-  let aDice = bonusDiceCount(attacker, defender, false);
-  let dDice = bonusDiceCount(defender, attacker, true);
-  if(ambushMode==='advance') aDice = Math.max(aDice, 2); // committing to advance also grants a genuine second die
-  // cavalry fighting non-square infantry: cavalry gets bonus die
-  if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square') aDice = Math.max(aDice,2);
-  if(dType.isCavalry && (aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square') dDice = Math.max(dDice,2);
-  // non-square infantry fighting square infantry: the non-square side gets bonus die
-  if(aType.key==='INFANTRY' && attacker.formation!=='square' && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation==='square') aDice = Math.max(aDice,2);
-  if(dType.key==='INFANTRY' && defender.formation!=='square' && (aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation==='square') dDice = Math.max(dDice,2);
+  const aBonus = bonusDiceCount(attacker, defender, false);
+  const dBonus = bonusDiceCount(defender, attacker, true);
+  let aDice = aBonus.count, dDice = dBonus.count;
+  const aReasons = [...aBonus.reasons], dReasons = [...dBonus.reasons];
+  if(ambushMode==='advance'){ aDice = Math.max(aDice, 2); aReasons.push('Ambush: committed second die'); }
+  // Cavalry gets +1 die ATTACKING Infantry that isn't in Square — attacker-only, no defensive equivalent.
+  if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square'){
+    aDice = Math.max(aDice,2); aReasons.push('Cavalry vs non-Square Infantry');
+  }
+  // Infantry gets +1 die attacking a Square if it isn't one itself — attacker-only, no defensive equivalent.
+  if((aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square' && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation==='square'){
+    aDice = Math.max(aDice,2); aReasons.push('Infantry vs Square');
+  }
 
   const aRoll = rollBest(aDice);
   const dRoll = rollBest(dDice);
-  if(ambushMode){ aRoll.value = Math.min(6, aRoll.value+1); } // ambush: +1 to the rolled value, capped at 6
+  if(ambushMode){ aRoll.value = Math.min(6, aRoll.value+1); aReasons.push('Ambush: +1 to roll (capped at 6)'); } // ambush: +1 to the rolled value, capped at 6
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
   const isTie = aRoll.value === dRoll.value;
@@ -911,14 +929,14 @@ function resolveFight(attacker, defender, ambushMode){
 
   let resultText, resultCls;
   if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
-  else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; }
-  else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; }
-  else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; }
+  else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; dReasons.push('Tie-win: Hill defence'); }
+  else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Charge'); }
+  else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Attack Column'); }
   else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
   else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
   showDice([
-    {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value},
-    {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value}
+    {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
+    {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
   ], resultText, resultCls);
 
   attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
@@ -993,7 +1011,8 @@ function retreatAndRally(loser){
   if(t.key==='GUARD') successOn = [3,4,5,6];
   if(t.key==='ARTILLERY') successOn = [5,6];
   const r = rollD6();
-  showDice([{label:'Rally', rolls:[r], keptValue:r}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
+  const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+'] : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
+  showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
   if(successOn.includes(r)){
     log(`${t.label} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
   } else if(brig && !brig.leadershipUsed){
@@ -2160,12 +2179,11 @@ function aiDoFirePhase(){
    AI: FIGHTING
 ========================================================= */
 function estimateFightValue(a, t){
-  let aD = bonusDiceCount(a, t, false);
-  let dD = bonusDiceCount(t, a, true);
+  let aD = bonusDiceCount(a, t, false).count;
+  let dD = bonusDiceCount(t, a, true).count;
   const aType = UNIT_TYPES[a.type], tType = UNIT_TYPES[t.type];
   if(aType.isCavalry && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation!=='square') aD = Math.max(aD,2);
-  if(tType.isCavalry && (aType.key==='INFANTRY'||aType.key==='GUARD') && a.formation!=='square') dD = Math.max(dD,2);
-  if(aType.key==='INFANTRY' && a.formation!=='square' && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation==='square') aD = Math.max(aD,2);
+  if((aType.key==='INFANTRY'||aType.key==='GUARD') && a.formation!=='square' && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation==='square') aD = Math.max(aD,2);
   const edge = aD - dD;
   return edge*2 + AI_UNIT_VALUE[t.type]*0.4 - AI_UNIT_VALUE[a.type]*0.15;
 }
@@ -2186,8 +2204,8 @@ function brigadeBreakBonus(target){
 // branching factor here doesn't justify that — but a genuine step past the
 // immediate trade instead of a static heuristic.
 function simulateFightAftermathScore(attacker, defender, side){
-  const aD = bonusDiceCount(attacker, defender, false);
-  const dD = bonusDiceCount(defender, attacker, true);
+  const aD = bonusDiceCount(attacker, defender, false).count;
+  const dD = bonusDiceCount(defender, attacker, true).count;
   const EV_BY_DICE = {1:3.5, 2:4.47};
   const margin = (EV_BY_DICE[Math.min(aD,2)]||3.5) - (EV_BY_DICE[Math.min(dD,2)]||3.5);
 
@@ -2652,15 +2670,18 @@ function fireArtillery(gun, target){
   const roll = rollD6();
   const adjRoll = roll+bonus;
   const hit = adjRoll >= needed;
-  showDice([{label:'To Hit', rolls:[roll], keptValue:roll}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
+  const hitNotes = bonus>0 ? [target.formation==='square' ? '+1 to hit: Square formation' : '+1 to hit: doubled Infantry'] : [];
+  showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
   log(`Artillery fires at ${t.label} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
   if(hit){
     addCrater(target.x, target.y);
+    const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
     let effRoll = rollD6();
-    if(terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING') effRoll = Math.max(1, effRoll-1);
+    if(inCover) effRoll = Math.max(1, effRoll-1);
     const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
     const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
-    showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll}], effLabel, effCls);
+    const effNotes = inCover ? ['-1 effect: target in wood/building'] : [];
+    showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls);
     // Stacked units (doubled infantry in open terrain) suffer the same effect roll together, per rulebook.
     const stack = unitsAt(target.x, target.y);
     if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
