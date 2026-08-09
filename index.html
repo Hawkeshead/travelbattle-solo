@@ -95,12 +95,14 @@
   #unitOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
   #unitOverlay.hidden{ display:none; }
   #unitOverlayPanel{
-    position:absolute;left:8px;bottom:8px;width:230px;max-width:60vw;max-height:min(340px,70%);
+    position:absolute;bottom:8px;width:230px;max-width:60vw;max-height:min(340px,70%);
     background:var(--panel);border:2px solid var(--brass-dim);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
     display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
     pointer-events:auto;
-    transform:translateY(12px);opacity:0;transition:transform 0.15s ease-out,opacity 0.15s ease-out;
+    transform:translateY(12px);opacity:0;transition:transform 0.15s ease-out,opacity 0.15s ease-out,left 0.1s,right 0.1s;
   }
+  #unitOverlayPanel.anchor-left{ left:8px;right:auto; }
+  #unitOverlayPanel.anchor-right{ right:8px;left:auto; }
   #unitOverlay.show #unitOverlayPanel{ transform:translateY(0);opacity:1; }
   #unitPortrait{
     width:100%;aspect-ratio:16/8;background:var(--paper-2);border-bottom:1px solid var(--line);
@@ -191,7 +193,7 @@
     position:absolute; top:10px; left:50%; transform:translateX(-50%) translateY(-8px);
     opacity:0; pointer-events:none; transition:opacity 0.18s ease, transform 0.18s ease; z-index:20;
   }
-  #diceOverlay.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #diceOverlay.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
   .dice-panel{
     background:rgba(233,223,196,0.97); border:2px solid var(--brass-dim); border-radius:6px;
     padding:9px 16px 8px; box-shadow:0 6px 22px rgba(0,0,0,0.4); text-align:center;
@@ -231,7 +233,7 @@
     }
     #topBar{font-size:11px;}
     #brigadeStatus{flex-wrap:wrap;gap:5px 14px;font-size:9.5px;}
-    #unitOverlayPanel{ left:6px;bottom:6px;width:200px;max-width:56vw;max-height:50vh; }
+    #unitOverlayPanel{ bottom:6px;width:200px;max-width:56vw;max-height:50vh; }
     #logOverlayPanel{ width:100%;max-width:100%;top:auto;left:0;right:0;bottom:0;height:65vh;
       border-left:none;border-top:2px solid var(--brass-dim);transform:translateY(100%); }
     #logOverlay.show #logOverlayPanel{ transform:translateY(0); }
@@ -3688,6 +3690,12 @@ function renderUnitInfo(u){
   const overlay = document.getElementById('unitOverlay');
   if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; if(overlay) overlay.classList.remove('show'); return; }
   if(overlay && state.phase!=='deploy') overlay.classList.add('show');
+  const panelEl = document.getElementById('unitOverlayPanel');
+  if(panelEl){
+    const inLeftHalf = u.x < COLS/2;
+    panelEl.classList.toggle('anchor-right', inLeftHalf);  // unit on the left -> panel on the right
+    panelEl.classList.toggle('anchor-left', !inLeftHalf);  // unit on the right -> panel on the left
+  }
   const t = UNIT_TYPES[u.type];
   const terr = terrainAt(u.x,u.y);
   const heading = u.historicalName || t.label;
@@ -3789,6 +3797,7 @@ function onCellClick(x,y){
     if(sel && UNIT_TYPES[sel.type].isArtillery && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
+      selectUnit(null);
       fireArtillery(sel, target);
       return;
     }
