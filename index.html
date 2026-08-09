@@ -45,53 +45,79 @@
 
   #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
 
-  header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:8px 14px;background:var(--panel-2);border-bottom:2px solid var(--brass-dim);
-    flex-shrink:0;
+  #topBar{
+    display:flex;align-items:center;gap:10px;
+    padding:5px 10px;background:var(--panel-2);border-bottom:2px solid var(--brass-dim);
+    flex-shrink:0;flex-wrap:wrap;
   }
-  header .title{
-    font-family:'Cinzel',serif;font-weight:700;letter-spacing:0.06em;
-    font-size:15px;text-transform:uppercase;color:var(--brass-dim);
-  }
-  header .title span{color:var(--ink-dim);font-weight:500;font-size:10px;display:block;letter-spacing:0.1em;margin-top:1px;font-family:'Inter',sans-serif;text-transform:none;}
   #turnBadge{
-    font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:5px 10px;border-radius:2px;
-    border:1px solid var(--brass-dim);letter-spacing:0.03em;background:var(--paper);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 8px;border-radius:2px;
+    border:1px solid var(--brass-dim);letter-spacing:0.02em;background:var(--paper);white-space:nowrap;
   }
 
-  #phaseBar{
-    display:flex;gap:0;background:var(--panel-2);border-bottom:1px solid var(--line);flex-shrink:0;
-    font-family:'Cormorant Garamond',serif;font-weight:600;font-size:12.5px;letter-spacing:0.05em;text-transform:uppercase;
+  #phaseBar{ display:flex;gap:3px;flex-shrink:0; }
+  #phaseBar .step{
+    width:16px;height:16px;border-radius:50%;background:var(--panel);border:1px solid var(--line);
   }
-  #phaseBar .step{flex:1;text-align:center;padding:5px 2px;color:var(--ink-dim);border-right:1px solid var(--line);position:relative;}
-  #phaseBar .step:last-child{border-right:none;}
-  #phaseBar .step.active{color:#fff;background:var(--brass-dim);}
-  #phaseBar .step.done{color:var(--ok);}
+  #phaseBar .step.active{ background:var(--brass-dim);border-color:var(--brass-dim); }
+  #phaseBar .step.done{ background:var(--ok);border-color:var(--ok); }
 
-  main{flex:1;display:flex;min-height:0;}
+  main{flex:1;display:flex;min-height:0;position:relative;}
 
   #brigadeStatus{
-    display:flex;justify-content:center;gap:22px;padding:4px 10px;background:var(--panel-2);
-    border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:10.5px;flex-shrink:0;
+    display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;flex-shrink:0;white-space:nowrap;
   }
-  #brigadeStatus .side-status{display:flex;align-items:center;gap:6px;}
-  #brigadeStatus .pip{width:9px;height:9px;border-radius:2px;border:1px solid rgba(0,0,0,0.35);}
+  #brigadeStatus .side-status{display:flex;align-items:center;gap:4px;}
+  #brigadeStatus .pip{width:8px;height:8px;border-radius:2px;border:1px solid rgba(0,0,0,0.35);}
   #brigadeStatus .pip.alive{background:currentColor;}
   #brigadeStatus .pip.broken{background:transparent;opacity:0.4;}
+
+  #topBarSpacer{ flex:1; }
+  #topBar button{ font-size:11.5px;padding:6px 10px; }
 
   #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:auto;position:relative;padding:8px;}
   canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;max-width:100%;height:auto;}
 
+  /* Persistent icon buttons — Undo + Field Report — pinned to a corner, always reachable */
+  #hudIcons{
+    position:absolute;top:8px;right:8px;z-index:20;display:flex;flex-direction:column;gap:6px;
+  }
+  #hudIcons button{
+    width:38px;height:38px;border-radius:50%;font-size:18px;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel-2);border:1px solid var(--brass-dim);box-shadow:0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* Deploy-only persistent sidebar */
   #sidebar{
     width:250px;flex-shrink:0;background:var(--panel);border-left:2px solid var(--brass-dim);
-    display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    display:flex;flex-direction:column;min-height:0;
   }
   #sidebar h3{
     font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;
     color:var(--brass-dim);margin:0;padding:8px 12px 4px;
   }
-  #unitInfo{padding:0 12px 10px;font-size:12.5px;line-height:1.45;min-height:90px;border-bottom:1px solid var(--line);}
+
+  /* Battle: slide-in unit overlay, shown only when a unit is selected */
+  #unitOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
+  #unitOverlay.hidden{ display:none; }
+  #unitOverlayBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.35);opacity:0;transition:opacity 0.18s; }
+  #unitOverlayPanel{
+    position:absolute;top:0;bottom:0;right:0;width:270px;max-width:82vw;
+    background:var(--panel);border-left:2px solid var(--brass-dim);box-shadow:-6px 0 16px rgba(0,0,0,0.35);
+    display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    transform:translateX(100%);transition:transform 0.18s ease-out;
+  }
+  #unitOverlay.show{ pointer-events:auto; }
+  #unitOverlay.show #unitOverlayBackdrop{ opacity:1; }
+  #unitOverlay.show #unitOverlayPanel{ transform:translateX(0); }
+  #unitPortrait{
+    width:100%;aspect-ratio:16/10;background:var(--paper-2);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:11px;
+    background-size:cover;background-position:center;
+  }
+
+  #unitInfo{padding:8px 12px 10px;font-size:12.5px;line-height:1.45;min-height:60px;border-bottom:1px solid var(--line);}
   #unitInfo .empty{color:var(--ink-dim);font-style:italic;}
   #unitInfo .u-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;margin-bottom:2px;}
   #unitInfo .u-tags{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0;}
@@ -113,24 +139,34 @@
   button.primary:hover:not(:disabled){background:var(--brass);}
   button.danger{border-color:var(--danger);color:var(--danger);}
 
-  #logWrap{border-bottom:1px solid var(--line);}
-  #logToggle{
-    display:flex;align-items:center;justify-content:space-between;width:100%;
-    background:none;border:none;border-radius:0;padding:6px 12px;cursor:pointer;
-    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:var(--brass-dim);
+  /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
+  #logOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
+  #logOverlay.hidden{ display:none; }
+  #logOverlayBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.35);opacity:0;transition:opacity 0.18s; }
+  #logOverlayPanel{
+    position:absolute;top:0;bottom:0;right:0;width:280px;max-width:85vw;
+    background:var(--panel);border-left:2px solid var(--brass-dim);box-shadow:-6px 0 16px rgba(0,0,0,0.35);
+    display:flex;flex-direction:column;min-height:0;
+    transform:translateX(100%);transition:transform 0.18s ease-out;
   }
-  #logToggle .chev{font-family:'Inter',sans-serif;font-size:11px;transition:transform 0.15s;}
-  #logToggle.collapsed .chev{transform:rotate(-90deg);}
-  #log{max-height:130px;overflow-y:auto;padding:0 12px 8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.5;}
-  #log.collapsed{display:none;}
+  #logOverlay.show{ pointer-events:auto; }
+  #logOverlay.show #logOverlayBackdrop{ opacity:1; }
+  #logOverlay.show #logOverlayPanel{ transform:translateX(0); }
+  #logOverlayHeader{
+    display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);
+    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;color:var(--brass-dim);
+  }
+  #logCloseBtn{ background:none;border:none;font-size:20px;line-height:1;padding:0 4px;color:var(--ink-dim); }
+  #log{flex:1;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.5;-webkit-overflow-scrolling:touch;}
   #log .entry{margin-bottom:4px;padding-left:7px;border-left:2px solid var(--line);color:var(--ink-dim);}
   #log .entry.red{border-color:var(--red);}
   #log .entry.blue{border-color:var(--blue);}
   #log .entry.combat{color:var(--warn);}
   #log .entry.system{color:var(--brass-dim);}
+  #log .entry.narrative{color:var(--ink-dim);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:12.5px;padding-left:4px;border-left:2px solid var(--line);margin:2px 0 4px 2px;}
 
   #rosterPanel{display:none;flex-direction:column;flex:1;min-height:0;}
-  #rosterList{flex:1;overflow-y:auto;padding:6px 12px;}
+  #rosterList{flex:1;overflow-y:auto;padding:6px 12px;-webkit-overflow-scrolling:touch;min-height:0;}
   .roster-chip{
     display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:5px;border-radius:3px;
     background:var(--paper-2);border:1px solid var(--line);cursor:pointer;font-size:12px;
@@ -181,6 +217,7 @@
     padding:4px; gap:1px; transition:border-color 0.15s, opacity 0.15s;
   }
   .die.rolling{ border-color:var(--ink-dim); }
+  .die.pending{ border-color:var(--line); border-style:dashed; background:transparent; opacity:0.7; }
   .die.kept{ border-color:var(--brass-dim); box-shadow:0 0 0 2px var(--brass-dim); }
   .die.discard{ opacity:0.4; }
   .die .pip{ border-radius:50%; background:var(--ink); align-self:center; justify-self:center; width:65%; height:65%; }
@@ -200,18 +237,19 @@
       border-left:none;border-top:2px solid var(--brass-dim);
       box-shadow:none;
     }
-    header .title{font-size:12px;}
+    #topBar{font-size:11px;}
     #brigadeStatus{flex-wrap:wrap;gap:5px 14px;font-size:9.5px;}
+    #unitOverlayPanel, #logOverlayPanel{ width:100%;max-width:100%;top:auto;left:0;right:0;bottom:0;height:70vh;
+      border-left:none;border-top:2px solid var(--brass-dim);transform:translateY(100%); }
+    #unitOverlay.show #unitOverlayPanel, #logOverlay.show #logOverlayPanel{ transform:translateY(0); }
   }
   /* Short landscape viewports (phone chrome eating vertical space): compact the chrome */
   @media (max-height:430px){
-    header{padding:4px 12px;}
-    header .title{font-size:12px;}
-    header .title span{display:none;}
-    #phaseBar .step{padding:3px 2px;font-size:11px;}
-    #brigadeStatus{padding:2px 10px;font-size:9.5px;}
+    #topBar{padding:3px 8px;}
+    #turnBadge{font-size:10px;padding:3px 6px;}
+    #brigadeStatus{font-size:9px;}
     #sidebar{width:210px;}
-    #log{max-height:80px;}
+    #hudIcons button{width:32px;height:32px;font-size:15px;}
   }
   #sidebarToggle{display:none;}
 </style>
@@ -219,28 +257,33 @@
 <body>
 <div id="app">
 <div id="dragGhost"></div>
-  <header>
-    <div class="title">TravelBattle<span>Field Command &mdash; Solo Engine v1</span></div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <div id="turnBadge">&mdash;</div>
-      <button id="sidebarToggle">&#9776;</button>
+  <div id="topBar">
+    <div id="turnBadge">&mdash;</div>
+    <div id="phaseBar">
+      <div class="step" data-phase="deploy" title="Deploy"></div>
+      <div class="step" data-phase="move" title="Move"></div>
+      <div class="step" data-phase="fire" title="Artillery"></div>
+      <div class="step" data-phase="fight" title="Fight"></div>
+      <div class="step" data-phase="rally" title="Rally"></div>
     </div>
-  </header>
-
-  <div id="phaseBar">
-    <div class="step" data-phase="deploy">Deploy</div>
-    <div class="step" data-phase="move">Move</div>
-    <div class="step" data-phase="fire">Artillery</div>
-    <div class="step" data-phase="fight">Fight</div>
-    <div class="step" data-phase="rally">Rally / Turnaround</div>
+    <div id="brigadeStatus"></div>
+    <div id="topBarSpacer"></div>
+    <button id="endMoveBtn" class="primary" disabled>End Move</button>
+    <button id="endFireBtn" class="primary" style="display:none;">End Artillery</button>
+    <button id="endFightBtn" class="primary" style="display:none;">End Fight</button>
   </div>
-  <div id="brigadeStatus"></div>
 
   <main>
     <div id="boardWrap">
       <canvas id="board" width="900" height="900"></canvas>
-      <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div class="dice-result"></div></div></div>
+      <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div class="dice-result"></div><button id="diceRollBtn" class="primary" style="display:none;margin-top:8px;">Roll</button></div></div>
     </div>
+
+    <div id="hudIcons">
+      <button id="undoBtnBattle" title="Undo" disabled>&#8634;</button>
+      <button id="logIconBtn" title="Field Report">&#9776;</button>
+    </div>
+
     <div id="sidebar">
       <div id="rosterPanel">
         <h3 id="rosterTitle">Deploy Brigade</h3>
@@ -254,23 +297,26 @@
           <button id="endDeployBtn" class="primary" disabled>Confirm Deployment</button>
         </div>
       </div>
+    </div>
 
-      <div id="battlePanel" style="display:none;flex-direction:column;flex:1;min-height:0;">
-        <h3>Selected</h3>
+    <div id="unitOverlay" class="hidden">
+      <div id="unitOverlayBackdrop"></div>
+      <div id="unitOverlayPanel">
+        <div id="unitPortrait"></div>
         <div id="unitInfo"><span class="empty">No unit selected</span></div>
         <div id="actionRow">
           <button id="squareBtn" disabled>Form Square</button>
           <button id="ambushBtn" style="display:none;" disabled>Lay Ambush</button>
           <button id="chargeBtn" style="display:none;" disabled>Charge</button>
-          <button id="endMoveBtn" disabled>End Move Phase</button>
-          <button id="endFireBtn" style="display:none;">End Artillery Phase</button>
-          <button id="endFightBtn" style="display:none;">End Fight Phase</button>
-          <button id="undoBtnBattle" disabled>Undo</button>
         </div>
-        <div id="logWrap">
-          <button id="logToggle" class="collapsed"><span>Field Report</span><span class="chev">&#9660;</span></button>
-          <div id="log" class="collapsed"></div>
-        </div>
+      </div>
+    </div>
+
+    <div id="logOverlay" class="hidden">
+      <div id="logOverlayBackdrop"></div>
+      <div id="logOverlayPanel">
+        <div id="logOverlayHeader"><span>Field Report</span><button id="logCloseBtn">&times;</button></div>
+        <div id="log"></div>
       </div>
     </div>
   </main>
@@ -507,6 +553,347 @@ const UNIT_ARCHIVE = {
    4 of the eventual 14 are authored here as a proven template — one
    per objective type, spanning all three campaigns.
 ========================================================= */
+const NARRATION = {
+  "melee_stalemate": {
+    "status": "Held",
+    "tone": "neutral",
+    "opening": [
+      "Both lines exchange fire without decision.",
+      "Smoke hangs heavy as neither side gives way.",
+      "The exchange settles into a grinding contest.",
+      "Volleys crack back and forth along the line."
+    ],
+    "middle": [
+      "The unit is {status}, and the contest will be settled next turn.",
+      "The unit is {status}, standing its ground amid the noise and smoke.",
+      "The unit is {status}, waiting for the next command to advance or fall back.",
+      "The unit is {status}, neither side willing to break first."
+    ],
+    "closing": [
+      "Nothing is decided here, not yet.",
+      "Both brigades draw breath before the next exchange.",
+      "The men reload in silence, watching the enemy line.",
+      "The outcome still hangs in the smoke."
+    ]
+  },
+  "melee_pushback": {
+    "status": "Pushed Back",
+    "win": {
+      "tone": "win",
+      "opening": [
+        "Your men press on through the smoke and the dying.",
+        "The advance continues despite the cost.",
+        "Officers drive the attack forward against stubborn resistance.",
+        "Your ranks close the distance under fire."
+      ],
+      "middle": [
+        "The enemy unit is {status}, its line beginning to crack.",
+        "The enemy unit is {status}, discipline fraying under the pressure.",
+        "The enemy unit is {status}, its ranks staggering from the blow.",
+        "The enemy unit is {status}, ground yielding beneath its feet."
+      ],
+      "closing": [
+        "A hard-won step toward the day's glory.",
+        "Momentum, at last, belongs to your brigade.",
+        "The enemy gives ground, and hope rises with it.",
+        "The advance holds, and the men feel it."
+      ]
+    },
+    "loss": {
+      "tone": "loss",
+      "opening": [
+        "Return fire cuts deep into the leading files.",
+        "The attack meets a wall of disciplined musketry.",
+        "Your men press forward into a storm of lead.",
+        "The advance stumbles under withering fire."
+      ],
+      "middle": [
+        "The unit is {status}, men falling where they stand.",
+        "The unit is {status}, its line staggering under the fire.",
+        "The unit is {status}, the wounded left where they fall.",
+        "The unit is {status}, its ranks thinning with every volley."
+      ],
+      "closing": [
+        "The advance falters, but the line still breathes.",
+        "A costly step backward, and the men know it.",
+        "Ground is lost, though not yet the will to fight.",
+        "The brigade absorbs the blow, grimly."
+      ]
+    }
+  },
+  "melee_rout": {
+    "status": "Routed",
+    "win": {
+      "tone": "win",
+      "opening": [
+        "The enemy's nerve finally breaks under the weight of your fire.",
+        "Sustained volleys shatter the enemy's resolve.",
+        "The pressure of the attack proves too much to bear.",
+        "The enemy line can no longer answer your fire."
+      ],
+      "middle": [
+        "Their unit is {status}, streaming back in disorder.",
+        "Their unit is {status}, officers unable to hold the line.",
+        "Their unit is {status}, colours dragged back through the smoke.",
+        "Their unit is {status}, discipline gone entirely."
+      ],
+      "closing": [
+        "The tide of the battle turns in your favour.",
+        "Victory feels close enough to touch.",
+        "The field belongs to your brigade, for now.",
+        "Your men press the advantage while it lasts."
+      ]
+    },
+    "loss": {
+      "tone": "loss",
+      "opening": [
+        "The line cannot hold against such fire.",
+        "Discipline breaks under the sheer weight of the volley.",
+        "Your men are driven back before they can answer.",
+        "The pressure proves too much for the ranks to bear."
+      ],
+      "middle": [
+        "The unit is {status}, the survivors fleeing for their lives.",
+        "The unit is {status}, its colours nearly lost in the retreat.",
+        "The unit is {status}, leaving the wounded behind.",
+        "The unit is {status}, order gone from the ranks."
+      ],
+      "closing": [
+        "Grief will follow the brigade long after the smoke clears.",
+        "A bitter reversal, and the men will not forget it.",
+        "The brigade's line grows thinner, and quieter.",
+        "The cost of this turn will be felt for many more."
+      ]
+    }
+  },
+  "melee_destroy": {
+    "status": "Destroyed",
+    "win": {
+      "tone": "win",
+      "opening": [
+        "The volley tears through the enemy ranks before they can answer.",
+        "Your men press the attack without mercy.",
+        "The assault crashes home with overwhelming force.",
+        "There is no answer the enemy can give to this fire."
+      ],
+      "middle": [
+        "Their unit is {status}, broken beyond recovery.",
+        "Their unit is {status}, scattered across the field.",
+        "Their unit is {status}, its colours trampled in the mud.",
+        "Their unit is {status}, wiped from the field in moments."
+      ],
+      "closing": [
+        "Victory feels close enough to touch.",
+        "A decisive blow, long remembered by both armies.",
+        "The enemy brigade will not soon recover from this.",
+        "The men know they have done something today."
+      ]
+    },
+    "loss": {
+      "tone": "loss",
+      "opening": [
+        "The advance walks into a wall of musketry.",
+        "There is no answer to such concentrated fire.",
+        "The line cannot survive what comes next.",
+        "Your men march into a storm they cannot escape."
+      ],
+      "middle": [
+        "The unit is {status}, torn apart in the open ground.",
+        "The unit is {status}, its ranks gone in a matter of moments.",
+        "The unit is {status}, nothing left to answer the enemy's fire.",
+        "The unit is {status}, the line simply ceasing to exist."
+      ],
+      "closing": [
+        "The bodies of your men litter the battlefield.",
+        "The brigade will carry this grief long after the guns fall silent.",
+        "Some losses cannot be counted in squares and turns.",
+        "Tonight there will be names read out that will not answer."
+      ]
+    }
+  },
+  "artillery_miss": {
+    "status": "Held",
+    "tone": "neutral",
+    "opening": [
+      "The gun crew lays their piece with practiced care.",
+      "Smoke and flame erupt from the muzzle.",
+      "The battery opens fire across open ground.",
+      "The gunners take aim and let fly."
+    ],
+    "middle": [
+      "The target unit is {status}, the shot passing wide of its mark.",
+      "The target unit is {status}, the round falling short in the grass.",
+      "The target unit is {status}, untouched as the ball skips past.",
+      "The target unit is {status}, the range misjudged by the crew."
+    ],
+    "closing": [
+      "The gunners begin the work of reloading.",
+      "No harm done, not this time.",
+      "The battery will try again before the day is out.",
+      "The target marches on, unaware how close the shot came."
+    ]
+  },
+  "artillery_no_effect": {
+    "status": "Held",
+    "tone": "neutral",
+    "opening": [
+      "The battery finds its range.",
+      "Round shot bounds across the field toward the enemy line.",
+      "The gun crew's aim proves true.",
+      "The shot is laid true and lands close."
+    ],
+    "middle": [
+      "The enemy unit is {status}, the shot striking home without breaking their line.",
+      "The enemy unit is {status}, ranks closing around the fallen without faltering.",
+      "The enemy unit is {status}, shaken but not broken by the blow.",
+      "The enemy unit is {status}, absorbing the blow and pressing on."
+    ],
+    "closing": [
+      "A near thing, but no lasting harm is done.",
+      "The enemy presses on, unshaken for now.",
+      "The gunners reload, hoping for a truer strike.",
+      "The line holds, though it will not hold forever."
+    ]
+  },
+  "artillery_disrupt": {
+    "status": "Disrupted",
+    "tone": "win",
+    "opening": [
+      "The battery's aim proves brutally accurate.",
+      "Round shot tears through the enemy ranks.",
+      "The gunners find their mark with terrible effect.",
+      "The shot lands square among the enemy's files."
+    ],
+    "middle": [
+      "Their unit is {status}, unable to move and turned to face the fire.",
+      "Their unit is {status}, officers scrambling to restore order.",
+      "Their unit is {status}, its ranks staggered by the blow.",
+      "Their unit is {status}, the line thrown into confusion."
+    ],
+    "closing": [
+      "A costly interruption for the enemy, and a gift to your brigade.",
+      "Momentum shifts, if only for a turn.",
+      "Their advance stalls, and your men take heart from it.",
+      "The guns have bought the brigade precious time."
+    ]
+  },
+  "artillery_rout": {
+    "status": "Routed",
+    "tone": "win",
+    "opening": [
+      "The shot strikes with devastating force.",
+      "The battery's fire tears a hole clean through the enemy line.",
+      "Round shot ploughs through the enemy ranks.",
+      "The gunners' aim proves ruinous for the target."
+    ],
+    "middle": [
+      "Their unit is {status}, the survivors streaming toward the rear.",
+      "Their unit is {status}, discipline collapsing under the bombardment.",
+      "Their unit is {status}, colours dragged back in disorder.",
+      "Their unit is {status}, the line broken by a single shot."
+    ],
+    "closing": [
+      "A telling blow struck from a distance.",
+      "The battery earns its reputation this day.",
+      "Hope stirs in the ranks as the enemy reels.",
+      "The guns have done more than muskets could this turn."
+    ]
+  },
+  "artillery_destroy": {
+    "status": "Destroyed",
+    "tone": "win",
+    "opening": [
+      "The shot finds its mark with terrible effect.",
+      "The battery's fire proves utterly devastating.",
+      "Round shot scythes through the enemy ranks.",
+      "The gun crew's work is done in a single stroke."
+    ],
+    "middle": [
+      "Their unit is {status}, scattered where it stood.",
+      "Their unit is {status}, nothing left to rally.",
+      "Their unit is {status}, wiped from the field in an instant.",
+      "Their unit is {status}, gone before the smoke has cleared."
+    ],
+    "closing": [
+      "A single stroke has changed the shape of the battle.",
+      "The battery's name will be remembered after today.",
+      "A ruinous result for the enemy brigade.",
+      "The guns have earned their place in the brigade's story."
+    ]
+  },
+  "rally_success": {
+    "status": "Rallied",
+    "tone": "win",
+    "opening": [
+      "A steady hand and a steadier voice bring the men to their senses.",
+      "Officers ride among the shaken ranks, calling them back to order.",
+      "The colours are raised once more amid the smoke and confusion.",
+      "A senior officer steps into the chaos to steady the men."
+    ],
+    "middle": [
+      "The unit is {status}, ready to stand again.",
+      "The unit is {status}, its nerve found once more.",
+      "The unit is {status}, the ranks closing tight around the colours.",
+      "The unit is {status}, fear giving way to discipline."
+    ],
+    "closing": [
+      "Hope returns to the ranks.",
+      "The brigade holds a little longer, and the men know it.",
+      "Discipline has won out over fear, for now.",
+      "They live to fight another turn, and are grateful for it."
+    ]
+  },
+  "rally_failure": {
+    "status": "Lost",
+    "tone": "loss",
+    "opening": [
+      "No voice can be heard over the panic.",
+      "The shaken ranks cannot be steadied.",
+      "Discipline gives way entirely to fear.",
+      "The disorder spreads faster than any officer can contain it."
+    ],
+    "middle": [
+      "The unit is {status}, its colours abandoned on the field.",
+      "The unit is {status}, scattered beyond recall.",
+      "The unit is {status}, its place in the brigade left empty.",
+      "The unit is {status}, swallowed by the retreat around it."
+    ],
+    "closing": [
+      "Another name is added to the brigade's roll of the dead.",
+      "The brigade feels this absence keenly.",
+      "Some men do not come back from a day like this.",
+      "The muster roll will be shorter come evening."
+    ]
+  }
+};
+
+const CAMPAIGNS = [
+  { id:'flanders', name:'The Flanders Campaign', years:'1793–1795', brief:'In 1793 Britain joined the First Coalition to check Revolutionary France\'s advance into the Low Countries, fighting alongside Austrian, Dutch and Hanoverian allies. It became a campaign of marches, sieges and hard-fought village actions rather than one decisive battle, and though it ended in a costly withdrawal, it forged a generation of British officers, Wellington among them. This campaign works well as an introduction to Napoleonic wargaming — the Battles are smaller in scale than the Peninsular fights to come, and the Operations lean on delaying actions and holding key ground rather than outright annihilation.', flow:[
+    { type:'battle', id:'battle-famars', name:'Battle of Famars', date:'23 May 1793', intro:'The Duke of York led British, Austrian and Hanoverian troops against General Dampierre\'s French army near Valenciennes, attacking across a line of villages and ridges until the French abandoned their positions after a hard day\'s fighting. It was Britain\'s first major field battle against Revolutionary France and opened the road to the Siege of Valenciennes.' },
+    { type:'branch', id:'branch-flanders-1', options:[{ operationId:'op-lincelles', name:'Battle of Lincelles', date:'18 August 1793', missionArchetype:'Capture the Village', locked:false }, { operationId:'op-caesars-camp', name:'Battle of Caesar\'s Camp', date:'7–8 August 1793', missionArchetype:'Hold the Line', locked:false }] },
+    { type:'battle', id:'battle-hondschoote', name:'Battle of Hondschoote', date:'6–8 September 1793', intro:'While besieging Dunkirk, the Duke of York\'s army found itself threatened by General Houchard\'s relief force, and fierce fighting through villages, hedgerows and open fields eventually forced a British withdrawal to avoid being cut off. The failure of the Dunkirk expedition marked a real turning point in the campaign\'s fortunes.' },
+    { type:'branch', id:'branch-flanders-2', options:[{ operationId:'op-beaumont', name:'Battle of Beaumont', date:'26 April 1794', missionArchetype:'Surprise Attack', locked:false }, { operationId:'op-willems', name:'Battle of Willems', date:'10 May 1794', missionArchetype:'Counterattack', locked:false }] },
+    { type:'battle', id:'battle-tourcoing', name:'Battle of Tourcoing', date:'17–18 May 1794', intro:'The Coalition attempted an ambitious encirclement of the French army near Tourcoing, but poor coordination let the French defeat the isolated Allied columns one by one, forcing a general retreat despite good fighting from the British troops involved.' },
+  ]},
+  { id:'peninsular', name:'The Peninsular Campaign', years:'1808–1814', brief:'From 1808 Britain committed to defending Portugal and driving Napoleon\'s marshals out of Spain, a campaign that grew into Britain\'s longest and most successful of the wars under Sir Arthur Wellesley, later Wellington. Villages, ridges, bridges and mountain passes decided battles as often as raw numbers did, and small actions by riflemen and cavalry regularly determined whether whole armies survived to fight on. This is the widest-ranging of the three campaigns, moving from desperate defensive rearguards through increasingly confident offensives to the invasion of France itself.', flow:[
+    { type:'battle', id:'battle-vimeiro', name:'Battle of Vimeiro', date:'21 August 1808', intro:'Sir Arthur Wellesley fought his first major battle in Portugal here, repelling repeated French attacks on the ridge at Vimeiro with disciplined infantry volleys after defeating Junot\'s invasion force. The win secured Portugal and opened Britain\'s long campaign in the Peninsula.' },
+    { type:'branch', id:'branch-peninsular-1', options:[{ operationId:'op-coa', name:'Combat of Côa', date:'24 July 1810', missionArchetype:'Rearguard Action', locked:false }, { operationId:'op-colbert', name:'The Death of General Colbert', date:'3 January 1809 — Combat of Cacabelos', missionArchetype:'Assassination Target', locked:true }] },
+    { type:'battle', id:'battle-bussaco', name:'Battle of Bussaco', date:'27 September 1810', intro:'Wellington chose to stand on the Bussaco ridge and force Masséna to attack uphill, and French assaults broke repeatedly against the Allied line before Masséna gave up the frontal attack and tried to outflank the position instead.' },
+    { type:'branch', id:'branch-peninsular-2', options:[{ operationId:'op-el-bodon', name:'Combat of El Bodón', date:'25 September 1811', missionArchetype:'Hold the Line', locked:false }, { operationId:'op-sabugal', name:'Battle of Sabugal', date:'3 April 1811', missionArchetype:'Break Through', locked:false }] },
+    { type:'battle', id:'battle-salamanca', name:'Battle of Salamanca', date:'22 July 1812', intro:'Perhaps Wellington\'s finest battlefield win, this saw him spot Marmont overextending his left flank and launch an immediate, devastating counterattack that shattered the French army, opening the road to Madrid.' },
+    { type:'branch', id:'branch-peninsular-3', options:[{ operationId:'op-arroyo-dos-molinos', name:'Battle of Arroyo dos Molinos', date:'28 October 1811', missionArchetype:'Surprise Attack', locked:false }, { operationId:'op-garcia-hernandez', name:'Battle of García Hernández', date:'23 July 1812', missionArchetype:'Break the Retreat', locked:false }] },
+    { type:'battle', id:'battle-vitoria', name:'Battle of Vitoria', date:'21 June 1813', intro:'Joseph Bonaparte tried to withdraw through the valleys around Vitoria while dragging along a huge baggage train, and Wellington attacked on multiple fronts at once, overwhelming the French and capturing enormous quantities of equipment. The win effectively ended French rule in Spain.' },
+    { type:'battle', id:'battle-toulouse', name:'Battle of Toulouse', date:'10 April 1814', intro:'Crossing into southern France, Wellington fought Soult in one last major battle around fortified villages and ridges, unaware that Napoleon had already abdicated days earlier. After hard fighting, Soult withdrew and the Peninsular campaign was finally over.' },
+  ]},
+  { id:'waterloo', name:'The Waterloo Campaign', years:'1815', brief:'Napoleon\'s escape from Elba in March 1815 forced the Seventh Coalition to move fast, and his own plan was to strike Wellington and Blücher separately before their armies could combine. What followed was only four days of campaigning, 15–18 June, but produced some of the most famous fighting in military history, as Wellington\'s Anglo-Allied army bought time for the Prussians to arrive. This campaign naturally alternates between the two enormous set-piece battles and the smaller, desperate actions fought around the farms and crossroads that decided them.', flow:[
+    { type:'battle', id:'battle-quatre-bras', name:'Battle of Quatre Bras', date:'16 June 1815', intro:'Ney tried to seize the Quatre Bras crossroads before Wellington could concentrate his army, but British reinforcements arrived through the day and repeatedly halted French attacks despite being badly outnumbered early on, keeping Wellington from being cut off from the Prussians entirely.' },
+    { type:'branch', id:'branch-waterloo-1', options:[{ operationId:'op-hougoumont', name:'Defence of Hougoumont', date:'18 June 1815', missionArchetype:'Defence', locked:false }, { operationId:'op-dukes-narrow-escape', name:'The Duke\'s Narrow Escape', date:'16 June 1815 — Battle of Quatre Bras', missionArchetype:'VIP Extraction', locked:true }] },
+    { type:'battle', id:'battle-waterloo', name:'Battle of Waterloo', date:'18 June 1815', intro:'The decisive battle of the whole war saw Napoleon attack Wellington\'s ridge all day while trying to take Hougoumont and La Haye Sainte before Blücher\'s Prussians could arrive. The Imperial Guard\'s final assault is repulsed, ending Napoleon\'s rule for good.' },
+    { type:'branch', id:'branch-waterloo-2', options:[{ operationId:'op-papelotte', name:'Papelotte', date:'18 June 1815', missionArchetype:'Hold the Village', locked:false }, { operationId:'op-la-haye-sainte', name:'Defence of La Haye Sainte', date:'18 June 1815', missionArchetype:'Defence', locked:false }] },
+    { type:'battle', id:'battle-genappe', name:'Pursuit after Waterloo (Battle of Genappe)', date:'19 June 1815', intro:'Waterloo ended Napoleon\'s hopes, but the retreat quickly turned into a chaotic running battle as British cavalry pursued the broken French army through Genappe — less a set-piece battle than the visible collapse of an army.' },
+  ]},
+];
+
 const SCENARIOS = [
   {
     id: 'op-lincelles',
@@ -572,6 +959,168 @@ const SCENARIOS = [
     objective: { combinator:'any', conditions:[
       { type:'ELIMINATE_TARGET', params:{ targetSide:'blue', targetCount:4 } }
     ]}
+  },
+  {
+    id: 'op-willems',
+    campaign: 'Flanders',
+    title: 'Battle of Willems',
+    date: '10 May 1794',
+    brief: "As French pressure mounts, British Guards launch a determined counterattack around the village of Willems, driving the French back after fierce close-range fighting.",
+    objectiveText: 'Retake and hold the village for 2 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','GUARD','GUARD','BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','ARTILLERY','LIGHT_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','ARTILLERY','BRIGADIER','INFANTRY'] }
+    },
+    turnLimit: null,
+    objective: { combinator:'any', conditions:[
+      { type:'CAPTURE_ZONE', params:{ zoneSquares:[{x:11,y:6},{x:12,y:6}], holdForTurns:2 } }
+    ]}
+  },
+  {
+    id: 'op-coa',
+    campaign: 'Peninsular',
+    title: 'Combat of Côa',
+    date: '24 July 1810',
+    brief: "Marshal Ney catches the Light Division before it can safely cross the River Côa. The 95th Rifles and light infantry fight a desperate rearguard action while withdrawing over a narrow bridge under heavy pressure.",
+    objectiveText: 'Get 3 units off the west edge, with your Artillery still alive.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','LIGHT_CAV','ARTILLERY','BRIGADIER','INFANTRY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','BRIGADIER','INFANTRY','LIGHT_CAV','BRIGADIER','INFANTRY','ARTILLERY'] }
+    },
+    turnLimit: 10,
+    objective: { combinator:'all', conditions:[
+      { type:'ESCAPE_ZONE', params:{ escapingSide:'red', edgeRows:[0], minUnitsToEscape:3 } },
+      { type:'PROTECT_UNIT', params:{ protectSide:'red', unitTypes:['ARTILLERY'] } }
+    ]}
+  },
+  {
+    id: 'op-barba-del-puerco',
+    campaign: 'Peninsular',
+    title: 'Combat of Barba del Puerco',
+    date: '31 January 1810',
+    brief: "French troops attempt a surprise night crossing of the Águeda River. The 95th Rifles and supporting light infantry react quickly, throwing the attackers back across the river after fierce close-quarters fighting in darkness.",
+    objectiveText: 'Destroy 3 French units before they can secure the crossing.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','LIGHT_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY'] }
+    },
+    turnLimit: 8,
+    objective: { combinator:'any', conditions:[
+      { type:'ELIMINATE_TARGET', params:{ targetSide:'blue', targetCount:3 } }
+    ]}
+  },
+  {
+    id: 'op-el-bodon',
+    campaign: 'Peninsular',
+    title: 'Combat of El Bodón',
+    date: '25 September 1811',
+    brief: "A small Anglo-Portuguese force, including the 95th Rifles and British cavalry, delays a much larger French advance while protecting Wellington's army from surprise, withdrawing in excellent order despite being heavily outnumbered.",
+    objectiveText: 'Hold for 6 turns with your Artillery still alive.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','LIGHT_CAV','BRIGADIER','ARTILLERY','BRIGADIER','INFANTRY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV','BRIGADIER','ARTILLERY','INFANTRY'] }
+    },
+    turnLimit: 6,
+    objective: { combinator:'all', conditions:[
+      { type:'SURVIVE_TURNS', params:{ defender:'red', minUnits:2 } },
+      { type:'PROTECT_UNIT', params:{ protectSide:'red', unitTypes:['ARTILLERY'] } }
+    ]}
+  },
+  {
+    id: 'op-sabugal',
+    campaign: 'Peninsular',
+    title: 'Battle of Sabugal',
+    date: '3 April 1811',
+    brief: "Dense fog isolates the Light Division while attacking Marshal Reynier. The 95th Rifles fight independently for much of the battle before reinforcements arrive, ultimately breaking through to seize the ridge.",
+    objectiveText: 'Get 4 units onto the ridge (north edge) before the French can stop you.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','LIGHT_CAV','LIGHT_CAV','BRIGADIER','INFANTRY','ARTILLERY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','ARTILLERY','BRIGADIER','INFANTRY','HEAVY_CAV'] }
+    },
+    turnLimit: 10,
+    objective: { combinator:'any', conditions:[
+      { type:'ESCAPE_ZONE', params:{ escapingSide:'red', edgeRows:[0], minUnitsToEscape:4 } }
+    ]}
+  },
+  {
+    id: 'op-arroyo-dos-molinos',
+    campaign: 'Peninsular',
+    title: 'Combat of Arroyo dos Molinos',
+    date: '28 October 1811',
+    brief: "General Rowland Hill surprises a French division in thick morning fog, routing much of the force before it can properly deploy and preventing much of it from escaping the trap.",
+    objectiveText: 'Destroy 4 French units before turn 8 — catch them before they can form up.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','LIGHT_CAV','LIGHT_CAV','BRIGADIER','INFANTRY','HEAVY_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','ARTILLERY'] }
+    },
+    turnLimit: 8,
+    objective: { combinator:'any', conditions:[
+      { type:'ELIMINATE_TARGET', params:{ targetSide:'blue', targetCount:4 } }
+    ]}
+  },
+  {
+    id: 'op-hougoumont',
+    campaign: 'Waterloo',
+    title: 'Defence of Hougoumont',
+    date: '18 June 1815',
+    brief: "French forces repeatedly assault Hougoumont Farm throughout the day. The British Guards defend the walls despite overwhelming numbers, tying down far more troops than Napoleon intended to commit.",
+    objectiveText: 'Hold the farm for 10 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','GUARD','GUARD','BRIGADIER','INFANTRY','ARTILLERY','BRIGADIER','INFANTRY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY','ARTILLERY','BRIGADIER','INFANTRY','INFANTRY','HEAVY_CAV'] }
+    },
+    turnLimit: 10,
+    objective: { combinator:'any', conditions:[
+      { type:'SURVIVE_TURNS', params:{ defender:'red', minUnits:2 } }
+    ]}
+  },
+  {
+    id: 'op-la-haye-sainte',
+    campaign: 'Waterloo',
+    title: 'Defence of La Haye Sainte',
+    date: '18 June 1815',
+    brief: "The King's German Legion defends La Haye Sainte for most of the day before running out of ammunition. Its fall would let French artillery move dangerously close to Wellington's centre.",
+    objectiveText: 'Hold the farmhouse for 8 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','GUARD','INFANTRY','BRIGADIER','INFANTRY','ARTILLERY','BRIGADIER','LIGHT_CAV'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY','ARTILLERY','BRIGADIER','INFANTRY','HEAVY_CAV'] }
+    },
+    turnLimit: 8,
+    objective: { combinator:'any', conditions:[
+      { type:'SURVIVE_TURNS', params:{ defender:'red', minUnits:1 } }
+    ]}
+  },
+  {
+    id: 'op-papelotte',
+    campaign: 'Waterloo',
+    title: 'Papelotte',
+    date: '18 June 1815',
+    brief: "The villages of Papelotte and La Haye form Wellington's eastern flank. Dutch and Nassau troops resist repeated French attacks until Prussian reinforcements begin arriving nearby.",
+    objectiveText: 'Hold the village for 6 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','LIGHT_CAV','BRIGADIER','ARTILLERY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','ARTILLERY','INFANTRY'] }
+    },
+    turnLimit: 6,
+    objective: { combinator:'any', conditions:[
+      { type:'SURVIVE_TURNS', params:{ defender:'red', minUnits:2 } }
+    ]}
+  },
+  {
+    id: 'op-frischermont',
+    campaign: 'Waterloo',
+    title: 'The Fight for Frischermont',
+    date: '18 June 1815',
+    brief: "French attacks threaten Wellington's right flank around Frischermont while Coalition troops fight stubborn delaying actions, critical to preventing a French flanking manoeuvre.",
+    objectiveText: 'Capture and hold the crossroads for 2 turns.',
+    sides: {
+      red: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','LIGHT_CAV','ARTILLERY','BRIGADIER','INFANTRY'] },
+      blue: { units: ['BRIGADIER','INFANTRY','INFANTRY','BRIGADIER','INFANTRY','HEAVY_CAV','BRIGADIER','INFANTRY','ARTILLERY'] }
+    },
+    turnLimit: null,
+    objective: { combinator:'any', conditions:[
+      { type:'CAPTURE_ZONE', params:{ zoneSquares:[{x:14,y:5},{x:15,y:5}], holdForTurns:2 } }
+    ]}
   }
 ];
 const BRIGADE_COMPOSITIONS = [
@@ -599,6 +1148,10 @@ let state = {
   aiSide: null,     // side controlled by the AI, when mode==='ai'
   aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
   scenario: null,   // active Operation, or null for a standard full-army battle
+  campaign: null,   // active Campaign, or null when not playing one
+  campaignFlowIndex: 0,
+  campaignLastWinner: null,
+  campaignRecord: [],
   turnNumber: 1,    // increments every side-turn (2 per round)
   captureHoldCounter: { red:0, blue:0 }, // consecutive turns each side has held a CAPTURE_ZONE objective
   terrain: buildTerrainMap(),
@@ -645,6 +1198,11 @@ function resetUndoStack(){
 }
 function undoLastAction(){
   if(undoStack.length===0) return;
+  const diceOverlay = document.getElementById('diceOverlay');
+  if(diceOverlay && diceOverlay.classList.contains('show')){
+    log('Cannot undo while dice are on screen — wait for the result to clear.', 'system');
+    return;
+  }
   const snap = undoStack.pop();
   restoreState(snap);
   unitAnimations = {};
@@ -714,6 +1272,26 @@ function log(msg, cls){
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+// Assembles a short flavor paragraph from a narration bucket (opening + middle
+// with {status} filled in + closing), picking randomly from each array for
+// variety run to run. `variant` is 'win'|'loss' for the buckets that have a
+// perspective split (always narrated from the ATTACKER's point of view — did
+// their attack succeed or fail), omitted for buckets that don't (a genuine
+// draw, or ranged artillery fire, which is unilateral).
+function narrate(bucketKey, variant){
+  const bucket = NARRATION[bucketKey];
+  if(!bucket) return null;
+  const scene = variant ? bucket[variant] : bucket;
+  if(!scene) return null;
+  const status = bucket.status;
+  const line = [pick(scene.opening), pick(scene.middle).replace('{status}', status), pick(scene.closing)].join(' ');
+  return line;
+}
+function logNarration(bucketKey, variant){
+  const line = narrate(bucketKey, variant);
+  if(line) log(line, 'narrative');
+}
 const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 function dieFaceHTML(value, extraClass){
   const active = PIP_LAYOUT[value] || [];
@@ -722,14 +1300,56 @@ function dieFaceHTML(value, extraClass){
   return `<div class="die ${extraClass||''}">${cells}</div>`;
 }
 
+// Shows a dice group in PENDING state (labels + bonus notes visible, dice faces
+// blank) and waits for the roll to actually be triggered — a tap for a human
+// player, or a brief pause for the AI, so it doesn't look abruptly different
+// from watching a human turn. Nothing is randomized until onTrigger fires.
+let FAST_DICE_MODE = false; // test/simulation harnesses only — never set by real gameplay
+function presentRollTrigger(groups, triggerSide, onTrigger){
+  const overlay = document.getElementById('diceOverlay');
+  const groupsEl = overlay.querySelector('.dice-groups');
+  const resultEl = overlay.querySelector('.dice-result');
+  const rollBtn = document.getElementById('diceRollBtn');
+  clearTimeout(showDice._fadeT);
+  clearInterval(showDice._rollT);
+  clearTimeout(presentRollTrigger._aiT);
+
+  overlay.classList.add('show');
+  resultEl.textContent = '';
+  resultEl.className = 'dice-result';
+  groupsEl.innerHTML = groups.map((g,i)=>{
+    const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending')).join('');
+    const notesHTML = (g.notes && g.notes.length) ?
+      `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
+    const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
+    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
+  }).join('');
+
+  const isHuman = !(state.mode==='ai' && triggerSide===state.aiSide);
+  if(FAST_DICE_MODE){ onTrigger(); return; }
+  if(isHuman){
+    rollBtn.style.display = 'inline-block';
+    rollBtn.disabled = false;
+    rollBtn.onclick = ()=>{ rollBtn.style.display='none'; onTrigger(); };
+  } else {
+    rollBtn.style.display = 'none';
+    presentRollTrigger._aiT = setTimeout(onTrigger, 550);
+  }
+}
+
 // groups: [{label, rolls:[1,4], keptValue:4, ...}] — rolls is every die actually
 // rolled for that side (bonus/re-roll dice included), keptValue is the one that counts.
 // The animation is purely cosmetic: the real values are already decided by the time
 // this is called, so it briefly flickers random faces before settling on them.
-function showDice(groups, resultText, resultCls){
+// onSettled fires once the popup has fully faded — board consequences (push-backs,
+// removals, retreats) are deferred until then, so they never animate behind
+// dice you're still reading.
+function showDice(groups, resultText, resultCls, onSettled){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
+  const rollBtn = document.getElementById('diceRollBtn');
+  rollBtn.style.display = 'none';
   clearTimeout(showDice._fadeT);
   clearInterval(showDice._rollT);
 
@@ -750,6 +1370,14 @@ function showDice(groups, resultText, resultCls){
   overlay.classList.add('show');
   resultEl.textContent = '';
   resultEl.className = 'dice-result';
+  if(FAST_DICE_MODE){
+    renderFrame(true);
+    resultEl.textContent = resultText || '';
+    resultEl.className = 'dice-result ' + (resultCls||'');
+    overlay.classList.remove('show');
+    if(onSettled) onSettled();
+    return;
+  }
   renderFrame(false);
   let ticks = 0;
   showDice._rollT = setInterval(()=>{
@@ -763,7 +1391,10 @@ function showDice(groups, resultText, resultCls){
       renderFrame(false);
     }
   }, 180);
-  showDice._fadeT = setTimeout(()=>overlay.classList.remove('show'), 3400);
+  showDice._fadeT = setTimeout(()=>{
+    overlay.classList.remove('show');
+    if(onSettled) onSettled();
+  }, 2900); // was 3400 — trimmed 500ms per feedback
 }
 
 /* =========================================================
@@ -790,6 +1421,24 @@ function pickUnitAtCell(x,y){
   return list[state._stackCycle.idx];
 }
 function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
+
+// Woods physically conceal whoever's standing in them (the tree-cluster piece
+// acts as a lid on the real board) — this is automatic for ANY unit in a Woods
+// square, not just one that's declared Lay Ambush. A declared ambush (u.hidden)
+// is a separate, additional layer: same base concealment, plus the spring/bonus
+// mechanics. Concealment only affects ranged targeting and AI awareness — an
+// adjacent enemy can always see and fight a unit normally, concealed or not.
+function isConcealedFromEnemy(unit){
+  if(unit.hidden) return true;
+  return terrainAt(unit.x, unit.y).key === 'WOODS';
+}
+// Ambush status is only meaningful while standing in the Woods that conceal it —
+// a defensive invariant, checked at the start of every turn.
+function enforceAmbushWoodsInvariant(){
+  for(const u of state.units){
+    if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS') u.hidden = false;
+  }
+}
 function neighbors8(x,y){
   const out=[];
   for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
@@ -878,7 +1527,7 @@ function isCleanChargeRun(fromX, fromY, toX, toY){
 // Square, and not on higher ground than the charging destination — matches the
 // "can't charge uphill or against a Square" restriction).
 function hasChargeableTargetAt(side, pos){
-  return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(pos,o) &&
+  return state.units.some(o=>!o.removed && o.side!==side && !isConcealedFromEnemy(o) && isAdjacent(pos,o) &&
     o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(pos.x,pos.y).elevation);
 }
 // Every legal move for a Cavalry unit that would count as a clean charge run
@@ -1000,7 +1649,7 @@ function artilleryTargets(gun){
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
-  return state.units.filter(t=>!t.removed && !t.hidden && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
+  return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
 }
 function isInActiveFight(u){
   return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
@@ -1045,7 +1694,8 @@ function bonusDiceCount(unit, opponent, defending){
   return { count:n, reasons };
 }
 
-function resolveFight(attacker, defender, ambushMode){
+function resolveFight(attacker, defender, ambushMode, onComplete){
+  onComplete = onComplete || function(){};
   showActionLine(attacker, defender, '#a8720b', 3800);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
   const aBonus = bonusDiceCount(attacker, defender, false);
@@ -1061,74 +1711,96 @@ function resolveFight(attacker, defender, ambushMode){
   if((aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square' && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation==='square'){
     aDice = Math.max(aDice,2); aReasons.push('Infantry vs Square');
   }
-
-  const aRoll = rollBest(aDice);
-  const dRoll = rollBest(dDice);
-  if(ambushMode){ aRoll.value = Math.min(6, aRoll.value+1); aReasons.push('Ambush: +1 to roll (capped at 6)'); } // ambush: +1 to the rolled value, capped at 6
+  // House rule: a unit still turned around from a prior pushback (or an artillery
+  // result of 4) gives the attacker +1 to their rolled value (capped at 6) if
+  // struck while in that state — same phrasing/mechanic as the Ambush bonus.
+  let aValueBonus = 0;
+  if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); }
+  if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll (capped at 6)'); }
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
-  const isTie = aRoll.value === dRoll.value;
 
-  // A defender on higher ground wins any tie against an attacker from lower ground.
-  const defenderHillTieWin = isTie &&
-    terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
+  presentRollTrigger([
+    {label:aName, diceCount:aDice, notes:aReasons},
+    {label:dName, diceCount:dDice, notes:dReasons}
+  ], attacker.side, ()=>{
+    const aRoll = rollBest(aDice);
+    const dRoll = rollBest(dDice);
+    if(aValueBonus) aRoll.value = Math.min(6, aRoll.value + aValueBonus);
 
-  // A clean 2-square Cavalry charge wins ties in this first fight — but not uphill, and not against a Square.
-  const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
-    UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
-    terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
+    const isTie = aRoll.value === dRoll.value;
+    const defenderHillTieWin = isTie &&
+      terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
+    const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
+      UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
+      terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
+    const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
+      (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
+    const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
 
-  // An Attack Column (2 Infantry/Guard stacked) wins ties while attacking.
-  const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
-    (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
+    let resultText, resultCls;
+    if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; dReasons.push('Tie-win: Hill defence'); }
+    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Charge'); }
+    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Attack Column'); }
+    else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
+    else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
 
-  const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
+    showDice([
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+    ], resultText, resultCls, ()=>{
+      // Deferred until the popup has fully faded — nothing on the board moves
+      // while there are still dice on screen to read.
+      attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
 
-  let resultText, resultCls;
-  if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
-  else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; dReasons.push('Tie-win: Hill defence'); }
-  else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Charge'); }
-  else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Attack Column'); }
-  else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
-  else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
-  showDice([
-    {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
-    {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
-  ], resultText, resultCls);
+      if(genuineDraw){
+        log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
+        logNarration('melee_stalemate');
+        onComplete();
+        return;
+      }
+      if(defenderHillTieWin){
+        log(`${dType.label} holds the high ground against ${aType.label}: ${aRoll.value}-${dRoll.value} tie goes to the defender.`, 'combat');
+        logNarration('melee_pushback', 'loss');
+        pushBack(attacker, defender);
+        onComplete();
+        return;
+      }
+      if(attackerChargeTieWin || attackerColumnTieWin){
+        const reason = attackerChargeTieWin ? 'a clean charge' : 'a Column formation';
+        log(`${aType.label}'s ${reason} carries the ${aRoll.value}-${dRoll.value} tie against ${dType.label}.`, 'combat');
+        logNarration('melee_pushback', 'win');
+        pushBack(defender, attacker);
+        onComplete();
+        return;
+      }
+      const winnerIsAttacker = aRoll.value > dRoll.value;
+      const winner = winnerIsAttacker ? attacker : defender;
+      const loser = winnerIsAttacker ? defender : attacker;
+      const diff = Math.abs(aRoll.value - dRoll.value);
+      log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
-  attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
-
-  if(genuineDraw){
-    log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
-    return;
-  }
-  if(defenderHillTieWin){
-    log(`${dType.label} holds the high ground against ${aType.label}: ${aRoll.value}-${dRoll.value} tie goes to the defender.`, 'combat');
-    pushBack(attacker, defender);
-    return;
-  }
-  if(attackerChargeTieWin || attackerColumnTieWin){
-    const reason = attackerChargeTieWin ? 'a clean charge' : 'a Column formation';
-    log(`${aType.label}'s ${reason} carries the ${aRoll.value}-${dRoll.value} tie against ${dType.label}.`, 'combat');
-    pushBack(defender, attacker);
-    return;
-  }
-  const winnerIsAttacker = aRoll.value > dRoll.value;
-  const winner = winnerIsAttacker ? attacker : defender;
-  const loser = winnerIsAttacker ? defender : attacker;
-  const diff = Math.abs(aRoll.value - dRoll.value);
-  log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
-
-  const columnPartner = stackPartner(loser); // a broken Column takes both units with it
-  if(diff===1){
-    pushBack(loser, winner);
-  } else if(diff===2){
-    retreatAndRally(loser);
-    if(columnPartner) retreatAndRally(columnPartner);
-  } else {
-    removeUnit(loser, 'destroyed in combat');
-    if(columnPartner) removeUnit(columnPartner, 'Column broken alongside its partner');
-  }
+      const columnPartner = stackPartner(loser); // a broken Column takes both units with it
+      const attackerSucceeded = winnerIsAttacker;
+      if(diff===1){
+        logNarration('melee_pushback', attackerSucceeded ? 'win' : 'loss');
+        pushBack(loser, winner);
+        onComplete();
+      } else if(diff===2){
+        logNarration('melee_rout', attackerSucceeded ? 'win' : 'loss');
+        retreatAndRally(loser, ()=>{
+          if(columnPartner) retreatAndRally(columnPartner, onComplete);
+          else onComplete();
+        });
+      } else {
+        logNarration('melee_destroy', attackerSucceeded ? 'win' : 'loss');
+        removeUnit(loser, 'destroyed in combat');
+        if(columnPartner) removeUnit(columnPartner, 'Column broken alongside its partner');
+        onComplete();
+      }
+    });
+  });
 }
 
 function pushBack(loser, winner){
@@ -1150,12 +1822,23 @@ function pushBack(loser, winner){
       }
     }
     if(landingClear){ animateUnitTo(loser, nx, ny); }
+  } else if(!inBounds(nx,ny)){
+    // Already at the board edge with nowhere further to go — house rule: run to the
+    // nearest corner of its own edge instead of simply standing in place.
+    const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
+    const preferredCornerX = loser.x < COLS/2 ? 0 : COLS-1;
+    const corner = findNearestFreeEdgeCell(edgeY, preferredCornerX, loser.id);
+    if(corner && (corner.x!==loser.x || corner.y!==loser.y)){
+      animateUnitTo(loser, corner.x, corner.y);
+      log(`${unitLabel(loser)} has nowhere left to give and bolts for the corner.`, 'combat');
+    }
   }
   loser.turnOnly = true;
   log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
 }
 
-function retreatAndRally(loser){
+function retreatAndRally(loser, onComplete){
+  onComplete = onComplete || function(){};
   const brig = state.units.find(u=>!u.removed && u.side===loser.side && u.type==='BRIGADIER' && u.brigadeId===loser.brigadeId);
   const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
   const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
@@ -1167,18 +1850,84 @@ function retreatAndRally(loser){
   let successOn = [4,5,6];
   if(t.key==='GUARD') successOn = [3,4,5,6];
   if(t.key==='ARTILLERY') successOn = [5,6];
-  const r = rollD6();
   const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+'] : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
-  showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], successOn.includes(r) ? 'Rallies!' : 'Fails to rally', successOn.includes(r) ? 'win' : 'lose');
-  if(successOn.includes(r)){
-    log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
-  } else if(brig && !brig.leadershipUsed){
+
+  presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
+    const r = rollD6();
+    const success = successOn.includes(r);
+    showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
+      if(success){
+        log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
+        logNarration('rally_success');
+        onComplete();
+        return;
+      }
+      log(`${unitLabel(loser)} fails to rally (rolled ${r}).`, 'combat');
+      if(brig && !brig.leadershipUsed){
+        offerLeadershipRoll(loser, brig, onComplete);
+      } else {
+        logNarration('rally_failure');
+        removeUnit(loser, 'failed rally');
+        onComplete();
+      }
+    });
+  });
+}
+
+// Leadership Roll is one guaranteed save per Brigade for the whole match, so
+// spending it on the first failed rally isn't automatically correct — it's
+// worth asking (or, for the AI, weighing) whether THIS is the unit worth it.
+function offerLeadershipRoll(loser, brig, onComplete){
+  onComplete = onComplete || function(){};
+  const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && loser.side===state.aiSide);
+  if(!isHuman){
+    const useIt = aiDecideLeadershipRoll(loser, brig);
+    applyLeadershipRollChoice(loser, brig, useIt, onComplete);
+    return;
+  }
+  document.getElementById('overlayTitle').textContent = 'Use Leadership Roll?';
+  document.getElementById('overlayText').innerHTML =
+    `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`;
+  document.getElementById('overlayBtn').style.display = 'none';
+  const canvas = document.getElementById('rotationPreviewCanvas');
+  if(canvas) canvas.style.display = 'none';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'primary';
+  yesBtn.textContent = 'Use Leadership Roll';
+  yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyLeadershipRollChoice(loser, brig, true, onComplete); };
+  const noBtn = document.createElement('button');
+  noBtn.textContent = 'Let the Unit Go';
+  noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyLeadershipRollChoice(loser, brig, false, onComplete); };
+  extra.appendChild(yesBtn);
+  extra.appendChild(noBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
+  onComplete = onComplete || function(){};
+  if(useIt){
     brig.leadershipUsed = true;
-    log(`${unitLabel(loser)} fails to rally (rolled ${r}), but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
+    log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
+    logNarration('rally_success');
   } else {
-    log(`${unitLabel(loser)} fails to rally (rolled ${r}) and is removed from the field.`, 'combat');
+    log(`${unitLabel(loser)} is removed from the field.`, 'combat');
+    logNarration('rally_failure');
     removeUnit(loser, 'failed rally');
   }
+  onComplete();
+}
+
+// AI heuristic: save the unit if its Brigade is already close to breaking (this
+// loss would matter a lot) or if the unit itself is high-value (Guard, Heavy
+// Cavalry, Artillery) — otherwise bank the Leadership Roll for later.
+function aiDecideLeadershipRoll(loser, brig){
+  const remaining = state.units.filter(o=>!o.removed && o.side===loser.side && o.brigadeId===loser.brigadeId && o.type!=='BRIGADIER').length;
+  const closeToBreaking = remaining<=2; // includes the loser itself, not yet removed
+  const highValue = AI_UNIT_VALUE[loser.type] >= 5;
+  return closeToBreaking || highValue;
 }
 
 function findNearestFreeEdgeCell(edgeY, preferredX, excludeId){
@@ -1311,6 +2060,15 @@ function checkScenarioObjective(){
   } else { // 'all' — every condition must agree on the SAME winner
     if(results.every(r => r !== null) && results.every(r => r === results[0])) winner = results[0];
   }
+  if(!winner){
+    // Safety net: a side wiped out entirely can't go on to achieve any objective,
+    // so the other side wins by default rather than the match hanging forever
+    // (this matters most for scenarios with no turnLimit, resolved purely by objective).
+    for(const side of [SIDES.RED, SIDES.BLUE]){
+      const remaining = state.units.filter(u=>!u.removed && u.side===side && u.type!=='BRIGADIER').length;
+      if(remaining===0){ winner = otherSide(side); break; }
+    }
+  }
   if(winner) endGame(winner);
 }
 
@@ -1331,9 +2089,20 @@ function endGame(winner){
   const modeChoices = document.getElementById('modeChoices');
   if(modeChoices) modeChoices.style.display = 'none';
   document.getElementById('overlayBtn').style.display = 'inline-block';
-  document.getElementById('overlayBtn').textContent = 'New Battle';
+  if(state.campaign){
+    state.campaignLastWinner = winner;
+    state.campaignRecord.push(winner);
+    document.getElementById('overlayBtn').textContent = 'Continue Campaign';
+    document.getElementById('overlayBtn').onclick = ()=>{
+      state.campaignFlowIndex++;
+      saveCampaignProgress();
+      location.reload();
+    };
+  } else {
+    document.getElementById('overlayBtn').textContent = 'New Battle';
+    document.getElementById('overlayBtn').onclick = ()=> location.reload();
+  }
   document.getElementById('overlay').classList.add('show');
-  document.getElementById('overlayBtn').onclick = ()=> location.reload();
 }
 
 /* =========================================================
@@ -1841,11 +2610,12 @@ function drawUnit(u, off){
   ctx.translate(cx,cy);
   if(u.formation==='square') ctx.rotate(Math.PI/4);
 
-  ctx.globalAlpha = u.hidden ? 0.55 : 1;
+  const concealed = isConcealedFromEnemy(u);
+  ctx.globalAlpha = concealed ? 0.55 : 1;
   ctx.fillStyle = col;
   ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
   ctx.lineWidth = isSel ? 3 : 1.5;
-  if(u.hidden) ctx.setLineDash([3,2]);
+  if(concealed) ctx.setLineDash([3,2]);
 
   switch(t.shape){
     case 'square':
@@ -1915,8 +2685,9 @@ function initDeployment(){
   state.deployTurn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
+  document.getElementById('sidebar').style.display='flex';
   document.getElementById('rosterPanel').style.display='flex';
-  document.getElementById('battlePanel').style.display='none';
+  document.getElementById('unitOverlay').classList.add('hidden');
   renderRoster();
   updateHeader();
   if(state.mode==='ai' && state.deployTurn===state.aiSide){
@@ -2256,7 +3027,7 @@ function threatPenalty(unit, side){
   let penalty = 0;
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   for(const e of state.units){
-    if(e.removed || e.side!==enemy || e.hidden) continue;
+    if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
     const eType = UNIT_TYPES[e.type];
     if(!eType.canFight) continue;
     const reach = unitBaseMove(e) + 1; // move then engage
@@ -2273,6 +3044,67 @@ function threatPenalty(unit, side){
 /* =========================================================
    AI: MOVEMENT
 ========================================================= */
+// Core Tactic #5, Ground Worth Bleeding For: Medium+ values ending a move on
+// terrain that actually helps, rather than pure distance-to-enemy pull.
+function terrainSeekBonus(unitTypeKey, x, y){
+  const terr = terrainAt(x,y);
+  if(terr.key==='HILL') return 0.35; // tie-win vs a lower attacker, benefits any unit type
+  if(terr.key==='WOODS' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD')) return 0.3;
+  if(terr.key==='BUILDING' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD'||unitTypeKey==='ARTILLERY')) return 0.3;
+  return 0;
+}
+
+// Core Tactic #2, The Gunner's Creed: Medium+ non-artillery units value ending a
+// move screening a friendly gun that doesn't already have a screener.
+function screensGunBonus(mover, side, pos){
+  const t = UNIT_TYPES[mover.type];
+  if(t.isArtillery || t.key==='BRIGADIER') return 0;
+  const unscreenedGun = state.units.find(o=>!o.removed && o.side===side && o.type==='ARTILLERY' &&
+    isAdjacent(pos,o) &&
+    !state.units.some(s=>!s.removed && s.id!==mover.id && s.id!==o.id && s.side===side &&
+      UNIT_TYPES[s.type].key!=='ARTILLERY' && UNIT_TYPES[s.type].key!=='BRIGADIER' && isAdjacent(o,s)));
+  return unscreenedGun ? 0.5 : 0;
+}
+
+// Manoeuvre #12, Reserve Doctrine: Hard holds a Guard/Heavy Cavalry unit back
+// from the opening exchanges unless a genuine crisis point already exists —
+// a friendly unit already in contact and under real threat.
+function reserveCrisisExists(side){
+  return state.units.some(u=>!u.removed && u.side===side && u.type!=='BRIGADIER' && !UNIT_TYPES[u.type].isArtillery &&
+    state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o)) && threatPenalty(u,side) > 1.0);
+}
+
+// Manoeuvre #20, The Bogged Column: Hard scouts for an enemy gun stuck on/beside
+// ploughed ground with no Cavalry escort in its own Brigade, and exploits it.
+function findBoggedEnemyGun(side){
+  const enemy = otherSide(side);
+  return state.units.find(o=>!o.removed && o.side===enemy && UNIT_TYPES[o.type].isArtillery &&
+    terrainAt(o.x,o.y).plough && brigadeCavalryCount(o)===0);
+}
+
+// Operations: how much a candidate position or fight target actually serves the
+// active scenario's objective — generalizes brigadeBreakBonus to whatever the
+// real win condition is, rather than always assuming "break 2 of 3 Brigades."
+function scenarioMoveBonus(mover, side, pos){
+  if(!state.scenario) return 0;
+  let bonus = 0;
+  for(const cond of state.scenario.objective.conditions){
+    if(cond.type==='CAPTURE_ZONE'){
+      const dists = cond.params.zoneSquares.map(z=>chebyshev(pos,z));
+      bonus += Math.max(0, 3 - Math.min(...dists)) * 0.25; // pull toward the zone as it gets close
+    } else if(cond.type==='ESCAPE_ZONE' && cond.params.escapingSide===side){
+      const edgeDist = Math.min(...cond.params.edgeRows.map(r=>Math.abs(pos.y-r)));
+      bonus += Math.max(0, 4 - edgeDist) * 0.2; // pull toward the exit edge
+    } else if(cond.type==='PROTECT_UNIT' && cond.params.protectSide===side){
+      const asset = state.units.find(o=>!o.removed && o.side===side && cond.params.unitTypes.includes(o.type));
+      if(asset && UNIT_TYPES[mover.type].key!=='BRIGADIER' && !UNIT_TYPES[mover.type].isArtillery && isAdjacent(pos,asset)) bonus += 0.4;
+    } else if(cond.type==='SURVIVE_TURNS' && cond.params.defender===side){
+      bonus += terrainSeekBonus(mover.type, pos.x, pos.y) * 0.6; // lean harder into defensible ground
+    }
+  }
+  return bonus;
+}
+
 function orderAiUnitsForMove(side){
   // Brigadiers move first: they anchor their Brigade's cohesion chain (never
   // penalized for their own "disconnection" — see movableUnitsForSide), so
@@ -2288,7 +3120,7 @@ function nearestEnemyDist(pos, side){
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   let best = 999;
   for(const e of state.units){
-    if(e.removed || e.side!==enemy || e.hidden) continue;
+    if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
     const d = chebyshev(pos, e);
     if(d<best) best = d;
   }
@@ -2328,6 +3160,9 @@ function aiDecideAndExecuteMove(u){
   }
 
   let best = candidates[0], bestScore = -Infinity;
+  const isReserveType = t.key==='GUARD' || (t.isCavalry && t.key==='HEAVY_CAV');
+  const holdingReserve = state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side);
+  const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
@@ -2335,18 +3170,28 @@ function aiDecideAndExecuteMove(u){
     // Without some positional pull, every "safe" square scores identically and the
     // AI never closes to fight. Infantry/cavalry are pulled toward the nearest enemy;
     // artillery is pulled toward its ideal firing band (3-5 squares) instead.
-    if(t.isArtillery){
-      const d = nearestEnemyDist(c, side);
-      s -= Math.abs(d-4) * 0.06;
-    } else {
-      s -= nearestEnemyDist(c, side) * 0.12;
+    // Reserve Doctrine (Hard): suppress this pull for a held-back Guard/Heavy
+    // Cavalry unit until a real crisis exists, so it doesn't rush the opening exchanges.
+    if(!holdingReserve){
+      if(t.isArtillery){
+        const d = nearestEnemyDist(c, side);
+        s -= Math.abs(d-4) * 0.06;
+      } else {
+        s -= nearestEnemyDist(c, side) * 0.12;
+      }
     }
 
     // Medium+: deliberately seek out a Charge instead of only charging by accident.
+    // Also coordinates with an Attack Column already formed this turn (Manoeuvre
+    // #19, Hammer and Column) — a charge against the same target the Column is
+    // already threatening is worth more than an isolated one.
     if(seekTactics && t.isCavalry && !c.stay && isCleanChargeRun(ox,oy,c.x,c.y)){
-      const chargeable = state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) &&
+      const chargeableTarget = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(c,o) &&
         o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(c.x,c.y).elevation);
-      if(chargeable) s += 2.2;
+      if(chargeableTarget){
+        s += 2.2;
+        if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += 1.0;
+      }
     }
     // Medium+: deliberately form an Attack Column ahead of a fight it can already see coming,
     // instead of doubling up only as an accidental byproduct of two units picking the same square.
@@ -2354,6 +3199,14 @@ function aiDecideAndExecuteMove(u){
       const occ = unitsAt(c.x,c.y).filter(o=>!o.removed && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
       if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += 1.4;
     }
+    // Core Tactic #5, Ground Worth Bleeding For: value good terrain when otherwise similar.
+    if(seekTactics) s += terrainSeekBonus(t.key, c.x, c.y);
+    // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
+    if(seekTactics) s += screensGunBonus(u, side, c);
+    // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
+    if(boggedTarget) s -= chebyshev(c, boggedTarget) * 0.15;
+    // Operations: pull toward whatever the active scenario's objective actually rewards.
+    if(state.scenario) s += scenarioMoveBonus(u, side, c);
 
     s += Math.random() * 0.03; // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
@@ -2385,6 +3238,13 @@ function aiDecideAndExecuteMove(u){
     } else {
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
     }
+    if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD')){
+      const stacked = unitsAt(best.x,best.y).some(o=>!o.removed && o.id!==u.id && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
+      if(stacked){
+        const nearbyEnemy = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(best,o));
+        if(nearbyEnemy) state.turnComboTarget = nearbyEnemy.id;
+      }
+    }
     state.moved.add(u.id);
   }
 }
@@ -2406,18 +3266,24 @@ function aiDoMovePhase(){
 /* =========================================================
    AI: ARTILLERY FIRE
 ========================================================= */
-function aiFireDecision(gun){
+function aiFireDecision(gun, onComplete){
+  onComplete = onComplete || function(){};
   const targets = artilleryTargets(gun);
-  if(targets.length===0){ state.fired.add(gun.id); return; }
+  if(targets.length===0){ state.fired.add(gun.id); onComplete(); return; }
   let best=null, bestScore=-Infinity;
   for(const t of targets){
     const dist = chebyshev(gun,t);
     const pHit = dist<=1 ? 1 : Math.max(0,(7-dist))/6;
     let score = pHit * AI_UNIT_VALUE[t.type];
     if(state.aiDifficulty!=='easy') score += pHit * brigadeBreakBonus(t);
+    // Manoeuvre #11, Grand Battery (Hard): concentrate onto a target another
+    // friendly gun already hit this phase, while still within effective range.
+    if(state.aiDifficulty==='hard' && dist<=3 && state.turnGunTargets && state.turnGunTargets.has(t.id)) score += 1.5;
     if(score>bestScore){ bestScore=score; best=t; }
   }
-  fireArtillery(gun, best);
+  if(!state.turnGunTargets) state.turnGunTargets = new Set();
+  state.turnGunTargets.add(best.id);
+  fireArtillery(gun, best, onComplete);
 }
 
 function aiDoFirePhase(){
@@ -2427,9 +3293,11 @@ function aiDoFirePhase(){
     if(state.gameOver) return;
     if(i>=guns.length){ endFirePhase(); return; }
     const gun = guns[i]; i++;
-    if(!gun.removed) aiFireDecision(gun);
-    draw();
-    setTimeout(step, 450);
+    if(!gun.removed){
+      aiFireDecision(gun, ()=>{ draw(); setTimeout(step, 250); });
+    } else {
+      setTimeout(step, 100);
+    }
   }
   step();
 }
@@ -2487,10 +3355,25 @@ function simulateFightAftermathScore(attacker, defender, side){
 
 // Single entry point the AI's Fight-phase loop calls — branches on difficulty,
 // Easy's exact original behaviour untouched.
+// Operations: fight decisions need to serve whatever the active objective
+// actually is — chasing Brigade-breaks in an escape or survival scenario is
+// actively counterproductive, not just unsophisticated.
+function scenarioFightBonus(target, side){
+  if(!state.scenario) return 0;
+  let bonus = 0;
+  for(const cond of state.scenario.objective.conditions){
+    if(cond.type==='ELIMINATE_TARGET' && cond.params.targetSide===target.side) bonus += 1.0;
+    if(cond.type==='SURVIVE_TURNS' && cond.params.defender===side) bonus -= 0.6;
+    if(cond.type==='ESCAPE_ZONE' && cond.params.escapingSide===side) bonus -= 0.8;
+  }
+  return bonus;
+}
+
 function aiEstimateFightValue(a, t, side){
-  if(state.aiDifficulty==='hard') return simulateFightAftermathScore(a, t, side) + estimateFightValue(a,t)*0.15;
-  if(state.aiDifficulty==='medium') return estimateFightValue(a,t) + brigadeBreakBonus(t);
-  return estimateFightValue(a,t);
+  const scenarioAdj = scenarioFightBonus(t, side);
+  if(state.aiDifficulty==='hard') return simulateFightAftermathScore(a, t, side) + estimateFightValue(a,t)*0.15 + scenarioAdj;
+  if(state.aiDifficulty==='medium') return estimateFightValue(a,t) + (state.scenario ? scenarioAdj : brigadeBreakBonus(t));
+  return estimateFightValue(a,t) + scenarioAdj*0.5; // even Easy needs baseline awareness a non-standard objective exists, not full doctrine
 }
 
 function aiDoFightPhase(){
@@ -2508,11 +3391,14 @@ function aiDoFightPhase(){
       }
     }
     if(bestA){
-      resolveFight(bestA, bestT);
-      state.fought.add(bestA.id);
+      resolveFight(bestA, bestT, undefined, ()=>{
+        state.fought.add(bestA.id);
+        draw();
+        setTimeout(step, 300);
+      });
+    } else {
+      endFightPhase();
     }
-    draw();
-    setTimeout(step, 650);
   }
   step();
 }
@@ -2524,8 +3410,9 @@ function startBattle(){
   document.getElementById('overlay').classList.remove('show');
   state.turn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
   log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
-  document.getElementById('rosterPanel').style.display='none';
-  document.getElementById('battlePanel').style.display='flex';
+  document.getElementById('sidebar').style.display='none';
+  document.getElementById('unitOverlay').classList.remove('hidden');
+  document.getElementById('unitOverlay').classList.remove('show');
   beginMovePhase();
 }
 
@@ -2574,6 +3461,8 @@ function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
   state.moved = new Set();
+  state.turnComboTarget = null;
+  enforceAmbushWoodsInvariant();
   resetUndoStack();
   clearPendingTurnaroundFlagsIfDue();
   document.getElementById('endMoveBtn').style.display='inline-block';
@@ -2609,6 +3498,7 @@ function clearPendingTurnaroundFlagsIfDue(){
 function beginFirePhase(){
   state.phase = 'fire';
   state.fired = new Set();
+  state.turnGunTargets = new Set();
   resetUndoStack();
   document.getElementById('endMoveBtn').style.display='none';
   document.getElementById('endFireBtn').style.display='inline-block';
@@ -2710,12 +3600,10 @@ function processAmbushSpringsSequentially(springs, idx, onDone){
   const isHumanOwner = !(state.mode==='ai' && amb.side===state.aiSide);
   if(isHumanOwner){
     showAmbushChoice(amb, target, (mode)=>{
-      springAmbush(amb, target, mode);
-      processAmbushSpringsSequentially(springs, idx+1, onDone);
+      springAmbush(amb, target, mode, ()=> processAmbushSpringsSequentially(springs, idx+1, onDone));
     });
   } else {
-    springAmbush(amb, target, 'hold'); // AI doesn't lay ambush itself, but resolve gracefully if it ever inherits one
-    processAmbushSpringsSequentially(springs, idx+1, onDone);
+    springAmbush(amb, target, 'hold', ()=> processAmbushSpringsSequentially(springs, idx+1, onDone)); // AI doesn't lay ambush itself, but resolve gracefully if it ever inherits one
   }
 }
 
@@ -2743,19 +3631,22 @@ function showAmbushChoice(ambusher, target, callback){
   document.getElementById('overlay').classList.add('show');
 }
 
-function springAmbush(ambusher, target, mode){
+function springAmbush(ambusher, target, mode, onComplete){
+  onComplete = onComplete || function(){};
   ambusher.hidden = false;
   ambusher.ambushSpentThisRound = true;
   log(`AMBUSH! ${unitLabel(ambusher)} springs from the woods on ${unitLabel(target)} (${mode}).`, 'combat');
   const beforeX = target.x, beforeY = target.y;
-  resolveFight(ambusher, target, mode);
-  if(mode==='advance'){
-    const stillThere = state.units.some(o=>!o.removed && o.id===target.id && o.x===beforeX && o.y===beforeY);
-    if(!stillThere && unitsAt(beforeX,beforeY).length===0 && isAdjacent(ambusher,{x:beforeX,y:beforeY})){
-      animateUnitTo(ambusher, beforeX, beforeY);
-      log(`${unitLabel(ambusher)} advances into the vacated ground.`, 'combat');
+  resolveFight(ambusher, target, mode, ()=>{
+    if(mode==='advance'){
+      const stillThere = state.units.some(o=>!o.removed && o.id===target.id && o.x===beforeX && o.y===beforeY);
+      if(!stillThere && unitsAt(beforeX,beforeY).length===0 && isAdjacent(ambusher,{x:beforeX,y:beforeY})){
+        animateUnitTo(ambusher, beforeX, beforeY);
+        log(`${unitLabel(ambusher)} advances into the vacated ground.`, 'combat');
+      }
     }
-  }
+    onComplete();
+  });
 }
 function endFirePhase(){ beginFightPhase(); }
 function endFightPhase(){
@@ -2811,7 +3702,9 @@ function renderUnitInfo(u){
   const el = document.getElementById('unitInfo');
   const sqBtn = document.getElementById('squareBtn');
   const ambBtn = document.getElementById('ambushBtn');
-  if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; return; }
+  const overlay = document.getElementById('unitOverlay');
+  if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; if(overlay) overlay.classList.remove('show'); return; }
+  if(overlay && state.phase!=='deploy') overlay.classList.add('show');
   const t = UNIT_TYPES[u.type];
   const terr = terrainAt(u.x,u.y);
   const heading = u.historicalName || t.label;
@@ -2825,11 +3718,17 @@ function renderUnitInfo(u){
       ${u.formation==='square'?'<span class="tag st-square">SQUARE</span>':''}
       ${u.turnOnly?'<span class="tag st-pushed">Turning Around</span>':''}
       ${u.rallying?'<span class="tag">Rallying</span>':''}
-      ${u.hidden?'<span class="tag st-square">IN AMBUSH</span>':''}
+      ${u.hidden?'<span class="tag st-square">IN AMBUSH</span>':(isConcealedFromEnemy(u)?'<span class="tag">IN COVER (Woods)</span>':'')}
       ${u.charged?'<span class="tag st-active">CHARGED</span>':''}
     </div>
     ${u.historicalBio ? `<div class="bio-toggle" id="bioToggleBtn" onclick="toggleUnitBio()">History ▾</div><div class="bio-text" id="bioText" style="display:none;">${u.historicalBio}</div>` : ''}
   `;
+  const portraitEl = document.getElementById('unitPortrait');
+  if(portraitEl){
+    const shapeGlyph = { square:'\u25A0', triangle:'\u25B2', diamond:'\u25C6', star:'\u2605' }[t.shape] || '\u25A0';
+    portraitEl.style.background = `linear-gradient(160deg, ${SIDE_COLOR[u.side]}22, var(--paper-2))`;
+    portraitEl.innerHTML = `<span style="font-size:40px;color:${SIDE_COLOR[u.side]};">${shapeGlyph}</span>`;
+  }
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
   const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
   if(u.formation==='square'){
@@ -2916,10 +3815,11 @@ function onCellClick(x,y){
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
-      resolveFight(sel, target);
-      state.fought.add(sel.id);
       selectUnit(null);
-      if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
+      resolveFight(sel, target, undefined, ()=>{
+        state.fought.add(sel.id);
+        if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
+      });
       return;
     }
     if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
@@ -2927,59 +3827,104 @@ function onCellClick(x,y){
   }
 }
 
-function fireArtillery(gun, target){
+function fireArtillery(gun, target, onComplete){
+  onComplete = onComplete || function(){};
   const dist = chebyshev(gun,target);
-  if(dist<=1){ resolveFight(gun, target); state.fired.add(gun.id); selectUnit(null); return; }
+  if(dist<=1){
+    resolveFight(gun, target, undefined, ()=>{ state.fired.add(gun.id); selectUnit(null); onComplete(); });
+    return;
+  }
   gun.smokeActive = true;
   ensureAnimationLoopRunning();
   showActionLine(gun, target, '#a33330', 3800, true);
-  let dice = 1;
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher (rulebook table)
-  const t = UNIT_TYPES[target.type];
   let bonus = 0;
   if(target.formation==='square') bonus = 1;
   const occSame = unitsAt(target.x,target.y).length;
   if(occSame>1) bonus = Math.max(bonus,1);
-  const roll = rollD6();
-  const adjRoll = roll+bonus;
-  const hit = adjRoll >= needed;
   const hitNotes = bonus>0 ? [target.formation==='square' ? '+1 to hit: Square formation' : '+1 to hit: doubled Infantry'] : [];
-  showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose');
-  log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
-  if(hit){
-    addCrater(target.x, target.y);
-    const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
-    let effRoll = rollD6();
-    if(inCover) effRoll = Math.max(1, effRoll-1);
-    const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
-    const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
-    const effNotes = inCover ? ['-1 effect: target in wood/building'] : [];
-    showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls);
-    // Stacked units (doubled infantry in open terrain) suffer the same effect roll together, per rulebook.
-    const stack = unitsAt(target.x, target.y);
-    if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
-    stack.forEach(u => applyArtilleryEffect(u, effRoll));
-  } else {
-    log('Shot falls wide.', 'combat');
-  }
-  state.fired.add(gun.id);
-  selectUnit(null);
+
+  presentRollTrigger([{label:'To Hit', diceCount:1, notes:hitNotes}], gun.side, ()=>{
+    const roll = rollD6();
+    const adjRoll = roll+bonus;
+    const hit = adjRoll >= needed;
+    showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
+      log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
+      if(!hit){
+        logNarration('artillery_miss');
+        log('Shot falls wide.', 'combat');
+        state.fired.add(gun.id);
+        selectUnit(null);
+        onComplete();
+        return;
+      }
+      addCrater(target.x, target.y);
+      const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
+      const effNotes = inCover ? ['-1 effect: target in wood/building'] : [];
+
+      presentRollTrigger([{label:'Effect', diceCount:1, notes:effNotes}], gun.side, ()=>{
+        let effRoll = rollD6();
+        if(inCover) effRoll = Math.max(1, effRoll-1);
+        const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
+        const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
+        showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+          // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
+          // each may need its own async Rally/Leadership sequence, so process them one at a time.
+          const stack = unitsAt(target.x, target.y);
+          if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
+          applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
+            state.fired.add(gun.id);
+            selectUnit(null);
+            onComplete();
+          });
+        });
+      });
+    });
+  });
 }
 
-function applyArtilleryEffect(u, roll){
+function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
+  if(idx >= stack.length){ onAllDone(); return; }
+  const u = stack[idx];
+  if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone); return; }
+  applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone));
+}
+
+function applyArtilleryEffect(u, roll, onComplete){
+  onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
-  if(roll<=3){ log(`${unitLabel(u)} carries on regardless.`, 'combat'); }
-  else if(roll===4){ u.turnOnly=true; log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); }
-  else if(roll===5){ retreatAndRally(u); }
-  else { removeUnit(u,'destroyed by artillery'); }
+  if(roll<=3){
+    log(`${unitLabel(u)} carries on regardless.`, 'combat'); logNarration('artillery_no_effect');
+    onComplete();
+  } else if(roll===4){
+    u.turnOnly=true;
+    log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
+    onComplete();
+  } else if(roll===5){
+    logNarration('artillery_rout');
+    retreatAndRally(u, onComplete);
+  } else {
+    logNarration('artillery_destroy');
+    removeUnit(u,'destroyed by artillery');
+    onComplete();
+  }
 }
 
-document.getElementById('logToggle').onclick = ()=>{
-  const btn = document.getElementById('logToggle');
+document.getElementById('logIconBtn').onclick = ()=>{
+  const overlay = document.getElementById('logOverlay');
+  overlay.classList.add('show');
   const log = document.getElementById('log');
-  const collapsed = btn.classList.toggle('collapsed');
-  log.classList.toggle('collapsed', collapsed);
-  if(!collapsed) log.scrollTop = log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
+};
+document.getElementById('logCloseBtn').onclick = ()=>{
+  document.getElementById('logOverlay').classList.remove('show');
+};
+document.getElementById('logOverlayBackdrop').onclick = ()=>{
+  document.getElementById('logOverlay').classList.remove('show');
+};
+document.getElementById('unitOverlayBackdrop').onclick = ()=>{
+  selectUnit(null);
+  draw();
 };
 
 document.getElementById('squareBtn').onclick = ()=>{
@@ -3032,7 +3977,6 @@ document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
 document.getElementById('endDeployBtn').onclick = startBattle;
 document.getElementById('undoBtn').onclick = undoLastAction;
 document.getElementById('undoBtnBattle').onclick = undoLastAction;
-document.getElementById('sidebarToggle').onclick = ()=> document.getElementById('sidebar').classList.toggle('open');
 
 document.getElementById('overlayBtn').onclick = ()=>{
   document.getElementById('overlay').classList.remove('show');
@@ -3075,16 +4019,20 @@ function showModeSelect(){
   const hotseatBtn = document.createElement('button');
   hotseatBtn.className = 'primary';
   hotseatBtn.textContent = 'Hotseat (2 players)';
-  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; state.scenario=null; state.campaign=null; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
   const aiBtn = document.createElement('button');
   aiBtn.textContent = 'vs AI Opponent';
-  aiBtn.onclick = ()=>{ state.scenario=null; extra.style.display='none'; showSideSelect(); };
+  aiBtn.onclick = ()=>{ state.scenario=null; state.campaign=null; extra.style.display='none'; showSideSelect(); };
   const opsBtn = document.createElement('button');
   opsBtn.textContent = 'Operations';
-  opsBtn.onclick = ()=>{ extra.style.display='none'; showOperationsMenu(); };
+  opsBtn.onclick = ()=>{ state.campaign=null; extra.style.display='none'; showOperationsMenu(); };
+  const campBtn = document.createElement('button');
+  campBtn.textContent = 'Campaigns';
+  campBtn.onclick = ()=>{ extra.style.display='none'; showCampaignMenu(); };
   extra.appendChild(hotseatBtn);
   extra.appendChild(aiBtn);
   extra.appendChild(opsBtn);
+  extra.appendChild(campBtn);
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -3337,7 +4285,230 @@ function showRotationChoice(side, callback){
   document.getElementById('overlay').classList.add('show');
 }
 
-showModeSelect();
+/* =========================================================
+   CAMPAIGN MODE — chains Battles and Operations per the Hub's actual
+   branching structure. Since "New Battle" already does a full page
+   reload (the safest way to guarantee clean state), campaign progress
+   is persisted to localStorage and picked back up on the next load,
+   rather than trying to hand-reset every field in memory.
+========================================================= */
+const CAMPAIGN_STORAGE_KEY = 'tbCampaignProgress';
+function saveCampaignProgress(){
+  if(!state.campaign){ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); return; }
+  try {
+    localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify({
+      campaignId: state.campaign.id,
+      flowIndex: state.campaignFlowIndex,
+      lastWinner: state.campaignLastWinner,
+      record: state.campaignRecord,
+      mode: state.mode, aiSide: state.aiSide, aiDifficulty: state.aiDifficulty
+    }));
+  } catch(e){ /* storage unavailable — campaign just won't survive a reload, not fatal */ }
+}
+function loadCampaignProgress(){
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e){ return null; }
+}
+function clearCampaignProgress(){ try{ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); }catch(e){} }
+
+function showCampaignMenu(){
+  document.getElementById('overlayTitle').textContent = 'Campaigns';
+  document.getElementById('overlayText').innerHTML =
+    'A linear sequence of historical Battles, with the winner of each choosing which Operation comes next. Your side and opponent are chosen once, at the start.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  extra.style.flexDirection = 'column';
+  extra.style.gap = '6px';
+  for(const camp of CAMPAIGNS){
+    const b = document.createElement('button');
+    b.style.textAlign = 'left';
+    b.textContent = `${camp.name} (${camp.years})`;
+    b.onclick = ()=>{ showCampaignBrief(camp); };
+    extra.appendChild(b);
+  }
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← Back';
+  backBtn.onclick = ()=>{ showModeSelect(); };
+  extra.appendChild(backBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showCampaignBrief(camp){
+  document.getElementById('overlayTitle').textContent = camp.name;
+  document.getElementById('overlayText').innerHTML = camp.brief;
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const beginBtn = document.createElement('button');
+  beginBtn.className = 'primary';
+  beginBtn.textContent = 'Begin Campaign';
+  beginBtn.onclick = ()=>{ extra.style.display='none'; showCampaignModeSelect(camp); };
+  const backBtn = document.createElement('button');
+  backBtn.textContent = '← Back';
+  backBtn.onclick = ()=>{ showCampaignMenu(); };
+  extra.appendChild(beginBtn);
+  extra.appendChild(backBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showCampaignModeSelect(camp){
+  document.getElementById('overlayTitle').textContent = 'How will you play this Campaign?';
+  document.getElementById('overlayText').innerHTML = 'This choice applies for the whole campaign, not just one battle.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const hotseatBtn = document.createElement('button');
+  hotseatBtn.className = 'primary';
+  hotseatBtn.textContent = 'Hotseat (2 players)';
+  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; startCampaign(camp); };
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.onclick = ()=>{
+    extra.style.display='none';
+    document.getElementById('overlayTitle').textContent = 'Choose Your Side';
+    document.getElementById('overlayText').innerHTML = 'This is who you\'ll play as for the whole campaign.';
+    let extra2 = document.getElementById('modeChoices');
+    extra2.innerHTML=''; extra2.style.display='flex';
+    const redBtn = document.createElement('button');
+    redBtn.className='primary'; redBtn.textContent='Play Britain (Red)';
+    redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra2.style.display='none'; showCampaignDifficultySelect(camp); };
+    const blueBtn = document.createElement('button');
+    blueBtn.textContent='Play France (Blue)';
+    blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra2.style.display='none'; showCampaignDifficultySelect(camp); };
+    extra2.appendChild(redBtn); extra2.appendChild(blueBtn);
+  };
+  extra.appendChild(hotseatBtn);
+  extra.appendChild(aiBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+function showCampaignDifficultySelect(camp){
+  document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
+  document.getElementById('overlayText').innerHTML = 'Applies for the whole campaign.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = ''; extra.style.display = 'flex'; extra.style.flexWrap = 'wrap';
+  const mk = (label, value, primary)=>{
+    const b = document.createElement('button');
+    if(primary) b.className = 'primary';
+    b.textContent = label;
+    b.onclick = ()=>{ state.aiDifficulty = value; extra.style.display='none'; startCampaign(camp); };
+    return b;
+  };
+  extra.appendChild(mk('Easy','easy',false));
+  extra.appendChild(mk('Medium','medium',true));
+  extra.appendChild(mk('Hard','hard',false));
+  document.getElementById('overlay').classList.add('show');
+}
+
+function startCampaign(camp){
+  state.campaign = camp;
+  state.campaignFlowIndex = 0;
+  state.campaignLastWinner = null;
+  state.campaignRecord = [];
+  saveCampaignProgress();
+  runCampaignStep();
+}
+
+function runCampaignStep(){
+  const step = state.campaign.flow[state.campaignFlowIndex];
+  if(!step){ showCampaignComplete(); clearCampaignProgress(); return; }
+  document.getElementById('overlay').classList.remove('show');
+  if(step.type==='battle'){
+    state.scenario = null;
+    document.getElementById('overlayTitle').textContent = step.name;
+    document.getElementById('overlayText').innerHTML = `<b>${step.date}</b><br><br>${step.intro}`;
+    let extra = document.getElementById('modeChoices');
+    extra.innerHTML = ''; extra.style.display = 'flex';
+    const beginBtn = document.createElement('button');
+    beginBtn.className = 'primary';
+    beginBtn.textContent = 'Begin Battle';
+    beginBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
+    extra.appendChild(beginBtn);
+    document.getElementById('overlay').classList.add('show');
+  } else if(step.type==='branch'){
+    showCampaignBranchChoice(step);
+  }
+}
+
+function showCampaignBranchChoice(step){
+  const chooser = state.campaignLastWinner || SIDES.RED; // fallback if somehow undecided
+  const isHumanChoosing = !(state.mode==='ai' && chooser===state.aiSide);
+  if(!isHumanChoosing){
+    // AI picks between whichever options are actually available
+    const available = step.options.filter(o=>!o.locked);
+    const choice = available[Math.floor(Math.random()*available.length)];
+    log(`${SIDE_LABEL[chooser]} (AI) chooses the next Operation: ${choice.name}.`, 'system');
+    beginChosenOperation(choice);
+    return;
+  }
+  document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[chooser]} Chooses`;
+  document.getElementById('overlayText').innerHTML = 'You won the last engagement — pick which Operation comes next.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = ''; extra.style.display = 'flex'; extra.style.flexDirection = 'column'; extra.style.gap = '6px';
+  for(const opt of step.options){
+    const b = document.createElement('button');
+    if(opt.locked){
+      b.textContent = `${opt.name} (coming soon — needs VIP mission mechanics)`;
+      b.disabled = true;
+    } else {
+      b.textContent = `${opt.name}${opt.missionArchetype ? ' — '+opt.missionArchetype : ''}`;
+      b.onclick = ()=>{ extra.style.display='none'; beginChosenOperation(opt); };
+    }
+    extra.appendChild(b);
+  }
+  document.getElementById('overlay').classList.add('show');
+}
+
+function beginChosenOperation(opt){
+  const scenario = SCENARIOS.find(s=>s.id===opt.operationId);
+  if(!scenario){ log(`Could not find Operation data for ${opt.name} — skipping.`, 'system'); advanceCampaignStep(); return; }
+  state.scenario = scenario;
+  document.getElementById('overlay').classList.remove('show');
+  beginBoardSetup();
+}
+
+function advanceCampaignStep(){
+  state.campaignFlowIndex++;
+  saveCampaignProgress();
+  runCampaignStep();
+}
+
+function showCampaignComplete(){
+  const wins = state.campaignRecord.filter(r=>r===SIDES.RED).length;
+  const lwins = state.campaignRecord.length - wins;
+  document.getElementById('overlayTitle').textContent = `${state.campaign.name} Complete`;
+  document.getElementById('overlayText').innerHTML =
+    `The campaign has run its course. Britain (Red) won ${wins} engagement${wins===1?'':'s'}; France (Blue) won ${lwins}.`;
+  const modeChoices = document.getElementById('modeChoices');
+  if(modeChoices) modeChoices.style.display = 'none';
+  document.getElementById('overlayBtn').style.display = 'inline-block';
+  document.getElementById('overlayBtn').textContent = 'Done';
+  document.getElementById('overlayBtn').onclick = ()=>{ state.campaign=null; location.reload(); };
+  document.getElementById('overlay').classList.add('show');
+}
+
+function resumeCampaignFromStorage(progress){
+  const camp = CAMPAIGNS.find(c=>c.id===progress.campaignId);
+  if(!camp){ clearCampaignProgress(); showModeSelect(); return; }
+  state.campaign = camp;
+  state.campaignFlowIndex = progress.flowIndex;
+  state.campaignLastWinner = progress.lastWinner;
+  state.campaignRecord = progress.record || [];
+  state.mode = progress.mode;
+  state.aiSide = progress.aiSide;
+  state.aiDifficulty = progress.aiDifficulty;
+  runCampaignStep();
+}
+
+const _savedCampaignProgress = loadCampaignProgress();
+if(_savedCampaignProgress){
+  resumeCampaignFromStorage(_savedCampaignProgress);
+} else {
+  showModeSelect();
+}
 sizeCanvas();
 </script>
 </body>
