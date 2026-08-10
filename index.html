@@ -153,6 +153,13 @@
     display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);
     font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;color:var(--brass-dim);
   }
+  #logOverlayTabs{ display:flex;gap:4px; }
+  .log-tab{
+    background:none;border:none;font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;
+    letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);padding:2px 6px 4px;cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .log-tab.active{ color:var(--brass-dim);border-bottom-color:var(--brass-dim); }
   #logCloseBtn{ background:none;border:none;font-size:20px;line-height:1;padding:0 4px;color:var(--ink-dim); }
   #log{flex:1;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.5;-webkit-overflow-scrolling:touch;}
   #log .entry{margin-bottom:4px;padding-left:7px;border-left:2px solid var(--line);color:var(--ink-dim);}
@@ -161,6 +168,15 @@
   #log .entry.combat{color:var(--warn);}
   #log .entry.system{color:var(--brass-dim);}
   #log .entry.narrative{color:var(--ink-dim);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:12.5px;padding-left:4px;border-left:2px solid var(--line);margin:2px 0 4px 2px;}
+
+  #aiDebugPanel{flex:1;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;-webkit-overflow-scrolling:touch;display:none;}
+  #aiDebugPanel h4{font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--brass-dim);margin:10px 0 3px;text-transform:uppercase;letter-spacing:0.04em;}
+  #aiDebugPanel h4:first-child{margin-top:0;}
+  #aiDebugPanel .dbg-row{color:var(--ink-dim);margin-bottom:2px;}
+  #aiDebugPanel .dbg-label{color:var(--ink);}
+  #aiDebugPanel .dbg-empty{color:var(--ink-dim);font-style:italic;}
+  #aiDebugPanel .dbg-brigade{padding-left:7px;border-left:2px solid var(--line);margin-bottom:6px;}
+  #aiDebugPanel .dbg-move{padding:3px 0 5px 7px;border-left:2px solid var(--line);margin-bottom:3px;}
 
   #rosterPanel{display:none;flex-direction:column;flex:1;min-height:0;}
   #rosterList{flex:1;overflow-y:auto;padding:6px 12px;-webkit-overflow-scrolling:touch;min-height:0;}
@@ -306,8 +322,15 @@
     <div id="logOverlay" class="hidden">
       <div id="logOverlayBackdrop"></div>
       <div id="logOverlayPanel">
-        <div id="logOverlayHeader"><span>Field Report</span><button id="logCloseBtn">&times;</button></div>
+        <div id="logOverlayHeader">
+          <div id="logOverlayTabs">
+            <button class="log-tab active" id="logTabReport">Field Report</button>
+            <button class="log-tab" id="logTabDebug">AI Debug</button>
+          </div>
+          <button id="logCloseBtn">&times;</button>
+        </div>
         <div id="log"></div>
+        <div id="aiDebugPanel"></div>
       </div>
     </div>
   </main>
@@ -1158,7 +1181,10 @@ let state = {
   fired: new Set(),
   fought: new Set(),
   pendingTurnarounds: [], // units that must spend next phase turning around only
-  log: []
+  log: [],
+  _aiPlan: { red:null, blue:null },     // OperationalPlan per side, Hard difficulty only — persists across AI turns
+  _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
+  _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
 };
 let uidCounter = 1;
 /* =========================================================
@@ -2275,6 +2301,8 @@ function roundedBlobPath(ctx, x, y, w, h, r){
 }
 
 function draw(){
+  const debugPanel = document.getElementById('aiDebugPanel');
+  if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
   const flip = screenFlipActive();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const terrain = state.terrain;
@@ -2980,6 +3008,7 @@ function initDeployment(){
   state.deployBrigadeIndex = { red: 0, blue: 0 };
   state.currentBrigadeHasBrigadier = { red: false, blue: false };
   state.currentBrigadeCount = { red: 0, blue: 0 };
+  state._aiHardDeployRemaining = { red:{}, blue:{} };
   state.deployTurn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
@@ -3216,6 +3245,61 @@ function confirmCurrentBrigade(){
    band so every Brigade starts as its own connected cluster.
    Front = the row of the AI's 2-row zone closer to the enemy.
 ========================================================= */
+// Hard difficulty only — same three zones the static plan used (roughly matching
+// BRIGADE_COMPOSITIONS' order), but cell choice within a zone is terrain-scored
+// rather than a fixed column. Easy/Medium keep the exact original static plan below.
+const HARD_DEPLOY_COL_BANDS = [[0,6],[7,13],[14,19]];
+
+function scoreDeployCell(typeKey, x, y){
+  const terr = terrainAt(x,y);
+  if(terr.restrictTo && !terr.restrictTo.includes(typeKey)) return -Infinity;
+  if(unitsAt(x,y).length>0) return -Infinity;
+  let score = terrainSeekBonus(typeKey, x, y);
+  if(typeKey==='ARTILLERY' && terr.key==='HILL') score += 0.4; // elevation for the guns specifically, Section 10
+  if((typeKey==='HEAVY_CAV'||typeKey==='LIGHT_CAV') && terr.isRoad) score += 0.3; // faster manoeuvre off the start line
+  return score;
+}
+
+function findBestHardDeployCell(zoneRows, colRange, typeKey){
+  let best=null, bestScore=-Infinity;
+  for(const y of zoneRows){
+    for(let x=colRange[0]; x<=colRange[1]; x++){
+      const s = scoreDeployCell(typeKey, x, y) + Math.random()*0.05;
+      if(s>bestScore && s>-Infinity){ bestScore=s; best={x,y}; }
+    }
+  }
+  return best;
+}
+
+function placeHardDeployUnit(side, typeKey, bIdx){
+  const frontRow = side===SIDES.RED ? ROWS-2 : 1;
+  const backRow  = side===SIDES.RED ? ROWS-1 : 0;
+  const isBack = typeKey==='BRIGADIER' || typeKey==='ARTILLERY';
+  const colBand = HARD_DEPLOY_COL_BANDS[bIdx] || [0, COLS-1];
+  let cell = findBestHardDeployCell([isBack?backRow:frontRow], colBand, typeKey)
+    || findBestHardDeployCell([frontRow,backRow], colBand, typeKey)
+    || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRow:frontRow, typeKey);
+  placeUnit(side, typeKey, cell.x, cell.y);
+}
+
+function aiDeployStepHard(side){
+  const bIdx = state.deployBrigadeIndex[side];
+  if(!state.currentBrigadeHasBrigadier[side]){
+    placeHardDeployUnit(side, 'BRIGADIER', bIdx);
+    return;
+  }
+  const store = (state._aiHardDeployRemaining || (state._aiHardDeployRemaining = {red:{}, blue:{}}))[side];
+  if(!store[bIdx]){
+    store[bIdx] = {};
+    for(const ty of (BRIGADE_COMPOSITIONS[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
+  }
+  const remaining = store[bIdx];
+  const nextType = Object.keys(remaining).find(ty=>remaining[ty]>0 && state.deployPool[side].includes(ty));
+  if(!nextType){ confirmCurrentBrigade(); return; }
+  remaining[nextType]--;
+  placeHardDeployUnit(side, nextType, bIdx);
+}
+
 const AI_DEPLOY_PLANS = [
   // Brigade 0 — cols 2-5 (matches BRIGADE_COMPOSITIONS[0])
   [
@@ -3248,6 +3332,7 @@ const AI_DEPLOY_PLANS = [
 function aiDeployStep(){
   const side = state.aiSide;
   if(sideFullyDeployed(side)) return;
+  if(state.aiDifficulty==='hard'){ aiDeployStepHard(side); return; }
   const bIdx = state.deployBrigadeIndex[side];
   const plan = AI_DEPLOY_PLANS[bIdx];
 
@@ -3403,8 +3488,232 @@ function scenarioMoveBonus(mover, side, pos){
   return bonus;
 }
 
-function orderAiUnitsForMove(side){
-  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
+/* =========================================================
+   AI: BATTLEFIELD ASSESSMENT, OPERATIONAL PLAN, BRIGADE MISSIONS
+   (Hard difficulty only. Existing tactics elsewhere in this file — terrain
+   seeking, gun screening, reserve doctrine, ambush, the bogged column read,
+   fight-value estimation — are kept as-is and used as tools by this layer,
+   rather than replaced. This module decides WHEN and WHERE to lean on them,
+   which was the missing piece: previously every unit scored its own move in
+   isolation with no notion of what the army as a whole was trying to do.)
+========================================================= */
+const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
+  'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL'];
+const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW'];
+const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
+
+function brigadeIdsForSide(side){
+  const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
+  return [...ids].sort((a,b)=>a-b);
+}
+
+// Section 3: read the whole battlefield fresh each AI move phase. Pure function,
+// mutates nothing — safe to call for debug/inspection as well as real decisions.
+function assessBattlefield(side){
+  const enemy = otherSide(side);
+  const ownUnits = state.units.filter(u=>!u.removed && u.side===side);
+  const enemyUnits = state.units.filter(u=>!u.removed && u.side===enemy);
+  const strengthOf = list => list.reduce((sum,u)=>sum+AI_UNIT_VALUE[u.type],0);
+  const armyStrength = strengthOf(ownUnits);
+  const enemyStrength = strengthOf(enemyUnits);
+
+  function assessBrigades(brigSide, units){
+    return brigadeIdsForSide(brigSide).map(id=>{
+      const group = units.filter(u=>u.brigadeId===id);
+      const brig = group.find(u=>u.type==='BRIGADIER');
+      const fighters = group.filter(u=>u.type!=='BRIGADIER');
+      const strength = strengthOf(group);
+      const remaining = fighters.length;
+      // Cohesion: average distance of this Brigade's units from their Brigadier
+      // (or their own centroid unit if he's fallen) — low = still one fist.
+      const anchor = brig || group[0];
+      const cohesion = (anchor && fighters.length) ? fighters.reduce((s,u)=>s+chebyshev(u,anchor),0)/fighters.length : 0;
+      const exposure = fighters.length ? fighters.reduce((s,u)=>s+threatPenalty(u,brigSide),0)/fighters.length : 0;
+      // Isolated: no other friendly Brigade has any unit within supporting distance.
+      const isolated = fighters.length>0 && !units.some(o=>o.brigadeId!==id && fighters.some(u=>chebyshev(u,o)<=6));
+      return { id, side:brigSide, strength, remaining, cohesion, exposure, isolated, hasBrigadier: !!brig };
+    });
+  }
+
+  const ownBrigades = assessBrigades(side, ownUnits);
+  const enemyBrigades = assessBrigades(enemy, enemyUnits);
+  const liveEnemyBrigades = enemyBrigades.filter(b=>b.remaining>0);
+  const liveOwnBrigades = ownBrigades.filter(b=>b.remaining>0);
+
+  // Centre of gravity: the enemy Brigade doing the most work — strength adjusted
+  // down for poor cohesion, since a scattered Brigade isn't really "one" force.
+  const centreOfGravity = liveEnemyBrigades.slice().sort((a,b)=>(b.strength/(1+b.cohesion*0.15))-(a.strength/(1+a.cohesion*0.15)))[0] || null;
+  // Weak point: worst combination of low remaining strength and high exposure.
+  const weakestEnemyBrigade = liveEnemyBrigades.slice().sort((a,b)=>(a.strength-a.exposure*2)-(b.strength-b.exposure*2))[0] || null;
+  const weakestOwnBrigade = liveOwnBrigades.slice().sort((a,b)=>a.strength-b.strength)[0] || null;
+  const isolatedEnemyBrigades = liveEnemyBrigades.filter(b=>b.isolated);
+
+  const exposedEnemyArtillery = enemyUnits.filter(u=>UNIT_TYPES[u.type].isArtillery && threatPenalty(u,enemy)>=1);
+  const exposedEnemyCavalry = enemyUnits.filter(u=>UNIT_TYPES[u.type].isCavalry && threatPenalty(u,enemy)>=1.5);
+
+  // Weak flank: which half of the board (by column) the enemy has committed
+  // less strength to — the brief's "weak flank" / "avenue of advance" read.
+  const midCol = COLS/2;
+  const enemyLeft = strengthOf(enemyUnits.filter(u=>u.x<midCol));
+  const enemyRight = strengthOf(enemyUnits.filter(u=>u.x>=midCol));
+  const weakFlank = enemyLeft<enemyRight ? 'left' : 'right';
+
+  // Decisive terrain: hills/buildings in the contested middle band of the board,
+  // where holding them actually matters this battle rather than being scenery.
+  const decisivePoints = [];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    const terr = terrainAt(x,y);
+    if(terr.key==='HILL' || terr.key==='BUILDING'){
+      const midDist = Math.abs(y - ROWS/2);
+      if(midDist<=ROWS*0.4) decisivePoints.push({x,y,key:terr.key});
+    }
+  }
+
+  return {
+    side, enemy, armyStrength, enemyStrength,
+    strengthRatio: armyStrength / Math.max(1, enemyStrength),
+    ownBrigades, enemyBrigades, liveOwnBrigades, liveEnemyBrigades,
+    centreOfGravity, weakestEnemyBrigade, weakestOwnBrigade, isolatedEnemyBrigades,
+    exposedEnemyArtillery, exposedEnemyCavalry, weakFlank, decisivePoints
+  };
+}
+
+// Section 4: pick (or keep) a multi-turn plan. Only reassesses when a Section 12
+// trigger actually fires — otherwise the previous turn's plan is returned as-is,
+// so the AI doesn't re-litigate its whole strategy every single move phase.
+function updateOperationalPlan(side, assessment){
+  const prev = state._aiPlan[side];
+  const reasons = [];
+  let mustReassess = !prev;
+  if(prev) prev.turnsHeld = (prev.turnsHeld||0) + 1;
+
+  if(prev && !mustReassess){
+    const mainEffort = assessment.liveOwnBrigades.find(b=>b.id===prev.mainEffortBrigadeId);
+    const target = assessment.liveEnemyBrigades.find(b=>b.id===prev.targetBrigadeId);
+    if(prev.mainEffortBrigadeId!=null && !mainEffort){ mustReassess = true; reasons.push('main effort Brigade broken/withdrawn'); }
+    else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed — exploit or pick a new one'); }
+    else if(prev.turnsHeld > MAX_PLAN_TURNS_UNCHANGED){ mustReassess = true; reasons.push('plan stale, no resolution in ' + prev.turnsHeld + ' turns'); }
+    else if(assessment.strengthRatio < 0.75 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'){ mustReassess = true; reasons.push('army badly outnumbered — abandon attack and stabilise'); }
+  }
+
+  if(!mustReassess) return prev;
+
+  let plan;
+  const a = assessment;
+  if(a.strengthRatio < 0.6){
+    plan = { type:'WITHDRAWAL', mainEffortBrigadeId:null, targetBrigadeId:null };
+  } else if(a.strengthRatio < 0.85){
+    plan = { type:'DEFENSIVE', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null, targetBrigadeId:null };
+  } else if(a.isolatedEnemyBrigades.length>0){
+    const target = a.isolatedEnemyBrigades.slice().sort((x,y)=>x.strength-y.strength)[0];
+    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
+    plan = { type:'BRIGADE_DESTRUCTION', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: target.id };
+  } else if(a.weakestEnemyBrigade && a.strengthRatio >= 1.15){
+    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
+    plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
+  } else if(a.weakestEnemyBrigade){
+    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
+    plan = { type:'FIX_AND_FLANK', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
+  } else {
+    plan = { type:'DEFENSIVE', mainEffortBrigadeId:null, targetBrigadeId:null };
+  }
+  plan.createdOnTurn = state.turnNumber;
+  plan.turnsHeld = 0;
+  plan.reasons = reasons;
+  state._aiPlan[side] = plan;
+  return plan;
+}
+
+// Section 5: turn the plan into one mission per own Brigade.
+function assignBrigadeMissions(side, plan, assessment){
+  const missions = {};
+  const brigadeIds = assessment.liveOwnBrigades.map(b=>b.id);
+  const others = brigadeIds.filter(id=>id!==plan.mainEffortBrigadeId);
+
+  if(plan.type==='WITHDRAWAL'){
+    for(const id of brigadeIds) missions[id] = 'WITHDRAW';
+  } else if(plan.type==='DEFENSIVE'){
+    for(const id of brigadeIds) missions[id] = (id===plan.mainEffortBrigadeId) ? 'HOLD' : 'SCREEN';
+  } else if(plan.type==='MAIN_ATTACK' || plan.type==='BRIGADE_DESTRUCTION' || plan.type==='CAVALRY_EXPLOITATION'){
+    if(plan.mainEffortBrigadeId!=null) missions[plan.mainEffortBrigadeId] = 'MAIN_ATTACK';
+    others.forEach((id,i)=>{ missions[id] = i===0 ? 'SUPPORT' : 'RESERVE'; });
+  } else if(plan.type==='FIX_AND_FLANK' || plan.type==='FLANK_ATTACK'){
+    if(plan.mainEffortBrigadeId!=null) missions[plan.mainEffortBrigadeId] = 'FLANK';
+    others.forEach((id,i)=>{ missions[id] = i===0 ? 'FIX' : 'RESERVE'; });
+  } else {
+    // fallback: everyone holds
+    for(const id of brigadeIds) missions[id] = 'HOLD';
+  }
+  return missions;
+}
+
+// Called once per AI move phase, before any per-unit decisions — Section 2's
+// three-level command hierarchy in practice: army plan, then Brigade mission,
+// then (in aiDecideAndExecuteMove) individual unit execution of that mission.
+function aiPlanTurn(side){
+  if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
+  const assessment = assessBattlefield(side);
+  const plan = updateOperationalPlan(side, assessment);
+  const missions = assignBrigadeMissions(side, plan, assessment);
+  state._aiMissions[side] = missions;
+  state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
+}
+
+function missionFor(u){
+  const missions = state._aiMissions[u.side];
+  if(!missions) return null;
+  return missions[u.brigadeId] || null;
+}
+
+function logAiDebugMove(side, entry){
+  const dbg = state._aiDebugLog[side];
+  if(dbg) dbg.moveLog.push(entry);
+}
+
+// Section 6/7: how well a candidate square serves this unit's Brigade mission —
+// added on top of the existing tactical bonuses in aiDecideAndExecuteMove, not
+// instead of them. Only active on Hard, where missions actually exist.
+function missionMoveBonus(u, side, pos, mission, plan){
+  if(!mission) return 0;
+  const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
+  const targetBrigade = plan && plan.targetBrigadeId!=null
+    ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===plan.targetBrigadeId)
+    : [];
+  const nearestTargetDist = targetBrigade.length ? Math.min(...targetBrigade.map(o=>chebyshev(pos,o))) : null;
+
+  switch(mission){
+    case 'MAIN_ATTACK':
+      // Push hard at the plan's actual target, not just the nearest enemy.
+      return nearestTargetDist!=null ? Math.max(0, 6-nearestTargetDist)*0.18 : 0;
+    case 'FLANK':
+      // Favour the weak-flank column band while closing, rather than a straight line in.
+      if(!assessment) return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.12 : 0;
+      { const towardFlank = assessment.weakFlank==='left' ? (COLS-pos.x)*0.02 : pos.x*0.02;
+        return (nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.12 : 0) + towardFlank; }
+    case 'FIX':
+      // Reward staying in contact with the target Brigade without overextending past it.
+      return nearestTargetDist!=null ? Math.max(0, 3-Math.abs(nearestTargetDist-1))*0.15 : 0;
+    case 'SUPPORT':
+      return nearestTargetDist!=null ? Math.max(0, 5-nearestTargetDist)*0.1 : 0;
+    case 'RESERVE':
+      // Handled mainly via the existing holdingReserve suppression in
+      // aiDecideAndExecuteMove; here just a mild pull back toward the Brigadier.
+      return 0;
+    case 'SCREEN':
+      return screensGunBonus(u, side, pos) * 1.2;
+    case 'HOLD':
+      return terrainSeekBonus(u.type, pos.x, pos.y) * 1.5;
+    case 'WITHDRAW':
+      { const homeRow = side===SIDES.RED ? ROWS-1 : 0;
+        return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2; }
+    case 'COUNTERATTACK':
+      return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.18 : 0;
+    default:
+      return 0;
+  }
+}
+
+function orderAiUnitsForMove(side){  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
   // penalized for their own "disconnection" — see movableUnitsForSide), so
   // leading with them gives everyone else a new, already-moved anchor to
   // path toward. Moving them last caused a standoff: nobody wants to be the
@@ -3423,6 +3732,35 @@ function nearestEnemyDist(pos, side){
     if(d<best) best = d;
   }
   return best;
+}
+
+// Section 9, selective lookahead: for the move categories the brief singles out
+// (a candidate square that would put u in a fight next turn, a charge, or pulling
+// a Reserve/Fix-mission unit into contact), estimate the worst plausible immediate
+// enemy reply rather than just the static threatPenalty count. Generalises the
+// same expected-margin approach simulateFightAftermathScore already uses for
+// fights — call with u already sitting at the candidate square (the loop in
+// aiDecideAndExecuteMove already does this temporarily, same as threatPenalty).
+function lookaheadMovePenalty(u, side){
+  if(state.aiDifficulty!=='hard') return 0;
+  const enemy = otherSide(side);
+  const EV_BY_DICE = {1:3.5, 2:4.47};
+  let worst = 0;
+  for(const e of state.units){
+    if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
+    const eType = UNIT_TYPES[e.type];
+    if(!eType.canFight) continue;
+    const reach = unitBaseMove(e) + 1; // move then engage, mirrors threatPenalty's reach
+    if(chebyshev(e,u) > reach) continue;
+    const eDice = bonusDiceCount(e, u, false).count;
+    const uDice = bonusDiceCount(u, e, true).count;
+    const margin = (EV_BY_DICE[Math.min(eDice,2)]||3.5) - (EV_BY_DICE[Math.min(uDice,2)]||3.5);
+    let loss = 0;
+    if(margin >= 3) loss = AI_UNIT_VALUE[u.type];        // likely removed outright
+    else if(margin >= 1) loss = AI_UNIT_VALUE[u.type]*0.35; // likely pushed back/turnOnly
+    if(loss > worst) worst = loss;
+  }
+  return worst;
 }
 
 function aiDecideAndExecuteMove(u){
@@ -3453,13 +3791,20 @@ function aiDecideAndExecuteMove(u){
       u.hidden = true;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
+      logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Lay Ambush', reason:`nearest enemy ${near} squares away` });
       return;
     }
   }
 
   let best = candidates[0], bestScore = -Infinity;
   const isReserveType = t.key==='GUARD' || (t.isCavalry && t.key==='HEAVY_CAV');
-  const holdingReserve = state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side);
+  const mission = state.aiDifficulty==='hard' ? missionFor(u) : null;
+  const plan = state.aiDifficulty==='hard' ? state._aiPlan[side] : null;
+  // RESERVE mission supersedes the old static isReserveType/reserveCrisisExists gate when a
+  // mission exists — a Guard unit assigned MAIN_ATTACK should never be held back, and a
+  // non-Guard unit assigned RESERVE should be, which the old type-only check couldn't express.
+  const holdingReserve = mission ? (mission==='RESERVE' && !reserveCrisisExists(side))
+    : (state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side));
   const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
   for(const c of candidates){
     const ox=u.x, oy=u.y;
@@ -3483,10 +3828,12 @@ function aiDecideAndExecuteMove(u){
     // Also coordinates with an Attack Column already formed this turn (Manoeuvre
     // #19, Hammer and Column) — a charge against the same target the Column is
     // already threatening is worth more than an isolated one.
+    let isChargeMove = false;
     if(seekTactics && t.isCavalry && !c.stay && isCleanChargeRun(ox,oy,c.x,c.y)){
       const chargeableTarget = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(c,o) &&
         o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(c.x,c.y).elevation);
       if(chargeableTarget){
+        isChargeMove = true;
         s += 2.2;
         if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += 1.0;
       }
@@ -3505,6 +3852,17 @@ function aiDecideAndExecuteMove(u){
     if(boggedTarget) s -= chebyshev(c, boggedTarget) * 0.15;
     // Operations: pull toward whatever the active scenario's objective actually rewards.
     if(state.scenario) s += scenarioMoveBonus(u, side, c);
+    // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,
+    // on top of (not instead of) all the tactical bonuses above.
+    if(mission) s += missionMoveBonus(u, side, c, mission, plan);
+    // Section 9 (Hard): selective lookahead, only for the "important" move categories —
+    // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
+    // being pulled into contact. Everything else stays 0-ply, same cost as before.
+    if(mission){
+      const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o));
+      const committingReserve = (mission==='RESERVE' || mission==='FIX') && !c.stay && nearestEnemyDist(c,side) <= unitBaseMove(u)+1;
+      if(isChargeMove || setsUpFight || committingReserve) s -= lookaheadMovePenalty(u, side) * 0.4;
+    }
 
     s += Math.random() * 0.03; // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
@@ -3521,6 +3879,7 @@ function aiDecideAndExecuteMove(u){
       u.formation = 'square';
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
+      logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Form Square', reason:`squareScore ${squareScore.toFixed(2)} beat best move ${bestScore.toFixed(2)}` });
       return;
     }
   }
@@ -3545,6 +3904,9 @@ function aiDecideAndExecuteMove(u){
     }
     state.moved.add(u.id);
   }
+  if(mission){
+    logAiDebugMove(side, { unit: unitLabel(u), mission, action: (best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', to: best?`(${best.x},${best.y})`:null, score: bestScore.toFixed(2) });
+  }
 }
 
 function aiDoMovePhase(){
@@ -3568,6 +3930,7 @@ function aiFireDecision(gun, onComplete){
   onComplete = onComplete || function(){};
   const targets = artilleryTargets(gun);
   if(targets.length===0){ state.fired.add(gun.id); onComplete(); return; }
+  const plan = state.aiDifficulty==='hard' ? state._aiPlan[gun.side] : null;
   let best=null, bestScore=-Infinity;
   for(const t of targets){
     const dist = chebyshev(gun,t);
@@ -3577,10 +3940,14 @@ function aiFireDecision(gun, onComplete){
     // Manoeuvre #11, Grand Battery (Hard): concentrate onto a target another
     // friendly gun already hit this phase, while still within effective range.
     if(state.aiDifficulty==='hard' && dist<=3 && state.turnGunTargets && state.turnGunTargets.has(t.id)) score += 1.5;
+    // Section 6, Artillery concentration (Hard): weight toward the plan's actual
+    // target Brigade rather than always taking the single highest expected-damage shot.
+    if(plan && plan.targetBrigadeId!=null && t.brigadeId===plan.targetBrigadeId) score += pHit * 1.0;
     if(score>bestScore){ bestScore=score; best=t; }
   }
   if(!state.turnGunTargets) state.turnGunTargets = new Set();
   state.turnGunTargets.add(best.id);
+  logAiDebugMove(gun.side, { unit: unitLabel(gun), mission: missionFor(gun), action:'Fire', target: unitLabel(best), score: bestScore.toFixed(2) });
   fireArtillery(gun, best, onComplete);
 }
 
@@ -3667,9 +4034,27 @@ function scenarioFightBonus(target, side){
   return bonus;
 }
 
+// Section 8, Hard only: distinguish "this Brigade is almost destroyed, finish it"
+// (already covered by brigadeBreakBonus inside simulateFightAftermathScore) from
+// "this Brigade is already strategically neutralised, stop spending attacks here."
+// Rewards fighting the plan's actual target; mildly discourages a Main-Attack/Flank/
+// Counterattack unit getting distracted onto a target the plan isn't pointed at.
+function missionFightBonus(a, target, side, plan){
+  if(!plan) return 0;
+  let bonus = 0;
+  if(plan.targetBrigadeId!=null && target.brigadeId===plan.targetBrigadeId) bonus += 1.2;
+  const mission = missionFor(a);
+  if((mission==='MAIN_ATTACK' || mission==='FLANK' || mission==='COUNTERATTACK') &&
+     plan.targetBrigadeId!=null && target.brigadeId!==plan.targetBrigadeId) bonus -= 0.6;
+  return bonus;
+}
+
 function aiEstimateFightValue(a, t, side){
   const scenarioAdj = scenarioFightBonus(t, side);
-  if(state.aiDifficulty==='hard') return simulateFightAftermathScore(a, t, side) + estimateFightValue(a,t)*0.15 + scenarioAdj;
+  if(state.aiDifficulty==='hard'){
+    const plan = state._aiPlan[side];
+    return simulateFightAftermathScore(a, t, side) + estimateFightValue(a,t)*0.15 + scenarioAdj + missionFightBonus(a, t, side, plan);
+  }
   if(state.aiDifficulty==='medium') return estimateFightValue(a,t) + (state.scenario ? scenarioAdj : brigadeBreakBonus(t));
   return estimateFightValue(a,t) + scenarioAdj*0.5; // even Easy needs baseline awareness a non-standard objective exists, not full doctrine
 }
@@ -3689,6 +4074,7 @@ function aiDoFightPhase(){
       }
     }
     if(bestA){
+      logAiDebugMove(state.aiSide, { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
       resolveFight(bestA, bestT, undefined, ()=>{
         state.fought.add(bestA.id);
         draw();
@@ -3711,6 +4097,9 @@ function startBattle(){
   document.getElementById('sidebar').style.display='none';
   document.getElementById('unitOverlay').classList.remove('hidden');
   document.getElementById('unitOverlay').classList.remove('show');
+  state._aiPlan = { red:null, blue:null };
+  state._aiMissions = { red:null, blue:null };
+  state._aiDebugLog = { red:null, blue:null };
   beginMovePhase();
 }
 
@@ -3753,6 +4142,56 @@ function renderBrigadeStatus(){
   el.innerHTML = renderSide(SIDES.RED) + renderSide(SIDES.BLUE);
 }
 
+// Section 14: the AI Debug panel. Reads whatever aiPlanTurn last wrote to
+// state._aiDebugLog — nothing here computes anything fresh, it's a pure read.
+function renderAiDebugPanel(){
+  const el = document.getElementById('aiDebugPanel');
+  if(!el) return;
+  if(state.mode!=='ai'){
+    el.innerHTML = '<div class="dbg-empty">No AI opponent this game.</div>';
+    return;
+  }
+  if(state.aiDifficulty!=='hard'){
+    el.innerHTML = `<div class="dbg-empty">${SIDE_LABEL[state.aiSide]} is playing Easy/Medium — no operational plan to report. Switch to Hard to see one.</div>`;
+    return;
+  }
+  const dbg = state._aiDebugLog[state.aiSide];
+  if(!dbg){
+    el.innerHTML = '<div class="dbg-empty">No AI turn recorded yet.</div>';
+    return;
+  }
+  const a = dbg.assessment, plan = dbg.plan, missions = dbg.missions;
+  let html = '';
+  html += `<h4>Turn ${dbg.turn}</h4>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Strength ratio:</span> ${a.strengthRatio.toFixed(2)} (${a.armyStrength} vs ${a.enemyStrength})</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Centre of gravity:</span> ${a.centreOfGravity ? 'Enemy Brigade '+(a.centreOfGravity.id+1) : 'none'}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Weakest enemy Brigade:</span> ${a.weakestEnemyBrigade ? 'Brigade '+(a.weakestEnemyBrigade.id+1)+' (str '+a.weakestEnemyBrigade.strength+', exposure '+a.weakestEnemyBrigade.exposure.toFixed(2)+')' : 'none'}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Isolated enemy Brigades:</span> ${a.isolatedEnemyBrigades.length ? a.isolatedEnemyBrigades.map(b=>'Brigade '+(b.id+1)).join(', ') : 'none'}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Weak flank:</span> ${a.weakFlank}</div>`;
+
+  html += `<h4>Operational Plan</h4>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Type:</span> ${plan.type}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Main effort:</span> ${plan.mainEffortBrigadeId!=null ? 'Own Brigade '+(plan.mainEffortBrigadeId+1) : 'none'}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Target:</span> ${plan.targetBrigadeId!=null ? 'Enemy Brigade '+(plan.targetBrigadeId+1) : 'none'}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Held for:</span> ${plan.turnsHeld} turn${plan.turnsHeld===1?'':'s'}${plan.reasons&&plan.reasons.length?' — reassessed: '+plan.reasons.join('; '):''}</div>`;
+
+  html += `<h4>Brigade Missions</h4>`;
+  for(const bId of Object.keys(missions)){
+    html += `<div class="dbg-brigade"><span class="dbg-label">Own Brigade ${Number(bId)+1}:</span> ${missions[bId]}</div>`;
+  }
+
+  html += `<h4>This Turn's Decisions</h4>`;
+  if(dbg.moveLog.length===0){
+    html += '<div class="dbg-empty">Move phase not complete yet — reopen this tab once it finishes.</div>';
+  } else {
+    for(const m of dbg.moveLog){
+      html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'—'}): ${m.action}` +
+        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?' — '+m.reason:''} <span style="color:var(--ink-dim);">[${m.score}]</span></div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
 function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
@@ -3769,7 +4208,10 @@ function beginMovePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endMoveBtn').disabled = aiTurn;
-  if(aiTurn) setTimeout(aiDoMovePhase, 500);
+  if(aiTurn){
+    aiPlanTurn(state.aiSide);
+    setTimeout(aiDoMovePhase, 500);
+  }
 }
 
 function clearPendingTurnaroundFlagsIfDue(){
@@ -4233,6 +4675,19 @@ document.getElementById('logCloseBtn').onclick = ()=>{
 };
 document.getElementById('logOverlayBackdrop').onclick = ()=>{
   document.getElementById('logOverlay').classList.remove('show');
+};
+document.getElementById('logTabReport').onclick = ()=>{
+  document.getElementById('logTabReport').classList.add('active');
+  document.getElementById('logTabDebug').classList.remove('active');
+  document.getElementById('log').style.display = 'block';
+  document.getElementById('aiDebugPanel').style.display = 'none';
+};
+document.getElementById('logTabDebug').onclick = ()=>{
+  document.getElementById('logTabDebug').classList.add('active');
+  document.getElementById('logTabReport').classList.remove('active');
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('aiDebugPanel').style.display = 'block';
+  renderAiDebugPanel();
 };
 
 document.getElementById('squareBtn').onclick = ()=>{
