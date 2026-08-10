@@ -2829,38 +2829,6 @@ function drawBrigadierPortrait(size, u, isSel){
   return false; // no match or not yet loaded — caller falls back to the star
 }
 
-// Infantry/Guard/Cavalry: same rounded-square portrait treatment as Brigadiers, but
-// framed in the unit's side colour rather than the gold/silver command convention.
-// Only used in line formation — Square and Attack Column keep their dot/chevron
-// silhouettes, since those shapes are the tactical signal a player is reading at a glance.
-function drawRegimentPortrait(size, u, isSel){
-  const key = REGIMENT_PORTRAIT_KEY[u.historicalName];
-  const img = key ? UNIT_IMAGES[key] : null;
-  if(img && img.complete && img.naturalWidth>0){
-    const s = size*0.92, r = s*0.12;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(-s/2+r,-s/2); ctx.arcTo(s/2,-s/2,s/2,s/2,r); ctx.arcTo(s/2,s/2,-s/2,s/2,r);
-    ctx.arcTo(-s/2,s/2,-s/2,-s/2,r); ctx.arcTo(-s/2,-s/2,s/2,-s/2,r); ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(img, -s/2,-s/2,s,s);
-    ctx.restore();
-    if(isSel){
-      ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = Math.max(2, size*0.09);
-      ctx.beginPath();
-      ctx.moveTo(-s/2+r,-s/2); ctx.arcTo(s/2,-s/2,s/2,s/2,r); ctx.arcTo(s/2,s/2,-s/2,s/2,r);
-      ctx.arcTo(-s/2,s/2,-s/2,-s/2,r); ctx.arcTo(-s/2,-s/2,s/2,-s/2,r); ctx.closePath();
-      ctx.stroke();
-    }
-    ctx.strokeStyle = SIDE_COLOR[u.side]; ctx.lineWidth = Math.max(1.5, size*0.05);
-    ctx.beginPath();
-    ctx.moveTo(-s/2+r,-s/2); ctx.arcTo(s/2,-s/2,s/2,s/2,r); ctx.arcTo(s/2,s/2,-s/2,s/2,r);
-    ctx.arcTo(-s/2,s/2,-s/2,-s/2,r); ctx.arcTo(-s/2,-s/2,s/2,-s/2,r); ctx.closePath();
-    ctx.stroke();
-    return true; // portrait drawn
-  }
-  return false; // no match or not yet loaded — caller falls back to dots/chevrons
-}
 function drawUnit(u, off){
   off = off || {dx:0, dy:0, scale:1};
   const vp = getUnitVisualPos(u);
@@ -2885,28 +2853,11 @@ function drawUnit(u, off){
     // fall through to the star shape below if no portrait was available
   }
 
-  // Infantry/Guard/Cavalry in line formation: portrait first, falls through to
-  // dots/chevrons below if unmatched or still loading. Square and Attack Column
-  // skip this — those formations need their tactical silhouette, not a headshot.
-  if((t.key==='INFANTRY' || t.key==='GUARD' || t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV') && u.formation!=='square'){
-    ctx.save();
-    ctx.translate(cx,cy);
-    ctx.globalAlpha = concealed ? 0.55 : 1;
-    const drew = drawRegimentPortrait(size, u, isSel);
-    ctx.globalAlpha = 1;
-    ctx.restore();
-    if(drew){
-      if((t.key==='GUARD') || (t.key==='HEAVY_CAV')){
-        drawGoldAsterisk(size, cx + size*0.36, cy - size*0.34);
-      }
-      if(u.turnOnly){
-        ctx.fillStyle = '#c9a24a';
-        ctx.beginPath(); ctx.arc(cx-size*0.36, cy-size*0.34, 5, 0, Math.PI*2); ctx.fill();
-      }
-      return;
-    }
-    // fall through to dots/chevrons below if no portrait was available
-  }
+  // Infantry/Guard/Cavalry always use the dots/chevrons on the board — regiment
+  // portraits are shown only in the unit overlay panel (see unitPortrait rendering
+  // below), not here. Kept that way deliberately: the historical portraits are a
+  // nice touch on selection, but on the board the dot/chevron silhouette is what
+  // actually reads at a glance, especially once units are stacked or mid-formation.
 
   ctx.save();
   ctx.translate(cx,cy);
