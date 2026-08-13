@@ -205,6 +205,13 @@
   }
   #overlay .box h2{font-family:'Cinzel',serif;color:var(--brass-dim);letter-spacing:0.05em;text-transform:uppercase;font-size:18px;margin:0 0 10px;}
   #overlay .box p{font-size:13px;color:var(--ink-dim);line-height:1.55;margin:0 0 16px;font-family:'Cormorant Garamond',serif;font-size:15px;}
+  #overlaySubtitle{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-dim);margin:-6px 0 14px;}
+
+  /* Title splash — first thing shown on load: title+subtitle fade in over 2s,
+     then the mode-select buttons fade in a further 1s after that. */
+  @keyframes splashFadeIn{ from{opacity:0;} to{opacity:1;} }
+  .splash-title-group{ opacity:0; animation:splashFadeIn 2s ease-in forwards; }
+  .splash-buttons-group{ opacity:0; animation:splashFadeIn 1s ease-in 3s forwards; }
 
   #dragGhost{
     position:fixed; z-index:60; pointer-events:none; display:none;
@@ -229,6 +236,7 @@
   .dice-group .glabel{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); letter-spacing:0.03em; }
   .dice-notes{ display:flex; flex-direction:column; gap:1px; margin-top:3px; max-width:110px; }
   .dice-notes span{ font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--brass-dim); line-height:1.3; white-space:normal; }
+  .dice-legend{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:var(--ink-dim); text-align:center; margin-top:6px; padding-top:5px; border-top:1px solid var(--line); line-height:1.4; }
   .dice-set{ display:flex; gap:4px; }
   .dice-vs{ font-family:'Cinzel',serif; font-size:11px; color:var(--ink-dim); align-self:center; padding-top:12px; }
   .die{
@@ -302,7 +310,7 @@
   <main>
     <div id="boardWrap">
       <canvas id="board" width="900" height="900"></canvas>
-      <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div class="dice-result"></div><button id="diceRollBtn" class="primary" style="display:none;margin-top:8px;">Roll</button></div></div>
+      <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div id="diceLegend" class="dice-legend" style="display:none;"></div><div class="dice-result"></div><button id="diceRollBtn" class="primary" style="display:none;margin-top:8px;">Roll</button></div></div>
     </div>
 
     <div id="hudIcons">
@@ -369,6 +377,7 @@
 <div id="overlay">
   <div class="box">
     <h2 id="overlayTitle">TravelBattle</h2>
+    <div id="overlaySubtitle" style="display:none;">Field Command</div>
     <p id="overlayText"></p>
     <canvas id="rotationPreviewCanvas" width="220" height="220" style="display:none;border:2px solid var(--brass-dim);border-radius:4px;margin-bottom:14px;"></canvas>
     <button id="overlayBtn" class="primary">Begin</button>
@@ -1371,11 +1380,12 @@ function dieFaceHTML(value, extraClass){
 // player, or a brief pause for the AI, so it doesn't look abruptly different
 // from watching a human turn. Nothing is randomized until onTrigger fires.
 let FAST_DICE_MODE = false; // test/simulation harnesses only — never set by real gameplay
-function presentRollTrigger(groups, triggerSide, onTrigger){
+function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
   const rollBtn = document.getElementById('diceRollBtn');
+  const legendEl = document.getElementById('diceLegend');
   clearTimeout(showDice._fadeT);
   clearInterval(showDice._rollT);
   clearTimeout(presentRollTrigger._aiT);
@@ -1383,6 +1393,7 @@ function presentRollTrigger(groups, triggerSide, onTrigger){
   overlay.classList.add('show');
   resultEl.textContent = '';
   resultEl.className = 'dice-result';
+  if(legendEl){ legendEl.textContent = legendText || ''; legendEl.style.display = legendText ? 'block' : 'none'; }
   groupsEl.innerHTML = groups.map((g,i)=>{
     const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending')).join('');
     const notesHTML = (g.notes && g.notes.length) ?
@@ -1415,6 +1426,8 @@ function showDice(groups, resultText, resultCls, onSettled){
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
   const rollBtn = document.getElementById('diceRollBtn');
+  const legendEl = document.getElementById('diceLegend');
+  if(legendEl) legendEl.style.display = 'none';
   rollBtn.style.display = 'none';
   clearTimeout(showDice._fadeT);
   clearInterval(showDice._rollT);
@@ -1609,6 +1622,11 @@ function unitBaseMove(u){
   return UNIT_TYPES[u.type].move;
 }
 
+// Buildings sit on the road network (see the board art — every building square
+// is placed on or beside a road), so they grant the same "+1 square if you
+// start and end your move on a road" bonus a plain road square does.
+function isRoadLike(terr){ return !!(terr.isRoad || terr.key==='BUILDING'); }
+
 function legalMoves(u){
   if(u.formation==='square') return []; // squares don't move
   if(u.turnOnly) return [];
@@ -1617,7 +1635,7 @@ function legalMoves(u){
   if(!connected.has(u.id)) return [];
 
   let allowance = unitBaseMove(u);
-  const startRoad = terrainAt(u.x,u.y).isRoad;
+  const startRoad = isRoadLike(terrainAt(u.x,u.y));
   const cavOrHorseArty = isCavalryOrHorseArtillery(u);
   const isFootArtillery = UNIT_TYPES[u.type].isArtillery && !isHorseArtillery(u);
   const hasEscort = isFootArtillery ? brigadeHasCavalryEscort(u) : false;
@@ -1658,7 +1676,7 @@ function legalMoves(u){
   for(const [key,d] of dist){
     if(key===startKey) continue;
     const [x,y] = key.split(',').map(Number);
-    const endRoad = terrainAt(x,y).isRoad;
+    const endRoad = isRoadLike(terrainAt(x,y));
     let effAllowance = (startRoad && endRoad) ? allowance+1 : allowance;
     const endPlough = terrainAt(x,y).plough;
     if(cavOrHorseArty && (startPlough || endPlough)) effAllowance = Math.min(effAllowance, 1); // hard going for horses starting or ending on a ploughed field
@@ -1735,69 +1753,89 @@ function stackPartner(u){
 }
 function isInColumn(u){ return !!stackPartner(u); }
 
-function bonusDiceCount(unit, opponent, defending){
+// Every combat bonus that grants a unit a 2nd die comes from a different source
+// (Guard/Hvy Cav's innate re-roll, terrain, Square vs Cavalry, Cavalry vs open
+// Infantry, Attack Column, Infantry vs Square, Ambush-Advance). Only the FIRST
+// applicable source actually does anything — a 2nd die is a 2nd die no matter
+// how many reasons justify it. Previously every source past the first was
+// simply wasted. Now each additional qualifying source instead adds +1 to the
+// kept roll value (capped at 6, same mechanic already used for the Ambush and
+// turned-around bonuses), so a unit that qualifies for the 2nd die three ways
+// over gets a real edge from the extra two rather than nothing at all.
+function combatBonuses(unit, opponent, defending, extraSources){
   const t = UNIT_TYPES[unit.type];
-  let n = 1;
-  const reasons = [];
-  if(t.reroll){ n = 2; reasons.push('Re-roll (Guard/Hvy Cav)'); }
+  const oppT = UNIT_TYPES[opponent.type];
   const terr = terrainAt(unit.x,unit.y);
+  const sources = [];
+
+  if(t.reroll) sources.push('Re-roll (Guard/Hvy Cav)');
+
   const eligibleDefender = t.key==='INFANTRY' || t.key==='GUARD' || t.key==='ARTILLERY';
   // A unit that sprang a Woodland Ambush this round gets no woods defence bonus until its side's next turn.
   const ambushSuppressed = terr.key==='WOODS' && unit.ambushSpentThisRound;
   if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed){
-    n = Math.max(n,2);
-    reasons.push(terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building');
+    sources.push(terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building');
   }
-  const oppT = UNIT_TYPES[opponent.type];
   if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
-    n = Math.max(n,2);
-    reasons.push('Square vs Cavalry');
+    sources.push('Square vs Cavalry');
   }
   // Cavalry fighting Infantry/Guard not in Square rolls a second die, regardless of
   // whether the Cavalry is attacking or defending (ruleset makes no attacker-only
-  // distinction here — this was previously only granted to the attacking Cavalry).
+  // distinction here).
   if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
-    n = Math.max(n,2);
-    reasons.push('Cavalry vs non-Square Infantry');
+    sources.push('Cavalry vs non-Square Infantry');
   }
   if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)){
-    n = Math.max(n,2);
-    reasons.push('Attack Column');
+    sources.push('Attack Column');
   }
-  return { count:n, reasons };
+  // Infantry attacking a Square (and not itself in Square) rolls a second die —
+  // attacker-only, since a Square never initiates a fight (it can't move).
+  if(!defending && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation!=='square' && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation==='square'){
+    sources.push('Infantry vs Square');
+  }
+  for(const ex of (extraSources||[])){ if(ex.applies) sources.push(ex.reason); }
+
+  let dice = 1, valueBonus = 0;
+  const reasons = [];
+  sources.forEach((label, i)=>{
+    if(i===0){ dice = 2; reasons.push(label); }
+    else { valueBonus += 1; reasons.push(`${label}: +1 to roll (2nd die already granted)`); }
+  });
+  return { dice, valueBonus, reasons };
 }
 
 function resolveFight(attacker, defender, ambushMode, onComplete){
   onComplete = onComplete || function(){};
   showActionLine(attacker, defender, '#a8720b', 3800);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
-  const aBonus = bonusDiceCount(attacker, defender, false);
-  const dBonus = bonusDiceCount(defender, attacker, true);
-  let aDice = aBonus.count, dDice = dBonus.count;
+  const aExtra = [];
+  if(ambushMode==='advance') aExtra.push({applies:true, reason:'Ambush: committed second die'});
+  const aBonus = combatBonuses(attacker, defender, false, aExtra);
+  const dBonus = combatBonuses(defender, attacker, true, []);
+  let aDice = aBonus.dice, dDice = dBonus.dice;
   const aReasons = [...aBonus.reasons], dReasons = [...dBonus.reasons];
-  if(ambushMode==='advance'){ aDice = Math.max(aDice, 2); aReasons.push('Ambush: committed second die'); }
   // Surface the Charge as a visible factor in the roll popup even when it isn't the
   // deciding one (previously only appeared if it happened to win a tie, which made
   // charging look like it did nothing most of the time).
   if(attacker.charged && aType.isCavalry && dType.key!=='BRIGADIER'){
     aReasons.push('Charging: wins ties outright');
   }
-  // Cavalry gets +1 die ATTACKING Infantry that isn't in Square — attacker-only, no defensive equivalent.
-  if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square'){
-    aDice = Math.max(aDice,2); aReasons.push('Cavalry vs non-Square Infantry');
-  }
-  // Infantry gets +1 die attacking a Square if it isn't one itself — attacker-only, no defensive equivalent.
-  if((aType.key==='INFANTRY'||aType.key==='GUARD') && attacker.formation!=='square' && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation==='square'){
-    aDice = Math.max(aDice,2); aReasons.push('Infantry vs Square');
-  }
   // House rule: a unit still turned around from a prior pushback (or an artillery
   // result of 4) gives the attacker +1 to their rolled value (capped at 6) if
   // struck while in that state — same phrasing/mechanic as the Ambush bonus.
-  let aValueBonus = 0;
+  let aValueBonus = aBonus.valueBonus, dValueBonus = dBonus.valueBonus;
   if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); }
   if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll (capped at 6)'); }
+  // Infantry, Guard, and Cavalry all get +1 to the roll when attacking Artillery.
+  if((aType.key==='INFANTRY'||aType.key==='GUARD'||aType.isCavalry) && dType.key==='ARTILLERY'){
+    aValueBonus += 1; aReasons.push('Attacking Artillery: +1 to roll');
+  }
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
+  const tieWinNote = attacker.charged && aType.isCavalry && defender.formation!=='square' ? `${aName} wins ties (Charge)`
+    : isInColumn(attacker) && (aType.key==='INFANTRY'||aType.key==='GUARD') ? `${aName} wins ties (Column)`
+    : null;
+  const legend = 'Draw: fight continues \u00b7 Margin 1: pushed back \u00b7 Margin 2: routed \u00b7 Margin 3+: destroyed' + (tieWinNote ? ` \u00b7 ${tieWinNote}` : '');
 
   presentRollTrigger([
     {label:aName, diceCount:aDice, notes:aReasons},
@@ -1806,6 +1844,7 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
     const aRoll = rollBest(aDice);
     const dRoll = rollBest(dDice);
     if(aValueBonus) aRoll.value = Math.min(6, aRoll.value + aValueBonus);
+    if(dValueBonus) dRoll.value = Math.min(6, dRoll.value + dValueBonus);
 
     const isTie = aRoll.value === dRoll.value;
     const defenderHillTieWin = isTie &&
@@ -1889,7 +1928,7 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
         onComplete();
       }
     });
-  });
+  }, legend);
 }
 
 function pushBack(loser, winner){
@@ -3797,8 +3836,8 @@ function lookaheadMovePenalty(u, side){
     if(!eType.canFight) continue;
     const reach = unitBaseMove(e) + 1; // move then engage, mirrors threatPenalty's reach
     if(chebyshev(e,u) > reach) continue;
-    const eDice = bonusDiceCount(e, u, false).count;
-    const uDice = bonusDiceCount(u, e, true).count;
+    const eDice = combatBonuses(e, u, false).dice;
+    const uDice = combatBonuses(u, e, true).dice;
     const margin = (EV_BY_DICE[Math.min(eDice,2)]||3.5) - (EV_BY_DICE[Math.min(uDice,2)]||3.5);
     let loss = 0;
     if(margin >= 3) loss = AI_UNIT_VALUE[u.type];        // likely removed outright
@@ -4016,8 +4055,8 @@ function aiDoFirePhase(){
    AI: FIGHTING
 ========================================================= */
 function estimateFightValue(a, t){
-  let aD = bonusDiceCount(a, t, false).count;
-  let dD = bonusDiceCount(t, a, true).count;
+  let aD = combatBonuses(a, t, false).dice;
+  let dD = combatBonuses(t, a, true).dice;
   const aType = UNIT_TYPES[a.type], tType = UNIT_TYPES[t.type];
   if(aType.isCavalry && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation!=='square') aD = Math.max(aD,2);
   if((aType.key==='INFANTRY'||aType.key==='GUARD') && a.formation!=='square' && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation==='square') aD = Math.max(aD,2);
@@ -4041,8 +4080,8 @@ function brigadeBreakBonus(target){
 // branching factor here doesn't justify that — but a genuine step past the
 // immediate trade instead of a static heuristic.
 function simulateFightAftermathScore(attacker, defender, side){
-  const aD = bonusDiceCount(attacker, defender, false).count;
-  const dD = bonusDiceCount(defender, attacker, true).count;
+  const aD = combatBonuses(attacker, defender, false).dice;
+  const dD = combatBonuses(defender, attacker, true).dice;
   const EV_BY_DICE = {1:3.5, 2:4.47};
   const margin = (EV_BY_DICE[Math.min(aD,2)]||3.5) - (EV_BY_DICE[Math.min(dD,2)]||3.5);
 
@@ -4638,19 +4677,16 @@ function fireArtillery(gun, target, onComplete){
   gun.smokeActive = true;
   ensureAnimationLoopRunning();
   showActionLine(gun, target, '#a33330', 3800, true);
-  const needed = dist; // to-hit number: a target at range N needs a roll of N or higher (rulebook table)
-  let bonus = 0;
-  if(target.formation==='square') bonus = 1;
-  const occSame = unitsAt(target.x,target.y).length;
-  if(occSame>1) bonus = Math.max(bonus,1);
-  const hitNotes = bonus>0 ? [target.formation==='square' ? '+1 to hit: Square formation' : '+1 to hit: doubled Infantry'] : [];
+  const needed = dist; // to-hit number: a target at range N needs a roll of N or higher — pure range, no formation modifier
+  const hitNotes = [];
+  const minRoll = Math.max(1, Math.min(6, needed));
+  hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range — cannot hit');
 
   presentRollTrigger([{label:'To Hit', diceCount:1, notes:hitNotes}], gun.side, ()=>{
     const roll = rollD6();
-    const adjRoll = roll+bonus;
-    const hit = adjRoll >= needed;
+    const hit = roll >= needed;
     showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
-      log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}${bonus?('+'+bonus):''}.`, 'combat');
+      log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}.`, 'combat');
       if(!hit){
         logNarration('artillery_miss');
         log('Shot falls wide.', 'combat');
@@ -4660,18 +4696,31 @@ function fireArtillery(gun, target, onComplete){
         return;
       }
       addCrater(target.x, target.y);
+      const stack = unitsAt(target.x, target.y);
       const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
-      const effNotes = inCover ? ['-1 effect: target in wood/building'] : [];
+      // Square/Column bonus now lands on the EFFECT roll, not the to-hit roll.
+      // A "Column" here is two Infantry/Guard doubled into one open-terrain square.
+      const isColumn = stack.length>1;
+      const formationBonus = (target.formation==='square' || isColumn) ? 1 : 0;
+      // Firing again on an already-Shaken target gets +1 effect. For a Column,
+      // BOTH units in the stack must already be Shaken for the bonus to apply.
+      const shakenBonus = isColumn
+        ? (stack.every(u=>u.turnOnly) ? 1 : 0)
+        : (target.turnOnly ? 1 : 0);
+      const effNotes = [];
+      if(inCover) effNotes.push('-1 effect: target in wood/building');
+      if(formationBonus) effNotes.push(target.formation==='square' ? '+1 effect: Square formation' : '+1 effect: doubled Infantry (Column)');
+      if(shakenBonus) effNotes.push(isColumn ? '+1 effect: both units already Shaken' : '+1 effect: target already Shaken');
 
       presentRollTrigger([{label:'Effect', diceCount:1, notes:effNotes}], gun.side, ()=>{
         let effRoll = rollD6();
+        effRoll = Math.min(6, effRoll + formationBonus + shakenBonus);
         if(inCover) effRoll = Math.max(1, effRoll-1);
         const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
         const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
         showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
-          const stack = unitsAt(target.x, target.y);
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
@@ -4812,11 +4861,14 @@ function showOverlay(title, html, btnLabel, onClick){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showModeSelect(){
+function showModeSelect(isSplash){
   const box = document.querySelector('#overlay .box');
-  document.getElementById('overlayTitle').textContent = 'TravelBattle: Field Command';
+  const titleEl = document.getElementById('overlayTitle');
+  const subtitleEl = document.getElementById('overlaySubtitle');
+  titleEl.textContent = 'TravelBattle';
   document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge — then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
   document.getElementById('overlayBtn').style.display = 'none';
+  subtitleEl.style.display = 'block';
   let extra = document.getElementById('modeChoices');
   if(!extra){
     extra = document.createElement('div');
@@ -4828,6 +4880,20 @@ function showModeSelect(){
   }
   extra.innerHTML = '';
   extra.style.display = 'flex';
+  // The title splash treatment only ever plays on the genuine first-load screen —
+  // every other route back to this menu (back buttons, campaign-not-found
+  // fallback) shows everything instantly, a re-run fade would just feel laggy.
+  titleEl.classList.remove('splash-title-group');
+  subtitleEl.classList.remove('splash-title-group');
+  extra.classList.remove('splash-buttons-group');
+  document.getElementById('overlayText').classList.remove('splash-buttons-group');
+  if(isSplash){
+    void box.offsetWidth; // restart animation cleanly if this ever re-runs
+    titleEl.classList.add('splash-title-group');
+    subtitleEl.classList.add('splash-title-group');
+    extra.classList.add('splash-buttons-group');
+    document.getElementById('overlayText').classList.add('splash-buttons-group');
+  }
   const hotseatBtn = document.createElement('button');
   hotseatBtn.className = 'primary';
   hotseatBtn.textContent = 'Hotseat (2 players)';
@@ -5474,7 +5540,7 @@ const _savedCampaignProgress = loadCampaignProgress();
 if(_savedCampaignProgress){
   resumeCampaignFromStorage(_savedCampaignProgress);
 } else {
-  showModeSelect();
+  showModeSelect(true);
 }
 sizeCanvas();
 </script>
