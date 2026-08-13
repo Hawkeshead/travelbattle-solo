@@ -95,7 +95,7 @@
   #unitOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
   #unitOverlay.hidden{ display:none; }
   #unitOverlayPanel{
-    position:absolute;bottom:8px;width:230px;max-width:60vw;max-height:min(340px,70%);
+    position:absolute;bottom:8px;width:252px;max-width:64vw;max-height:min(380px,74%);
     background:var(--panel);border:2px solid var(--brass-dim);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
     display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
     pointer-events:none;
@@ -109,25 +109,25 @@
   #unitOverlayPanel.anchor-right{ right:8px;left:auto; }
   #unitOverlay.show #unitOverlayPanel{ transform:translateY(0);opacity:1; }
   #unitPortrait{
-    width:100%;aspect-ratio:16/8;background:var(--paper-2);border-bottom:1px solid var(--line);
+    width:100%;aspect-ratio:4/3;background:var(--paper-2);border-bottom:1px solid var(--line);
     display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:11px;
     background-size:cover;background-position:center;flex-shrink:0;
   }
 
-  #unitInfo{padding:8px 12px 10px;font-size:12.5px;line-height:1.45;min-height:60px;border-bottom:1px solid var(--line);}
+  #unitInfo{padding:6px 12px 7px;font-size:12.5px;line-height:1.3;min-height:0;border-bottom:1px solid var(--line);}
   #unitInfo .empty{color:var(--ink-dim);font-style:italic;}
-  #unitInfo .u-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;margin-bottom:2px;}
-  #unitInfo .u-tags{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0;}
-  #unitInfo .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:2px 6px;border-radius:2px;background:var(--paper-2);color:var(--ink-dim);}
+  #unitInfo .u-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;margin-bottom:1px;}
+  #unitInfo .u-tags{display:flex;gap:4px;flex-wrap:wrap;margin:3px 0;}
+  #unitInfo .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:1px 5px;border-radius:2px;background:var(--paper-2);color:var(--ink-dim);}
   #unitInfo .tag.st-active{color:var(--ok);}
   #unitInfo .tag.st-square{color:var(--warn);}
   #unitInfo .tag.st-pushed{color:var(--danger);}
-  .bio-toggle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brass-dim);cursor:pointer;margin-top:6px;user-select:none;}
-  .bio-text{font-family:'Cormorant Garamond',serif;font-size:12.5px;line-height:1.5;color:var(--ink-dim);margin-top:4px;padding-top:4px;border-top:1px solid var(--line);}
+  .bio-toggle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brass-dim);cursor:pointer;margin-top:3px;user-select:none;}
+  .bio-text{font-family:'Cormorant Garamond',serif;font-size:12.5px;line-height:1.35;color:var(--ink-dim);margin-top:3px;padding-top:3px;border-top:1px solid var(--line);}
 
-  #actionRow{display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  #actionRow{display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
   button{
-    font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 11px;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;
     background:var(--paper-2);color:var(--ink);border:1px solid var(--line);border-radius:3px;cursor:pointer;
   }
   button:hover:not(:disabled){background:#cbb98a;border-color:var(--brass-dim);}
@@ -135,6 +135,12 @@
   button.primary{background:var(--brass-dim);border-color:var(--brass);color:#fdf6e3;font-weight:600;}
   button.primary:hover:not(:disabled){background:var(--brass);}
   button.danger{border-color:var(--danger);color:var(--danger);}
+  /* Thematic "campaign ribbon" shape for the action buttons inside the unit
+     overlay panel — a subtle angled tab rather than a stock rounded rectangle. */
+  #actionRow button{
+    clip-path:polygon(5% 0%,100% 0%,95% 100%,0% 100%);
+    border-radius:0;padding:6px 14px;
+  }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
   #logOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
@@ -1704,6 +1710,13 @@ function bonusDiceCount(unit, opponent, defending){
     n = Math.max(n,2);
     reasons.push('Square vs Cavalry');
   }
+  // Cavalry fighting Infantry/Guard not in Square rolls a second die, regardless of
+  // whether the Cavalry is attacking or defending (ruleset makes no attacker-only
+  // distinction here — this was previously only granted to the attacking Cavalry).
+  if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
+    n = Math.max(n,2);
+    reasons.push('Cavalry vs non-Square Infantry');
+  }
   if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)){
     n = Math.max(n,2);
     reasons.push('Attack Column');
@@ -1720,6 +1733,12 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
   let aDice = aBonus.count, dDice = dBonus.count;
   const aReasons = [...aBonus.reasons], dReasons = [...dBonus.reasons];
   if(ambushMode==='advance'){ aDice = Math.max(aDice, 2); aReasons.push('Ambush: committed second die'); }
+  // Surface the Charge as a visible factor in the roll popup even when it isn't the
+  // deciding one (previously only appeared if it happened to win a tie, which made
+  // charging look like it did nothing most of the time).
+  if(attacker.charged && aType.isCavalry && dType.key!=='BRIGADIER'){
+    aReasons.push('Charging: wins ties outright');
+  }
   // Cavalry gets +1 die ATTACKING Infantry that isn't in Square — attacker-only, no defensive equivalent.
   if(aType.isCavalry && (dType.key==='INFANTRY'||dType.key==='GUARD') && defender.formation!=='square'){
     aDice = Math.max(aDice,2); aReasons.push('Cavalry vs non-Square Infantry');
@@ -4267,7 +4286,7 @@ function collectAmbushSprings(){
   const ambushers = state.units.filter(u=>!u.removed && u.side===ambushSide && u.hidden);
   const springs = [];
   for(const amb of ambushers){
-    const targets = state.units.filter(o=>!o.removed && o.side===movingSide && isAdjacent(amb,o));
+    const targets = state.units.filter(o=>!o.removed && o.side===movingSide && o.type!=='BRIGADIER' && isAdjacent(amb,o));
     if(targets.length===0) continue;
     let best=null, bestScore=-Infinity;
     for(const t of targets){
@@ -4422,11 +4441,11 @@ function renderUnitInfo(u){
   if(portraitEl){
     portraitEl.style.background = `linear-gradient(160deg, ${SIDE_COLOR[u.side]}22, var(--paper-2))`;
     if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
-      portraitEl.innerHTML = `<img src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}" style="width:78%;height:78%;object-fit:cover;border-radius:6px;border:3px solid ${u.side===SIDES.RED?'#b9c2c9':'#c9a227'};">`;
+      portraitEl.innerHTML = `<img src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}" style="width:92%;height:92%;object-fit:cover;object-position:50% 12%;border-radius:6px;border:3px solid ${u.side===SIDES.RED?'#b9c2c9':'#c9a227'};">`;
     } else if(t.isArtillery){
       portraitEl.innerHTML = `<img src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}" style="width:80%;height:auto;">`;
     } else if(REGIMENT_PORTRAIT_KEY[u.historicalName]){
-      portraitEl.innerHTML = `<img src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}" style="width:78%;height:78%;object-fit:cover;border-radius:6px;border:3px solid ${SIDE_COLOR[u.side]};">`;
+      portraitEl.innerHTML = `<img src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}" style="width:92%;height:92%;object-fit:cover;object-position:50% 12%;border-radius:6px;border:3px solid ${SIDE_COLOR[u.side]};">`;
     } else {
       const glyph = (t.key==='HEAVY_CAV'||t.key==='LIGHT_CAV') ? '\u25B2\u25B2\u25B2' : (t.key==='BRIGADIER' ? '\u2605' : '\u25CF\u25CF\u25CF\u25CF\u25CF');
       portraitEl.innerHTML = `<span style="font-size:26px;letter-spacing:2px;color:${SIDE_COLOR[u.side]};">${glyph}</span>`;
