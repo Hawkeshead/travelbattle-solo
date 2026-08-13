@@ -228,5 +228,44 @@
         "front": false
       }
     ]
+  ],
+  "brigadeCompositionsGrand": [
+    [
+      "BRIGADIER",
+      "GUARD",
+      "GUARD",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "LIGHT_CAV",
+      "LIGHT_CAV",
+      "ARTILLERY",
+      "ARTILLERY"
+    ],
+    [
+      "BRIGADIER",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "HEAVY_CAV",
+      "HEAVY_CAV",
+      "ARTILLERY",
+      "ARTILLERY"
+    ],
+    [
+      "BRIGADIER",
+      "GUARD",
+      "GUARD",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "INFANTRY",
+      "HEAVY_CAV",
+      "HEAVY_CAV",
+      "LIGHT_CAV",
+      "LIGHT_CAV"
+    ]
   ]
 }
