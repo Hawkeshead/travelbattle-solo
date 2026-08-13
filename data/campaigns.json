@@ -1,0 +1,243 @@
+[
+  {
+    "id": "flanders",
+    "name": "The Flanders Campaign",
+    "years": "1793\u20131795",
+    "brief": "In 1793 Britain joined the First Coalition to check Revolutionary France's advance into the Low Countries, fighting alongside Austrian, Dutch and Hanoverian allies. It became a campaign of marches, sieges and hard-fought village actions rather than one decisive battle, and though it ended in a costly withdrawal, it forged a generation of British officers, Wellington among them. This campaign works well as an introduction to Napoleonic wargaming \u2014 the Battles are smaller in scale than the Peninsular fights to come, and the Operations lean on delaying actions and holding key ground rather than outright annihilation.",
+    "flow": [
+      {
+        "type": "battle",
+        "id": "battle-famars",
+        "name": "Battle of Famars",
+        "date": "23 May 1793",
+        "intro": "The Duke of York led British, Austrian and Hanoverian troops against General Dampierre's French army near Valenciennes, attacking across a line of villages and ridges until the French abandoned their positions after a hard day's fighting. It was Britain's first major field battle against Revolutionary France and opened the road to the Siege of Valenciennes."
+      },
+      {
+        "type": "branch",
+        "id": "branch-flanders-1",
+        "options": [
+          {
+            "operationId": "op-lincelles",
+            "name": "Battle of Lincelles",
+            "date": "18 August 1793",
+            "missionArchetype": "Capture the Village",
+            "locked": false
+          },
+          {
+            "operationId": "op-caesars-camp",
+            "name": "Battle of Caesar's Camp",
+            "date": "7\u20138 August 1793",
+            "missionArchetype": "Hold the Line",
+            "locked": false
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-hondschoote",
+        "name": "Battle of Hondschoote",
+        "date": "6\u20138 September 1793",
+        "intro": "While besieging Dunkirk, the Duke of York's army found itself threatened by General Houchard's relief force, and fierce fighting through villages, hedgerows and open fields eventually forced a British withdrawal to avoid being cut off. The failure of the Dunkirk expedition marked a real turning point in the campaign's fortunes."
+      },
+      {
+        "type": "branch",
+        "id": "branch-flanders-2",
+        "options": [
+          {
+            "operationId": "op-beaumont",
+            "name": "Battle of Beaumont",
+            "date": "26 April 1794",
+            "missionArchetype": "Surprise Attack",
+            "locked": false
+          },
+          {
+            "operationId": "op-willems",
+            "name": "Battle of Willems",
+            "date": "10 May 1794",
+            "missionArchetype": "Counterattack",
+            "locked": false
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-tourcoing",
+        "name": "Battle of Tourcoing",
+        "date": "17\u201318 May 1794",
+        "intro": "The Coalition attempted an ambitious encirclement of the French army near Tourcoing, but poor coordination let the French defeat the isolated Allied columns one by one, forcing a general retreat despite good fighting from the British troops involved."
+      }
+    ]
+  },
+  {
+    "id": "peninsular",
+    "name": "The Peninsular Campaign",
+    "years": "1808\u20131814",
+    "brief": "From 1808 Britain committed to defending Portugal and driving Napoleon's marshals out of Spain, a campaign that grew into Britain's longest and most successful of the wars under Sir Arthur Wellesley, later Wellington. Villages, ridges, bridges and mountain passes decided battles as often as raw numbers did, and small actions by riflemen and cavalry regularly determined whether whole armies survived to fight on. This is the widest-ranging of the three campaigns, moving from desperate defensive rearguards through increasingly confident offensives to the invasion of France itself.",
+    "flow": [
+      {
+        "type": "battle",
+        "id": "battle-vimeiro",
+        "name": "Battle of Vimeiro",
+        "date": "21 August 1808",
+        "intro": "Sir Arthur Wellesley fought his first major battle in Portugal here, repelling repeated French attacks on the ridge at Vimeiro with disciplined infantry volleys after defeating Junot's invasion force. The win secured Portugal and opened Britain's long campaign in the Peninsula."
+      },
+      {
+        "type": "branch",
+        "id": "branch-peninsular-1",
+        "options": [
+          {
+            "operationId": "op-coa",
+            "name": "Combat of C\u00f4a",
+            "date": "24 July 1810",
+            "missionArchetype": "Rearguard Action",
+            "locked": false
+          },
+          {
+            "operationId": "op-colbert",
+            "name": "The Death of General Colbert",
+            "date": "3 January 1809 \u2014 Combat of Cacabelos",
+            "missionArchetype": "Assassination Target",
+            "locked": true
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-bussaco",
+        "name": "Battle of Bussaco",
+        "date": "27 September 1810",
+        "intro": "Wellington chose to stand on the Bussaco ridge and force Mass\u00e9na to attack uphill, and French assaults broke repeatedly against the Allied line before Mass\u00e9na gave up the frontal attack and tried to outflank the position instead."
+      },
+      {
+        "type": "branch",
+        "id": "branch-peninsular-2",
+        "options": [
+          {
+            "operationId": "op-el-bodon",
+            "name": "Combat of El Bod\u00f3n",
+            "date": "25 September 1811",
+            "missionArchetype": "Hold the Line",
+            "locked": false
+          },
+          {
+            "operationId": "op-sabugal",
+            "name": "Battle of Sabugal",
+            "date": "3 April 1811",
+            "missionArchetype": "Break Through",
+            "locked": false
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-salamanca",
+        "name": "Battle of Salamanca",
+        "date": "22 July 1812",
+        "intro": "Perhaps Wellington's finest battlefield win, this saw him spot Marmont overextending his left flank and launch an immediate, devastating counterattack that shattered the French army, opening the road to Madrid."
+      },
+      {
+        "type": "branch",
+        "id": "branch-peninsular-3",
+        "options": [
+          {
+            "operationId": "op-arroyo-dos-molinos",
+            "name": "Battle of Arroyo dos Molinos",
+            "date": "28 October 1811",
+            "missionArchetype": "Surprise Attack",
+            "locked": false
+          },
+          {
+            "operationId": "op-garcia-hernandez",
+            "name": "Battle of Garc\u00eda Hern\u00e1ndez",
+            "date": "23 July 1812",
+            "missionArchetype": "Break the Retreat",
+            "locked": false
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-vitoria",
+        "name": "Battle of Vitoria",
+        "date": "21 June 1813",
+        "intro": "Joseph Bonaparte tried to withdraw through the valleys around Vitoria while dragging along a huge baggage train, and Wellington attacked on multiple fronts at once, overwhelming the French and capturing enormous quantities of equipment. The win effectively ended French rule in Spain."
+      },
+      {
+        "type": "battle",
+        "id": "battle-toulouse",
+        "name": "Battle of Toulouse",
+        "date": "10 April 1814",
+        "intro": "Crossing into southern France, Wellington fought Soult in one last major battle around fortified villages and ridges, unaware that Napoleon had already abdicated days earlier. After hard fighting, Soult withdrew and the Peninsular campaign was finally over."
+      }
+    ]
+  },
+  {
+    "id": "waterloo",
+    "name": "The Waterloo Campaign",
+    "years": "1815",
+    "brief": "Napoleon's escape from Elba in March 1815 forced the Seventh Coalition to move fast, and his own plan was to strike Wellington and Bl\u00fccher separately before their armies could combine. What followed was only four days of campaigning, 15\u201318 June, but produced some of the most famous fighting in military history, as Wellington's Anglo-Allied army bought time for the Prussians to arrive. This campaign naturally alternates between the two enormous set-piece battles and the smaller, desperate actions fought around the farms and crossroads that decided them.",
+    "flow": [
+      {
+        "type": "battle",
+        "id": "battle-quatre-bras",
+        "name": "Battle of Quatre Bras",
+        "date": "16 June 1815",
+        "intro": "Ney tried to seize the Quatre Bras crossroads before Wellington could concentrate his army, but British reinforcements arrived through the day and repeatedly halted French attacks despite being badly outnumbered early on, keeping Wellington from being cut off from the Prussians entirely."
+      },
+      {
+        "type": "branch",
+        "id": "branch-waterloo-1",
+        "options": [
+          {
+            "operationId": "op-hougoumont",
+            "name": "Defence of Hougoumont",
+            "date": "18 June 1815",
+            "missionArchetype": "Defence",
+            "locked": false
+          },
+          {
+            "operationId": "op-dukes-narrow-escape",
+            "name": "The Duke's Narrow Escape",
+            "date": "16 June 1815 \u2014 Battle of Quatre Bras",
+            "missionArchetype": "VIP Extraction",
+            "locked": true
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-waterloo",
+        "name": "Battle of Waterloo",
+        "date": "18 June 1815",
+        "intro": "The decisive battle of the whole war saw Napoleon attack Wellington's ridge all day while trying to take Hougoumont and La Haye Sainte before Bl\u00fccher's Prussians could arrive. The Imperial Guard's final assault is repulsed, ending Napoleon's rule for good."
+      },
+      {
+        "type": "branch",
+        "id": "branch-waterloo-2",
+        "options": [
+          {
+            "operationId": "op-papelotte",
+            "name": "Papelotte",
+            "date": "18 June 1815",
+            "missionArchetype": "Hold the Village",
+            "locked": false
+          },
+          {
+            "operationId": "op-la-haye-sainte",
+            "name": "Defence of La Haye Sainte",
+            "date": "18 June 1815",
+            "missionArchetype": "Defence",
+            "locked": false
+          }
+        ]
+      },
+      {
+        "type": "battle",
+        "id": "battle-genappe",
+        "name": "Pursuit after Waterloo (Battle of Genappe)",
+        "date": "19 June 1815",
+        "intro": "Waterloo ended Napoleon's hopes, but the retreat quickly turned into a chaotic running battle as British cavalry pursued the broken French army through Genappe \u2014 less a set-piece battle than the visible collapse of an army."
+      }
+    ]
+  }
+]
