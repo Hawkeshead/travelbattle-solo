@@ -1,0 +1,232 @@
+{
+  "unitTypes": {
+    "BRIGADIER": {
+      "key": "BRIGADIER",
+      "label": "Brigadier",
+      "move": 2,
+      "canFight": false,
+      "reroll": false,
+      "shape": "star"
+    },
+    "INFANTRY": {
+      "key": "INFANTRY",
+      "label": "Infantry",
+      "move": 1,
+      "canFight": true,
+      "reroll": false,
+      "shape": "square",
+      "canFormSquare": true
+    },
+    "GUARD": {
+      "key": "GUARD",
+      "label": "Guard Infantry",
+      "move": 1,
+      "canFight": true,
+      "reroll": true,
+      "shape": "square",
+      "canFormSquare": true
+    },
+    "HEAVY_CAV": {
+      "key": "HEAVY_CAV",
+      "label": "Heavy Cavalry",
+      "move": 2,
+      "canFight": true,
+      "reroll": true,
+      "shape": "triangle",
+      "isCavalry": true
+    },
+    "LIGHT_CAV": {
+      "key": "LIGHT_CAV",
+      "label": "Light Cavalry",
+      "move": 2,
+      "canFight": true,
+      "reroll": false,
+      "shape": "triangle",
+      "isCavalry": true
+    },
+    "ARTILLERY": {
+      "key": "ARTILLERY",
+      "label": "Artillery",
+      "move": 1,
+      "canFight": true,
+      "reroll": false,
+      "shape": "diamond",
+      "isArtillery": true
+    }
+  },
+  "brigadeCompositions": [
+    [
+      "BRIGADIER",
+      "GUARD",
+      "INFANTRY",
+      "INFANTRY",
+      "LIGHT_CAV",
+      "ARTILLERY"
+    ],
+    [
+      "BRIGADIER",
+      "INFANTRY",
+      "INFANTRY",
+      "HEAVY_CAV",
+      "ARTILLERY"
+    ],
+    [
+      "BRIGADIER",
+      "GUARD",
+      "INFANTRY",
+      "INFANTRY",
+      "HEAVY_CAV",
+      "LIGHT_CAV"
+    ]
+  ],
+  "terrainTypes": {
+    "OPEN": {
+      "key": "OPEN",
+      "elevation": 0,
+      "restrictTo": null,
+      "allowDouble": true
+    },
+    "FIELD": {
+      "key": "FIELD",
+      "elevation": 0,
+      "restrictTo": null,
+      "allowDouble": true
+    },
+    "PLOUGHED_FIELD": {
+      "key": "PLOUGHED_FIELD",
+      "elevation": 0,
+      "restrictTo": null,
+      "allowDouble": true,
+      "plough": true
+    },
+    "ROAD": {
+      "key": "ROAD",
+      "elevation": 0,
+      "restrictTo": null,
+      "allowDouble": true,
+      "isRoad": true
+    },
+    "WOODS": {
+      "key": "WOODS",
+      "elevation": 0,
+      "restrictTo": [
+        "INFANTRY",
+        "GUARD"
+      ],
+      "allowDouble": false,
+      "blocksLOS": true,
+      "defenseBonus": true
+    },
+    "BUILDING": {
+      "key": "BUILDING",
+      "elevation": 0,
+      "restrictTo": [
+        "INFANTRY",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "allowDouble": false,
+      "blocksLOS": true,
+      "defenseBonus": true
+    },
+    "HILL": {
+      "key": "HILL",
+      "elevation": 1,
+      "restrictTo": null,
+      "allowDouble": true
+    }
+  },
+  "aiDeployPlans": [
+    [
+      {
+        "type": "LIGHT_CAV",
+        "col": 2,
+        "front": true
+      },
+      {
+        "type": "GUARD",
+        "col": 3,
+        "front": true
+      },
+      {
+        "type": "INFANTRY",
+        "col": 4,
+        "front": true
+      },
+      {
+        "type": "INFANTRY",
+        "col": 5,
+        "front": true
+      },
+      {
+        "type": "ARTILLERY",
+        "col": 3,
+        "front": false
+      },
+      {
+        "type": "BRIGADIER",
+        "col": 4,
+        "front": false
+      }
+    ],
+    [
+      {
+        "type": "INFANTRY",
+        "col": 9,
+        "front": true
+      },
+      {
+        "type": "INFANTRY",
+        "col": 10,
+        "front": true
+      },
+      {
+        "type": "HEAVY_CAV",
+        "col": 11,
+        "front": true
+      },
+      {
+        "type": "ARTILLERY",
+        "col": 9,
+        "front": false
+      },
+      {
+        "type": "BRIGADIER",
+        "col": 10,
+        "front": false
+      }
+    ],
+    [
+      {
+        "type": "LIGHT_CAV",
+        "col": 15,
+        "front": true
+      },
+      {
+        "type": "GUARD",
+        "col": 16,
+        "front": true
+      },
+      {
+        "type": "INFANTRY",
+        "col": 17,
+        "front": true
+      },
+      {
+        "type": "INFANTRY",
+        "col": 18,
+        "front": true
+      },
+      {
+        "type": "HEAVY_CAV",
+        "col": 16,
+        "front": false
+      },
+      {
+        "type": "BRIGADIER",
+        "col": 17,
+        "front": false
+      }
+    ]
+  ]
+}
