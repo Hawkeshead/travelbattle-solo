@@ -246,9 +246,21 @@
   .dice-result.lose{ color:var(--danger); }
   .dice-result.draw{ color:var(--warn); }
 
-  /* Landscape-first: this is the default row layout above (board + narrow
-     sidebar), which already suits a landscape phone well. Portrait phones
-     get a stacked, scrollable layout instead. */
+  /* Battle Replay — sits above everything else while active */
+  #replayOverlay{ position:absolute;inset:0;z-index:40;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between; }
+  #replayOverlay.hidden{ display:none; }
+  #replayCaptionBar{
+    margin:8px auto 0;max-width:88%;background:rgba(233,223,196,0.95);border:2px solid var(--brass-dim);border-radius:6px;
+    padding:8px 16px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.35);pointer-events:none;
+  }
+  #replayTurnLabel{font-family:'Cinzel',serif;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;color:var(--brass-dim);}
+  #replayEventLabel{font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--ink);margin-top:2px;min-height:18px;}
+  #replayControlBar{
+    margin:0 auto 10px;display:flex;gap:8px;justify-content:center;pointer-events:auto;
+  }
+  .replay-hit-ring{ position:absolute; border:3px solid var(--danger); border-radius:50%; pointer-events:none; z-index:41; animation:replayPulse 1s ease-out infinite; }
+  @keyframes replayPulse{ 0%{opacity:1;transform:scale(0.9);} 100%{opacity:0.2;transform:scale(1.25);} }
+
   @media (max-width:900px) and (orientation:portrait){
     main{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
     #boardWrap{flex:none;width:100%;max-height:48vh;padding:8px;}
@@ -339,6 +351,18 @@
         <div id="aiDebugPanel"></div>
       </div>
     </div>
+
+    <div id="replayOverlay" class="hidden">
+      <div id="replayCaptionBar">
+        <div id="replayTurnLabel">Turn 1 — Britain</div>
+        <div id="replayEventLabel"></div>
+      </div>
+      <div id="replayControlBar">
+        <button id="replayPlayPauseBtn" class="primary">Pause</button>
+        <button id="replayExitBtn">Exit Replay</button>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -1188,6 +1212,9 @@ let state = {
   fought: new Set(),
   pendingTurnarounds: [], // units that must spend next phase turning around only
   log: [],
+  matchLog: [],           // battle replay event stream — see logReplay()
+  replayStartUnits: null, // deep snapshot of state.units the moment deployment ends
+  replaying: false,       // true while the replay player is stepping through matchLog
   _aiPlan: { red:null, blue:null },     // OperationalPlan per side, Hard difficulty only — persists across AI turns
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
   _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
@@ -1288,6 +1315,7 @@ function newUnit(side, typeKey, x, y, brigadeId){
    LOGGING
 ========================================================= */
 function log(msg, cls){
+  if(state.replaying) return;
   const el = document.getElementById('log');
   const div = document.createElement('div');
   div.className = 'entry'+(cls?(' '+cls):'');
@@ -1296,6 +1324,21 @@ function log(msg, cls){
   el.scrollTop = el.scrollHeight;
 }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* =========================================================
+   BATTLE REPLAY — event capture
+   Every entry the replay player will step through. Kept deliberately
+   lightweight (no dice arrays, no reasons lists) — just enough to drive
+   the board visually and know when to pause. See REPLAY section near
+   the bottom of the file for playback.
+========================================================= */
+function logReplay(type, data){
+  if(!state.matchLog || state.replaying) return;
+  state.matchLog.push(Object.assign({
+    type, turn: state.turnNumber, phase: state.phase
+  }, data));
+}
+
 // Assembles a short flavor paragraph from a narration bucket (opening + middle
 // with {status} filled in + closing), picking randomly from each array for
 // variety run to run. `variant` is 'win'|'loss' for the buckets that have a
@@ -1790,6 +1833,16 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
       // while there are still dice on screen to read.
       attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
 
+      const fightOutcome = genuineDraw ? 'stalemate'
+        : (defenderHillTieWin || attackerChargeTieWin || attackerColumnTieWin) ? 'pushback'
+        : (Math.abs(aRoll.value-dRoll.value)>=3 ? 'destroy' : Math.abs(aRoll.value-dRoll.value)===2 ? 'rout' : 'pushback');
+      logReplay('fight', {
+        attackerId: attacker.id, defenderId: defender.id,
+        attackerSide: attacker.side, defenderSide: defender.side,
+        x: defender.x, y: defender.y, result: fightOutcome,
+        aRoll: aRoll.value, dRoll: dRoll.value
+      });
+
       if(genuineDraw){
         log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
         logNarration('melee_stalemate');
@@ -1895,6 +1948,7 @@ function retreatAndRally(loser, onComplete){
       if(success){
         log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
         logNarration('rally_success');
+        logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, newStatus:'Rallied' });
         onComplete();
         return;
       }
@@ -1903,6 +1957,7 @@ function retreatAndRally(loser, onComplete){
         offerLeadershipRoll(loser, brig, onComplete);
       } else {
         logNarration('rally_failure');
+        logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, newStatus:'Lost' });
         removeUnit(loser, 'failed rally');
         onComplete();
       }
@@ -1981,6 +2036,7 @@ function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 function removeUnit(u, reason){
   u.removed = true;
+  logReplay('status', { unitId:u.id, side:u.side, x:u.x, y:u.y, newStatus:'Destroyed', reason });
   addDeathEffect(u.x, u.y);
   log(`${unitLabel(u)} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
   if(u.type!=='BRIGADIER'){
@@ -1998,6 +2054,7 @@ function removeUnit(u, reason){
 }
 
 function checkWinCondition(){
+  if(state.replaying) return;
   if(state.scenario){ checkScenarioObjective(); return; }
   for(const side of [SIDES.RED, SIDES.BLUE]){
     let brokenCount = 0;
@@ -2138,6 +2195,23 @@ function endGame(winner){
     document.getElementById('overlayBtn').textContent = 'New Battle';
     document.getElementById('overlayBtn').onclick = ()=> location.reload();
   }
+  if(state.matchLog && state.matchLog.length>0 && state.replayStartUnits){
+    const box = document.querySelector('#overlay .box');
+    let extra = document.getElementById('modeChoices');
+    if(!extra){
+      extra = document.createElement('div');
+      extra.id = 'modeChoices';
+      extra.style.gap = '8px';
+      extra.style.justifyContent = 'center';
+      box.appendChild(extra);
+    }
+    extra.innerHTML = '';
+    extra.style.display = 'flex';
+    const replayBtn = document.createElement('button');
+    replayBtn.textContent = 'Watch Replay';
+    replayBtn.onclick = startReplay;
+    extra.appendChild(replayBtn);
+  }
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -2212,6 +2286,7 @@ function displaceBrigadierIfPresent(x, y, fromX, fromY){
 
 function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
+  logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
   unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:520 };
   ensureAnimationLoopRunning();
@@ -4062,6 +4137,8 @@ function aiDoFightPhase(){
 ========================================================= */
 function startBattle(){
   document.getElementById('overlay').classList.remove('show');
+  state.matchLog = [];
+  state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
   state.turn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
   log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
   document.getElementById('sidebar').style.display='none';
@@ -4165,6 +4242,7 @@ function renderAiDebugPanel(){
 function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
+  logReplay('turnStart', { side: state.turn });
   state.moved = new Set();
   state.turnComboTarget = null;
   enforceAmbushWoodsInvariant();
@@ -4616,6 +4694,7 @@ function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
 function applyArtilleryEffect(u, roll, onComplete){
   onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
+  logReplay('fire', { targetId:u.id, side:u.side, x:u.x, y:u.y, roll, effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy' });
   if(roll<=3){
     log(`${unitLabel(u)} carries on regardless.`, 'combat'); logNarration('artillery_no_effect');
     onComplete();
@@ -5235,6 +5314,161 @@ function resumeCampaignFromStorage(progress){
   state.aiDifficulty = progress.aiDifficulty;
   runCampaignStep();
 }
+
+/* =========================================================
+   BATTLE REPLAY — playback
+   Steps through state.matchLog against a fresh copy of state.units
+   restored from replayStartUnits. Reuses animateUnitTo/removeUnit so
+   positions and Brigade-withdrawal cascades render exactly as they
+   did live; log()/logReplay()/checkWinCondition() are all no-op'd
+   while state.replaying is true (see their guards earlier in the file).
+========================================================= */
+let replayIdx = 0;
+let replayTimer = null;
+let replaySavedUnits = null; // the real, final game state — restored on exit
+let replaySavedMeta = null;
+
+function startReplay(){
+  if(!state.matchLog || state.matchLog.length===0 || !state.replayStartUnits) return;
+  document.getElementById('overlay').classList.remove('show');
+  replaySavedUnits = state.units;
+  replaySavedMeta = { phase:state.phase, turn:state.turn, turnNumber:state.turnNumber, selectedUnitId:state.selectedUnitId };
+  state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
+  state.selectedUnitId = null;
+  highlightCells = [];
+  unitAnimations = {};
+  state.replaying = true;
+  replayIdx = 0;
+  document.getElementById('unitOverlay').classList.remove('show');
+  document.getElementById('replayOverlay').classList.remove('hidden');
+  document.getElementById('replayPlayPauseBtn').textContent = 'Pause';
+  document.getElementById('replayPlayPauseBtn').onclick = replayPlayPauseToggle;
+  draw();
+  playReplayStep();
+}
+
+function replayEventDelay(ev){
+  if(ev.type==='fight' || ev.type==='fire') return 1500;
+  if(ev.type==='status' && ev.newStatus==='Destroyed') return 1600;
+  if(ev.type==='turnStart') return 500;
+  return 320; // moves — fast auto-play, per the agreed pacing
+}
+
+function replayEventCaption(ev){
+  if(ev.type==='fight'){
+    const labels = {stalemate:'Held — drawn', pushback:'Pushed back', rout:'Routed', destroy:'Destroyed'};
+    return `Fighting at the line: ${labels[ev.result]||ev.result}`;
+  }
+  if(ev.type==='fire'){
+    const labels = {none:'No effect', disrupt:'Shaken', rout:'Falls back', destroy:'Destroyed'};
+    return `Artillery fires: ${labels[ev.effect]||ev.effect}`;
+  }
+  if(ev.type==='status' && ev.newStatus==='Destroyed') return 'A unit is lost.';
+  return '';
+}
+
+function showReplayHitRing(x,y){
+  const wrap = document.getElementById('boardWrap');
+  const rect = canvas.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const cellPxX = rect.width/COLS, cellPxY = rect.height/ROWS;
+  const sy_ = sy(y);
+  const ring = document.createElement('div');
+  ring.className = 'replay-hit-ring';
+  ring.style.left = (rect.left - wrapRect.left + x*cellPxX) + 'px';
+  ring.style.top = (rect.top - wrapRect.top + sy_*cellPxY) + 'px';
+  ring.style.width = cellPxX + 'px';
+  ring.style.height = cellPxY + 'px';
+  wrap.appendChild(ring);
+  setTimeout(()=> ring.remove(), 1400);
+}
+
+function applyReplayEvent(ev){
+  if(ev.type==='turnStart'){
+    state.turn = ev.side;
+    state.turnNumber = ev.turn;
+    document.getElementById('replayTurnLabel').textContent = `Turn ${ev.turn} — ${SIDE_LABEL[ev.side]}`;
+    return;
+  }
+  if(ev.type==='move'){
+    const u = state.units.find(x=>x.id===ev.unitId);
+    if(u && !u.removed) animateUnitTo(u, ev.to.x, ev.to.y);
+    return;
+  }
+  if(ev.type==='fight'){
+    showReplayHitRing(ev.x, ev.y);
+    return;
+  }
+  if(ev.type==='fire'){
+    showReplayHitRing(ev.x, ev.y);
+    const u = state.units.find(x=>x.id===ev.targetId);
+    if(u && ev.effect==='disrupt') u.turnOnly = true;
+    return;
+  }
+  if(ev.type==='status'){
+    const u = state.units.find(x=>x.id===ev.unitId);
+    if(u && ev.newStatus==='Destroyed' && !u.removed){
+      showReplayHitRing(ev.x, ev.y);
+      removeUnit(u, ev.reason||'destroyed');
+    }
+    return;
+  }
+}
+
+function playReplayStep(){
+  if(!state.replaying) return; // exited mid-playback
+  if(replayIdx >= state.matchLog.length){ finishReplay(); return; }
+  const ev = state.matchLog[replayIdx];
+  applyReplayEvent(ev);
+  const caption = replayEventCaption(ev);
+  if(caption) document.getElementById('replayEventLabel').textContent = caption;
+  draw();
+  replayIdx++;
+  replayTimer = setTimeout(playReplayStep, replayEventDelay(ev));
+}
+
+function replayPlayPauseToggle(){
+  if(replayTimer){
+    clearTimeout(replayTimer); replayTimer = null;
+    document.getElementById('replayPlayPauseBtn').textContent = 'Play';
+  } else {
+    document.getElementById('replayPlayPauseBtn').textContent = 'Pause';
+    playReplayStep();
+  }
+}
+
+function finishReplay(){
+  document.getElementById('replayEventLabel').textContent = 'Replay complete.';
+  document.getElementById('replayPlayPauseBtn').textContent = 'Watch Again';
+  document.getElementById('replayPlayPauseBtn').onclick = ()=>{
+    state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
+    state.selectedUnitId = null;
+    unitAnimations = {};
+    document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
+    replayIdx = 0;
+    document.getElementById('replayEventLabel').textContent = '';
+    document.getElementById('replayPlayPauseBtn').textContent = 'Pause';
+    document.getElementById('replayPlayPauseBtn').onclick = replayPlayPauseToggle;
+    draw();
+    playReplayStep();
+  };
+}
+
+function exitReplay(){
+  if(replayTimer){ clearTimeout(replayTimer); replayTimer = null; }
+  state.replaying = false;
+  state.units = replaySavedUnits;
+  state.phase = replaySavedMeta.phase;
+  state.turn = replaySavedMeta.turn;
+  state.turnNumber = replaySavedMeta.turnNumber;
+  state.selectedUnitId = replaySavedMeta.selectedUnitId;
+  unitAnimations = {};
+  document.getElementById('replayOverlay').classList.add('hidden');
+  document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
+  draw();
+  document.getElementById('overlay').classList.add('show'); // back to the victory dialog
+}
+document.getElementById('replayExitBtn').onclick = exitReplay;
 
 const _savedCampaignProgress = loadCampaignProgress();
 if(_savedCampaignProgress){
