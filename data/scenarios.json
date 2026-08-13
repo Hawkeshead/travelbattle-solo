@@ -1,0 +1,748 @@
+[
+  {
+    "id": "op-lincelles",
+    "campaign": "Flanders",
+    "title": "Battle of Lincelles",
+    "date": "18 August 1793",
+    "brief": "A French force has seized the village of Lincelles, threatening the Allied line. British Guards, supported by Dutch troops, must recapture it after intense street fighting.",
+    "objectiveText": "Capture and hold the village for 2 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "GUARD",
+          "GUARD",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "LIGHT_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "BRIGADIER",
+          "ARTILLERY"
+        ]
+      }
+    },
+    "turnLimit": null,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "CAPTURE_ZONE",
+          "params": {
+            "zoneSquares": [
+              {
+                "x": 1,
+                "y": 6
+              },
+              {
+                "x": 2,
+                "y": 6
+              },
+              {
+                "x": 1,
+                "y": 7
+              }
+            ],
+            "holdForTurns": 2
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-caesars-camp",
+    "campaign": "Flanders",
+    "title": "Battle of Caesar's Camp",
+    "date": "7-8 August 1793",
+    "brief": "French troops attack the Allied defensive position at Caesar's Camp. British and Austrian forces must hold the elevated ground against repeated assaults.",
+    "objectiveText": "Hold the hill for 8 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "GUARD",
+          "INFANTRY",
+          "BRIGADIER",
+          "LIGHT_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 8,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "SURVIVE_TURNS",
+          "params": {
+            "defender": "red",
+            "minUnits": 2
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-beaumont",
+    "campaign": "Flanders",
+    "title": "Battle of Beaumont",
+    "date": "26 April 1794",
+    "brief": "French forces launch a surprise dawn attack on Coalition outposts. British and Austrian troops are forced into a fighting withdrawal, needing to escape encirclement while preserving their guns.",
+    "objectiveText": "Get at least 3 units off the south edge, with your Artillery still alive.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "INFANTRY",
+          "BRIGADIER",
+          "GUARD"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "LIGHT_CAV",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 10,
+    "objective": {
+      "combinator": "all",
+      "conditions": [
+        {
+          "type": "ESCAPE_ZONE",
+          "params": {
+            "escapingSide": "red",
+            "edgeRows": [
+              9
+            ],
+            "minUnitsToEscape": 3
+          }
+        },
+        {
+          "type": "PROTECT_UNIT",
+          "params": {
+            "protectSide": "red",
+            "unitTypes": [
+              "ARTILLERY"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-garcia-hernandez",
+    "campaign": "Peninsular",
+    "title": "Combat of Garc\u00eda Hern\u00e1ndez",
+    "date": "23 July 1812",
+    "brief": "Immediately after Salamanca, King's German Legion cavalry charges French infantry squares in one of the war's most remarkable cavalry successes, running down the shattered remnants of the retreat.",
+    "objectiveText": "Destroy 4 French units before they can rally and withdraw.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "HEAVY_CAV",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "HEAVY_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "ARTILLERY",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 12,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "ELIMINATE_TARGET",
+          "params": {
+            "targetSide": "blue",
+            "targetCount": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-willems",
+    "campaign": "Flanders",
+    "title": "Battle of Willems",
+    "date": "10 May 1794",
+    "brief": "As French pressure mounts, British Guards launch a determined counterattack around the village of Willems, driving the French back after fierce close-range fighting.",
+    "objectiveText": "Retake and hold the village for 2 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "GUARD",
+          "GUARD",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "ARTILLERY",
+          "LIGHT_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": null,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "CAPTURE_ZONE",
+          "params": {
+            "zoneSquares": [
+              {
+                "x": 11,
+                "y": 6
+              },
+              {
+                "x": 12,
+                "y": 6
+              }
+            ],
+            "holdForTurns": 2
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-coa",
+    "campaign": "Peninsular",
+    "title": "Combat of C\u00f4a",
+    "date": "24 July 1810",
+    "brief": "Marshal Ney catches the Light Division before it can safely cross the River C\u00f4a. The 95th Rifles and light infantry fight a desperate rearguard action while withdrawing over a narrow bridge under heavy pressure.",
+    "objectiveText": "Get 3 units off the west edge, with your Artillery still alive.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY"
+        ]
+      }
+    },
+    "turnLimit": 10,
+    "objective": {
+      "combinator": "all",
+      "conditions": [
+        {
+          "type": "ESCAPE_ZONE",
+          "params": {
+            "escapingSide": "red",
+            "edgeRows": [
+              0
+            ],
+            "minUnitsToEscape": 3
+          }
+        },
+        {
+          "type": "PROTECT_UNIT",
+          "params": {
+            "protectSide": "red",
+            "unitTypes": [
+              "ARTILLERY"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-barba-del-puerco",
+    "campaign": "Peninsular",
+    "title": "Combat of Barba del Puerco",
+    "date": "31 January 1810",
+    "brief": "French troops attempt a surprise night crossing of the \u00c1gueda River. The 95th Rifles and supporting light infantry react quickly, throwing the attackers back across the river after fierce close-quarters fighting in darkness.",
+    "objectiveText": "Destroy 3 French units before they can secure the crossing.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "LIGHT_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 8,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "ELIMINATE_TARGET",
+          "params": {
+            "targetSide": "blue",
+            "targetCount": 3
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-el-bodon",
+    "campaign": "Peninsular",
+    "title": "Combat of El Bod\u00f3n",
+    "date": "25 September 1811",
+    "brief": "A small Anglo-Portuguese force, including the 95th Rifles and British cavalry, delays a much larger French advance while protecting Wellington's army from surprise, withdrawing in excellent order despite being heavily outnumbered.",
+    "objectiveText": "Hold for 6 turns with your Artillery still alive.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "ARTILLERY",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 6,
+    "objective": {
+      "combinator": "all",
+      "conditions": [
+        {
+          "type": "SURVIVE_TURNS",
+          "params": {
+            "defender": "red",
+            "minUnits": 2
+          }
+        },
+        {
+          "type": "PROTECT_UNIT",
+          "params": {
+            "protectSide": "red",
+            "unitTypes": [
+              "ARTILLERY"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-sabugal",
+    "campaign": "Peninsular",
+    "title": "Battle of Sabugal",
+    "date": "3 April 1811",
+    "brief": "Dense fog isolates the Light Division while attacking Marshal Reynier. The 95th Rifles fight independently for much of the battle before reinforcements arrive, ultimately breaking through to seize the ridge.",
+    "objectiveText": "Get 4 units onto the ridge (north edge) before the French can stop you.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY",
+          "HEAVY_CAV"
+        ]
+      }
+    },
+    "turnLimit": 10,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "ESCAPE_ZONE",
+          "params": {
+            "escapingSide": "red",
+            "edgeRows": [
+              0
+            ],
+            "minUnitsToEscape": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-arroyo-dos-molinos",
+    "campaign": "Peninsular",
+    "title": "Combat of Arroyo dos Molinos",
+    "date": "28 October 1811",
+    "brief": "General Rowland Hill surprises a French division in thick morning fog, routing much of the force before it can properly deploy and preventing much of it from escaping the trap.",
+    "objectiveText": "Destroy 4 French units before turn 8 \u2014 catch them before they can form up.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "HEAVY_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "ARTILLERY"
+        ]
+      }
+    },
+    "turnLimit": 8,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "ELIMINATE_TARGET",
+          "params": {
+            "targetSide": "blue",
+            "targetCount": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-hougoumont",
+    "campaign": "Waterloo",
+    "title": "Defence of Hougoumont",
+    "date": "18 June 1815",
+    "brief": "French forces repeatedly assault Hougoumont Farm throughout the day. The British Guards defend the walls despite overwhelming numbers, tying down far more troops than Napoleon intended to commit.",
+    "objectiveText": "Hold the farm for 10 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "GUARD",
+          "GUARD",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "HEAVY_CAV"
+        ]
+      }
+    },
+    "turnLimit": 10,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "SURVIVE_TURNS",
+          "params": {
+            "defender": "red",
+            "minUnits": 2
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-la-haye-sainte",
+    "campaign": "Waterloo",
+    "title": "Defence of La Haye Sainte",
+    "date": "18 June 1815",
+    "brief": "The King's German Legion defends La Haye Sainte for most of the day before running out of ammunition. Its fall would let French artillery move dangerously close to Wellington's centre.",
+    "objectiveText": "Hold the farmhouse for 8 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "GUARD",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "LIGHT_CAV"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY",
+          "HEAVY_CAV"
+        ]
+      }
+    },
+    "turnLimit": 8,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "SURVIVE_TURNS",
+          "params": {
+            "defender": "red",
+            "minUnits": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-papelotte",
+    "campaign": "Waterloo",
+    "title": "Papelotte",
+    "date": "18 June 1815",
+    "brief": "The villages of Papelotte and La Haye form Wellington's eastern flank. Dutch and Nassau troops resist repeated French attacks until Prussian reinforcements begin arriving nearby.",
+    "objectiveText": "Hold the village for 6 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "LIGHT_CAV",
+          "BRIGADIER",
+          "ARTILLERY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "ARTILLERY",
+          "INFANTRY"
+        ]
+      }
+    },
+    "turnLimit": 6,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "SURVIVE_TURNS",
+          "params": {
+            "defender": "red",
+            "minUnits": 2
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "op-frischermont",
+    "campaign": "Waterloo",
+    "title": "The Fight for Frischermont",
+    "date": "18 June 1815",
+    "brief": "French attacks threaten Wellington's right flank around Frischermont while Coalition troops fight stubborn delaying actions, critical to preventing a French flanking manoeuvre.",
+    "objectiveText": "Capture and hold the crossroads for 2 turns.",
+    "sides": {
+      "red": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "LIGHT_CAV",
+          "ARTILLERY",
+          "BRIGADIER",
+          "INFANTRY"
+        ]
+      },
+      "blue": {
+        "units": [
+          "BRIGADIER",
+          "INFANTRY",
+          "INFANTRY",
+          "BRIGADIER",
+          "INFANTRY",
+          "HEAVY_CAV",
+          "BRIGADIER",
+          "INFANTRY",
+          "ARTILLERY"
+        ]
+      }
+    },
+    "turnLimit": null,
+    "objective": {
+      "combinator": "any",
+      "conditions": [
+        {
+          "type": "CAPTURE_ZONE",
+          "params": {
+            "zoneSquares": [
+              {
+                "x": 14,
+                "y": 5
+              },
+              {
+                "x": 15,
+                "y": 5
+              }
+            ],
+            "holdForTurns": 2
+          }
+        }
+      ]
+    }
+  }
+]
