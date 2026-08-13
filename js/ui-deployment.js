@@ -10,6 +10,7 @@
    Brigade (Brigadier + at least 2 more units).
 ========================================================= */
 const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
+const FULL_ARMY_POOL_GRAND = TB_DATA.unitTypes.brigadeCompositionsGrand.flat(); // Grand Strategy: 3 Brigadier, 4 Guard, 12 Infantry, 4 Heavy Cav, 4 Light Cav, 4 Artillery
 
 function initDeployment(){
   resetHistoricalIdentities();
