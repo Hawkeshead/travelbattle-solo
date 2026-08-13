@@ -1,0 +1,211 @@
+/* =========================================================
+   DATA LOADER
+   Game content (unit archive, narration text, campaigns, scenarios,
+   terrain layouts, unit stats) lives in /data/*.json rather than inline
+   in this file, so edits to content don't require touching this HTML.
+   Loaded synchronously (deliberately, via XHR rather than fetch) so
+   every line below this block can keep reading TB_DATA-derived consts
+   immediately, exactly as it read inline literals before this change,
+   with no restructuring of the game code itself.
+========================================================= */
+const TB_DATA = (function(){
+  function loadJSON(path){
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', path, false);
+    xhr.send(null);
+    if (xhr.status !== 200 && xhr.status !== 0) {
+      throw new Error('Failed to load ' + path + ' (HTTP ' + xhr.status + ')');
+    }
+    return JSON.parse(xhr.responseText);
+  }
+  try {
+    return {
+      unitArchive: loadJSON('data/unit-archive.json'),
+      narration: loadJSON('data/narration.json'),
+      campaigns: loadJSON('data/campaigns.json'),
+      scenarios: loadJSON('data/scenarios.json'),
+      terrainLayouts: loadJSON('data/terrain-layouts.json'),
+      unitTypes: loadJSON('data/unit-types.json'),
+    };
+  } catch (err) {
+    document.body.innerHTML = '<div style="color:#eee;background:#2a1414;padding:40px;font-family:sans-serif;max-width:600px;margin:60px auto;border:1px solid #a33;border-radius:8px;">'
+      + '<h2 style="margin-top:0;color:#e88;">Field Command failed to load</h2>'
+      + '<p>One of the game data files couldn\'t be loaded. If you\'re running this locally, the /data/ files need to be served over HTTP (not opened as a local file), and on GitHub Pages this usually means a file is missing or the page hasn\'t finished deploying yet.</p>'
+      + '<p style="font-family:monospace;font-size:13px;color:#caa;">' + (err && err.message ? err.message : err) + '</p>'
+      + '</div>';
+    throw err;
+  }
+})();
+
+/* =========================================================
+   CONFIG & CONSTANTS
+========================================================= */
+/* =========================================================
+   BOARD: TWO PHYSICAL BOARDS, PLACED SIDE BY SIDE
+   TravelBattle is played on two boards pushed together. They join
+   along a vertical seam; both players deploy along their own top/
+   bottom edge across the FULL combined width. Each half below
+   represents one physical board, full depth, half width.
+
+   BOARD_A_TERRAIN / BOARD_B_TERRAIN are traced from Matthew's actual
+   board photos (Aug 2026) — best-effort read of road/woods/building/
+   field placement, confirmed against his description. The light grey
+   blotches visible in the photos are decorative (rocks / cliff faces
+   on hill inclines) with no gameplay effect on their own, and no hill
+   terrain was confidently identifiable in either photo, so both boards
+   are currently coded with no HILL squares — flag this if either board
+   does have a hill area, since that would need adding explicitly.
+
+   Each game start: one board is randomly assigned to each side, then
+   each side rolls a d6 for that board's table orientation (1-3 =
+   forced rotation of that many 90° clockwise turns; 4-6 = that side's
+   player chooses the rotation) — see beginBoardSetup().
+========================================================= */
+const HALF_COLS = 10, ROWS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is 20 wide x 10 deep
+let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
+
+// Board A — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
+// Roads are stored as a full ROAD square for gameplay (any unit in the square
+// gets the bonus) but rendered as a thin line through the cell centre — see
+// the road-drawing pass in draw() — so the visual doesn't fill the whole tile.
+const BOARD_A_TERRAIN = TB_DATA.terrainLayouts.boardATerrain;
+
+// Board B — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
+const BOARD_B_TERRAIN = TB_DATA.terrainLayouts.boardBTerrain;
+
+// Rotate a square (N x N) grid 90° clockwise, `times` times.
+function rotateGrid90CW(grid){
+  const n = grid.length;
+  const out = [];
+  for(let y=0;y<n;y++){ const row=[]; for(let x=0;x<n;x++) row.push(null); out.push(row); }
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++) out[x][n-1-y] = grid[y][x];
+  return out;
+}
+function rotateGridTimes(grid, times){
+  let g = grid;
+  const n = ((times%4)+4)%4;
+  for(let i=0;i<n;i++) g = rotateGrid90CW(g);
+  return g;
+}
+
+function boardTerrainFor(key, rotation){
+  const base = key==='A' ? BOARD_A_TERRAIN : BOARD_B_TERRAIN;
+  return rotateGridTimes(base, rotation||0);
+}
+
+// Specific road-to-road connections to NOT draw, even though the cells are
+// adjacent ROAD squares — a visually redundant loop where the road already
+// connects one square earlier (Matthew's note, Aug 2026). Coordinates are
+// LOCAL to that physical board (0..HALF_COLS-1), before rotation/placement.
+const BOARD_EXCLUDED_ROAD_EDGES = TB_DATA.terrainLayouts.boardExcludedRoadEdges;
+
+function rotatePointCW(x, y, n, times){
+  let px=x, py=y;
+  const t = ((times%4)+4)%4;
+  for(let i=0;i<t;i++){ const nx = n-1-py, ny = px; px=nx; py=ny; }
+  return [px, py];
+}
+
+// Excluded edges for one physical board, transformed by its rotation and
+// shifted by colOffset (0 if it landed on the left half, HALF_COLS if right).
+function excludedEdgesForBoard(boardKey, rotation, colOffset){
+  return (BOARD_EXCLUDED_ROAD_EDGES[boardKey]||[]).map(e=>{
+    const [rx1,ry1] = rotatePointCW(e.x1,e.y1,HALF_COLS,rotation);
+    const [rx2,ry2] = rotatePointCW(e.x2,e.y2,HALF_COLS,rotation);
+    return { x1:rx1+colOffset, y1:ry1, x2:rx2+colOffset, y2:ry2 };
+  });
+}
+function edgeKey(x1,y1,x2,y2){
+  // undirected — normalize so (a,b) and (b,a) produce the same key
+  return (x1<x2 || (x1===x2 && y1<y2)) ? `${x1},${y1}-${x2},${y2}` : `${x2},${y2}-${x1},${y1}`;
+}
+
+function buildTerrainMap(assignment, rotation){
+  assignment = assignment || { red:'A', blue:'B' };
+  rotation = rotation || { red:0, blue:0 };
+  const leftGrid = boardTerrainFor(assignment.red, rotation.red);
+  const rightGrid = boardTerrainFor(assignment.blue, rotation.blue);
+  const map = [];
+  for(let y=0;y<ROWS;y++) map.push(leftGrid[y].concat(rightGrid[y]));
+  return map;
+}
+
+function buildExcludedRoadEdgeSet(assignment, rotation){
+  assignment = assignment || { red:'A', blue:'B' };
+  rotation = rotation || { red:0, blue:0 };
+  const edges = [
+    ...excludedEdgesForBoard(assignment.red, rotation.red, 0),
+    ...excludedEdgesForBoard(assignment.blue, rotation.blue, HALF_COLS)
+  ];
+  const set = new Set();
+  edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
+  return set;
+}
+const SIDES = { RED: 'red', BLUE: 'blue' };
+const SIDE_LABEL = { red: 'Britain', blue: 'France' };
+const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
+const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
+
+const UNIT_TYPES = TB_DATA.unitTypes.unitTypes;
+
+// Full army per side, split into 3 Brigades — matches the physical box contents
+// (3 Brigadiers, 2 Guard Infantry, 6 Infantry, 2 Heavy Cavalry, 2 Light Cavalry, 2 Artillery)
+const UNIT_ARCHIVE = TB_DATA.unitArchive;
+
+/* =========================================================
+   OPERATIONS — asymmetrical scenario battles, distinct from a standard
+   full-army fight. Each `sides.X.units` array is deployed as 3 nominal
+   Brigades (matching the deployment UI's fixed assumption) even when
+   very small or uneven, since that keeps this addition contained to
+   data + the objective system rather than generalizing brigade count
+   throughout the UI. Forces, objectives and turn limits are drawn from
+   the project's Battles & Operations document.
+   4 of the eventual 14 are authored here as a proven template — one
+   per objective type, spanning all three campaigns.
+========================================================= */
+const NARRATION = TB_DATA.narration;
+
+const CAMPAIGNS = TB_DATA.campaigns;
+
+const SCENARIOS = TB_DATA.scenarios;
+const BRIGADE_COMPOSITIONS = TB_DATA.unitTypes.brigadeCompositions;
+
+const TERRAIN = TB_DATA.unitTypes.terrainTypes;
+
+/* =========================================================
+   STATE
+========================================================= */
+let state = {
+  gameOver: false,
+  mode: 'hotseat',  // 'hotseat' | 'ai'
+  aiSide: null,     // side controlled by the AI, when mode==='ai'
+  aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
+  scenario: null,   // active Operation, or null for a standard full-army battle
+  campaign: null,   // active Campaign, or null when not playing one
+  campaignFlowIndex: 0,
+  campaignLastWinner: null,
+  campaignRecord: [],
+  turnNumber: 1,    // increments every side-turn (2 per round)
+  captureHoldCounter: { red:0, blue:0 }, // consecutive turns each side has held a CAPTURE_ZONE objective
+  terrain: buildTerrainMap(),
+  excludedRoadEdges: buildExcludedRoadEdgeSet(),
+  craters: [], // {x,y} — every square an Artillery shot has hit, persists for the whole match
+  units: [],       // {id, side, type, x, y, hp:'active', formation:'line'|'square', pushed:false, mustTurnOnly:false, facing}
+  turn: null,      // 'red' | 'blue'
+  phase: 'deploy',
+  deployQueue: [],
+  deployTurn: null,
+  selectedUnitId: null,
+  moved: new Set(), // unit ids that have moved/declined this turn
+  fired: new Set(),
+  fought: new Set(),
+  pendingTurnarounds: [], // units that must spend next phase turning around only
+  log: [],
+  matchLog: [],           // battle replay event stream — see logReplay()
+  replayStartUnits: null, // deep snapshot of state.units the moment deployment ends
+  replaying: false,       // true while the replay player is stepping through matchLog
+  _aiPlan: { red:null, blue:null },     // OperationalPlan per side, Hard difficulty only — persists across AI turns
+  _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
+  _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
+};
+let uidCounter = 1;
