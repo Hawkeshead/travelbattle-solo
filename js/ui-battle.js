@@ -523,7 +523,12 @@ function fireArtillery(gun, target, onComplete){
         return;
       }
       addCrater(target.x, target.y);
-      const stack = unitsAt(target.x, target.y);
+      // Brigadiers are never valid artillery targets (artilleryTargets() already
+      // excludes them) — but they can share a square with the actual target,
+      // and the effect roll must not splash onto him too. He's immune to being
+      // attacked outright; the only thing that ever moves him is a unit stepping
+      // onto his square (see displaceBrigadierIfPresent).
+      const stack = unitsAt(target.x, target.y).filter(u=>u.type!=='BRIGADIER');
       const inCover = terrainAt(target.x,target.y).key==='WOODS' || terrainAt(target.x,target.y).key==='BUILDING';
       // Square/Column bonus now lands on the EFFECT roll, not the to-hit roll.
       // A "Column" here is two Infantry/Guard doubled into one open-terrain square.
