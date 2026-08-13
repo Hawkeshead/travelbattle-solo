@@ -61,8 +61,19 @@ const TB_DATA = (function(){
    forced rotation of that many 90° clockwise turns; 4-6 = that side's
    player chooses the rotation) — see beginBoardSetup().
 ========================================================= */
-const HALF_COLS = 10, ROWS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is 20 wide x 10 deep
+const HALF_COLS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is always 20 wide
+let ROWS = 10; // 10 deep for a standard 2-board match; setBoardMode('grand') sets this to 20 for a 2x2, 4-board match
 let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
+
+// Switches board depth between a standard 2-board match (ROWS=10) and a 2x2
+// four-board Grand Strategy match (ROWS=20, COLS stays 20 either way). Must
+// be called before buildTerrainMap()/buildExcludedRoadEdgeSet() and before
+// any deployment-zone or edge-retreat logic runs for the new match, since
+// those all read ROWS live rather than caching it.
+function setBoardMode(mode){
+  state.boardMode = mode;
+  ROWS = (mode === 'grand') ? HALF_COLS*2 : HALF_COLS;
+}
 
 // Board A — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
 // Roads are stored as a full ROAD square for gameplay (any unit in the square
@@ -107,12 +118,15 @@ function rotatePointCW(x, y, n, times){
 }
 
 // Excluded edges for one physical board, transformed by its rotation and
-// shifted by colOffset (0 if it landed on the left half, HALF_COLS if right).
-function excludedEdgesForBoard(boardKey, rotation, colOffset){
+// shifted by colOffset (0 if it landed on the left half, HALF_COLS if right)
+// and rowOffset (0 if top row of boards, HALF_COLS if bottom — only non-zero
+// in a 2x2 Grand Strategy layout; standard 2-board matches never pass it).
+function excludedEdgesForBoard(boardKey, rotation, colOffset, rowOffset){
+  rowOffset = rowOffset || 0;
   return (BOARD_EXCLUDED_ROAD_EDGES[boardKey]||[]).map(e=>{
     const [rx1,ry1] = rotatePointCW(e.x1,e.y1,HALF_COLS,rotation);
     const [rx2,ry2] = rotatePointCW(e.x2,e.y2,HALF_COLS,rotation);
-    return { x1:rx1+colOffset, y1:ry1, x2:rx2+colOffset, y2:ry2 };
+    return { x1:rx1+colOffset, y1:ry1+rowOffset, x2:rx2+colOffset, y2:ry2+rowOffset };
   });
 }
 function edgeKey(x1,y1,x2,y2){
@@ -136,6 +150,53 @@ function buildExcludedRoadEdgeSet(assignment, rotation){
   const edges = [
     ...excludedEdgesForBoard(assignment.red, rotation.red, 0),
     ...excludedEdgesForBoard(assignment.blue, rotation.blue, HALF_COLS)
+  ];
+  const set = new Set();
+  edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
+  return set;
+}
+
+/* =========================================================
+   GRAND STRATEGY: 2x2 four-board composition (20x20 combined).
+   Reuses the same two physical boards (A and B), each appearing twice,
+   randomly shuffled across the four quadrant positions with an
+   independent rotation roll per quadrant — see generateGrandQuadrants().
+   quadrants shape: { topLeft, topRight, bottomLeft, bottomRight },
+   each { board:'A'|'B', rotation:0-3 }.
+========================================================= */
+function generateGrandQuadrants(rollFn){
+  rollFn = rollFn || (() => Math.floor(Math.random()*4)); // 0-3, overridable for deterministic tests
+  const boards = ['A','A','B','B'];
+  // Fisher-Yates shuffle
+  for(let i=boards.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [boards[i], boards[j]] = [boards[j], boards[i]];
+  }
+  const positions = ['topLeft','topRight','bottomLeft','bottomRight'];
+  const quadrants = {};
+  positions.forEach((pos, i) => {
+    quadrants[pos] = { board: boards[i], rotation: rollFn() };
+  });
+  return quadrants;
+}
+
+function buildTerrainMapGrand(quadrants){
+  const tl = boardTerrainFor(quadrants.topLeft.board, quadrants.topLeft.rotation);
+  const tr = boardTerrainFor(quadrants.topRight.board, quadrants.topRight.rotation);
+  const bl = boardTerrainFor(quadrants.bottomLeft.board, quadrants.bottomLeft.rotation);
+  const br = boardTerrainFor(quadrants.bottomRight.board, quadrants.bottomRight.rotation);
+  const map = [];
+  for(let y=0;y<HALF_COLS;y++) map.push(tl[y].concat(tr[y]));       // top board-row
+  for(let y=0;y<HALF_COLS;y++) map.push(bl[y].concat(br[y]));       // bottom board-row
+  return map;
+}
+
+function buildExcludedRoadEdgeSetGrand(quadrants){
+  const edges = [
+    ...excludedEdgesForBoard(quadrants.topLeft.board, quadrants.topLeft.rotation, 0, 0),
+    ...excludedEdgesForBoard(quadrants.topRight.board, quadrants.topRight.rotation, HALF_COLS, 0),
+    ...excludedEdgesForBoard(quadrants.bottomLeft.board, quadrants.bottomLeft.rotation, 0, HALF_COLS),
+    ...excludedEdgesForBoard(quadrants.bottomRight.board, quadrants.bottomRight.rotation, HALF_COLS, HALF_COLS),
   ];
   const set = new Set();
   edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
