@@ -1,0 +1,166 @@
+{
+  "red": {
+    "BRIGADIER": [
+      {
+        "name": "Wellington",
+        "bio": "Arthur Wellesley, Duke of Wellington, built his reputation in India before six years commanding the Peninsular campaign against Napoleon's marshals, mastering the reverse-slope defence and the disciplined volley line that broke French columns at Salamanca and Vitoria. Cautious by temperament and famously unsentimental about his own men, he preferred to fight on ground of his own choosing and let the enemy exhaust itself first. At Waterloo he commanded a scratch Anglo-Allied army and held the ridge at Mont-Saint-Jean through a full day of assault until the Prussians arrived. He never lost a pitched battle he commanded outright. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Thomas Graham",
+        "bio": "Thomas Graham, later 1st Baron Lynedoch, took up soldiering unusually late in life after the death of his wife, joining the army in his forties and rising through the Peninsular War on sheer aptitude rather than patronage. He commanded the Anglo-Portuguese-Spanish force that won the Battle of Barrosa in 1811, a hard-fought action in which his troops captured a French Imperial Eagle. Wellington rated him among his most capable subordinates and trusted him with independent commands, including the operations around C\u00e1diz. He retired from active field command before Waterloo but remained one of the era's most respected British generals. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Uxbridge",
+        "bio": "Henry Paget, 2nd Earl of Uxbridge, commanded the Allied cavalry at Waterloo, leading the famous, costly charge of the Household and Union Brigades that shattered d'Erlon's advancing infantry columns before running out of control into the French guns. A skilled and aggressive cavalry commander with Peninsular experience, he lost a leg to one of the last cannon shots of the battle, reputedly telling Wellington 'By God, sir, I've lost my leg!' and receiving the reply 'By God, sir, so you have!'. He later served as a senior political and military figure and was created Marquess of Anglesey. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "42nd Black Watch",
+        "bio": "The 42nd (Royal Highland) Regiment of Foot, the Black Watch, traces its roots to independent Highland companies raised in the 1720s to police the Highlands, later formed into a regiment of the line in 1739. Renowned for their dark tartan and unbending discipline, they fought with distinction throughout the Napoleonic Wars, including at Quatre Bras in 1815 where they were caught in the open by French cavalry and formed square under fire, holding despite heavy losses. Their reputation for steadiness under pressure made them one of the most trusted infantry regiments in Wellington's army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "92nd Gordon Highlanders",
+        "bio": "Raised in 1794 by the Duke of Gordon, the 92nd Regiment of Foot became one of the most celebrated Highland regiments of the era, fighting through Egypt, the Peninsula, and the Waterloo campaign. At Quatre Bras and again at Waterloo they distinguished themselves alongside the Scots Greys, with a famous, much-embellished tradition holding that Highlanders clung to the cavalry's stirrups as they charged together into the French lines. Their kilted, tightly-drilled ranks became a symbol of Highland fighting spirit in British popular memory. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "95th Rifles",
+        "bio": "Formed in 1800 as an experimental corps and issued the Baker rifle rather than the standard musket, the 95th Rifles pioneered skirmishing tactics for the British Army: fighting in loose order, picking off officers and gun crews at range, and screening the main battle line. Dressed in dark green rather than red to help them blend into cover, they became the elite reconnaissance and sharpshooting arm of Wellington's Peninsular army and fought at nearly every major action from Vimeiro to Waterloo. Their distinctive role later inspired countless popular depictions of the Napoleonic rifleman. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Corsican Rangers",
+        "bio": "Formed from Corsican exiles who had fought alongside the British on their home island in the 1790s, the Royal Corsican Rangers were reconstituted in 1803 as a light infantry corps of riflemen for Mediterranean service. Filled out with recruits from Sicily, Sardinia and Naples, they fought at the Battle of Maida in 1806 and spent most of the wars campaigning around the Ionian Islands, far from the main Peninsular theatre. Their green uniforms and skirmishing role made them a natural companion to the more famous rifle regiments, though their service is much less well known. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "44th East Essex",
+        "bio": "The 44th (East Essex) Regiment of Foot served through the Peninsular War and the Waterloo campaign, forming part of Picton's 5th Division alongside the Highland regiments. At Quatre Bras they held their ground against repeated French attacks in confused, close-quarters fighting through the crops and hedgerows around the crossroads. Steady, unglamorous line infantry of exactly the kind Wellington relied on to hold a position under sustained pressure, the 44th's Waterloo campaign service later earned it a battle honour still carried by its successor regiments. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "28th North Gloucestershire",
+        "bio": "The 28th (North Gloucestershire) Regiment of Foot earned a unique distinction in Egypt in 1801: attacked from front and rear simultaneously at the Battle of Alexandria, the regiment's rear rank turned about to fight back-to-back with the front rank, a feat commemorated ever after by the regiment wearing its cap badge on both the front and back of its headdress. By Waterloo they were veteran Peninsular infantry serving in Picton's division, fighting at Quatre Bras and standing in the thick of the fighting near La Haye Sainte on the day of the main battle. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "3rd Regiment of Foot Guards",
+        "bio": "The 3rd Regiment of Foot Guards, later the Scots Guards, served as part of the elite Guards brigades that anchored Wellington's Peninsular and Waterloo armies. At the Battle of Barrosa in 1811 under Thomas Graham, elements of the regiment took part in the assault that captured a French Imperial Eagle, one of the first taken by the British in the wars. Guards regiments were held to the highest standard of drill and discipline in the army and were routinely trusted with the most exposed or decisive ground in a battle line. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Brunswick Oels J\u00e4gers",
+        "bio": "Raised in 1809 by Frederick William, Duke of Brunswick, as part of his volunteer 'Black Brunswickers' corps, the Oels J\u00e4gers wore mourning black in defiance of Napoleon's occupation of their homeland and fought their way across Germany before taking refuge in British service. They served through the Peninsular War at Fuentes de O\u00f1oro, Salamanca and Vitoria, then returned for the Hundred Days in 1815, where the Duke himself was killed at Quatre Bras. A scratch, hard-luck unit patched together from refugees and volunteers, they nonetheless fought on to Waterloo under Wellington's command. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Scots Greys",
+        "bio": "The 2nd Dragoons, universally known as the Scots Greys for their distinctive grey horses, are the single most famous cavalry regiment of Waterloo. In the great charge of the Union Brigade they smashed into d'Erlon's advancing infantry columns and captured the Eagle of the French 45e R\u00e9giment de Ligne, a feat still commemorated in British military tradition. Like the rest of the Union Brigade they charged too far and were badly cut up by French cavalry and artillery on the counter-charge, but their initial impact broke the back of Napoleon's first great infantry assault. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Royal Horse Guards \u2013 The Blues",
+        "bio": "The Royal Horse Guards, nicknamed 'The Blues' for their distinctive blue coats among an otherwise scarlet-clad heavy cavalry, formed part of the Household Brigade at Waterloo alongside the Life Guards. They took part in the same devastating charge that broke the leading French cuirassier and infantry attacks in the early afternoon of the battle, before being thrown into repeated cavalry melees for the rest of the day. As one of the most senior and prestigious regiments in the British Army, they were entrusted with a central position near Wellington's own command post on the ridge. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "10th Hussars",
+        "bio": "The 10th (Prince of Wales's Own Royal) Hussars carried the personal patronage of the future King George IV, who served as their Colonel and dressed them in some of the most extravagant uniforms in the British Army. Peninsular veterans of Vitoria and the Pyrenees, they returned to service for the Waterloo campaign as part of the Allied light cavalry screen, tasked with scouting, skirmishing and covering the army's flanks rather than the shock charges of the heavies. Their reputation for dash and fashionable extravagance made them one of the most talked-about regiments of the era. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "15th Hussars",
+        "bio": "The 15th (King's) Hussars were among the first British cavalry regiments converted to the hussar role in the 1800s, adopting the fast, lightly-equipped style pioneered by continental light cavalry. They served with distinction throughout the Peninsular War, including a celebrated action at Sahag\u00fan in 1808 where they routed a larger French cavalry force in a dawn surprise attack. By 1815 they were experienced Peninsular veterans, well suited to the harrying, scouting and flank-guard duties expected of light cavalry in a general engagement. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Royal Artillery, Battery A",
+        "bio": "British artillery batteries in the Napoleonic era were organised around six guns apiece, typically a mix of 6- or 9-pounder cannon and howitzers, crewed by professional gunners of the Royal Artillery rather than regimental soldiers. At Waterloo, Wellington's guns were deployed along the ridge line and did brutal execution on the massed French infantry and cavalry columns advancing across the valley, though the batteries themselves were repeatedly overrun and retaken as the French cavalry surged past them. Gunners were trained to spike their own pieces and shelter beneath the guns rather than abandon them outright. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Royal Artillery, Battery B",
+        "bio": "By 1815 the Royal Artillery had developed into one of the most professional and best-drilled arms in any European army, its gun crews capable of firing several rounds a minute of case shot at point-blank range into approaching infantry and cavalry. Batteries like this one formed the backbone of Wellington's defensive line at Waterloo, their fire credited with breaking up the momentum of both d'Erlon's infantry assault and the great French cavalry charges that followed. Horse artillery batteries could also move at the gallop to reinforce a threatened point of the line at short notice. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
+  },
+  "blue": {
+    "BRIGADIER": [
+      {
+        "name": "Napoleon",
+        "bio": "Napoleon Bonaparte rose from Corsican artillery officer to Emperor of the French, reshaping European warfare with his mastery of rapid manoeuvre, concentrated artillery and the corps system that let his armies move and fight independently before combining for the decisive blow. Exiled to Elba in 1814, he returned to France in 1815 for the Hundred Days, rebuilding an army in weeks and marching north to strike the Allied and Prussian forces before they could unite. At Waterloo he commanded in person, holding the Imperial Guard back as his last reserve until it was almost too late, and his defeat there ended his rule for good. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Soult",
+        "bio": "Nicolas Jean-de-Dieu Soult was one of Napoleon's most capable marshals, a veteran of Austerlitz and years of hard campaigning against Wellington in the Peninsula, where the two men developed a deep mutual respect as adversaries. At Waterloo he served as Napoleon's chief of staff, a role for which contemporaries judged him poorly suited compared to the more meticulous Berthier, and several of the army's communication failures during the battle have been laid at his door. Despite this, his record as a battlefield commander in his own right was formidable, and he later served as a French statesman. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Murat",
+        "bio": "Joachim Murat, King of Naples and Napoleon's brother-in-law, was widely regarded as the finest cavalry commander of the age, famous for leading charges in person at the head of his men in flamboyant, plumed uniforms of his own design. He commanded the Grande Arm\u00e9e's cavalry reserve through its greatest campaigns, from Austerlitz to the retreat from Moscow, using speed and shock action to break enemy lines before the infantry arrived. He was not present at Waterloo, having been estranged from Napoleon after his own attempt to keep his throne in 1814, but his reputation as the embodiment of aggressive cavalry leadership endured. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "1er Grenadiers \u00e0 Pied",
+        "bio": "The 1er R\u00e9giment de Grenadiers \u00e0 Pied de la Garde Imp\u00e9riale were the senior regiment of Napoleon's Old Guard, an elite corps of veteran soldiers who had to meet strict service and height requirements and were paid and equipped far better than ordinary line infantry. Held back as the army's last reserve in almost every major battle, they were thrown into the fighting only at the decisive moment, most famously in their final, doomed advance up the ridge at Waterloo in the evening of 18 June 1815. Their repulse, unprecedented in the Guard's history, was the moment the French army's morale finally broke. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2e Grenadiers \u00e0 Pied",
+        "bio": "The 2e R\u00e9giment de Grenadiers \u00e0 Pied served alongside the 1er Grenadiers as part of the Old Guard's Grenadier division, an intensely proud formation that considered itself the finest infantry in Europe. Their distinctive bearskin caps and blue uniforms with white facings made them instantly recognisable, and their presence in reserve was often enough to steady a wavering French line simply by being visible on the field. Like the rest of the Guard, they were committed at Waterloo only once the battle had reached its crisis, advancing into the Allied line as dusk approached. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "9e L\u00e9g\u00e8re",
+        "bio": "The 9e R\u00e9giment d'Infanterie L\u00e9g\u00e8re, light infantry trained for skirmishing and rapid manoeuvre ahead of the main battle line, served through many of Napoleon's Peninsular and German campaigns. Light infantry regiments like the 9e L\u00e9g\u00e8re screened the advance of the heavier line formations, harassing the enemy with sustained musketry from loose order before falling back to let the massed columns deliver the decisive blow. Voltigeur companies within regiments like this one were specifically trained as elite skirmishers, drawn from the most agile and accurate marksmen in the unit. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "17e L\u00e9g\u00e8re",
+        "bio": "The 17e R\u00e9giment d'Infanterie L\u00e9g\u00e8re fought through the Napoleonic Wars as part of France's light infantry arm, prized for speed and independence of action on campaigns that increasingly relied on rapid marching and flexible deployment. L\u00e9g\u00e8re regiments carried a certain esprit de corps distinct from the line infantry, considering themselves the more dashing, skirmish-hardened troops of Napoleon's armies. By the time of the Hundred Days in 1815, regiments like the 17e were largely made up of hardened veterans recalled to service for one final campaign. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "1er Ligne",
+        "bio": "The 1er R\u00e9giment de Ligne carried the seniority of being the first-numbered infantry regiment in Napoleon's army, a lineage stretching back through the Revolutionary Wars. Ligne regiments formed the backbone of French infantry tactics, advancing in dense columns designed to punch through an enemy line with weight and momentum rather than the extended firing lines favoured by the British. By 1815 most Ligne regiments were rebuilt around a core of Napoleonic veterans mixed with fresh conscripts hurriedly called up for the Hundred Days campaign. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "4e Ligne",
+        "bio": "The 4e R\u00e9giment de Ligne served as standard French line infantry throughout the Napoleonic Wars, trained to advance in massed column formation and rely on the bayonet and sheer weight of numbers to break an enemy position. Regiments like the 4e formed the bulk of d'Erlon's I Corps at Waterloo, the great infantry assault that opened the battle's main fighting and was ultimately broken by the British infantry line and the charge of the Union and Household Brigades. Their voltigeur companies screened the advance with skirmish fire before the main column closed to contact. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "45e Ligne",
+        "bio": "The 45e R\u00e9giment de Ligne holds a grim distinction in British military memory: it was this regiment's Imperial Eagle that was captured by Sergeant Charles Ewart of the Scots Greys during the Union Brigade's charge at Waterloo, one of the most celebrated trophies of the battle and still commemorated in British regimental tradition today. The loss of an Eagle was considered a catastrophic disgrace in the French army, akin to losing a regiment's soul, and the 45e's story is inseparable from that single moment of the battle. The regiment itself, like the rest of d'Erlon's Corps, was broken in the same attack that cost it its standard. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "105e Ligne",
+        "bio": "The 105e R\u00e9giment de Ligne fought as line infantry in Napoleon's armies, one of many regiments whose voltigeur companies were trained as skirmishers to screen the advance of the main column. Regiments numbered this high in the French army's order of battle were often raised relatively late in the wars, reflecting the constant expansion and reorganisation Napoleon's manpower demands forced on the army. By 1815 the 105e, like its counterparts, was a mix of hardened survivors of earlier campaigns and fresh recruits swept up for the Hundred Days. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "5e Cuirassiers",
+        "bio": "The 5e R\u00e9giment de Cuirassiers rode as heavy shock cavalry, protected by steel breastplates and backplates that gave the cuirassiers their name and made them instantly recognisable thundering across a battlefield. At Waterloo, massed French cuirassier charges repeatedly slammed into the British infantry squares along the ridge, unable to break the disciplined formations but inflicting terror and heavy losses on the gunners caught in the open between charges. Their armour made them formidable against infantry fire and sabre cuts alike, though it could do little against a square that held its nerve and its volleys. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Carabiniers-\u00e0-Cheval",
+        "bio": "The Carabiniers-\u00e0-Cheval were among the most elite heavy cavalry in Napoleon's army, originally distinguished by ornate uniforms before being issued cuirasses like their cuirassier counterparts after suffering heavy losses without armour earlier in the wars. Considered a match for any cavalry in Europe, they were held as a shock reserve to be committed at the decisive moment of a battle, their charge intended to finish off an enemy line already broken by infantry and artillery. Their presence on a battlefield signalled that a commander was ready to gamble on a single, war-deciding blow. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "7e Hussards",
+        "bio": "The 7e R\u00e9giment de Hussards served as fast, lightly-equipped cavalry in the French light cavalry arm, tasked with scouting, screening the army's movements and harassing an enemy's flanks and supply lines rather than delivering the heavy shock charges of the cuirassiers. Hussar regiments prided themselves on dash and individual horsemanship, adopting elaborate braided uniforms inspired by Hungarian cavalry traditions. By the Hundred Days, regiments like the 7e were essential to Napoleon's ability to track Allied and Prussian troop movements across the Belgian countryside in the days before Waterloo. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "11e Hussards",
+        "bio": "The 11e R\u00e9giment de Hussards fought as part of Napoleon's light cavalry screen, relied upon for the unglamorous but essential work of reconnaissance, outpost duty and rapid pursuit of a beaten enemy. Hussars were expected to range far ahead of the main army, and a regiment's reputation rested as much on the reliability of the intelligence it brought back as on its performance in a charge. In the fast-moving, information-starved opening days of the Waterloo campaign, light cavalry like the 11e played a critical role in each side's attempts to work out where the other's army actually was. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "French Foot Artillery, Battery A",
+        "bio": "Napoleon began his career as an artillery officer and never lost his conviction that guns, concentrated in mass and used aggressively, could decide a battle before the infantry ever closed. French foot artillery batteries were the tool of his signature 'grand battery' tactic: massing dozens of guns to smash a single point in the enemy line before sending infantry columns through the gap. At Waterloo, French artillery pounded the Allied ridge for hours, though the reverse-slope positions Wellington favoured sheltered many of his infantry from the worst of the bombardment. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "French Foot Artillery, Battery B",
+        "bio": "French gunners were widely regarded as the best-drilled artillery arm in Europe, a legacy of the technical, mathematically-minded training culture Napoleon himself had come up through as a young officer. Batteries like this one were expected to move forward aggressively to support an infantry advance, unlimbering close to the enemy line to fire canister at point-blank range, a far riskier doctrine than the more static defensive gunnery favoured by British batteries. This aggression made French artillery devastating when it worked, but exposed the guns and their crews to heavy losses when a charge or advance stalled. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
+  }
+}
