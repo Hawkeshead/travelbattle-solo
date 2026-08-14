@@ -55,10 +55,14 @@ function showModeSelect(isSplash){
   const campBtn = document.createElement('button');
   campBtn.textContent = 'Campaigns';
   campBtn.onclick = ()=>{ extra.style.display='none'; showCampaignMenu(); };
+  const grandBtn = document.createElement('button');
+  grandBtn.textContent = 'Grand Strategy (4 boards)';
+  grandBtn.onclick = ()=>{ extra.style.display='none'; beginGrandBoardSetup(); };
   extra.appendChild(hotseatBtn);
   extra.appendChild(aiBtn);
   extra.appendChild(opsBtn);
   extra.appendChild(campBtn);
+  extra.appendChild(grandBtn);
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -190,10 +194,32 @@ function showDifficultySelect(){
    AI picks for itself when it's the AI's board.
 ========================================================= */
 function beginBoardSetup(){
+  setBoardMode('standard'); // always reset in case the previous match was Grand Strategy
   const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: 0, blue: 0 };
   processBoardRoll([SIDES.RED, SIDES.BLUE], 0);
+}
+
+/* Grand Strategy board setup — hotseat only for now (no AI opponent yet, see
+   ai-deployment.js/ai-strategy.js which still assume the standard 20x10 board).
+   Board/rotation assignment is fully automatic here rather than the dice-roll
+   ceremony beginBoardSetup() uses, to keep this phase focused on proving the
+   bigger board and doubled army play correctly; the interactive per-quadrant
+   rotation choice can be added later if wanted. */
+function beginGrandBoardSetup(){
+  state.mode = 'hotseat';
+  state.scenario = null;
+  state.campaign = null;
+  setBoardMode('grand');
+  const quadrants = generateGrandQuadrants();
+  state.grandQuadrants = quadrants;
+  state.terrain = buildTerrainMapGrand(quadrants);
+  state.excludedRoadEdges = buildExcludedRoadEdgeSetGrand(quadrants);
+  sizeCanvas(); // ROWS just changed (10 -> 20) — canvas pixel size must be recomputed, it doesn't happen automatically
+  document.getElementById('overlay').classList.remove('show');
+  log(`Grand Strategy: top boards ${quadrants.topLeft.board}/${quadrants.topRight.board}, bottom boards ${quadrants.bottomLeft.board}/${quadrants.bottomRight.board}, each independently rotated.`, 'system');
+  initDeployment();
 }
 
 function processBoardRoll(sides, i){
@@ -201,6 +227,7 @@ function processBoardRoll(sides, i){
     document.getElementById('overlay').classList.remove('show');
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
     state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
+    sizeCanvas(); // in case the previous match was Grand Strategy (ROWS just changed 20 -> 10)
     initDeployment();
     return;
   }
