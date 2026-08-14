@@ -57,7 +57,7 @@ function showModeSelect(isSplash){
   campBtn.onclick = ()=>{ extra.style.display='none'; showCampaignMenu(); };
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
-  grandBtn.onclick = ()=>{ extra.style.display='none'; beginGrandBoardSetup(); };
+  grandBtn.onclick = ()=>{ extra.style.display='none'; showGrandMatchTypeSelect(); };
   extra.appendChild(hotseatBtn);
   extra.appendChild(aiBtn);
   extra.appendChild(opsBtn);
@@ -207,8 +207,50 @@ function beginBoardSetup(){
    ceremony beginBoardSetup() uses, to keep this phase focused on proving the
    bigger board and doubled army play correctly; the interactive per-quadrant
    rotation choice can be added later if wanted. */
+/* Grand Strategy board setup — see beginGrandBoardSetup() below for the note
+   on why quadrant assignment is fully automatic rather than the dice-roll
+   ceremony beginBoardSetup() uses. */
+function showGrandMatchTypeSelect(){
+  document.getElementById('overlayTitle').textContent = 'Grand Strategy';
+  document.getElementById('overlayText').innerHTML =
+    'Four boards combined into a 20x20 battlefield — the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const hotseatBtn = document.createElement('button');
+  hotseatBtn.className = 'primary';
+  hotseatBtn.textContent = 'Hotseat (2 players)';
+  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; beginGrandBoardSetup(); };
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = 'vs AI Opponent (Hard)';
+  aiBtn.onclick = ()=>{ extra.style.display='none'; showGrandSideSelect(); };
+  extra.appendChild(hotseatBtn);
+  extra.appendChild(aiBtn);
+  document.getElementById('overlay').classList.add('show');
+}
+
+// Only Hard is offered here — Easy/Medium's AI deployment relies on a fixed
+// per-unit-type plan sized for the standard 17-unit army (see AI_DEPLOY_PLANS
+// in ai-deployment.js); Hard's plan is dynamically scored instead, so it
+// generalizes to the doubled Grand Strategy roster without a second data set.
+function showGrandSideSelect(){
+  document.getElementById('overlayTitle').textContent = 'Choose Your Side';
+  document.getElementById('overlayText').innerHTML = 'The AI takes the other Brigade and will deploy, move, fire and fight on its own turns, at Hard difficulty.';
+  let extra = document.getElementById('modeChoices');
+  extra.innerHTML = '';
+  extra.style.display = 'flex';
+  const redBtn = document.createElement('button');
+  redBtn.className = 'primary';
+  redBtn.textContent = 'Play Britain';
+  redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; state.aiDifficulty='hard'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginGrandBoardSetup(); };
+  const blueBtn = document.createElement('button');
+  blueBtn.textContent = 'Play France';
+  blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; state.aiDifficulty='hard'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginGrandBoardSetup(); };
+  extra.appendChild(redBtn);
+  extra.appendChild(blueBtn);
+}
+
 function beginGrandBoardSetup(){
-  state.mode = 'hotseat';
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');
