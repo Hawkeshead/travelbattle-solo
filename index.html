@@ -68,7 +68,11 @@
   #topBarSpacer{ flex:1; }
   #topBar button{ font-size:11.5px;padding:6px 10px; }
 
-  #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:auto;position:relative;padding:8px;}
+  #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:hidden;position:relative;padding:8px;}
+  /* touch-action:none keeps the browser's own page-pinch-zoom/scroll from firing when a
+     gesture starts on the board — map-zoom.js (in render-board.js) handles pinch/pan itself,
+     scoped to just this element, so the rest of the page still pinch-zooms normally. */
+  #board{transform-origin:0 0;touch-action:none;}
   canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;max-width:100%;height:auto;}
 
   /* Persistent icon buttons — Undo + Field Report — pinned to a corner, always reachable */
@@ -315,6 +319,7 @@
 
     <div id="hudIcons">
       <button id="undoBtnBattle" title="Undo" disabled>&#8634;</button>
+      <button id="resetViewBtn" title="Reset View">&#9974;</button>
       <button id="logIconBtn" title="Field Report">&#9776;</button>
     </div>
 
