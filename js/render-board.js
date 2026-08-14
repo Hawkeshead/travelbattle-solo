@@ -385,14 +385,16 @@ function draw(){
   ctx.setLineDash([]);
   ctx.lineWidth = 1;
 
-  // deployment zone tint during deploy phase (Blue = rows 0-1, Red = rows ROWS-2..ROWS-1)
+  // deployment zone tint during deploy phase (Blue = top rows, Red = bottom rows;
+  // depth is 2 for a standard match, 3 for Grand Strategy — see attemptDeployAt)
   if(state.phase==='deploy'){
-    const blueTop = Math.min(sy(0), sy(1));
+    const deployRows = state.boardMode==='grand' ? 3 : 2;
+    const blueTop = Math.min(sy(0), sy(deployRows-1));
     ctx.fillStyle = 'rgba(46,69,102,0.14)';
-    ctx.fillRect(0, blueTop*CELL, COLS*CELL, 2*CELL);
-    const redTop = Math.min(sy(ROWS-2), sy(ROWS-1));
+    ctx.fillRect(0, blueTop*CELL, COLS*CELL, deployRows*CELL);
+    const redTop = Math.min(sy(ROWS-deployRows), sy(ROWS-1));
     ctx.fillStyle = 'rgba(163,64,58,0.10)';
-    ctx.fillRect(0, redTop*CELL, COLS*CELL, 2*CELL);
+    ctx.fillRect(0, redTop*CELL, COLS*CELL, deployRows*CELL);
   }
 
   // movement / target highlights
