@@ -31,13 +31,16 @@ function findBestHardDeployCell(zoneRows, colRange, typeKey){
 }
 
 function placeHardDeployUnit(side, typeKey, bIdx){
-  const frontRow = side===SIDES.RED ? ROWS-2 : 1;
-  const backRow  = side===SIDES.RED ? ROWS-1 : 0;
+  const deployRows = state.boardMode==='grand' ? 3 : 2;
+  const frontRow = side===SIDES.RED ? ROWS-deployRows : deployRows-1;   // row nearest the enemy
+  const backRows = side===SIDES.RED                                     // remaining row(s), furthest from the enemy
+    ? Array.from({length: deployRows-1}, (_,i)=>ROWS-deployRows+1+i)
+    : Array.from({length: deployRows-1}, (_,i)=>deployRows-2-i);
   const isBack = typeKey==='BRIGADIER' || typeKey==='ARTILLERY';
   const colBand = HARD_DEPLOY_COL_BANDS[bIdx] || [0, COLS-1];
-  let cell = findBestHardDeployCell([isBack?backRow:frontRow], colBand, typeKey)
-    || findBestHardDeployCell([frontRow,backRow], colBand, typeKey)
-    || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRow:frontRow, typeKey);
+  let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey)
+    || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey)
+    || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRows[0]:frontRow, typeKey);
   placeUnit(side, typeKey, cell.x, cell.y);
 }
 
@@ -50,7 +53,8 @@ function aiDeployStepHard(side){
   const store = (state._aiHardDeployRemaining || (state._aiHardDeployRemaining = {red:{}, blue:{}}))[side];
   if(!store[bIdx]){
     store[bIdx] = {};
-    for(const ty of (BRIGADE_COMPOSITIONS[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
+    const compositions = state.boardMode==='grand' ? TB_DATA.unitTypes.brigadeCompositionsGrand : BRIGADE_COMPOSITIONS;
+    for(const ty of (compositions[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
   }
   const remaining = store[bIdx];
   const nextType = Object.keys(remaining).find(ty=>remaining[ty]>0 && state.deployPool[side].includes(ty));
@@ -97,7 +101,10 @@ function placeAiPlanEntry(side, planEntry){
 }
 
 function findNearestFreeDeployCell(side, col, row, typeKey){
-  const zoneRows = side===SIDES.RED ? [ROWS-2, ROWS-1] : [0,1];
+  const deployRows = state.boardMode==='grand' ? 3 : 2;
+  const zoneRows = side===SIDES.RED
+    ? Array.from({length: deployRows}, (_,i)=>ROWS-deployRows+i)
+    : Array.from({length: deployRows}, (_,i)=>i);
   const candidates = [];
   for(const y of zoneRows){
     for(let x=0;x<COLS;x++){
