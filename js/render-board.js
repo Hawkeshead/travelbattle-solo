@@ -120,8 +120,90 @@ function sizeCanvas(){
   canvas.width = COLS*CELL*dpr;
   canvas.height = ROWS*CELL*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   draw();
 }
+
+/* =========================================================
+   MAP ZOOM & PAN
+   Pinch-to-zoom and single-finger pan, scoped to the board canvas only —
+   #board has touch-action:none so the browser's own page-pinch-zoom never
+   fires when a gesture starts here, leaving the rest of the page's native
+   zoom untouched. Implemented as a CSS transform on the canvas element
+   itself; every existing click/drag handler reads canvas.getBoundingClientRect(),
+   which already reflects the transform automatically, so none of that code
+   needed to change.
+========================================================= */
+const MAP_MIN_ZOOM = 1, MAP_MAX_ZOOM = 3;
+let mapZoom = 1, mapPanX = 0, mapPanY = 0;
+let mapGesturePointers = new Map();
+let mapPinchStartDist = null, mapPinchStartZoom = 1;
+let mapPanStart = null;
+let mapGestureMoved = false; // true once the current gesture passed the tap threshold — the click handler checks this to avoid selecting a cell after a pan/pinch
+
+function resetMapView(){
+  mapZoom = 1; mapPanX = 0; mapPanY = 0;
+  mapGesturePointers.clear();
+  mapPinchStartDist = null; mapPanStart = null; mapGestureMoved = false;
+  applyMapTransform();
+}
+
+function clampMapPan(){
+  const wrap = document.getElementById('boardWrap');
+  const scaledW = canvas.offsetWidth * mapZoom, scaledH = canvas.offsetHeight * mapZoom;
+  const minX = Math.min(0, wrap.clientWidth - scaledW), maxX = 0;
+  const minY = Math.min(0, wrap.clientHeight - scaledH), maxY = 0;
+  mapPanX = Math.max(minX, Math.min(maxX, mapPanX));
+  mapPanY = Math.max(minY, Math.min(maxY, mapPanY));
+}
+
+function applyMapTransform(){
+  clampMapPan();
+  canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
+}
+
+canvas.addEventListener('pointerdown', (e)=>{
+  try { canvas.setPointerCapture(e.pointerId); } catch(err) { /* not always available/needed — gesture tracking below still works without it */ }
+  mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  mapGestureMoved = false;
+  if(mapGesturePointers.size===1){
+    mapPanStart = {x:e.clientX, y:e.clientY, panX:mapPanX, panY:mapPanY};
+  } else if(mapGesturePointers.size===2){
+    const pts = [...mapGesturePointers.values()];
+    mapPinchStartDist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+    mapPinchStartZoom = mapZoom;
+    mapPanStart = null; // a second finger landed — hand off from pan to pinch
+  }
+});
+
+canvas.addEventListener('pointermove', (e)=>{
+  if(!mapGesturePointers.has(e.pointerId)) return;
+  mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(mapGesturePointers.size===2 && mapPinchStartDist){
+    const pts = [...mapGesturePointers.values()];
+    const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+    mapZoom = Math.max(MAP_MIN_ZOOM, Math.min(MAP_MAX_ZOOM, mapPinchStartZoom * (dist/mapPinchStartDist)));
+    mapGestureMoved = true;
+    applyMapTransform();
+  } else if(mapGesturePointers.size===1 && mapPanStart){
+    const dx = e.clientX-mapPanStart.x, dy = e.clientY-mapPanStart.y;
+    if(Math.hypot(dx,dy) > 6){
+      mapGestureMoved = true;
+      mapPanX = mapPanStart.panX + dx;
+      mapPanY = mapPanStart.panY + dy;
+      applyMapTransform();
+    }
+  }
+});
+
+function mapPointerEnd(e){
+  mapGesturePointers.delete(e.pointerId);
+  if(mapGesturePointers.size<2) mapPinchStartDist = null;
+  if(mapGesturePointers.size===0) mapPanStart = null;
+}
+canvas.addEventListener('pointerup', mapPointerEnd);
+canvas.addEventListener('pointercancel', mapPointerEnd);
+canvas.addEventListener('dblclick', resetMapView); // quick reset for anyone who finds pinch fiddly
 
 function terrainColor(key){
   return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#3c4a34' }[key];
