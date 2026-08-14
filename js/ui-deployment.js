@@ -18,6 +18,8 @@ function initDeployment(){
   state.turnNumber = 1;
   if(state.scenario){
     state.deployPool = { red: [...state.scenario.sides.red.units], blue: [...state.scenario.sides.blue.units] };
+  } else if(state.boardMode==='grand'){
+    state.deployPool = { red: [...FULL_ARMY_POOL_GRAND], blue: [...FULL_ARMY_POOL_GRAND] };
   } else {
     state.deployPool = { red: [...FULL_ARMY_POOL], blue: [...FULL_ARMY_POOL] };
   }
@@ -172,8 +174,9 @@ function updateDragHoverCell(clientX, clientY){
 // Returns true on success, false if the attempt was rejected (and logs why).
 function attemptDeployAt(typeKey, x, y){
   const side = state.deployTurn;
-  const zoneOk = side===SIDES.RED ? (y>=ROWS-2) : (y<=1);
-  if(!zoneOk){ log('Deployment must be within your first two rows.', 'system'); return false; }
+  const deployRows = state.boardMode==='grand' ? 3 : 2; // Grand Strategy gets a deeper zone for its doubled army
+  const zoneOk = side===SIDES.RED ? (y>=ROWS-deployRows) : (y<deployRows);
+  if(!zoneOk){ log(`Deployment must be within your first ${deployRows} rows.`, 'system'); return false; }
   const terr = terrainAt(x,y);
   if(terr.restrictTo && !terr.restrictTo.includes(typeKey)){ log(`${UNIT_TYPES[typeKey].label} cannot deploy there.`, 'system'); return false; }
   const occ = unitsAt(x,y);
