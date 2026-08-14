@@ -426,6 +426,7 @@ function renderUnitInfo(u){
 }
 
 canvas.addEventListener('click', (e)=>{
+  if(mapGestureMoved){ mapGestureMoved = false; return; } // this click is the tail end of a pan/pinch, not a tap
   const rect = canvas.getBoundingClientRect();
   const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
   const x = Math.floor((e.clientX-rect.left)/cellPxX);
@@ -670,6 +671,7 @@ document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
 document.getElementById('endDeployBtn').onclick = startBattle;
 document.getElementById('undoBtn').onclick = undoLastAction;
 document.getElementById('undoBtnBattle').onclick = undoLastAction;
+document.getElementById('resetViewBtn').onclick = resetMapView;
 
 document.getElementById('overlayBtn').onclick = ()=>{
   document.getElementById('overlay').classList.remove('show');
