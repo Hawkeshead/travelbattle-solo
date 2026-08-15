@@ -1,15 +1,23 @@
+import { AI_UNIT_VALUE } from './ai-tactics.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './data-core.js';
+import { FAST_DICE_MODE, presentRollTrigger, showDice } from './dice.js';
+import { checkScenarioObjective, endGame } from './engine-objectives.js';
+import { log, logNarration, logReplay } from './engine-state.js';
+import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
+import { renderBrigadeStatus, unitLabel } from './ui-battle.js';
+
 /* =========================================================
    GEOMETRY HELPERS
 ========================================================= */
-function inBounds(x,y){ return x>=0 && x<COLS && y>=0 && y<ROWS; }
-function terrainAt(x,y){ return TERRAIN[state.terrain[y][x]]; }
-function unitsAt(x,y){ return state.units.filter(u=>!u.removed && u.x===x && u.y===y); }
-function unitAt(x,y, excludeId){ return state.units.find(u=>!u.removed && u.x===x && u.y===y && u.id!==excludeId); }
+export function inBounds(x,y){ return x>=0 && x<COLS && y>=0 && y<ROWS; }
+export function terrainAt(x,y){ return TERRAIN[state.terrain[y][x]]; }
+export function unitsAt(x,y){ return state.units.filter(u=>!u.removed && u.x===x && u.y===y); }
+export function unitAt(x,y, excludeId){ return state.units.find(u=>!u.removed && u.x===x && u.y===y && u.id!==excludeId); }
 
 // Stacked squares (doubled infantry in open terrain) hold up to 2 units.
 // A single tap only ever reached the first one — repeated taps on the same
 // square now cycle through whichever units are actually there.
-function pickUnitAtCell(x,y){
+export function pickUnitAtCell(x,y){
   const list = unitsAt(x,y);
   if(list.length===0) return null;
   if(list.length===1) return list[0];
@@ -21,7 +29,7 @@ function pickUnitAtCell(x,y){
   }
   return list[state._stackCycle.idx];
 }
-function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
+export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
 
 // Woods physically conceal whoever's standing in them (the tree-cluster piece
 // acts as a lid on the real board) — this is automatic for ANY unit in a Woods
@@ -29,18 +37,18 @@ function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) 
 // is a separate, additional layer: same base concealment, plus the spring/bonus
 // mechanics. Concealment only affects ranged targeting and AI awareness — an
 // adjacent enemy can always see and fight a unit normally, concealed or not.
-function isConcealedFromEnemy(unit){
+export function isConcealedFromEnemy(unit){
   if(unit.hidden) return true;
   return terrainAt(unit.x, unit.y).key === 'WOODS';
 }
 // Ambush status is only meaningful while standing in the Woods that conceal it —
 // a defensive invariant, checked at the start of every turn.
-function enforceAmbushWoodsInvariant(){
+export function enforceAmbushWoodsInvariant(){
   for(const u of state.units){
     if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS') u.hidden = false;
   }
 }
-function neighbors8(x,y){
+export function neighbors8(x,y){
   const out=[];
   for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
     if(dx===0&&dy===0) continue;
@@ -56,7 +64,7 @@ function neighbors8(x,y){
    Computed per-Brigade — a side fields 3 independent Brigades, each
    with its own Brigadier and its own chain.
 ========================================================= */
-function movableUnitsForSide(side){
+export function movableUnitsForSide(side){
   const mine = state.units.filter(u=>!u.removed && u.side===side);
   const brigadeIds = [...new Set(mine.map(u=>u.brigadeId))];
   const connected = new Set();
@@ -88,25 +96,25 @@ function movableUnitsForSide(side){
 // Artillery brigaded entirely with Cavalry (no other combat unit types in the
 // same Brigade) fights as Horse Artillery: moves at Cavalry speed everywhere
 // except a ploughed field.
-function isHorseArtillery(u){
+export function isHorseArtillery(u){
   if(u.type !== 'ARTILLERY') return false;
   const groupmates = state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.id!==u.id && o.type!=='BRIGADIER');
   if(groupmates.length===0) return false;
   return groupmates.every(o => UNIT_TYPES[o.type].isCavalry);
 }
-function isCavalryOrHorseArtillery(u){
+export function isCavalryOrHorseArtillery(u){
   return UNIT_TYPES[u.type].isCavalry || isHorseArtillery(u);
 }
-function brigadeCavalryCount(u){
+export function brigadeCavalryCount(u){
   return state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && UNIT_TYPES[o.type].isCavalry).length;
 }
-function brigadeHasCavalryEscort(u){
+export function brigadeHasCavalryEscort(u){
   const available = brigadeCavalryCount(u);
   const key = u.side+'-'+u.brigadeId;
   const used = (state.ploughEscortUsed && state.ploughEscortUsed[key]) || 0;
   return used < available;
 }
-function consumePloughEscort(u){
+export function consumePloughEscort(u){
   if(!state.ploughEscortUsed) state.ploughEscortUsed = {};
   const key = u.side+'-'+u.brigadeId;
   state.ploughEscortUsed[key] = (state.ploughEscortUsed[key]||0) + 1;
@@ -116,7 +124,7 @@ function consumePloughEscort(u){
 // crossing a ploughed field. Detected purely from start/end coordinates:
 // covering a 2-square straight-line displacement in exactly 2 steps is only
 // possible without a pivot, so no separate path-tracking is needed.
-function isCleanChargeRun(fromX, fromY, toX, toY){
+export function isCleanChargeRun(fromX, fromY, toX, toY){
   const dx = toX - fromX, dy = toY - fromY;
   const straight = (dx===0 || Math.abs(dx)===2) && (dy===0 || Math.abs(dy)===2) && !(dx===0 && dy===0);
   if(!straight) return false;
@@ -127,19 +135,19 @@ function isCleanChargeRun(fromX, fromY, toX, toY){
 // Is `pos` adjacent to at least one enemy this side could legally charge? (not in
 // Square, and not on higher ground than the charging destination — matches the
 // "can't charge uphill or against a Square" restriction).
-function hasChargeableTargetAt(side, pos){
+export function hasChargeableTargetAt(side, pos){
   return state.units.some(o=>!o.removed && o.side!==side && !isConcealedFromEnemy(o) && isAdjacent(pos,o) &&
     o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(pos.x,pos.y).elevation);
 }
 // Every legal move for a Cavalry unit that would count as a clean charge run
 // AND land it adjacent to something worth charging — the set of squares the
 // Charge button highlights.
-function computeChargeDestinations(u){
+export function computeChargeDestinations(u){
   if(!UNIT_TYPES[u.type].isCavalry) return [];
   return legalMoves(u).filter(m => isCleanChargeRun(u.x,u.y,m.x,m.y) && hasChargeableTargetAt(u.side, m));
 }
 
-function unitBaseMove(u){
+export function unitBaseMove(u){
   if(isHorseArtillery(u)) return UNIT_TYPES.HEAVY_CAV.move;
   return UNIT_TYPES[u.type].move;
 }
@@ -147,9 +155,9 @@ function unitBaseMove(u){
 // Buildings sit on the road network (see the board art — every building square
 // is placed on or beside a road), so they grant the same "+1 square if you
 // start and end your move on a road" bonus a plain road square does.
-function isRoadLike(terr){ return !!(terr.isRoad || terr.key==='BUILDING'); }
+export function isRoadLike(terr){ return !!(terr.isRoad || terr.key==='BUILDING'); }
 
-function legalMoves(u){
+export function legalMoves(u){
   if(u.formation==='square') return []; // squares don't move
   if(u.turnOnly) return [];
   if(state.moved && state.moved.has(u.id)) return []; // already moved (or explicitly stood pat) this phase
@@ -210,9 +218,9 @@ function legalMoves(u){
 /* =========================================================
    ARTILLERY: RANGE, LINE OF SIGHT
 ========================================================= */
-function chebyshev(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)); }
+export function chebyshev(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)); }
 
-function lineCells(a,b){
+export function lineCells(a,b){
   // Bresenham-ish supercover line between cell centers, used for LOS sampling
   const cells = [];
   let x0=a.x, y0=a.y, x1=b.x, y1=b.y;
@@ -229,7 +237,7 @@ function lineCells(a,b){
   return cells;
 }
 
-function hasLOS(gun, target){
+export function hasLOS(gun, target){
   if(chebyshev(gun,target) > 6) return false;
   const path = lineCells(gun,target).slice(1,-1); // exclude endpoints
   const gunElev = terrainAt(gun.x,gun.y).elevation;
@@ -250,30 +258,30 @@ function hasLOS(gun, target){
   return blockedCount === 0 || (blockedCount / Math.max(path.length,1)) < 0.5;
 }
 
-function artilleryTargets(gun){
+export function artilleryTargets(gun){
   if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
   return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
 }
-function isInActiveFight(u){
+export function isInActiveFight(u){
   return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
 }
 
 /* =========================================================
    COMBAT
 ========================================================= */
-function rollD6(){ return 1+Math.floor(Math.random()*6); }
-function rollBest(n){ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all}; }
+export function rollD6(){ return 1+Math.floor(Math.random()*6); }
+export function rollBest(n){ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all}; }
 
 // Two Infantry/Guard units doubled into the same open-terrain square form
 // a Column: a genuine combat bonus, not just shared artillery vulnerability.
-function stackPartner(u){
+export function stackPartner(u){
   if(!(u.type==='INFANTRY'||u.type==='GUARD')) return null;
   return state.units.find(o=>!o.removed && o.id!==u.id && o.side===u.side && o.x===u.x && o.y===u.y && (o.type==='INFANTRY'||o.type==='GUARD'));
 }
-function isInColumn(u){ return !!stackPartner(u); }
+export function isInColumn(u){ return !!stackPartner(u); }
 
 // Every combat bonus that grants a unit a 2nd die comes from a different source
 // (terrain, Square vs Cavalry, Cavalry vs open Infantry, Attack Column,
@@ -281,7 +289,7 @@ function isInColumn(u){ return !!stackPartner(u); }
 // NOT one of these — it's an interactive choice offered after the roll if
 // that unit is losing, not an upfront extra die — see offerCombatReroll()
 // below, called from resolveFight.
-function combatBonuses(unit, opponent, defending, extraSources){
+export function combatBonuses(unit, opponent, defending, extraSources){
   const t = UNIT_TYPES[unit.type];
   const oppT = UNIT_TYPES[opponent.type];
   const terr = terrainAt(unit.x,unit.y);
@@ -327,7 +335,7 @@ function combatBonuses(unit, opponent, defending, extraSources){
 // mirrors the same Yes/No pattern offerLeadershipRoll() already uses. No
 // listed limit on the card, so it's available every fight, and the AI always
 // takes it when eligible since there's no cost to declining.
-function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
+export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
   function tryOne(unit, roll, reasons, valueBonus, opponentValue, next){
     if(!UNIT_TYPES[unit.type].reroll || roll.value >= opponentValue){ next(); return; }
     const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && unit.side===state.aiSide);
@@ -363,7 +371,7 @@ function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons,
   });
 }
 
-function applyCombatReroll(unit, roll, reasons, valueBonus, next){
+export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   const newVal = rollD6();
   roll.rolls.push(newVal);
   roll.value = Math.min(6, newVal + valueBonus);
@@ -372,7 +380,7 @@ function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   next();
 }
 
-function resolveFight(attacker, defender, ambushMode, onComplete){
+export function resolveFight(attacker, defender, ambushMode, onComplete){
   onComplete = onComplete || function(){};
   showActionLine(attacker, defender, '#a8720b', 3800);
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
@@ -501,7 +509,7 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
   }, legend);
 }
 
-function pushBack(loser, winner){
+export function pushBack(loser, winner){
   const dx = Math.sign(loser.x - winner.x) || 0;
   const dy = Math.sign(loser.y - winner.y) || 0;
   const nx = loser.x + dx, ny = loser.y + dy;
@@ -535,7 +543,7 @@ function pushBack(loser, winner){
   log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
 }
 
-function retreatAndRally(loser, onComplete){
+export function retreatAndRally(loser, onComplete){
   onComplete = onComplete || function(){};
   const brig = state.units.find(u=>!u.removed && u.side===loser.side && u.type==='BRIGADIER' && u.brigadeId===loser.brigadeId);
   const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
@@ -577,7 +585,7 @@ function retreatAndRally(loser, onComplete){
 // Leadership Roll is one guaranteed save per Brigade for the whole match, so
 // spending it on the first failed rally isn't automatically correct — it's
 // worth asking (or, for the AI, weighing) whether THIS is the unit worth it.
-function offerLeadershipRoll(loser, brig, onComplete){
+export function offerLeadershipRoll(loser, brig, onComplete){
   onComplete = onComplete || function(){};
   const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && loser.side===state.aiSide);
   if(!isHuman){
@@ -606,7 +614,7 @@ function offerLeadershipRoll(loser, brig, onComplete){
   document.getElementById('overlay').classList.add('show');
 }
 
-function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
+export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
   onComplete = onComplete || function(){};
   if(useIt){
     brig.leadershipUsed = true;
@@ -623,14 +631,14 @@ function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
 // AI heuristic: save the unit if its Brigade is already close to breaking (this
 // loss would matter a lot) or if the unit itself is high-value (Guard, Heavy
 // Cavalry, Artillery) — otherwise bank the Leadership Roll for later.
-function aiDecideLeadershipRoll(loser, brig){
+export function aiDecideLeadershipRoll(loser, brig){
   const remaining = state.units.filter(o=>!o.removed && o.side===loser.side && o.brigadeId===loser.brigadeId && o.type!=='BRIGADIER').length;
   const closeToBreaking = remaining<=2; // includes the loser itself, not yet removed
   const highValue = AI_UNIT_VALUE[loser.type] >= 5;
   return closeToBreaking || highValue;
 }
 
-function findNearestFreeEdgeCell(edgeY, preferredX, excludeId){
+export function findNearestFreeEdgeCell(edgeY, preferredX, excludeId){
   let candidates = [];
   for(let x=0;x<COLS;x++){
     if(unitsAt(x,edgeY).some(o=>o.id!==excludeId)) continue;
@@ -641,9 +649,9 @@ function findNearestFreeEdgeCell(edgeY, preferredX, excludeId){
   return candidates[0];
 }
 
-function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+export function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
-function removeUnit(u, reason){
+export function removeUnit(u, reason){
   u.removed = true;
   logReplay('status', { unitId:u.id, side:u.side, x:u.x, y:u.y, newStatus:'Destroyed', reason });
   addDeathEffect(u.x, u.y);
@@ -662,7 +670,7 @@ function removeUnit(u, reason){
   renderBrigadeStatus();
 }
 
-function checkWinCondition(){
+export function checkWinCondition(){
   if(state.replaying) return;
   if(state.scenario){ checkScenarioObjective(); return; }
   for(const side of [SIDES.RED, SIDES.BLUE]){

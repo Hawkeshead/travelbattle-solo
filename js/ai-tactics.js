@@ -1,9 +1,13 @@
+import { SIDES, UNIT_TYPES, state } from './data-core.js';
+import { otherSide } from './engine-objectives.js';
+import { brigadeCavalryCount, chebyshev, isAdjacent, isConcealedFromEnemy, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
+
 /* =========================================================
    AI: EVALUATION
 ========================================================= */
-const AI_UNIT_VALUE = { BRIGADIER:2, INFANTRY:4, GUARD:5, HEAVY_CAV:5, LIGHT_CAV:4, ARTILLERY:6 };
+export const AI_UNIT_VALUE = { BRIGADIER:2, INFANTRY:4, GUARD:5, HEAVY_CAV:5, LIGHT_CAV:4, ARTILLERY:6 };
 
-function evaluateState(perspective){
+export function evaluateState(perspective){
   let score = 0;
   const enemy = perspective===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   const connMine  = movableUnitsForSide(perspective);
@@ -24,7 +28,7 @@ function evaluateState(perspective){
 
 // Rough estimate of how exposed `unit` would be, standing where it is now,
 // to enemy units that could reach + fight it on their next turn.
-function threatPenalty(unit, side){
+export function threatPenalty(unit, side){
   let penalty = 0;
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   for(const e of state.units){
@@ -47,7 +51,7 @@ function threatPenalty(unit, side){
 ========================================================= */
 // Core Tactic #5, Ground Worth Bleeding For: Medium+ values ending a move on
 // terrain that actually helps, rather than pure distance-to-enemy pull.
-function terrainSeekBonus(unitTypeKey, x, y){
+export function terrainSeekBonus(unitTypeKey, x, y){
   const terr = terrainAt(x,y);
   if(terr.key==='HILL') return 0.35; // tie-win vs a lower attacker, benefits any unit type
   if(terr.key==='WOODS' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD')) return 0.3;
@@ -57,7 +61,7 @@ function terrainSeekBonus(unitTypeKey, x, y){
 
 // Core Tactic #2, The Gunner's Creed: Medium+ non-artillery units value ending a
 // move screening a friendly gun that doesn't already have a screener.
-function screensGunBonus(mover, side, pos){
+export function screensGunBonus(mover, side, pos){
   const t = UNIT_TYPES[mover.type];
   if(t.isArtillery || t.key==='BRIGADIER') return 0;
   const unscreenedGun = state.units.find(o=>!o.removed && o.side===side && o.type==='ARTILLERY' &&
@@ -70,14 +74,14 @@ function screensGunBonus(mover, side, pos){
 // Manoeuvre #12, Reserve Doctrine: Hard holds a Guard/Heavy Cavalry unit back
 // from the opening exchanges unless a genuine crisis point already exists —
 // a friendly unit already in contact and under real threat.
-function reserveCrisisExists(side){
+export function reserveCrisisExists(side){
   return state.units.some(u=>!u.removed && u.side===side && u.type!=='BRIGADIER' && !UNIT_TYPES[u.type].isArtillery &&
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o)) && threatPenalty(u,side) > 1.0);
 }
 
 // Manoeuvre #20, The Bogged Column: Hard scouts for an enemy gun stuck on/beside
 // ploughed ground with no Cavalry escort in its own Brigade, and exploits it.
-function findBoggedEnemyGun(side){
+export function findBoggedEnemyGun(side){
   const enemy = otherSide(side);
   return state.units.find(o=>!o.removed && o.side===enemy && UNIT_TYPES[o.type].isArtillery &&
     terrainAt(o.x,o.y).plough && brigadeCavalryCount(o)===0);
@@ -86,7 +90,7 @@ function findBoggedEnemyGun(side){
 // Operations: how much a candidate position or fight target actually serves the
 // active scenario's objective — generalizes brigadeBreakBonus to whatever the
 // real win condition is, rather than always assuming "break 2 of 3 Brigades."
-function scenarioMoveBonus(mover, side, pos){
+export function scenarioMoveBonus(mover, side, pos){
   if(!state.scenario) return 0;
   let bonus = 0;
   for(const cond of state.scenario.objective.conditions){

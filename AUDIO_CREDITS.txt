@@ -23,20 +23,20 @@ Not yet sourced (blocked on network access — see note below):
   H. Phase/end-turn signal
   Phase 2 (I–T): all infantry/cavalry/artillery/Brigadier sounds
 
-Candidates already identified and verified as properly licensed, pending
-download (see the planning conversation for full shortlist and reasoning):
+Candidates identified, pending download:
 
-  A. Kevin MacLeod (incompetech.com) — CC-BY 3.0, attribution required.
+  A. Kevin MacLeod (incompetech.com) — CC-BY 3.0. Attribution IS required:
+     if you use a track, add a line for it in this file at the same time.
      Specific track still to be chosen from the catalogue rather than
      locked to the first match found.
-  D/E/G/H. Pixabay Sound Effects — Pixabay Content License (free for
-     commercial use, no attribution required), or Freesound.org filtered
-     to CC0 only if Pixabay doesn't have a good match.
+  D/E/G/H. Pixabay Sound Effects — free to use, no attribution required.
+     Or Freesound.org filtered to CC0 only, if Pixabay doesn't have a
+     good match. Kenney (kenney.nl) is also worth checking first — it's
+     CC0 with no strings, and it's where the UI sounds came from.
 
-NOTE ON SOURCING METHOD: the assets above could not be downloaded directly
-in this session — the working environment's network access is restricted
-to code-hosting domains (GitHub etc.) and does not reach Pixabay,
-Freesound, or incompetech.com directly. The UI sounds above were sourced
-via a GitHub-hosted mirror of Kenney's CC0 pack, which was reachable. Files
-downloaded by a person and uploaded back into the chat can be added the
-same way the game's images were originally added.
+Whichever source a sound comes from, record it here when you add the file,
+so this list doesn't drift out of date.
+
+NOTE: the audio system is currently switched off in the game — it was
+unplugged in 9ea94c2. Adding a sound file today will not make a sound until
+it's reconnected. See AUDIO_SYSTEM.md for what that takes.

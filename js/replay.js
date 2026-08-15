@@ -1,3 +1,8 @@
+import { COLS, ROWS, SIDE_LABEL, state } from './data-core.js';
+import { removeUnit } from './engine-rules.js';
+import { animateUnitTo, canvas, clearUnitAnimations, draw, sy } from './render-board.js';
+import { setHighlightCells } from './render-units.js';
+
 /* =========================================================
    BATTLE REPLAY — playback
    Steps through state.matchLog against a fresh copy of state.units
@@ -6,20 +11,20 @@
    did live; log()/logReplay()/checkWinCondition() are all no-op'd
    while state.replaying is true (see their guards earlier in the file).
 ========================================================= */
-let replayIdx = 0;
-let replayTimer = null;
-let replaySavedUnits = null; // the real, final game state — restored on exit
-let replaySavedMeta = null;
+export let replayIdx = 0;
+export let replayTimer = null;
+export let replaySavedUnits = null; // the real, final game state — restored on exit
+export let replaySavedMeta = null;
 
-function startReplay(){
+export function startReplay(){
   if(!state.matchLog || state.matchLog.length===0 || !state.replayStartUnits) return;
   document.getElementById('overlay').classList.remove('show');
   replaySavedUnits = state.units;
   replaySavedMeta = { phase:state.phase, turn:state.turn, turnNumber:state.turnNumber, selectedUnitId:state.selectedUnitId };
   state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
   state.selectedUnitId = null;
-  highlightCells = [];
-  unitAnimations = {};
+  setHighlightCells([]);
+  clearUnitAnimations();
   state.replaying = true;
   replayIdx = 0;
   document.getElementById('unitOverlay').classList.remove('show');
@@ -30,14 +35,14 @@ function startReplay(){
   playReplayStep();
 }
 
-function replayEventDelay(ev){
+export function replayEventDelay(ev){
   if(ev.type==='fight' || ev.type==='fire') return 1500;
   if(ev.type==='status' && ev.newStatus==='Destroyed') return 1600;
   if(ev.type==='turnStart') return 500;
   return 320; // moves — fast auto-play, per the agreed pacing
 }
 
-function replayEventCaption(ev){
+export function replayEventCaption(ev){
   if(ev.type==='fight'){
     const labels = {stalemate:'Held — drawn', pushback:'Pushed back', rout:'Routed', destroy:'Destroyed'};
     return `Fighting at the line: ${labels[ev.result]||ev.result}`;
@@ -50,7 +55,7 @@ function replayEventCaption(ev){
   return '';
 }
 
-function showReplayHitRing(x,y){
+export function showReplayHitRing(x,y){
   const wrap = document.getElementById('boardWrap');
   const rect = canvas.getBoundingClientRect();
   const wrapRect = wrap.getBoundingClientRect();
@@ -66,7 +71,7 @@ function showReplayHitRing(x,y){
   setTimeout(()=> ring.remove(), 1400);
 }
 
-function applyReplayEvent(ev){
+export function applyReplayEvent(ev){
   if(ev.type==='turnStart'){
     state.turn = ev.side;
     state.turnNumber = ev.turn;
@@ -98,7 +103,7 @@ function applyReplayEvent(ev){
   }
 }
 
-function playReplayStep(){
+export function playReplayStep(){
   if(!state.replaying) return; // exited mid-playback
   if(replayIdx >= state.matchLog.length){ finishReplay(); return; }
   const ev = state.matchLog[replayIdx];
@@ -110,7 +115,7 @@ function playReplayStep(){
   replayTimer = setTimeout(playReplayStep, replayEventDelay(ev));
 }
 
-function replayPlayPauseToggle(){
+export function replayPlayPauseToggle(){
   if(replayTimer){
     clearTimeout(replayTimer); replayTimer = null;
     document.getElementById('replayPlayPauseBtn').textContent = 'Play';
@@ -120,13 +125,13 @@ function replayPlayPauseToggle(){
   }
 }
 
-function finishReplay(){
+export function finishReplay(){
   document.getElementById('replayEventLabel').textContent = 'Replay complete.';
   document.getElementById('replayPlayPauseBtn').textContent = 'Watch Again';
   document.getElementById('replayPlayPauseBtn').onclick = ()=>{
     state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
     state.selectedUnitId = null;
-    unitAnimations = {};
+    clearUnitAnimations();
     document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
     replayIdx = 0;
     document.getElementById('replayEventLabel').textContent = '';
@@ -137,7 +142,7 @@ function finishReplay(){
   };
 }
 
-function exitReplay(){
+export function exitReplay(){
   if(replayTimer){ clearTimeout(replayTimer); replayTimer = null; }
   state.replaying = false;
   state.units = replaySavedUnits;
@@ -145,7 +150,7 @@ function exitReplay(){
   state.turn = replaySavedMeta.turn;
   state.turnNumber = replaySavedMeta.turnNumber;
   state.selectedUnitId = replaySavedMeta.selectedUnitId;
-  unitAnimations = {};
+  clearUnitAnimations();
   document.getElementById('replayOverlay').classList.add('hidden');
   document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
   draw();

@@ -1,7 +1,17 @@
+import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue } from './ai-strategy.js';
+import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { presentRollTrigger, showDice } from './dice.js';
+import { checkScenarioTurnLimit } from './engine-objectives.js';
+import { artilleryTargets, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
+import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
+import { addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
+import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
+
 /* =========================================================
    MAIN GAME FLOW
 ========================================================= */
-function startBattle(){
+export function startBattle(){
   document.getElementById('overlay').classList.remove('show');
   state.matchLog = [];
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
@@ -16,7 +26,7 @@ function startBattle(){
   beginMovePhase();
 }
 
-function updateHeader(){
+export function updateHeader(){
   const badge = document.getElementById('turnBadge');
   const sideName = SIDE_LABEL[state.phase==='deploy' ? state.deployTurn : state.turn].split(' ')[0];
   if(state.phase==='deploy'){
@@ -28,11 +38,11 @@ function updateHeader(){
   }
   renderBrigadeStatus();
 }
-function phaseLabel(p){
+export function phaseLabel(p){
   return {deploy:'Deployment', move:'Movement', fire:'Artillery Fire', fight:'Fighting', rally:'Rally / Turnaround'}[p] || p;
 }
 
-function brigadeBrokenStatus(side){
+export function brigadeBrokenStatus(side){
   // Returns an array of 3 booleans (broken/not) — a Brigade with no units yet (pre-deployment) counts as not broken.
   const out = [];
   for(let bId=0; bId<3; bId++){
@@ -43,7 +53,7 @@ function brigadeBrokenStatus(side){
   return out;
 }
 
-function renderBrigadeStatus(){
+export function renderBrigadeStatus(){
   const el = document.getElementById('brigadeStatus');
   if(!el) return;
   const renderSide = (side)=>{
@@ -57,7 +67,7 @@ function renderBrigadeStatus(){
 
 // Section 14: the AI Debug panel. Reads whatever aiPlanTurn last wrote to
 // state._aiDebugLog — nothing here computes anything fresh, it's a pure read.
-function renderAiDebugPanel(){
+export function renderAiDebugPanel(){
   const el = document.getElementById('aiDebugPanel');
   if(!el) return;
   if(state.mode!=='ai'){
@@ -105,7 +115,7 @@ function renderAiDebugPanel(){
   el.innerHTML = html;
 }
 
-function beginMovePhase(){
+export function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
   logReplay('turnStart', { side: state.turn });
@@ -128,7 +138,7 @@ function beginMovePhase(){
   }
 }
 
-function clearPendingTurnaroundFlagsIfDue(){
+export function clearPendingTurnaroundFlagsIfDue(){
   // units flagged turnOnly get exactly one phase of "turn around only", then are free again
   for(const u of state.units){
     if(u.side!==state.turn) continue;
@@ -147,7 +157,7 @@ function clearPendingTurnaroundFlagsIfDue(){
   state.ploughEscortUsed = {};
 }
 
-function beginFirePhase(){
+export function beginFirePhase(){
   state.phase = 'fire';
   state.fired = new Set();
   state.turnGunTargets = new Set();
@@ -162,7 +172,7 @@ function beginFirePhase(){
   if(aiTurn) setTimeout(aiDoFirePhase, 400);
 }
 
-function beginFightPhase(){
+export function beginFightPhase(){
   state.phase = 'fight';
   state.fought = new Set();
   resetUndoStack();
@@ -188,7 +198,7 @@ function beginFightPhase(){
 // that hasn't already acted this Move phase, may lie in wait instead of
 // moving. It's invisible to artillery and to the AI's own tactical reads
 // (see threatPenalty/nearestEnemyDist) until it springs.
-function canLayAmbush(u){
+export function canLayAmbush(u){
   const t = UNIT_TYPES[u.type];
   if(!(t.key==='INFANTRY'||t.key==='GUARD')) return false;
   if(u.hidden) return false;
@@ -199,24 +209,24 @@ function canLayAmbush(u){
   return !adjacentEnemy;
 }
 
-function canInitiateFight(u){
+export function canInitiateFight(u){
   return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !u.noActionThisTurn && !(state.fought && state.fought.has(u.id));
 }
 // Cavalry cannot attack a unit sheltering inside a building under any circumstance.
 // A Brigadier is never a valid target at all — he's not a combat unit, only a
 // chain-of-command marker. He's immune to being attacked and simply withdraws
 // from the board once every other unit in his Brigade is gone (see removeUnit).
-function canAttackTarget(attacker, defender){
+export function canAttackTarget(attacker, defender){
   if(defender.type==='BRIGADIER') return false;
   if(UNIT_TYPES[attacker.type].isCavalry && terrainAt(defender.x,defender.y).key==='BUILDING') return false;
   return true;
 }
-function anyFightsAvailable(side){
+export function anyFightsAvailable(side){
   return state.units.some(u=>u.side===side && canInitiateFight(u) &&
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
-function endMovePhase(){
+export function endMovePhase(){
   const springs = collectAmbushSprings();
   processAmbushSpringsSequentially(springs, 0, beginFirePhase);
 }
@@ -224,7 +234,7 @@ function endMovePhase(){
 // Detects (but does not resolve) any hidden unit now adjacent to an enemy
 // that just moved. Resolution is handled separately since a human-owned
 // ambush needs to pause for the Hold/Advance choice before any dice are rolled.
-function collectAmbushSprings(){
+export function collectAmbushSprings(){
   const movingSide = state.turn;
   const ambushSide = movingSide===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   const ambushers = state.units.filter(u=>!u.removed && u.side===ambushSide && u.hidden);
@@ -242,7 +252,7 @@ function collectAmbushSprings(){
   return springs;
 }
 
-function processAmbushSpringsSequentially(springs, idx, onDone){
+export function processAmbushSpringsSequentially(springs, idx, onDone){
   if(idx >= springs.length){ onDone(); return; }
   const amb = state.units.find(u=>u.id===springs[idx].ambusherId);
   const target = state.units.find(u=>u.id===springs[idx].targetId);
@@ -259,7 +269,7 @@ function processAmbushSpringsSequentially(springs, idx, onDone){
   }
 }
 
-function showAmbushChoice(ambusher, target, callback){
+export function showAmbushChoice(ambusher, target, callback){
   document.getElementById('overlayTitle').textContent = `AMBUSH! ${SIDE_LABEL[ambusher.side]}`;
   document.getElementById('overlayText').innerHTML =
     `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. `+
@@ -283,7 +293,7 @@ function showAmbushChoice(ambusher, target, callback){
   document.getElementById('overlay').classList.add('show');
 }
 
-function springAmbush(ambusher, target, mode, onComplete){
+export function springAmbush(ambusher, target, mode, onComplete){
   onComplete = onComplete || function(){};
   ambusher.hidden = false;
   ambusher.ambushSpentThisRound = true;
@@ -300,8 +310,8 @@ function springAmbush(ambusher, target, mode, onComplete){
     onComplete();
   });
 }
-function endFirePhase(){ beginFightPhase(); }
-function endFightPhase(){
+export function endFirePhase(){ beginFightPhase(); }
+export function endFightPhase(){
   if(state.gameOver) return;
   if(anyFightsAvailable(state.turn)){
     log('Units in contact must fight before the phase can end.', 'system');
@@ -321,28 +331,28 @@ function endFightPhase(){
 /* =========================================================
    SELECTION & INTERACTION
 ========================================================= */
-function selectUnit(id){
+export function selectUnit(id){
   state.selectedUnitId = id;
-  highlightCells = [];
+  setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
   renderUnitInfo(u);
   if(u && u.side===state.turn){
     if(state.phase==='move'){
       const moves = legalMoves(u);
-      highlightCells = moves.map(m=>({x:m.x,y:m.y,kind:'move'}));
+      setHighlightCells(moves.map(m=>({x:m.x,y:m.y,kind:'move'})));
     } else if(state.phase==='fire' && UNIT_TYPES[u.type].isArtillery){
       const targets = artilleryTargets(u);
-      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
     } else if(state.phase==='fight'){
       const targets = state.units.filter(o=>!o.removed && o.side!==u.side && isAdjacent(u,o) && canAttackTarget(u,o));
-      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
     }
   }
   draw();
 }
 
-function unitLabel(u){ return (u && u.historicalName) || UNIT_TYPES[u.type].label; }
-function toggleUnitBio(){
+export function unitLabel(u){ return (u && u.historicalName) || UNIT_TYPES[u.type].label; }
+export function toggleUnitBio(){
   const bioText = document.getElementById('bioText');
   const btn = document.getElementById('bioToggleBtn');
   if(!bioText || !btn) return;
@@ -350,7 +360,18 @@ function toggleUnitBio(){
   bioText.style.display = showing ? 'none' : 'block';
   btn.textContent = showing ? 'History ▾' : 'History ▴';
 }
-function renderUnitInfo(u){
+
+// renderUnitInfo injects `onclick="toggleUnitBio()"` through innerHTML, and an
+// inline handler attribute is compiled against the GLOBAL scope — module scope
+// is invisible to it. Without this line the History toggle throws a
+// ReferenceError on click, silently, and only for units that have a bio.
+//
+// The tidier fix is to attach the handler with addEventListener after the
+// innerHTML assignment and drop the global entirely. That is a behaviour change
+// in code this refactor is meant to leave alone, so it is recorded in TRIAGE.md
+// as a follow-up rather than smuggled in here.
+window.toggleUnitBio = toggleUnitBio;
+export function renderUnitInfo(u){
   const el = document.getElementById('unitInfo');
   const sqBtn = document.getElementById('squareBtn');
   const ambBtn = document.getElementById('ambushBtn');
@@ -425,18 +446,25 @@ function renderUnitInfo(u){
   }
 }
 
-canvas.addEventListener('click', (e)=>{
-  if(mapGestureMoved){ mapGestureMoved = false; return; } // this click is the tail end of a pan/pinch, not a tap
-  const rect = canvas.getBoundingClientRect();
-  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
-  const x = Math.floor((e.clientX-rect.left)/cellPxX);
-  const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
-  const y = sy(screenY);
-  if(!inBounds(x,y)) return;
-  onCellClick(x,y);
-});
+// Registered from boot.js rather than at load time. `canvas` belongs to
+// render-board.js, and reading another module's binding while modules are still
+// evaluating is a temporal-dead-zone error waiting to happen — these two files
+// import from each other, so evaluation order between them is not guaranteed.
+// Deferring the read until start-up sidesteps that entirely.
+export function initBoardInput(){
+  canvas.addEventListener('click', (e)=>{
+    if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
+    const rect = canvas.getBoundingClientRect();
+    const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
+    const x = Math.floor((e.clientX-rect.left)/cellPxX);
+    const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
+    const y = sy(screenY);
+    if(!inBounds(x,y)) return;
+    onCellClick(x,y);
+  });
+}
 
-function onCellClick(x,y){
+export function onCellClick(x,y){
   if(state.gameOver) return;
   if(state.phase==='deploy'){ handleDeployClick(x,y); return; }
   if(state.mode==='ai' && state.turn===state.aiSide) return; // AI's turn, ignore human clicks
@@ -495,7 +523,7 @@ function onCellClick(x,y){
   }
 }
 
-function fireArtillery(gun, target, onComplete){
+export function fireArtillery(gun, target, onComplete){
   onComplete = onComplete || function(){};
   const dist = chebyshev(gun,target);
   if(dist<=1){
@@ -566,14 +594,14 @@ function fireArtillery(gun, target, onComplete){
   });
 }
 
-function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
+export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
   if(idx >= stack.length){ onAllDone(); return; }
   const u = stack[idx];
   if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone); return; }
   applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone));
 }
 
-function applyArtilleryEffect(u, roll, onComplete){
+export function applyArtilleryEffect(u, roll, onComplete){
   onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
   logReplay('fire', { targetId:u.id, side:u.side, x:u.x, y:u.y, roll, effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy' });
@@ -594,93 +622,98 @@ function applyArtilleryEffect(u, roll, onComplete){
   }
 }
 
-document.getElementById('logIconBtn').onclick = ()=>{
-  const overlay = document.getElementById('logOverlay');
-  overlay.classList.remove('hidden');
-  overlay.classList.add('show');
-  const log = document.getElementById('log');
-  log.scrollTop = log.scrollHeight;
-};
-document.getElementById('logCloseBtn').onclick = ()=>{
-  document.getElementById('logOverlay').classList.remove('show');
-};
-document.getElementById('logOverlayBackdrop').onclick = ()=>{
-  document.getElementById('logOverlay').classList.remove('show');
-};
-document.getElementById('logTabReport').onclick = ()=>{
-  document.getElementById('logTabReport').classList.add('active');
-  document.getElementById('logTabDebug').classList.remove('active');
-  document.getElementById('log').style.display = 'block';
-  document.getElementById('aiDebugPanel').style.display = 'none';
-};
-document.getElementById('logTabDebug').onclick = ()=>{
-  document.getElementById('logTabDebug').classList.add('active');
-  document.getElementById('logTabReport').classList.remove('active');
-  document.getElementById('log').style.display = 'none';
-  document.getElementById('aiDebugPanel').style.display = 'block';
-  renderAiDebugPanel();
-};
+// All DOM wiring lives behind this, called once from boot.js. Registering
+// listeners at module-evaluation time would tie start-up to module ordering;
+// doing it explicitly keeps the sequence obvious and under our control.
+export function initBattleControls(){
+  document.getElementById('logIconBtn').onclick = ()=>{
+    const overlay = document.getElementById('logOverlay');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('show');
+    const log = document.getElementById('log');
+    log.scrollTop = log.scrollHeight;
+  };
+  document.getElementById('logCloseBtn').onclick = ()=>{
+    document.getElementById('logOverlay').classList.remove('show');
+  };
+  document.getElementById('logOverlayBackdrop').onclick = ()=>{
+    document.getElementById('logOverlay').classList.remove('show');
+  };
+  document.getElementById('logTabReport').onclick = ()=>{
+    document.getElementById('logTabReport').classList.add('active');
+    document.getElementById('logTabDebug').classList.remove('active');
+    document.getElementById('log').style.display = 'block';
+    document.getElementById('aiDebugPanel').style.display = 'none';
+  };
+  document.getElementById('logTabDebug').onclick = ()=>{
+    document.getElementById('logTabDebug').classList.add('active');
+    document.getElementById('logTabReport').classList.remove('active');
+    document.getElementById('log').style.display = 'none';
+    document.getElementById('aiDebugPanel').style.display = 'block';
+    renderAiDebugPanel();
+  };
 
-document.getElementById('squareBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  pushUndoSnapshot();
-  if(u.formation==='square'){
-    u.formation = 'line';
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} reforms Line.`, u.side);
-  } else {
-    u.formation = 'square';
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} forms Square.`, u.side);
-  }
-  selectUnit(u.id);
-  draw();
-};
+  document.getElementById('squareBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    pushUndoSnapshot();
+    if(u.formation==='square'){
+      u.formation = 'line';
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} reforms Line.`, u.side);
+    } else {
+      u.formation = 'square';
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} forms Square.`, u.side);
+    }
+    selectUnit(u.id);
+    draw();
+  };
 
-document.getElementById('ambushBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  pushUndoSnapshot();
-  if(u.hidden){
-    u.hidden = false;
-    state.moved.add(u.id);
-    u.noActionThisTurn = true;
-    log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
-  } else if(canLayAmbush(u)){
-    u.hidden = true;
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} lies in ambush in the woods.`, u.side);
-  }
-  selectUnit(u.id);
-  draw();
-};
+  document.getElementById('ambushBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    pushUndoSnapshot();
+    if(u.hidden){
+      u.hidden = false;
+      state.moved.add(u.id);
+      u.noActionThisTurn = true;
+      log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+    } else if(canLayAmbush(u)){
+      u.hidden = true;
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} lies in ambush in the woods.`, u.side);
+    }
+    selectUnit(u.id);
+    draw();
+  };
 
-document.getElementById('chargeBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  const dests = computeChargeDestinations(u);
-  highlightCells = dests.map(m=>({x:m.x, y:m.y, kind:'charge'}));
-  draw();
-};
+  document.getElementById('chargeBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    const dests = computeChargeDestinations(u);
+    setHighlightCells(dests.map(m=>({x:m.x, y:m.y, kind:'charge'})));
+    draw();
+  };
 
-document.getElementById('endMoveBtn').onclick = endMovePhase;
-document.getElementById('endFireBtn').onclick = endFirePhase;
-document.getElementById('endFightBtn').onclick = endFightPhase;
-document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
-document.getElementById('endDeployBtn').onclick = startBattle;
-document.getElementById('undoBtn').onclick = undoLastAction;
-document.getElementById('undoBtnBattle').onclick = undoLastAction;
-document.getElementById('resetViewBtn').onclick = resetMapView;
+  document.getElementById('endMoveBtn').onclick = endMovePhase;
+  document.getElementById('endFireBtn').onclick = endFirePhase;
+  document.getElementById('endFightBtn').onclick = endFightPhase;
+  document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
+  document.getElementById('endDeployBtn').onclick = startBattle;
+  document.getElementById('undoBtn').onclick = undoLastAction;
+  document.getElementById('undoBtnBattle').onclick = undoLastAction;
+  document.getElementById('resetViewBtn').onclick = resetMapView;
 
-document.getElementById('overlayBtn').onclick = ()=>{
-  document.getElementById('overlay').classList.remove('show');
-};
+  document.getElementById('overlayBtn').onclick = ()=>{
+    document.getElementById('overlay').classList.remove('show');
+  };
 
-/* =========================================================
-   BOOT
-========================================================= */
-window.addEventListener('resize', sizeCanvas);
-window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
-window.addEventListener('load', ()=> setTimeout(sizeCanvas, 60));
+  /* =========================================================
+     BOOT
+  ========================================================= */
+  window.addEventListener('resize', sizeCanvas);
+  window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
+  window.addEventListener('load', ()=> setTimeout(sizeCanvas, 60));
+}
 

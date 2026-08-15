@@ -1,0 +1,141 @@
+name: CI
+
+# Runs on every push to main and on any pull request.
+#
+# The important part is the `deploy` job: it depends on the checks, so a push
+# that fails them does NOT replace the live game. The previous version keeps
+# serving until the problem is fixed.
+#
+# ONE-TIME SETUP, required before the deploy job can work:
+#   Settings -> Pages -> Build and deployment -> Source -> "GitHub Actions"
+# Until that is changed, the site still publishes the old way (straight from
+# the branch) and this workflow's deploy job fails with a 404 from the Pages
+# API. Only the repository owner can change that setting.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Never cancel a run on main — it could kill a deployment mid-flight and
+  # leave the live site in a half-published state. Branch runs are safe to cut.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Every asset path referenced in HTML/JS must exist on disk.
+      # A mistyped portrait path is the most likely way to break the game,
+      # and it fails silently in the browser.
+      - name: Check asset references
+        run: node tools/check-assets.mjs
+
+      # Every JS file must at least parse. Catches syntax errors before deploy.
+      - name: Check JavaScript parses
+        run: |
+          for f in js/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "All JS files parse."
+
+      # Shared state must only ever be written by the file that owns it.
+      # Under ES modules an imported binding is read-only, so a cross-file
+      # assignment is a runtime TypeError rather than a compile error.
+      - name: Check module boundaries
+        run: node tools/check-module-boundaries.mjs
+
+      # Catches references to names that don't exist in scope. Valid syntax, so
+      # `node --check` misses it; under modules it's a ReferenceError at runtime,
+      # on whatever line happens to run first.
+      - name: Lint
+        run: npx eslint .
+
+      # Game data must be valid JSON and internally consistent.
+      - name: Unit tests
+        run: node --test "test/*.test.js"
+
+  smoke:
+    name: Smoke test (real browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Chromium is ~120 MB and `--with-deps` shells out to apt, which is the
+      # single most likely thing to fail transiently on a fresh runner. Cache it.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Boots the real game in Chromium: title screen, a hotseat match through
+      # the board-setup ceremony into deployment, a complete vs-AI deployment
+      # for both sides, and the phone viewport.
+      - name: Play the game
+        run: npx playwright test
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-failure
+          path: test-results/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [check, smoke]
+    # Deploys on a push to main, and on a manual run from the Actions tab —
+    # which is the escape hatch if a deploy fails and needs retrying without
+    # inventing an empty commit. Never deploys from a pull request.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Job-level permissions REPLACE the workflow-level block rather than adding
+    # to it, so `contents: read` has to be repeated here or actions/checkout
+    # has nothing to read with.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v4

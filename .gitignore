@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node — tooling only. Nothing here is ever deployed.
+node_modules/
+npm-debug.log*
+.npm/
+
+# Test output
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+
+# Throwaway probe specs. Handy for poking at the game in a real browser without
+# adding to the committed suite — and this stops one being swept into a commit
+# by `git add -A` and then running in CI.
+tests/probe-*.spec.js
+test/probe-*.test.js
+
+# Local environment — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Scratch / tool state
+tmp/
+*.bak
+*.orig
+circuit-breaker-state.json

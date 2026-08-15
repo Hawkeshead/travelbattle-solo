@@ -1,3 +1,8 @@
+import { terrainSeekBonus } from './ai-tactics.js';
+import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
+import { terrainAt, unitsAt } from './engine-rules.js';
+import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
+
 /* =========================================================
    AI: DEPLOYMENT
    One formation plan per Brigade, each anchored to its own column
@@ -7,9 +12,9 @@
 // Hard difficulty only — same three zones the static plan used (roughly matching
 // BRIGADE_COMPOSITIONS' order), but cell choice within a zone is terrain-scored
 // rather than a fixed column. Easy/Medium keep the exact original static plan below.
-const HARD_DEPLOY_COL_BANDS = [[0,6],[7,13],[14,19]];
+export const HARD_DEPLOY_COL_BANDS = [[0,6],[7,13],[14,19]];
 
-function scoreDeployCell(typeKey, x, y){
+export function scoreDeployCell(typeKey, x, y){
   const terr = terrainAt(x,y);
   if(terr.restrictTo && !terr.restrictTo.includes(typeKey)) return -Infinity;
   if(unitsAt(x,y).length>0) return -Infinity;
@@ -19,7 +24,7 @@ function scoreDeployCell(typeKey, x, y){
   return score;
 }
 
-function findBestHardDeployCell(zoneRows, colRange, typeKey){
+export function findBestHardDeployCell(zoneRows, colRange, typeKey){
   let best=null, bestScore=-Infinity;
   for(const y of zoneRows){
     for(let x=colRange[0]; x<=colRange[1]; x++){
@@ -30,7 +35,7 @@ function findBestHardDeployCell(zoneRows, colRange, typeKey){
   return best;
 }
 
-function placeHardDeployUnit(side, typeKey, bIdx){
+export function placeHardDeployUnit(side, typeKey, bIdx){
   const deployRows = state.boardMode==='grand' ? 3 : 2;
   const frontRow = side===SIDES.RED ? ROWS-deployRows : deployRows-1;   // row nearest the enemy
   const backRows = side===SIDES.RED                                     // remaining row(s), furthest from the enemy
@@ -44,7 +49,7 @@ function placeHardDeployUnit(side, typeKey, bIdx){
   placeUnit(side, typeKey, cell.x, cell.y);
 }
 
-function aiDeployStepHard(side){
+export function aiDeployStepHard(side){
   const bIdx = state.deployBrigadeIndex[side];
   if(!state.currentBrigadeHasBrigadier[side]){
     placeHardDeployUnit(side, 'BRIGADIER', bIdx);
@@ -63,9 +68,9 @@ function aiDeployStepHard(side){
   placeHardDeployUnit(side, nextType, bIdx);
 }
 
-const AI_DEPLOY_PLANS = TB_DATA.unitTypes.aiDeployPlans;
+export const AI_DEPLOY_PLANS = TB_DATA.unitTypes.aiDeployPlans;
 
-function aiDeployStep(){
+export function aiDeployStep(){
   const side = state.aiSide;
   if(sideFullyDeployed(side)) return;
   if(state.aiDifficulty==='hard'){ aiDeployStepHard(side); return; }
@@ -90,7 +95,7 @@ function aiDeployStep(){
   placeAiPlanEntry(side, remainingPlanEntries[0]);
 }
 
-function placeAiPlanEntry(side, planEntry){
+export function placeAiPlanEntry(side, planEntry){
   const usedPlanEntries = (state._aiPlanUsed || (state._aiPlanUsed = {red:new Set(), blue:new Set()}))[side];
   usedPlanEntries.add(planEntry);
   const frontRow = side===SIDES.RED ? ROWS-2 : 1;
@@ -100,7 +105,7 @@ function placeAiPlanEntry(side, planEntry){
   placeUnit(side, planEntry.type, cell.x, cell.y);
 }
 
-function findNearestFreeDeployCell(side, col, row, typeKey){
+export function findNearestFreeDeployCell(side, col, row, typeKey){
   const deployRows = state.boardMode==='grand' ? 3 : 2;
   const zoneRows = side===SIDES.RED
     ? Array.from({length: deployRows}, (_,i)=>ROWS-deployRows+i)
