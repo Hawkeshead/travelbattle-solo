@@ -10,16 +10,21 @@
 // browser's autoplay policy regardless of which button starts the game.
 document.addEventListener('pointerdown', ()=> AudioManager.unlock(), { once:true });
 
-// F — button/select sound. A single delegated listener rather than editing
-// every button handler individually (dozens across ui-menus/ui-battle/
-// ui-deployment/campaign) — matches "don't scatter audio logic" from the brief.
-// Excludes the dice roll button (gets its own distinct sound once G is sourced)
-// and roster chips (their own drag interaction, not a simple click).
+// F — button/select sound, covering every real way a player clicks something:
+// actual <button> elements (menus, End Move/Fire/Fight, Undo...), the board
+// itself (selecting a unit, moving, choosing a target, placing during
+// deployment), and the couple of interactive elements built as <div>s rather
+// than <button>s (roster chips, the unit-history toggle). A single delegated
+// listener rather than editing dozens of handlers individually, per "don't
+// scatter audio logic" — but it has to check all three shapes, since the
+// original button-only version missed the board entirely, which is most of
+// what a player actually clicks during a real game.
 document.addEventListener('click', (e)=>{
   const btn = e.target.closest('button');
-  if(!btn) return;
-  if(btn.id === 'diceRollBtn') return; // reserved for G once sourced
-  if(btn.classList.contains('roster-chip')) return;
+  const isBoard = e.target && e.target.id === 'board';
+  const isChipLike = e.target.closest('.roster-chip') || e.target.closest('#bioToggleBtn');
+  if(!btn && !isBoard && !isChipLike) return;
+  if(btn && btn.id === 'diceRollBtn') return; // reserved for G once sourced
   AudioManager.playEffect('ui-click', AUDIO.ui.click, 'ui');
 });
 
