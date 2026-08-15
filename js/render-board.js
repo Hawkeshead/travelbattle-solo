@@ -252,31 +252,6 @@ function drawHillGlyph(cx, cy, cell){
   ctx.restore();
 }
 
-function drawBuildingGlyph(cx, cy, cell){
-  // A simple cottage silhouette — peaked roof over a small block — in a
-  // warm ink tone that sits comfortably against the Building tile's own
-  // fill colour rather than a bright, out-of-palette emoji.
-  ctx.save();
-  ctx.translate(cx, cy);
-  const w = cell*0.30, hRoof = cell*0.20, hWall = cell*0.20;
-  ctx.fillStyle = '#e9e4d6';
-  ctx.globalAlpha = 0.85;
-  // walls
-  ctx.fillRect(-w*0.62, -hWall*0.05, w*1.24, hWall*1.05);
-  // roof
-  ctx.beginPath();
-  ctx.moveTo(-w*0.78, -hWall*0.05);
-  ctx.lineTo(0, -hRoof-hWall*0.05);
-  ctx.lineTo(w*0.78, -hWall*0.05);
-  ctx.closePath();
-  ctx.fill();
-  // door
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#3a2f22';
-  ctx.fillRect(-w*0.14, hWall*0.35, w*0.28, hWall*0.65);
-  ctx.restore();
-}
-
 /* =========================================================
    TERRAIN RENDERING HELPERS
    The map is meant to read as geomorphic and analogue, not a rigid
@@ -317,6 +292,34 @@ function seededWobble(seed){
   const v = Math.sin(seed*12.9898)*43758.5453;
   return (v - Math.floor(v)) - 0.5; // -0.5..0.5
 }
+function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, same generator
+
+// A faint repeating grass-blade texture for Open/Hill ground — cheap (one
+// pattern fill covering the whole board) rather than per-tile stroke calls,
+// which matters once Grand Strategy's 400-cell board is in play.
+let GRASS_TEXTURE_CACHE = null;
+function getGrassTexturePattern(){
+  if(GRASS_TEXTURE_CACHE) return GRASS_TEXTURE_CACHE;
+  const tile = document.createElement('canvas');
+  const size = 72;
+  tile.width = size; tile.height = size;
+  const tctx = tile.getContext('2d');
+  for(let i=0;i<26;i++){
+    const bx = seededRand(i*7+1)*size, by = seededRand(i*13+2)*size;
+    const len = 4 + seededRand(i*19+3)*6;
+    const lean = (seededWobble(i*23+4))*len*0.7;
+    const dark = seededWobble(i*29+5) > 0;
+    tctx.strokeStyle = dark ? 'rgba(18,24,14,0.16)' : 'rgba(150,165,118,0.14)';
+    tctx.lineWidth = 1.1;
+    tctx.beginPath();
+    tctx.moveTo(bx, by);
+    tctx.quadraticCurveTo(bx+lean*0.5, by-len*0.6, bx+lean, by-len);
+    tctx.stroke();
+  }
+  GRASS_TEXTURE_CACHE = ctx.createPattern(tile, 'repeat');
+  return GRASS_TEXTURE_CACHE;
+}
+
 function roundedBlobPath(ctx, x, y, w, h, r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);
@@ -325,6 +328,62 @@ function roundedBlobPath(ctx, x, y, w, h, r){
   ctx.arcTo(x,y+h,x,y,r);
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
+}
+
+// A cluster of small overlapping canopy shapes, standing in for a single flat
+// tree-blob — a few individual tree crowns rather than one solid mass, in
+// varied green tones for depth. Seeded per cell so it's stable across redraws.
+function drawTreeCanopyCluster(cx, cy, cellSize, seed){
+  const shades = ['#33472a','#243318','#3d5230'];
+  const n = 4 + Math.floor(seededRand(seed*3+1)*2); // 4-5 canopies
+  for(let i=0;i<n;i++){
+    const ang = seededRand(seed*11+i*17+1) * Math.PI*2;
+    const dist = seededRand(seed*13+i*19+2) * cellSize*0.28;
+    const px = cx + Math.cos(ang)*dist, py = cy + Math.sin(ang)*dist*0.8;
+    const r = cellSize*(0.16 + seededRand(seed*7+i*23+3)*0.10);
+    ctx.fillStyle = shades[i % shades.length];
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// A loose cluster of small varied cottages standing in for one uniform
+// building icon — a hamlet rather than a single house, roof tones and sizes
+// jittered per building so no two tiles look identical. Base positions are
+// fixed per cluster size (not fully random) so houses reliably separate
+// rather than landing on top of each other, with a little seeded jitter on
+// top for an organic, not-quite-uniform arrangement.
+function drawBuildingCluster(cx, cy, cellSize, seed){
+  const roofColors = ['#8a4f36','#6b5847','#7a6248'];
+  const n = 2 + Math.floor(seededRand(seed*5+1)*2); // 2-3 houses
+  const basePositions = n===2
+    ? [[-0.20,0.06],[0.20,-0.10]]
+    : [[-0.24,0.14],[0.22,0.10],[0.02,-0.22]];
+  for(let i=0;i<n;i++){
+    const [bx,by] = basePositions[i];
+    const jx = seededWobble(seed*9+i*29+1) * cellSize*0.06;
+    const jy = seededWobble(seed*17+i*31+2) * cellSize*0.06;
+    const px = cx + bx*cellSize + jx, py = cy + by*cellSize + jy;
+    const scale = 0.60 + seededRand(seed*21+i*37+3)*0.24;
+    const w = cellSize*0.20*scale, hWall = cellSize*0.13*scale, hRoof = cellSize*0.12*scale;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.fillStyle = '#e9e4d6';
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(-w*0.55, -hWall*0.05, w*1.1, hWall*1.05);
+    ctx.fillStyle = roofColors[(i+Math.floor(seed))%roofColors.length];
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.68, -hWall*0.05);
+    ctx.lineTo(0, -hRoof-hWall*0.05);
+    ctx.lineTo(w*0.68, -hWall*0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#3a2f22';
+    ctx.fillRect(-w*0.12, hWall*0.35, w*0.24, hWall*0.65);
+    ctx.restore();
+  }
 }
 
 function draw(){
@@ -345,6 +404,22 @@ function draw(){
       ctx.fillRect(x*CELL,sy_*CELL,CELL,CELL);
     }
   }
+
+  // Grass texture on Open/Hill ground — a repeating blade pattern clipped to
+  // just those cells, giving the base ground some life instead of a flat
+  // colour fill (ROAD counts as Open here too, matching the base fill above).
+  ctx.save();
+  ctx.beginPath();
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const key = terrain[y][x];
+      if(key==='OPEN' || key==='ROAD' || key==='HILL') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+    }
+  }
+  ctx.clip();
+  ctx.fillStyle = getGrassTexturePattern();
+  ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+  ctx.restore();
 
   // Ploughed fields: wheat yellow with furrow lines along the field's long axis,
   // computed per contiguous group so a whole field reads as one shape.
@@ -376,6 +451,8 @@ function draw(){
 
   // Woods: each cell is an inflated, jittered rounded blob; adjacent woods
   // cells overlap into one organic tree-mass instead of a grid of squares.
+  // A cluster of individual canopy shapes is layered on top of each cell so
+  // the mass reads as a stand of trees rather than one flat green blob.
   const woodsRegions = findConnectedRegions(terrain, 'WOODS');
   ctx.fillStyle = terrainColor('WOODS');
   for(const region of woodsRegions){
@@ -386,6 +463,11 @@ function draw(){
       const pad = CELL*0.10, rad = CELL*0.34;
       roundedBlobPath(ctx, x*CELL-pad+jx, sy_*CELL-pad+jy, CELL+pad*2, CELL+pad*2, rad);
       ctx.fill();
+    }
+  }
+  for(const region of woodsRegions){
+    for(const [x,y] of region){
+      drawTreeCanopyCluster(x*CELL+CELL/2, sy(y)*CELL+CELL/2, CELL, x*31+y*53+7);
     }
   }
 
@@ -515,7 +597,7 @@ function draw(){
       if(key==='HILL'){
         drawHillGlyph(cx_, cyy, CELL);
       } else if(key==='BUILDING'){
-        drawBuildingGlyph(cx_, cyy, CELL);
+        drawBuildingCluster(cx_, cyy, CELL, x*41+y*67+3);
       }
     }
   }
