@@ -166,18 +166,6 @@
   }
   #logOverlay.show{ pointer-events:auto; }
   #logOverlay.show #logOverlayBackdrop{ opacity:1; }
-
-  #audioSettingsPanel{ position:absolute;inset:0;z-index:35;display:flex;align-items:center;justify-content:center; }
-  #audioSettingsPanel.hidden{ display:none; }
-  #audioSettingsBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.45); }
-  #audioSettingsBox{
-    position:relative;background:var(--paper);border:2px solid var(--brass-dim);border-radius:4px;
-    padding:20px 24px;min-width:220px;box-shadow:0 10px 40px rgba(0,0,0,0.4);
-  }
-  #audioSettingsBox h3{ font-family:'Cinzel',serif;color:var(--brass-bright);text-transform:uppercase;font-size:15px;margin:0 0 12px; }
-  #audioSettingsBox label{ display:block;font-size:12px;color:var(--ink-dim);margin-bottom:10px; }
-  #audioSettingsBox input[type="range"]{ width:100%;display:block;margin-top:4px; }
-  #audioSettingsBox button{ margin-top:6px; }
   #logOverlay.show #logOverlayPanel{ transform:translateX(0); }
   #logOverlayHeader{
     display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);
@@ -341,21 +329,7 @@
     <div id="hudIcons">
       <button id="undoBtnBattle" title="Undo" disabled>&#8634;</button>
       <button id="resetViewBtn" title="Reset View">&#9974;</button>
-      <button id="audioSettingsBtn" title="Audio Settings">&#9834;</button>
       <button id="logIconBtn" title="Field Report">&#9776;</button>
-    </div>
-
-    <div id="audioSettingsPanel" class="hidden">
-      <div id="audioSettingsBackdrop"></div>
-      <div id="audioSettingsBox">
-        <h3>Audio</h3>
-        <label><input type="checkbox" id="audioMuteToggle"> Mute all</label>
-        <label>Master <input type="range" id="audioVolMaster" min="0" max="1" step="0.05"></label>
-        <label>Music <input type="range" id="audioVolMusic" min="0" max="1" step="0.05"></label>
-        <label>Effects <input type="range" id="audioVolEffects" min="0" max="1" step="0.05"></label>
-        <label>Ambience <input type="range" id="audioVolAmbience" min="0" max="1" step="0.05"></label>
-        <button id="audioSettingsCloseBtn" class="primary">Close</button>
-      </div>
     </div>
 
     <div id="sidebar">
@@ -426,9 +400,6 @@
 
 <!-- Game logic split across js/*.js, loaded in dependency order (see js/ comments) -->
 <script src="js/data-core.js"></script>
-<script src="js/audio-catalog.js"></script>
-<script src="js/audio-manager.js"></script>
-<script src="js/audio-hooks.js"></script>
 <script src="js/engine-state.js"></script>
 <script src="js/dice.js"></script>
 <script src="js/engine-rules.js"></script>
