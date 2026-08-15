@@ -443,17 +443,26 @@ function draw(){
         const mx=(a1.x+a2.x)/2+px*wobble, my=(a1.y+a2.y)/2+py*wobble;
         ctx.beginPath(); ctx.moveTo(a1.x,a1.y); ctx.quadraticCurveTo(mx,my,a2.x,a2.y); ctx.stroke();
       }
-      // a short stub into any adjacent Building, so roads visibly reach the buildings they serve
+      if(list.length===0){ const c = roadPoint(x,y); ctx.beginPath(); ctx.arc(c.x,c.y,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
+    }
+  }
+  // Buildings: a full line from the building's own centre out to each adjacent
+  // road (not a short stub from the road's side) — a building with roads on
+  // two sides then reads as one continuous path passing through it, rather
+  // than two stubs that stop short of each other with a visible gap between.
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      if(terrain[y][x]!=='BUILDING') continue;
+      const centre = roadPoint(x,y);
       for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
         const nx=x+dx, ny=y+dy;
-        if(!inBounds(nx,ny) || terrain[ny][nx]!=='BUILDING') continue;
-        const p1 = a1, p2 = roadPoint(nx,ny);
+        if(!inBounds(nx,ny) || terrain[ny][nx]!=='ROAD') continue;
+        const p2 = roadAnchor(nx,ny);
         ctx.beginPath();
-        ctx.moveTo(p1.x + (p2.x-p1.x)*0.35, p1.y + (p2.y-p1.y)*0.35);
+        ctx.moveTo(centre.x, centre.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
       }
-      if(list.length===0){ const c = roadPoint(x,y); ctx.beginPath(); ctx.arc(c.x,c.y,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
     }
   }
   ctx.lineCap = 'butt';
