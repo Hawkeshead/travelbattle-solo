@@ -95,10 +95,17 @@ const AudioManager = (function(){
       audio.volume = effectiveVolume('effects') * (opts.volumeScale ?? 1);
       if(opts.pan && audio.pan !== undefined) audio.pan = opts.pan; // simple stereo positioning, see setPositional()
       state.activeEffects.set(key, current+1);
-      audio.addEventListener('ended', ()=> state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)));
-      audio.addEventListener('error', ()=> state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)));
+      let settled = false;
+      const release = ()=>{ if(settled) return; settled = true; state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)); };
+      audio.addEventListener('ended', release);
+      audio.addEventListener('error', release);
+      // Safety net: on a slow/flaky real connection, 'ended'/'error' aren't
+      // guaranteed to fire promptly for every browser/file — without this,
+      // one stuck count silently caps out at MAX_CONCURRENT and the sound
+      // just stops playing entirely with no visible error.
+      setTimeout(release, 8000);
       if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
-      audio.play().catch(()=>{ state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)); });
+      audio.play().catch(release);
     } catch(e) { /* never let an audio failure break the game */ }
   }
 
