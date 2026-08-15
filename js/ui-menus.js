@@ -22,6 +22,7 @@ function showModeSelect(isSplash){
     extra = document.createElement('div');
     extra.id = 'modeChoices';
     extra.style.display = 'flex';
+    extra.style.flexWrap = 'wrap';
     extra.style.gap = '8px';
     extra.style.justifyContent = 'center';
     box.appendChild(extra);
