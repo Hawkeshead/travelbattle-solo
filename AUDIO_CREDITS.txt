@@ -1,0 +1,42 @@
+TravelBattle: Field Command — Audio Credits
+=============================================
+
+UI SOUNDS (F — button/select)
+------------------------------
+Files: audio/ui/click1.wav, audio/ui/click4.wav, audio/ui/switch12.wav, audio/ui/switch14.wav
+Asset: Kenney UI Audio Pack ("UI SFX Set")
+Creator: Kenney Vleugels (www.kenney.nl)
+Source: https://kenney.nl (mirrored via https://github.com/Calinou/kenney-ui-audio)
+Licence: CC0 1.0 Universal (Creative Commons Zero — public domain dedication)
+Attribution: Not required by the licence. Credited here anyway as good practice.
+
+STATUS OF REMAINING REQUIREMENTS
+----------------------------------
+Not yet sourced (blocked on network access — see note below):
+
+  A. Main battlefield/deployment music
+  B. Victory fanfare
+  C. Defeat cue
+  D. General battlefield ambience
+  E. Distant battle ambience
+  G. Dice roll sound
+  H. Phase/end-turn signal
+  Phase 2 (I–T): all infantry/cavalry/artillery/Brigadier sounds
+
+Candidates already identified and verified as properly licensed, pending
+download (see the planning conversation for full shortlist and reasoning):
+
+  A. Kevin MacLeod (incompetech.com) — CC-BY 3.0, attribution required.
+     Specific track still to be chosen from the catalogue rather than
+     locked to the first match found.
+  D/E/G/H. Pixabay Sound Effects — Pixabay Content License (free for
+     commercial use, no attribution required), or Freesound.org filtered
+     to CC0 only if Pixabay doesn't have a good match.
+
+NOTE ON SOURCING METHOD: the assets above could not be downloaded directly
+in this session — the working environment's network access is restricted
+to code-hosting domains (GitHub etc.) and does not reach Pixabay,
+Freesound, or incompetech.com directly. The UI sounds above were sourced
+via a GitHub-hosted mirror of Kenney's CC0 pack, which was reachable. Files
+downloaded by a person and uploaded back into the chat can be added the
+same way the game's images were originally added.
