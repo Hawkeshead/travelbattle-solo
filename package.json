@@ -1,0 +1,15 @@
+{
+  "name": "travelbattle-field-command",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Napoleonic tabletop battle, adapted for the phone.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server . -p 8080 -o",
+    "test": "node --test \"test/*.test.js\"",
+    "check": "node tools/check-assets.mjs && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

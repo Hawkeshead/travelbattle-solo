@@ -1,0 +1,76 @@
+name: CI
+
+# Runs on every push to main and on any pull request.
+#
+# The important part is the `deploy` job: it depends on `check`, so a push that
+# fails the checks does NOT replace the live game. The previous version keeps
+# serving until the problem is fixed.
+#
+# For this to take effect, GitHub Pages must be set to deploy from GitHub
+# Actions rather than from the branch:
+#   Settings -> Pages -> Source -> "GitHub Actions"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Every asset path referenced in HTML/JS must exist on disk.
+      # A mistyped portrait path is the most likely way to break the game,
+      # and it fails silently in the browser.
+      - name: Check asset references
+        run: node tools/check-assets.mjs
+
+      # Every JS file must at least parse. Catches syntax errors before deploy.
+      - name: Check JavaScript parses
+        run: |
+          for f in js/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "All JS files parse."
+
+      # Game data must be valid JSON and internally consistent.
+      - name: Unit tests
+        run: node --test "test/*.test.js"
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v4
