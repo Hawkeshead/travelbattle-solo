@@ -425,16 +425,23 @@ function renderUnitInfo(u){
   }
 }
 
-canvas.addEventListener('click', (e)=>{
-  if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
-  const rect = canvas.getBoundingClientRect();
-  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
-  const x = Math.floor((e.clientX-rect.left)/cellPxX);
-  const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
-  const y = sy(screenY);
-  if(!inBounds(x,y)) return;
-  onCellClick(x,y);
-});
+// Registered from boot.js rather than at load time. `canvas` belongs to
+// render-board.js, and reading another module's binding while modules are still
+// evaluating is a temporal-dead-zone error waiting to happen — these two files
+// import from each other, so evaluation order between them is not guaranteed.
+// Deferring the read until start-up sidesteps that entirely.
+function initBoardInput(){
+  canvas.addEventListener('click', (e)=>{
+    if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
+    const rect = canvas.getBoundingClientRect();
+    const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
+    const x = Math.floor((e.clientX-rect.left)/cellPxX);
+    const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
+    const y = sy(screenY);
+    if(!inBounds(x,y)) return;
+    onCellClick(x,y);
+  });
+}
 
 function onCellClick(x,y){
   if(state.gameOver) return;
@@ -594,93 +601,98 @@ function applyArtilleryEffect(u, roll, onComplete){
   }
 }
 
-document.getElementById('logIconBtn').onclick = ()=>{
-  const overlay = document.getElementById('logOverlay');
-  overlay.classList.remove('hidden');
-  overlay.classList.add('show');
-  const log = document.getElementById('log');
-  log.scrollTop = log.scrollHeight;
-};
-document.getElementById('logCloseBtn').onclick = ()=>{
-  document.getElementById('logOverlay').classList.remove('show');
-};
-document.getElementById('logOverlayBackdrop').onclick = ()=>{
-  document.getElementById('logOverlay').classList.remove('show');
-};
-document.getElementById('logTabReport').onclick = ()=>{
-  document.getElementById('logTabReport').classList.add('active');
-  document.getElementById('logTabDebug').classList.remove('active');
-  document.getElementById('log').style.display = 'block';
-  document.getElementById('aiDebugPanel').style.display = 'none';
-};
-document.getElementById('logTabDebug').onclick = ()=>{
-  document.getElementById('logTabDebug').classList.add('active');
-  document.getElementById('logTabReport').classList.remove('active');
-  document.getElementById('log').style.display = 'none';
-  document.getElementById('aiDebugPanel').style.display = 'block';
-  renderAiDebugPanel();
-};
+// All DOM wiring lives behind this, called once from boot.js. Registering
+// listeners at module-evaluation time would tie start-up to module ordering;
+// doing it explicitly keeps the sequence obvious and under our control.
+function initBattleControls(){
+  document.getElementById('logIconBtn').onclick = ()=>{
+    const overlay = document.getElementById('logOverlay');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('show');
+    const log = document.getElementById('log');
+    log.scrollTop = log.scrollHeight;
+  };
+  document.getElementById('logCloseBtn').onclick = ()=>{
+    document.getElementById('logOverlay').classList.remove('show');
+  };
+  document.getElementById('logOverlayBackdrop').onclick = ()=>{
+    document.getElementById('logOverlay').classList.remove('show');
+  };
+  document.getElementById('logTabReport').onclick = ()=>{
+    document.getElementById('logTabReport').classList.add('active');
+    document.getElementById('logTabDebug').classList.remove('active');
+    document.getElementById('log').style.display = 'block';
+    document.getElementById('aiDebugPanel').style.display = 'none';
+  };
+  document.getElementById('logTabDebug').onclick = ()=>{
+    document.getElementById('logTabDebug').classList.add('active');
+    document.getElementById('logTabReport').classList.remove('active');
+    document.getElementById('log').style.display = 'none';
+    document.getElementById('aiDebugPanel').style.display = 'block';
+    renderAiDebugPanel();
+  };
 
-document.getElementById('squareBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  pushUndoSnapshot();
-  if(u.formation==='square'){
-    u.formation = 'line';
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} reforms Line.`, u.side);
-  } else {
-    u.formation = 'square';
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} forms Square.`, u.side);
-  }
-  selectUnit(u.id);
-  draw();
-};
+  document.getElementById('squareBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    pushUndoSnapshot();
+    if(u.formation==='square'){
+      u.formation = 'line';
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} reforms Line.`, u.side);
+    } else {
+      u.formation = 'square';
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} forms Square.`, u.side);
+    }
+    selectUnit(u.id);
+    draw();
+  };
 
-document.getElementById('ambushBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  pushUndoSnapshot();
-  if(u.hidden){
-    u.hidden = false;
-    state.moved.add(u.id);
-    u.noActionThisTurn = true;
-    log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
-  } else if(canLayAmbush(u)){
-    u.hidden = true;
-    state.moved.add(u.id);
-    log(`${unitLabel(u)} lies in ambush in the woods.`, u.side);
-  }
-  selectUnit(u.id);
-  draw();
-};
+  document.getElementById('ambushBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    pushUndoSnapshot();
+    if(u.hidden){
+      u.hidden = false;
+      state.moved.add(u.id);
+      u.noActionThisTurn = true;
+      log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+    } else if(canLayAmbush(u)){
+      u.hidden = true;
+      state.moved.add(u.id);
+      log(`${unitLabel(u)} lies in ambush in the woods.`, u.side);
+    }
+    selectUnit(u.id);
+    draw();
+  };
 
-document.getElementById('chargeBtn').onclick = ()=>{
-  const u = state.units.find(x=>x.id===state.selectedUnitId);
-  if(!u) return;
-  const dests = computeChargeDestinations(u);
-  setHighlightCells(dests.map(m=>({x:m.x, y:m.y, kind:'charge'})));
-  draw();
-};
+  document.getElementById('chargeBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u) return;
+    const dests = computeChargeDestinations(u);
+    setHighlightCells(dests.map(m=>({x:m.x, y:m.y, kind:'charge'})));
+    draw();
+  };
 
-document.getElementById('endMoveBtn').onclick = endMovePhase;
-document.getElementById('endFireBtn').onclick = endFirePhase;
-document.getElementById('endFightBtn').onclick = endFightPhase;
-document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
-document.getElementById('endDeployBtn').onclick = startBattle;
-document.getElementById('undoBtn').onclick = undoLastAction;
-document.getElementById('undoBtnBattle').onclick = undoLastAction;
-document.getElementById('resetViewBtn').onclick = resetMapView;
+  document.getElementById('endMoveBtn').onclick = endMovePhase;
+  document.getElementById('endFireBtn').onclick = endFirePhase;
+  document.getElementById('endFightBtn').onclick = endFightPhase;
+  document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
+  document.getElementById('endDeployBtn').onclick = startBattle;
+  document.getElementById('undoBtn').onclick = undoLastAction;
+  document.getElementById('undoBtnBattle').onclick = undoLastAction;
+  document.getElementById('resetViewBtn').onclick = resetMapView;
 
-document.getElementById('overlayBtn').onclick = ()=>{
-  document.getElementById('overlay').classList.remove('show');
-};
+  document.getElementById('overlayBtn').onclick = ()=>{
+    document.getElementById('overlay').classList.remove('show');
+  };
 
-/* =========================================================
-   BOOT
-========================================================= */
-window.addEventListener('resize', sizeCanvas);
-window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
-window.addEventListener('load', ()=> setTimeout(sizeCanvas, 60));
+  /* =========================================================
+     BOOT
+  ========================================================= */
+  window.addEventListener('resize', sizeCanvas);
+  window.addEventListener('orientationchange', ()=> setTimeout(sizeCanvas, 200));
+  window.addEventListener('load', ()=> setTimeout(sizeCanvas, 60));
+}
 
