@@ -71,7 +71,7 @@ function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
-  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:520 };
+  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:1040 };
   ensureAnimationLoopRunning();
 }
 
@@ -358,15 +358,15 @@ function drawBuildingCluster(cx, cy, cellSize, seed){
   const roofColors = ['#8a4f36','#6b5847','#7a6248'];
   const n = 2 + Math.floor(seededRand(seed*5+1)*2); // 2-3 houses
   const basePositions = n===2
-    ? [[-0.20,0.06],[0.20,-0.10]]
-    : [[-0.24,0.14],[0.22,0.10],[0.02,-0.22]];
+    ? [[-0.24,0.08],[0.24,-0.12]]
+    : [[-0.28,0.16],[0.26,0.12],[0.02,-0.26]];
   for(let i=0;i<n;i++){
     const [bx,by] = basePositions[i];
     const jx = seededWobble(seed*9+i*29+1) * cellSize*0.06;
     const jy = seededWobble(seed*17+i*31+2) * cellSize*0.06;
     const px = cx + bx*cellSize + jx, py = cy + by*cellSize + jy;
     const scale = 0.60 + seededRand(seed*21+i*37+3)*0.24;
-    const w = cellSize*0.20*scale, hWall = cellSize*0.13*scale, hRoof = cellSize*0.12*scale;
+    const w = cellSize*0.30*scale, hWall = cellSize*0.20*scale, hRoof = cellSize*0.18*scale;
     ctx.save();
     ctx.translate(px, py);
     ctx.fillStyle = '#e9e4d6';
