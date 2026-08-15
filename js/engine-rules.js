@@ -276,21 +276,16 @@ function stackPartner(u){
 function isInColumn(u){ return !!stackPartner(u); }
 
 // Every combat bonus that grants a unit a 2nd die comes from a different source
-// (Guard/Hvy Cav's innate re-roll, terrain, Square vs Cavalry, Cavalry vs open
-// Infantry, Attack Column, Infantry vs Square, Ambush-Advance). Only the FIRST
-// applicable source actually does anything — a 2nd die is a 2nd die no matter
-// how many reasons justify it. Previously every source past the first was
-// simply wasted. Now each additional qualifying source instead adds +1 to the
-// kept roll value (capped at 6, same mechanic already used for the Ambush and
-// turned-around bonuses), so a unit that qualifies for the 2nd die three ways
-// over gets a real edge from the extra two rather than nothing at all.
+// (terrain, Square vs Cavalry, Cavalry vs open Infantry, Attack Column,
+// Infantry vs Square, Ambush-Advance). Guard/Heavy Cavalry's own re-roll is
+// NOT one of these — it's an interactive choice offered after the roll if
+// that unit is losing, not an upfront extra die — see offerCombatReroll()
+// below, called from resolveFight.
 function combatBonuses(unit, opponent, defending, extraSources){
   const t = UNIT_TYPES[unit.type];
   const oppT = UNIT_TYPES[opponent.type];
   const terr = terrainAt(unit.x,unit.y);
   const sources = [];
-
-  if(t.reroll) sources.push('Re-roll (Guard/Hvy Cav)');
 
   const eligibleDefender = t.key==='INFANTRY' || t.key==='GUARD' || t.key==='ARTILLERY';
   // A unit that sprang a Woodland Ambush this round gets no woods defence bonus until its side's next turn.
@@ -324,6 +319,57 @@ function combatBonuses(unit, opponent, defending, extraSources){
     else { valueBonus += 1; reasons.push(`${label}: +1 to roll (2nd die already granted)`); }
   });
   return { dice, valueBonus, reasons };
+}
+
+// Guard Infantry and Heavy Cavalry's own re-roll (the physical rulebook card:
+// "Gets to re-roll in combat") is an interactive choice offered to whichever
+// of the two currently has the lower roll, not an automatic extra die —
+// mirrors the same Yes/No pattern offerLeadershipRoll() already uses. No
+// listed limit on the card, so it's available every fight, and the AI always
+// takes it when eligible since there's no cost to declining.
+function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
+  function tryOne(unit, roll, reasons, valueBonus, opponentValue, next){
+    if(!UNIT_TYPES[unit.type].reroll || roll.value >= opponentValue){ next(); return; }
+    const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && unit.side===state.aiSide);
+    if(!isHuman){
+      applyCombatReroll(unit, roll, reasons, valueBonus, next);
+      return;
+    }
+    document.getElementById('overlayTitle').textContent = 'Use Re-roll?';
+    document.getElementById('overlayText').innerHTML =
+      `${unitLabel(unit)} rolled a ${roll.rolls[0]}, currently behind. Guard Infantry and Heavy Cavalry may re-roll their own die — use it now?`;
+    document.getElementById('overlayBtn').style.display = 'none';
+    const previewCanvas = document.getElementById('rotationPreviewCanvas');
+    if(previewCanvas) previewCanvas.style.display = 'none';
+    let extra = document.getElementById('modeChoices');
+    extra.innerHTML = '';
+    extra.style.display = 'flex';
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'primary';
+    yesBtn.textContent = 'Re-roll';
+    yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyCombatReroll(unit, roll, reasons, valueBonus, next); };
+    const noBtn = document.createElement('button');
+    noBtn.textContent = 'Keep Roll';
+    noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); next(); };
+    extra.appendChild(yesBtn);
+    extra.appendChild(noBtn);
+    document.getElementById('overlay').classList.add('show');
+  }
+  // Attacker's chance first, then defender's — using whatever aRoll.value now
+  // is after any attacker re-roll, so a defender who was only just barely
+  // ahead can still find themselves behind and eligible in turn.
+  tryOne(attacker, aRoll, aReasons, aValueBonus, dRoll.value, ()=>{
+    tryOne(defender, dRoll, dReasons, dValueBonus, aRoll.value, onComplete);
+  });
+}
+
+function applyCombatReroll(unit, roll, reasons, valueBonus, next){
+  const newVal = rollD6();
+  roll.rolls.push(newVal);
+  roll.value = Math.min(6, newVal + valueBonus);
+  reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}`);
+  log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav) — new roll: ${newVal}.`, 'combat');
+  next();
 }
 
 function resolveFight(attacker, defender, ambushMode, onComplete){
@@ -368,6 +414,7 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
     if(aValueBonus) aRoll.value = Math.min(6, aRoll.value + aValueBonus);
     if(dValueBonus) dRoll.value = Math.min(6, dRoll.value + dValueBonus);
 
+    offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
     const isTie = aRoll.value === dRoll.value;
     const defenderHillTieWin = isTie &&
       terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
@@ -449,6 +496,7 @@ function resolveFight(attacker, defender, ambushMode, onComplete){
         if(columnPartner) removeUnit(columnPartner, 'Column broken alongside its partner');
         onComplete();
       }
+    });
     });
   }, legend);
 }
