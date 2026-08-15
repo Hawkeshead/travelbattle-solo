@@ -323,19 +323,19 @@ function endFightPhase(){
 ========================================================= */
 function selectUnit(id){
   state.selectedUnitId = id;
-  highlightCells = [];
+  setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
   renderUnitInfo(u);
   if(u && u.side===state.turn){
     if(state.phase==='move'){
       const moves = legalMoves(u);
-      highlightCells = moves.map(m=>({x:m.x,y:m.y,kind:'move'}));
+      setHighlightCells(moves.map(m=>({x:m.x,y:m.y,kind:'move'})));
     } else if(state.phase==='fire' && UNIT_TYPES[u.type].isArtillery){
       const targets = artilleryTargets(u);
-      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
     } else if(state.phase==='fight'){
       const targets = state.units.filter(o=>!o.removed && o.side!==u.side && isAdjacent(u,o) && canAttackTarget(u,o));
-      highlightCells = targets.map(t=>({x:t.x,y:t.y,kind:'target'}));
+      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
     }
   }
   draw();
@@ -426,7 +426,7 @@ function renderUnitInfo(u){
 }
 
 canvas.addEventListener('click', (e)=>{
-  if(mapGestureMoved){ mapGestureMoved = false; return; } // this click is the tail end of a pan/pinch, not a tap
+  if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
   const rect = canvas.getBoundingClientRect();
   const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
   const x = Math.floor((e.clientX-rect.left)/cellPxX);
@@ -660,7 +660,7 @@ document.getElementById('chargeBtn').onclick = ()=>{
   const u = state.units.find(x=>x.id===state.selectedUnitId);
   if(!u) return;
   const dests = computeChargeDestinations(u);
-  highlightCells = dests.map(m=>({x:m.x, y:m.y, kind:'charge'}));
+  setHighlightCells(dests.map(m=>({x:m.x, y:m.y, kind:'charge'})));
   draw();
 };
 

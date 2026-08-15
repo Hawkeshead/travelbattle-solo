@@ -18,8 +18,8 @@ function startReplay(){
   replaySavedMeta = { phase:state.phase, turn:state.turn, turnNumber:state.turnNumber, selectedUnitId:state.selectedUnitId };
   state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
   state.selectedUnitId = null;
-  highlightCells = [];
-  unitAnimations = {};
+  setHighlightCells([]);
+  clearUnitAnimations();
   state.replaying = true;
   replayIdx = 0;
   document.getElementById('unitOverlay').classList.remove('show');
@@ -126,7 +126,7 @@ function finishReplay(){
   document.getElementById('replayPlayPauseBtn').onclick = ()=>{
     state.units = JSON.parse(JSON.stringify(state.replayStartUnits));
     state.selectedUnitId = null;
-    unitAnimations = {};
+    clearUnitAnimations();
     document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
     replayIdx = 0;
     document.getElementById('replayEventLabel').textContent = '';
@@ -145,7 +145,7 @@ function exitReplay(){
   state.turn = replaySavedMeta.turn;
   state.turnNumber = replaySavedMeta.turnNumber;
   state.selectedUnitId = replaySavedMeta.selectedUnitId;
-  unitAnimations = {};
+  clearUnitAnimations();
   document.getElementById('replayOverlay').classList.add('hidden');
   document.querySelectorAll('.replay-hit-ring').forEach(el=>el.remove());
   draw();

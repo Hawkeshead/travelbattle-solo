@@ -13,7 +13,13 @@ function snapshotState(){
   return JSON.stringify(state, (key, value) => (value instanceof Set) ? {__isSet:true, items:[...value]} : value);
 }
 function restoreState(snap){
-  state = JSON.parse(snap, (key, value) => (value && value.__isSet) ? new Set(value.items) : value);
+  const parsed = JSON.parse(snap, (key, value) => (value && value.__isSet) ? new Set(value.items) : value);
+  // Replace the contents in place rather than rebinding `state`. Two reasons:
+  // an imported binding is read-only under ES modules, so `state = ...` from
+  // this file would throw; and keeping one stable object identity means every
+  // module that already holds a reference keeps seeing the live data.
+  for(const key of Object.keys(state)) delete state[key];
+  Object.assign(state, parsed);
 }
 function pushUndoSnapshot(){
   undoStack.push(snapshotState());
@@ -33,12 +39,9 @@ function undoLastAction(){
   }
   const snap = undoStack.pop();
   restoreState(snap);
-  unitAnimations = {};
-  activeActionLine = null;
-  deathEffects = [];
-  selectedDeployType = null;
-  dragState = null;
-  highlightCells = [];
+  clearTransientRenderState();  // render-board: animations, action line, death effects
+  resetDeploymentUiState();     // ui-deployment: selected chip, in-flight drag
+  setHighlightCells([]);        // render-units: selection highlights
   if(state.phase==='deploy') renderRoster();
   else selectUnit(null);
   syncPhaseButtons();
@@ -74,7 +77,7 @@ function newUnit(side, typeKey, x, y, brigadeId){
   const archiveList = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][typeKey]) || [];
   const historical = archiveList.length ? archiveList[idx % archiveList.length] : null;
   return {
-    id: 'u'+(uidCounter++), side, type: typeKey, brigadeId,
+    id: 'u'+nextUid(), side, type: typeKey, brigadeId,
     x, y, removed:false, formation:'line', pushed:false,
     turnOnly:false, // true = can only turn around this coming turn
     rallying:false,

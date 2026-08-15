@@ -26,6 +26,19 @@ let activeActionLine = null; // {fromX, fromY, toX, toY, color, expiresAt} — w
 let deathEffects = []; // {x, y, startTime} — skull for 2s, then smoke fades over another 2s
 let animFrameHandle = null;
 
+// Undo and the replay player both need to wipe every in-flight visual effect.
+// They used to assign to these three bindings directly from another file;
+// under ES modules that throws, so the reset lives here instead.
+function clearUnitAnimations(){
+  unitAnimations = {};
+}
+
+function clearTransientRenderState(){
+  unitAnimations = {};
+  activeActionLine = null;
+  deathEffects = [];
+}
+
 const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
 function addDeathEffect(x, y){
   deathEffects.push({x, y, startTime: Date.now()});
@@ -113,7 +126,7 @@ function computeCellSize(){
 }
 
 function sizeCanvas(){
-  CELL = computeCellSize();
+  setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
   canvas.style.width = (COLS*CELL) + 'px';
   canvas.style.height = (ROWS*CELL) + 'px';
@@ -140,6 +153,15 @@ let mapGesturePointers = new Map();
 let mapPinchStartDist = null, mapPinchStartZoom = 1;
 let mapPanStart = null;
 let mapGestureMoved = false; // true once the current gesture passed the tap threshold — the click handler checks this to avoid selecting a cell after a pan/pinch
+
+// Read-and-clear, for the board click handler in ui-battle.js. It used to read
+// mapGestureMoved and reset it directly; an imported binding is read-only under
+// ES modules, so the write has to happen in the file that owns the variable.
+function consumeGestureFlag(){
+  const moved = mapGestureMoved;
+  mapGestureMoved = false;
+  return moved;
+}
 
 function resetMapView(){
   mapZoom = 1; mapPanX = 0; mapPanY = 0;

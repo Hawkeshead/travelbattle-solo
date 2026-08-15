@@ -270,3 +270,17 @@ let state = {
   _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
 };
 let uidCounter = 1;
+
+// Unit ids are handed out through this function rather than by incrementing
+// uidCounter from another file. Under ES modules an imported binding is
+// read-only, so `uidCounter++` across a file boundary throws — this keeps the
+// only write in the file that owns the variable.
+function nextUid(){
+  return uidCounter++;
+}
+
+// Same reasoning for CELL, which sizeCanvas() in render-board.js recomputes
+// on every resize.
+function setCell(px){
+  CELL = px;
+}

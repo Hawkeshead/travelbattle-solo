@@ -311,5 +311,13 @@ function drawColumnUnitPair(u1, u2){
   }
 }
 
+// Selection highlights. Written from ui-battle.js, engine-state.js and
+// replay.js, so the write goes through a function rather than reassigning the
+// binding from another file — an imported binding is read-only under ES
+// modules and a cross-file `highlightCells = ...` would throw.
 let highlightCells = [];
+
+function setHighlightCells(cells){
+  highlightCells = cells;
+}
 

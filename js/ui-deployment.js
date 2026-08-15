@@ -119,6 +119,14 @@ function renderRoster(){
 ========================================================= */
 let dragState = null; // {typeKey, startX, startY, dragging, hoverCell}
 
+// Undo clears the deployment screen's transient selection. It used to assign to
+// selectedDeployType and dragState directly from engine-state.js; an imported
+// binding is read-only under ES modules, so the reset lives here instead.
+function resetDeploymentUiState(){
+  selectedDeployType = null;
+  dragState = null;
+}
+
 function startChipDrag(e, typeKey){
   if(state.phase!=='deploy') return;
   dragState = { typeKey, startX:e.clientX, startY:e.clientY, dragging:false, hoverCell:null };
