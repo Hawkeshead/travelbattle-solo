@@ -21,6 +21,12 @@ playwright-report/
 playwright/.cache/
 coverage/
 
+# Throwaway probe specs. Handy for poking at the game in a real browser without
+# adding to the committed suite — and this stops one being swept into a commit
+# by `git add -A` and then running in CI.
+tests/probe-*.spec.js
+test/probe-*.test.js
+
 # Local environment — never commit secrets
 .env
 .env.*

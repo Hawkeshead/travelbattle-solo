@@ -7,16 +7,17 @@
   "scripts": {
     "start": "npx --yes http-server . -p 8080 -o",
     "test": "node --test \"test/*.test.js\"",
-    "check": "node tools/check-assets.mjs && node tools/check-module-boundaries.mjs && npm test",
-    "smoke": "playwright test"
+    "check": "node tools/check-assets.mjs && node tools/check-module-boundaries.mjs && eslint . && npm test",
+    "smoke": "playwright test",
+    "lint": "eslint ."
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "acorn": "^8.18.0",
-    "acorn-walk": "^8.3.5",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "http-server": "^14.1.1"
   }
 }
