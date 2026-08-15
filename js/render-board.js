@@ -206,7 +206,75 @@ canvas.addEventListener('pointercancel', mapPointerEnd);
 canvas.addEventListener('dblclick', resetMapView); // quick reset for anyone who finds pinch fiddly
 
 function terrainColor(key){
-  return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#3c4a34' }[key];
+  return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#5a5636' }[key];
+}
+
+// A faint, warm paper-grain texture, generated once and reused as a repeating
+// pattern — gives the map a physical, aged-paper feel instead of a flat
+// digital fill, at negligible per-frame cost since it's a single pattern fill.
+let PARCHMENT_TEXTURE_CACHE = null;
+function getParchmentTexturePattern(){
+  if(PARCHMENT_TEXTURE_CACHE) return PARCHMENT_TEXTURE_CACHE;
+  const tile = document.createElement('canvas');
+  tile.width = 96; tile.height = 96;
+  const tctx = tile.getContext('2d');
+  const imgData = tctx.createImageData(96,96);
+  for(let i=0;i<imgData.data.length;i+=4){
+    const v = 210 + Math.floor((Math.random()-0.5)*70);
+    imgData.data[i] = v; imgData.data[i+1] = v-6; imgData.data[i+2] = v-18; imgData.data[i+3] = 12;
+  }
+  tctx.putImageData(imgData,0,0);
+  PARCHMENT_TEXTURE_CACHE = ctx.createPattern(tile, 'repeat');
+  return PARCHMENT_TEXTURE_CACHE;
+}
+
+// Small hand-drawn map-symbol glyphs, in the ink/brass palette, standing in
+// for the old emoji icons (which render inconsistently across platforms and
+// read as a placeholder rather than a deliberate mark on an aged map).
+function drawHillGlyph(cx, cy, cell){
+  // A soft double-peak contour, low-opacity — Hill already carries its own
+  // fill colour and a rocky border around the whole landform, so this is a
+  // light accent rather than the primary way hills read.
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = '#e9e4d6';
+  ctx.lineWidth = Math.max(1, cell*0.035);
+  ctx.lineJoin = 'round';
+  const w = cell*0.34, h = cell*0.22;
+  ctx.beginPath();
+  ctx.moveTo(-w, h*0.4);
+  ctx.lineTo(-w*0.28, -h*0.7);
+  ctx.lineTo(-w*0.02, -h*0.15);
+  ctx.lineTo(w*0.32, -h);
+  ctx.lineTo(w, h*0.4);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBuildingGlyph(cx, cy, cell){
+  // A simple cottage silhouette — peaked roof over a small block — in a
+  // warm ink tone that sits comfortably against the Building tile's own
+  // fill colour rather than a bright, out-of-palette emoji.
+  ctx.save();
+  ctx.translate(cx, cy);
+  const w = cell*0.30, hRoof = cell*0.20, hWall = cell*0.20;
+  ctx.fillStyle = '#e9e4d6';
+  ctx.globalAlpha = 0.85;
+  // walls
+  ctx.fillRect(-w*0.62, -hWall*0.05, w*1.24, hWall*1.05);
+  // roof
+  ctx.beginPath();
+  ctx.moveTo(-w*0.78, -hWall*0.05);
+  ctx.lineTo(0, -hRoof-hWall*0.05);
+  ctx.lineTo(w*0.78, -hWall*0.05);
+  ctx.closePath();
+  ctx.fill();
+  // door
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#3a2f22';
+  ctx.fillRect(-w*0.14, hWall*0.35, w*0.28, hWall*0.65);
+  ctx.restore();
 }
 
 /* =========================================================
@@ -428,15 +496,18 @@ function draw(){
   ctx.lineCap = 'butt';
 
   // terrain icons: quick at-a-glance recognition for hill/building (woods/field
-  // are already visually distinct via their new shapes/colour, no icon needed)
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = Math.floor(CELL*0.46)+'px sans-serif';
-  const ICONS = { HILL:'\u{26F0}', BUILDING:'\u{1F3E0}' };
+  // are already visually distinct via their new shapes/colour, no icon needed).
+  // Hand-drawn in the ink/brass palette rather than emoji, which render
+  // inconsistently across platforms and clash with the parchment-map tone.
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
-      const icon = ICONS[terrain[y][x]];
-      if(!icon) continue;
-      ctx.fillText(icon, x*CELL+CELL/2, sy(y)*CELL+CELL/2);
+      const key = terrain[y][x];
+      const cx_ = x*CELL+CELL/2, cyy = sy(y)*CELL+CELL/2;
+      if(key==='HILL'){
+        drawHillGlyph(cx_, cyy, CELL);
+      } else if(key==='BUILDING'){
+        drawBuildingGlyph(cx_, cyy, CELL);
+      }
     }
   }
 
@@ -578,5 +649,16 @@ function draw(){
       ctx.restore();
     }
   }
+
+  // vignette: a soft darkening toward the board's outer edge, so the map reads
+  // as a physical object sitting on a table rather than a flat filled rectangle
+  const vw = COLS*CELL, vh = ROWS*CELL;
+  ctx.fillStyle = getParchmentTexturePattern();
+  ctx.fillRect(0, 0, vw, vh);
+  const vignette = ctx.createRadialGradient(vw/2, vh/2, Math.min(vw,vh)*0.35, vw/2, vh/2, Math.hypot(vw,vh)*0.62);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(10,8,4,0.30)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, vw, vh);
 }
 
