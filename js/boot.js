@@ -1,3 +1,8 @@
+import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
+import { sizeCanvas } from './render-board.js';
+import { initBattleControls, initBoardInput } from './ui-battle.js';
+import { showModeSelect } from './ui-menus.js';
+
 /* =========================================================
    BOOT
    The single entry point. Everything above this file defines things;
@@ -9,7 +14,7 @@
    of the script order in index.html.
 ========================================================= */
 
-function start(){
+export function start(){
   // Input and control wiring first, so the DOM is fully live before any
   // screen is drawn.
   initBoardInput();

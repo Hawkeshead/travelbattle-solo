@@ -1,3 +1,11 @@
+import { start } from './boot.js';
+import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, setCell, state } from './data-core.js';
+import { inBounds, neighbors8, unitsAt } from './engine-rules.js';
+import { log, logReplay } from './engine-state.js';
+import { drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
+import { renderAiDebugPanel } from './ui-battle.js';
+import { dragState } from './ui-deployment.js';
+
 /* =========================================================
    RENDERING
 ========================================================= */
@@ -6,10 +14,10 @@
 // board coordinates, movement, LOS, and board rotation are untouched.
 // Self-inverse (flipping twice returns the original), so the same
 // function converts board->screen and screen->board.
-function screenFlipActive(){
+export function screenFlipActive(){
   return state.mode==='ai' && state.aiSide===SIDES.RED; // human is playing France (Blue), whose zone is internally "top"
 }
-function sy(y){
+export function sy(y){
   return screenFlipActive() ? (ROWS-1-y) : y;
 }
 
@@ -21,35 +29,35 @@ function sy(y){
    position eases toward it over a short duration; drawUnit reads the
    interpolated position instead of u.x/u.y directly.
 ========================================================= */
-let unitAnimations = {}; // unitId -> {fromX, fromY, toX, toY, startTime, duration}
-let activeActionLine = null; // {fromX, fromY, toX, toY, color, expiresAt} — who's firing/fighting whom
-let deathEffects = []; // {x, y, startTime} — skull for 2s, then smoke fades over another 2s
-let animFrameHandle = null;
+export let unitAnimations = {}; // unitId -> {fromX, fromY, toX, toY, startTime, duration}
+export let activeActionLine = null; // {fromX, fromY, toX, toY, color, expiresAt} — who's firing/fighting whom
+export let deathEffects = []; // {x, y, startTime} — skull for 2s, then smoke fades over another 2s
+export let animFrameHandle = null;
 
 // Undo and the replay player both need to wipe every in-flight visual effect.
 // They used to assign to these three bindings directly from another file;
 // under ES modules that throws, so the reset lives here instead.
-function clearUnitAnimations(){
+export function clearUnitAnimations(){
   unitAnimations = {};
 }
 
-function clearTransientRenderState(){
+export function clearTransientRenderState(){
   unitAnimations = {};
   activeActionLine = null;
   deathEffects = [];
 }
 
-const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
-function addDeathEffect(x, y){
+export const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
+export function addDeathEffect(x, y){
   deathEffects.push({x, y, startTime: Date.now()});
   ensureAnimationLoopRunning();
 }
-function addCrater(x, y){
+export function addCrater(x, y){
   if(state.craters.some(c=>c.x===x && c.y===y)) return; // already scarred, don't stack markers
   state.craters.push({x, y});
 }
 
-function getUnitVisualPos(u){
+export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
   const elapsed = Date.now() - anim.startTime;
@@ -62,7 +70,7 @@ function getUnitVisualPos(u){
 // A Brigadier is never blocked from having an enemy move into his square —
 // he's simply shoved 1-2 squares clear. Called right before completing a
 // move onto a square a lone enemy Brigadier currently occupies.
-function displaceBrigadierIfPresent(x, y, fromX, fromY){
+export function displaceBrigadierIfPresent(x, y, fromX, fromY){
   const occupant = state.units.find(o=>!o.removed && o.x===x && o.y===y && o.type==='BRIGADIER');
   if(!occupant) return;
   const dx = Math.sign(x-fromX) || 0, dy = Math.sign(y-fromY) || 0;
@@ -80,7 +88,7 @@ function displaceBrigadierIfPresent(x, y, fromX, fromY){
   }
 }
 
-function animateUnitTo(u, newX, newY){
+export function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
@@ -88,12 +96,12 @@ function animateUnitTo(u, newX, newY){
   ensureAnimationLoopRunning();
 }
 
-function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
+export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
   activeActionLine = { fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, expiresAt: Date.now()+(durationMs||1800) };
   ensureAnimationLoopRunning();
 }
 
-function ensureAnimationLoopRunning(){
+export function ensureAnimationLoopRunning(){
   if(animFrameHandle) return;
   function tick(){
     draw();
@@ -112,10 +120,10 @@ function ensureAnimationLoopRunning(){
   animFrameHandle = requestAnimationFrame(tick);
 }
 
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
+export const canvas = document.getElementById('board');
+export const ctx = canvas.getContext('2d');
 
-function computeCellSize(){
+export function computeCellSize(){
   const wrap = document.getElementById('boardWrap');
   const viewportW = document.documentElement.clientWidth || window.innerWidth;
   const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - 16);
@@ -125,7 +133,7 @@ function computeCellSize(){
   return Math.max(22, Math.min(byWidth, byHeight, 68));
 }
 
-function sizeCanvas(){
+export function sizeCanvas(){
   setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
   canvas.style.width = (COLS*CELL) + 'px';
@@ -147,30 +155,30 @@ function sizeCanvas(){
    which already reflects the transform automatically, so none of that code
    needed to change.
 ========================================================= */
-const MAP_MIN_ZOOM = 1, MAP_MAX_ZOOM = 3;
-let mapZoom = 1, mapPanX = 0, mapPanY = 0;
-let mapGesturePointers = new Map();
-let mapPinchStartDist = null, mapPinchStartZoom = 1;
-let mapPanStart = null;
-let mapGestureMoved = false; // true once the current gesture passed the tap threshold — the click handler checks this to avoid selecting a cell after a pan/pinch
+export const MAP_MIN_ZOOM = 1, MAP_MAX_ZOOM = 3;
+export let mapZoom = 1, mapPanX = 0, mapPanY = 0;
+export let mapGesturePointers = new Map();
+export let mapPinchStartDist = null, mapPinchStartZoom = 1;
+export let mapPanStart = null;
+export let mapGestureMoved = false; // true once the current gesture passed the tap threshold — the click handler checks this to avoid selecting a cell after a pan/pinch
 
 // Read-and-clear, for the board click handler in ui-battle.js. It used to read
 // mapGestureMoved and reset it directly; an imported binding is read-only under
 // ES modules, so the write has to happen in the file that owns the variable.
-function consumeGestureFlag(){
+export function consumeGestureFlag(){
   const moved = mapGestureMoved;
   mapGestureMoved = false;
   return moved;
 }
 
-function resetMapView(){
+export function resetMapView(){
   mapZoom = 1; mapPanX = 0; mapPanY = 0;
   mapGesturePointers.clear();
   mapPinchStartDist = null; mapPanStart = null; mapGestureMoved = false;
   applyMapTransform();
 }
 
-function clampMapPan(){
+export function clampMapPan(){
   const wrap = document.getElementById('boardWrap');
   const scaledW = canvas.offsetWidth * mapZoom, scaledH = canvas.offsetHeight * mapZoom;
   const minX = Math.min(0, wrap.clientWidth - scaledW), maxX = 0;
@@ -179,7 +187,7 @@ function clampMapPan(){
   mapPanY = Math.max(minY, Math.min(maxY, mapPanY));
 }
 
-function applyMapTransform(){
+export function applyMapTransform(){
   clampMapPan();
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
 }
@@ -218,7 +226,7 @@ canvas.addEventListener('pointermove', (e)=>{
   }
 });
 
-function mapPointerEnd(e){
+export function mapPointerEnd(e){
   mapGesturePointers.delete(e.pointerId);
   if(mapGesturePointers.size<2) mapPinchStartDist = null;
   if(mapGesturePointers.size===0) mapPanStart = null;
@@ -227,15 +235,15 @@ canvas.addEventListener('pointerup', mapPointerEnd);
 canvas.addEventListener('pointercancel', mapPointerEnd);
 canvas.addEventListener('dblclick', resetMapView); // quick reset for anyone who finds pinch fiddly
 
-function terrainColor(key){
+export function terrainColor(key){
   return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#5a5636' }[key];
 }
 
 // A faint, warm paper-grain texture, generated once and reused as a repeating
 // pattern — gives the map a physical, aged-paper feel instead of a flat
 // digital fill, at negligible per-frame cost since it's a single pattern fill.
-let PARCHMENT_TEXTURE_CACHE = null;
-function getParchmentTexturePattern(){
+export let PARCHMENT_TEXTURE_CACHE = null;
+export function getParchmentTexturePattern(){
   if(PARCHMENT_TEXTURE_CACHE) return PARCHMENT_TEXTURE_CACHE;
   const tile = document.createElement('canvas');
   tile.width = 96; tile.height = 96;
@@ -253,7 +261,7 @@ function getParchmentTexturePattern(){
 // Small hand-drawn map-symbol glyphs, in the ink/brass palette, standing in
 // for the old emoji icons (which render inconsistently across platforms and
 // read as a placeholder rather than a deliberate mark on an aged map).
-function drawHillGlyph(cx, cy, cell){
+export function drawHillGlyph(cx, cy, cell){
   // A soft double-peak contour, low-opacity — Hill already carries its own
   // fill colour and a rocky border around the whole landform, so this is a
   // light accent rather than the primary way hills read.
@@ -281,7 +289,7 @@ function drawHillGlyph(cx, cy, cell){
    helpers group same-type terrain into connected regions and render
    them as one organic shape rather than a tile-by-tile stamp.
 ========================================================= */
-function findConnectedRegions(terrain, key){
+export function findConnectedRegions(terrain, key){
   const h = terrain.length, w = terrain[0].length;
   const regions = [];
   const visited = new Set();
@@ -310,17 +318,17 @@ function findConnectedRegions(terrain, key){
   }
   return regions;
 }
-function seededWobble(seed){
+export function seededWobble(seed){
   const v = Math.sin(seed*12.9898)*43758.5453;
   return (v - Math.floor(v)) - 0.5; // -0.5..0.5
 }
-function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, same generator
+export function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, same generator
 
 // A faint repeating grass-blade texture for Open/Hill ground — cheap (one
 // pattern fill covering the whole board) rather than per-tile stroke calls,
 // which matters once Grand Strategy's 400-cell board is in play.
-let GRASS_TEXTURE_CACHE = null;
-function getGrassTexturePattern(){
+export let GRASS_TEXTURE_CACHE = null;
+export function getGrassTexturePattern(){
   if(GRASS_TEXTURE_CACHE) return GRASS_TEXTURE_CACHE;
   const tile = document.createElement('canvas');
   const size = 72;
@@ -342,7 +350,7 @@ function getGrassTexturePattern(){
   return GRASS_TEXTURE_CACHE;
 }
 
-function roundedBlobPath(ctx, x, y, w, h, r){
+export function roundedBlobPath(ctx, x, y, w, h, r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);
   ctx.arcTo(x+w,y,x+w,y+h,r);
@@ -355,7 +363,7 @@ function roundedBlobPath(ctx, x, y, w, h, r){
 // A cluster of small overlapping canopy shapes, standing in for a single flat
 // tree-blob — a few individual tree crowns rather than one solid mass, in
 // varied green tones for depth. Seeded per cell so it's stable across redraws.
-function drawTreeCanopyCluster(cx, cy, cellSize, seed){
+export function drawTreeCanopyCluster(cx, cy, cellSize, seed){
   const shades = ['#33472a','#243318','#3d5230'];
   const n = 4 + Math.floor(seededRand(seed*3+1)*2); // 4-5 canopies
   for(let i=0;i<n;i++){
@@ -376,7 +384,7 @@ function drawTreeCanopyCluster(cx, cy, cellSize, seed){
 // fixed per cluster size (not fully random) so houses reliably separate
 // rather than landing on top of each other, with a little seeded jitter on
 // top for an organic, not-quite-uniform arrangement.
-function drawBuildingCluster(cx, cy, cellSize, seed){
+export function drawBuildingCluster(cx, cy, cellSize, seed){
   const roofColors = ['#8a4f36','#6b5847','#7a6248'];
   const n = 2 + Math.floor(seededRand(seed*5+1)*2); // 2-3 houses
   const basePositions = n===2
@@ -408,7 +416,7 @@ function drawBuildingCluster(cx, cy, cellSize, seed){
   }
 }
 
-function draw(){
+export function draw(){
   const debugPanel = document.getElementById('aiDebugPanel');
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
   const flip = screenFlipActive();

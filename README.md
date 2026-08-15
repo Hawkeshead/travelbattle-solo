@@ -103,8 +103,35 @@ That redeploys the older working version. Nothing is lost.
 **Changing game content — units, scenarios, campaign text — means editing
 `data/*.json` only.** No code changes needed.
 
-The scripts in `js/` load in the order listed at the bottom of `index.html`, and
-that order matters: each file uses functions defined by the ones above it.
+### How the files find each other
+
+`index.html` loads exactly one script, `js/boot.js`. Every other file is pulled
+in by an `import` line at the top of whichever file needs it, so each file
+states its own dependencies and the browser works out the loading order.
+
+That means **you can no longer break the game by putting things in the wrong
+order** — which used to be possible, because `index.html` carried a
+hand-maintained list of sixteen script tags that had to stay in exactly the
+right sequence.
+
+When you add a function to one file and want to use it in another:
+
+1. Put `export` in front of it — `export function myThing(){ ... }`
+2. At the top of the file that needs it, add
+   `import { myThing } from './that-file.js';`
+
+Two rules worth knowing, because breaking them fails in confusing ways:
+
+- **You cannot assign to something you imported.** `import { CELL }` then
+  `CELL = 40` throws an error. If another file needs to change a value, that
+  file's owner exports a small function to do it — see `setCell()` in
+  `data-core.js` for the pattern. `npm run check` enforces this.
+- **Anything called from an `onclick="..."` attribute in HTML must also be put
+  on `window`,** because inline handlers can't see module scope. There is one
+  of these, `toggleUnitBio`, and it's commented in `js/ui-battle.js`.
+
+The three `js/audio-*.js` files are not part of this — they were unplugged from
+the game and are left exactly as they were, ready to be reconnected.
 
 ---
 

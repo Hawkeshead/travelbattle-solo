@@ -8,7 +8,7 @@
    immediately, exactly as it read inline literals before this change,
    with no restructuring of the game code itself.
 ========================================================= */
-const TB_DATA = (function(){
+export const TB_DATA = (function(){
   function loadJSON(path){
     const xhr = new XMLHttpRequest();
     xhr.open('GET', path, false);
@@ -61,16 +61,16 @@ const TB_DATA = (function(){
    forced rotation of that many 90° clockwise turns; 4-6 = that side's
    player chooses the rotation) — see beginBoardSetup().
 ========================================================= */
-const HALF_COLS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is always 20 wide
-let ROWS = 10; // 10 deep for a standard 2-board match; setBoardMode('grand') sets this to 20 for a 2x2, 4-board match
-let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
+export const HALF_COLS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is always 20 wide
+export let ROWS = 10; // 10 deep for a standard 2-board match; setBoardMode('grand') sets this to 20 for a 2x2, 4-board match
+export let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
 
 // Switches board depth between a standard 2-board match (ROWS=10) and a 2x2
 // four-board Grand Strategy match (ROWS=20, COLS stays 20 either way). Must
 // be called before buildTerrainMap()/buildExcludedRoadEdgeSet() and before
 // any deployment-zone or edge-retreat logic runs for the new match, since
 // those all read ROWS live rather than caching it.
-function setBoardMode(mode){
+export function setBoardMode(mode){
   state.boardMode = mode;
   ROWS = (mode === 'grand') ? HALF_COLS*2 : HALF_COLS;
 }
@@ -79,27 +79,27 @@ function setBoardMode(mode){
 // Roads are stored as a full ROAD square for gameplay (any unit in the square
 // gets the bonus) but rendered as a thin line through the cell centre — see
 // the road-drawing pass in draw() — so the visual doesn't fill the whole tile.
-const BOARD_A_TERRAIN = TB_DATA.terrainLayouts.boardATerrain;
+export const BOARD_A_TERRAIN = TB_DATA.terrainLayouts.boardATerrain;
 
 // Board B — exact terrain from Matthew's annotated spreadsheet (Aug 2026).
-const BOARD_B_TERRAIN = TB_DATA.terrainLayouts.boardBTerrain;
+export const BOARD_B_TERRAIN = TB_DATA.terrainLayouts.boardBTerrain;
 
 // Rotate a square (N x N) grid 90° clockwise, `times` times.
-function rotateGrid90CW(grid){
+export function rotateGrid90CW(grid){
   const n = grid.length;
   const out = [];
   for(let y=0;y<n;y++){ const row=[]; for(let x=0;x<n;x++) row.push(null); out.push(row); }
   for(let y=0;y<n;y++) for(let x=0;x<n;x++) out[x][n-1-y] = grid[y][x];
   return out;
 }
-function rotateGridTimes(grid, times){
+export function rotateGridTimes(grid, times){
   let g = grid;
   const n = ((times%4)+4)%4;
   for(let i=0;i<n;i++) g = rotateGrid90CW(g);
   return g;
 }
 
-function boardTerrainFor(key, rotation){
+export function boardTerrainFor(key, rotation){
   const base = key==='A' ? BOARD_A_TERRAIN : BOARD_B_TERRAIN;
   return rotateGridTimes(base, rotation||0);
 }
@@ -108,9 +108,9 @@ function boardTerrainFor(key, rotation){
 // adjacent ROAD squares — a visually redundant loop where the road already
 // connects one square earlier (Matthew's note, Aug 2026). Coordinates are
 // LOCAL to that physical board (0..HALF_COLS-1), before rotation/placement.
-const BOARD_EXCLUDED_ROAD_EDGES = TB_DATA.terrainLayouts.boardExcludedRoadEdges;
+export const BOARD_EXCLUDED_ROAD_EDGES = TB_DATA.terrainLayouts.boardExcludedRoadEdges;
 
-function rotatePointCW(x, y, n, times){
+export function rotatePointCW(x, y, n, times){
   let px=x, py=y;
   const t = ((times%4)+4)%4;
   for(let i=0;i<t;i++){ const nx = n-1-py, ny = px; px=nx; py=ny; }
@@ -121,7 +121,7 @@ function rotatePointCW(x, y, n, times){
 // shifted by colOffset (0 if it landed on the left half, HALF_COLS if right)
 // and rowOffset (0 if top row of boards, HALF_COLS if bottom — only non-zero
 // in a 2x2 Grand Strategy layout; standard 2-board matches never pass it).
-function excludedEdgesForBoard(boardKey, rotation, colOffset, rowOffset){
+export function excludedEdgesForBoard(boardKey, rotation, colOffset, rowOffset){
   rowOffset = rowOffset || 0;
   return (BOARD_EXCLUDED_ROAD_EDGES[boardKey]||[]).map(e=>{
     const [rx1,ry1] = rotatePointCW(e.x1,e.y1,HALF_COLS,rotation);
@@ -129,12 +129,12 @@ function excludedEdgesForBoard(boardKey, rotation, colOffset, rowOffset){
     return { x1:rx1+colOffset, y1:ry1+rowOffset, x2:rx2+colOffset, y2:ry2+rowOffset };
   });
 }
-function edgeKey(x1,y1,x2,y2){
+export function edgeKey(x1,y1,x2,y2){
   // undirected — normalize so (a,b) and (b,a) produce the same key
   return (x1<x2 || (x1===x2 && y1<y2)) ? `${x1},${y1}-${x2},${y2}` : `${x2},${y2}-${x1},${y1}`;
 }
 
-function buildTerrainMap(assignment, rotation){
+export function buildTerrainMap(assignment, rotation){
   assignment = assignment || { red:'A', blue:'B' };
   rotation = rotation || { red:0, blue:0 };
   const leftGrid = boardTerrainFor(assignment.red, rotation.red);
@@ -144,7 +144,7 @@ function buildTerrainMap(assignment, rotation){
   return map;
 }
 
-function buildExcludedRoadEdgeSet(assignment, rotation){
+export function buildExcludedRoadEdgeSet(assignment, rotation){
   assignment = assignment || { red:'A', blue:'B' };
   rotation = rotation || { red:0, blue:0 };
   const edges = [
@@ -164,7 +164,7 @@ function buildExcludedRoadEdgeSet(assignment, rotation){
    quadrants shape: { topLeft, topRight, bottomLeft, bottomRight },
    each { board:'A'|'B', rotation:0-3 }.
 ========================================================= */
-function generateGrandQuadrants(rollFn){
+export function generateGrandQuadrants(rollFn){
   rollFn = rollFn || (() => Math.floor(Math.random()*4)); // 0-3, overridable for deterministic tests
   const boards = ['A','A','B','B'];
   // Fisher-Yates shuffle
@@ -180,7 +180,7 @@ function generateGrandQuadrants(rollFn){
   return quadrants;
 }
 
-function buildTerrainMapGrand(quadrants){
+export function buildTerrainMapGrand(quadrants){
   const tl = boardTerrainFor(quadrants.topLeft.board, quadrants.topLeft.rotation);
   const tr = boardTerrainFor(quadrants.topRight.board, quadrants.topRight.rotation);
   const bl = boardTerrainFor(quadrants.bottomLeft.board, quadrants.bottomLeft.rotation);
@@ -191,7 +191,7 @@ function buildTerrainMapGrand(quadrants){
   return map;
 }
 
-function buildExcludedRoadEdgeSetGrand(quadrants){
+export function buildExcludedRoadEdgeSetGrand(quadrants){
   const edges = [
     ...excludedEdgesForBoard(quadrants.topLeft.board, quadrants.topLeft.rotation, 0, 0),
     ...excludedEdgesForBoard(quadrants.topRight.board, quadrants.topRight.rotation, HALF_COLS, 0),
@@ -202,16 +202,16 @@ function buildExcludedRoadEdgeSetGrand(quadrants){
   edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
   return set;
 }
-const SIDES = { RED: 'red', BLUE: 'blue' };
-const SIDE_LABEL = { red: 'Britain', blue: 'France' };
-const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
-const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
+export const SIDES = { RED: 'red', BLUE: 'blue' };
+export const SIDE_LABEL = { red: 'Britain', blue: 'France' };
+export const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
+export const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
 
-const UNIT_TYPES = TB_DATA.unitTypes.unitTypes;
+export const UNIT_TYPES = TB_DATA.unitTypes.unitTypes;
 
 // Full army per side, split into 3 Brigades — matches the physical box contents
 // (3 Brigadiers, 2 Guard Infantry, 6 Infantry, 2 Heavy Cavalry, 2 Light Cavalry, 2 Artillery)
-const UNIT_ARCHIVE = TB_DATA.unitArchive;
+export const UNIT_ARCHIVE = TB_DATA.unitArchive;
 
 /* =========================================================
    OPERATIONS — asymmetrical scenario battles, distinct from a standard
@@ -224,19 +224,19 @@ const UNIT_ARCHIVE = TB_DATA.unitArchive;
    4 of the eventual 14 are authored here as a proven template — one
    per objective type, spanning all three campaigns.
 ========================================================= */
-const NARRATION = TB_DATA.narration;
+export const NARRATION = TB_DATA.narration;
 
-const CAMPAIGNS = TB_DATA.campaigns;
+export const CAMPAIGNS = TB_DATA.campaigns;
 
-const SCENARIOS = TB_DATA.scenarios;
-const BRIGADE_COMPOSITIONS = TB_DATA.unitTypes.brigadeCompositions;
+export const SCENARIOS = TB_DATA.scenarios;
+export const BRIGADE_COMPOSITIONS = TB_DATA.unitTypes.brigadeCompositions;
 
-const TERRAIN = TB_DATA.unitTypes.terrainTypes;
+export const TERRAIN = TB_DATA.unitTypes.terrainTypes;
 
 /* =========================================================
    STATE
 ========================================================= */
-let state = {
+export let state = {
   gameOver: false,
   mode: 'hotseat',  // 'hotseat' | 'ai'
   aiSide: null,     // side controlled by the AI, when mode==='ai'
@@ -269,18 +269,18 @@ let state = {
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
   _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
 };
-let uidCounter = 1;
+export let uidCounter = 1;
 
 // Unit ids are handed out through this function rather than by incrementing
 // uidCounter from another file. Under ES modules an imported binding is
 // read-only, so `uidCounter++` across a file boundary throws — this keeps the
 // only write in the file that owns the variable.
-function nextUid(){
+export function nextUid(){
   return uidCounter++;
 }
 
 // Same reasoning for CELL, which sizeCanvas() in render-board.js recomputes
 // on every resize.
-function setCell(px){
+export function setCell(px){
   CELL = px;
 }

@@ -1,3 +1,11 @@
+import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, reserveCrisisExists, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty } from './ai-tactics.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { otherSide } from './engine-objectives.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { log } from './engine-state.js';
+import { animateUnitTo, displaceBrigadierIfPresent, draw } from './render-board.js';
+import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
+
 /* =========================================================
    AI: BATTLEFIELD ASSESSMENT, OPERATIONAL PLAN, BRIGADE MISSIONS
    (Hard difficulty only. Existing tactics elsewhere in this file — terrain
@@ -7,19 +15,19 @@
    which was the missing piece: previously every unit scored its own move in
    isolation with no notion of what the army as a whole was trying to do.)
 ========================================================= */
-const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
+export const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
   'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL'];
-const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW'];
-const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
+export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW'];
+export const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
 
-function brigadeIdsForSide(side){
+export function brigadeIdsForSide(side){
   const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
   return [...ids].sort((a,b)=>a-b);
 }
 
 // Section 3: read the whole battlefield fresh each AI move phase. Pure function,
 // mutates nothing — safe to call for debug/inspection as well as real decisions.
-function assessBattlefield(side){
+export function assessBattlefield(side){
   const enemy = otherSide(side);
   const ownUnits = state.units.filter(u=>!u.removed && u.side===side);
   const enemyUnits = state.units.filter(u=>!u.removed && u.side===enemy);
@@ -91,7 +99,7 @@ function assessBattlefield(side){
 // Section 4: pick (or keep) a multi-turn plan. Only reassesses when a Section 12
 // trigger actually fires — otherwise the previous turn's plan is returned as-is,
 // so the AI doesn't re-litigate its whole strategy every single move phase.
-function updateOperationalPlan(side, assessment){
+export function updateOperationalPlan(side, assessment){
   const prev = state._aiPlan[side];
   const reasons = [];
   let mustReassess = !prev;
@@ -135,7 +143,7 @@ function updateOperationalPlan(side, assessment){
 }
 
 // Section 5: turn the plan into one mission per own Brigade.
-function assignBrigadeMissions(side, plan, assessment){
+export function assignBrigadeMissions(side, plan, assessment){
   const missions = {};
   const brigadeIds = assessment.liveOwnBrigades.map(b=>b.id);
   const others = brigadeIds.filter(id=>id!==plan.mainEffortBrigadeId);
@@ -160,7 +168,7 @@ function assignBrigadeMissions(side, plan, assessment){
 // Called once per AI move phase, before any per-unit decisions — Section 2's
 // three-level command hierarchy in practice: army plan, then Brigade mission,
 // then (in aiDecideAndExecuteMove) individual unit execution of that mission.
-function aiPlanTurn(side){
+export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
   const plan = updateOperationalPlan(side, assessment);
@@ -169,13 +177,13 @@ function aiPlanTurn(side){
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
 
-function missionFor(u){
+export function missionFor(u){
   const missions = state._aiMissions[u.side];
   if(!missions) return null;
   return missions[u.brigadeId] || null;
 }
 
-function logAiDebugMove(side, entry){
+export function logAiDebugMove(side, entry){
   const dbg = state._aiDebugLog[side];
   if(dbg) dbg.moveLog.push(entry);
 }
@@ -183,7 +191,7 @@ function logAiDebugMove(side, entry){
 // Section 6/7: how well a candidate square serves this unit's Brigade mission —
 // added on top of the existing tactical bonuses in aiDecideAndExecuteMove, not
 // instead of them. Only active on Hard, where missions actually exist.
-function missionMoveBonus(u, side, pos, mission, plan){
+export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
   const targetBrigade = plan && plan.targetBrigadeId!=null
@@ -223,7 +231,7 @@ function missionMoveBonus(u, side, pos, mission, plan){
   }
 }
 
-function orderAiUnitsForMove(side){  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
+export function orderAiUnitsForMove(side){  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
   // penalized for their own "disconnection" — see movableUnitsForSide), so
   // leading with them gives everyone else a new, already-moved anchor to
   // path toward. Moving them last caused a standoff: nobody wants to be the
@@ -233,7 +241,7 @@ function orderAiUnitsForMove(side){  // Brigadiers move first: they anchor their
   return state.units.filter(u=>!u.removed && u.side===side).sort((a,b)=>pri[a.type]-pri[b.type]).map(u=>u.id);
 }
 
-function nearestEnemyDist(pos, side){
+export function nearestEnemyDist(pos, side){
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   let best = 999;
   for(const e of state.units){
@@ -251,7 +259,7 @@ function nearestEnemyDist(pos, side){
 // same expected-margin approach simulateFightAftermathScore already uses for
 // fights — call with u already sitting at the candidate square (the loop in
 // aiDecideAndExecuteMove already does this temporarily, same as threatPenalty).
-function lookaheadMovePenalty(u, side){
+export function lookaheadMovePenalty(u, side){
   if(state.aiDifficulty!=='hard') return 0;
   const enemy = otherSide(side);
   const EV_BY_DICE = {1:3.5, 2:4.47};
@@ -273,7 +281,7 @@ function lookaheadMovePenalty(u, side){
   return worst;
 }
 
-function aiDecideAndExecuteMove(u){
+export function aiDecideAndExecuteMove(u){
   if(u.removed || u.turnOnly) return;
   const side = u.side;
   const t = UNIT_TYPES[u.type];
@@ -419,7 +427,7 @@ function aiDecideAndExecuteMove(u){
   }
 }
 
-function aiDoMovePhase(){
+export function aiDoMovePhase(){
   const order = orderAiUnitsForMove(state.aiSide);
   let i = 0;
   function step(){
@@ -436,7 +444,7 @@ function aiDoMovePhase(){
 /* =========================================================
    AI: ARTILLERY FIRE
 ========================================================= */
-function aiFireDecision(gun, onComplete){
+export function aiFireDecision(gun, onComplete){
   onComplete = onComplete || function(){};
   const targets = artilleryTargets(gun);
   if(targets.length===0){ state.fired.add(gun.id); onComplete(); return; }
@@ -461,7 +469,7 @@ function aiFireDecision(gun, onComplete){
   fireArtillery(gun, best, onComplete);
 }
 
-function aiDoFirePhase(){
+export function aiDoFirePhase(){
   const guns = state.units.filter(u=>!u.removed && u.side===state.aiSide && UNIT_TYPES[u.type].isArtillery && !state.fired.has(u.id));
   let i=0;
   function step(){
@@ -480,7 +488,7 @@ function aiDoFirePhase(){
 /* =========================================================
    AI: FIGHTING
 ========================================================= */
-function estimateFightValue(a, t){
+export function estimateFightValue(a, t){
   let aD = combatBonuses(a, t, false).dice;
   let dD = combatBonuses(t, a, true).dice;
   const aType = UNIT_TYPES[a.type], tType = UNIT_TYPES[t.type];
@@ -492,7 +500,7 @@ function estimateFightValue(a, t){
 
 // Medium+: how much finishing off `target` matters for actually winning the game —
 // Easy has no concept of this and just takes the best immediate trade available.
-function brigadeBreakBonus(target){
+export function brigadeBreakBonus(target){
   const remaining = state.units.filter(o=>!o.removed && o.side===target.side && o.brigadeId===target.brigadeId && o.type!=='BRIGADIER').length;
   if(remaining<=1) return 6;   // this IS the Brigade's last unit — taking it breaks the Brigade outright
   if(remaining===2) return 2.5; // one hit from breaking
@@ -505,7 +513,7 @@ function brigadeBreakBonus(target){
 // the resulting position with evaluateState, then revert. Not true minimax — the
 // branching factor here doesn't justify that — but a genuine step past the
 // immediate trade instead of a static heuristic.
-function simulateFightAftermathScore(attacker, defender, side){
+export function simulateFightAftermathScore(attacker, defender, side){
   const aD = combatBonuses(attacker, defender, false).dice;
   const dD = combatBonuses(defender, attacker, true).dice;
   const EV_BY_DICE = {1:3.5, 2:4.47};
@@ -533,7 +541,7 @@ function simulateFightAftermathScore(attacker, defender, side){
 // Operations: fight decisions need to serve whatever the active objective
 // actually is — chasing Brigade-breaks in an escape or survival scenario is
 // actively counterproductive, not just unsophisticated.
-function scenarioFightBonus(target, side){
+export function scenarioFightBonus(target, side){
   if(!state.scenario) return 0;
   let bonus = 0;
   for(const cond of state.scenario.objective.conditions){
@@ -549,7 +557,7 @@ function scenarioFightBonus(target, side){
 // "this Brigade is already strategically neutralised, stop spending attacks here."
 // Rewards fighting the plan's actual target; mildly discourages a Main-Attack/Flank/
 // Counterattack unit getting distracted onto a target the plan isn't pointed at.
-function missionFightBonus(a, target, side, plan){
+export function missionFightBonus(a, target, side, plan){
   if(!plan) return 0;
   let bonus = 0;
   if(plan.targetBrigadeId!=null && target.brigadeId===plan.targetBrigadeId) bonus += 1.2;
@@ -559,7 +567,7 @@ function missionFightBonus(a, target, side, plan){
   return bonus;
 }
 
-function aiEstimateFightValue(a, t, side){
+export function aiEstimateFightValue(a, t, side){
   const scenarioAdj = scenarioFightBonus(t, side);
   if(state.aiDifficulty==='hard'){
     const plan = state._aiPlan[side];
@@ -569,7 +577,7 @@ function aiEstimateFightValue(a, t, side){
   return estimateFightValue(a,t) + scenarioAdj*0.5; // even Easy needs baseline awareness a non-standard objective exists, not full doctrine
 }
 
-function aiDoFightPhase(){
+export function aiDoFightPhase(){
   function step(){
     if(state.gameOver) return;
     const attackers = state.units.filter(u=>u.side===state.aiSide && canInitiateFight(u) && !state.fought.has(u.id) &&

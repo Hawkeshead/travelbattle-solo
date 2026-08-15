@@ -1,3 +1,9 @@
+import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
+import { clearTransientRenderState, draw } from './render-board.js';
+import { setHighlightCells } from './render-units.js';
+import { selectUnit, updateHeader } from './ui-battle.js';
+import { renderRoster, resetDeploymentUiState } from './ui-deployment.js';
+
 /* =========================================================
    UNDO
    Snapshot the whole game state before each human-initiated mutating
@@ -7,12 +13,12 @@
    every human turn (and deployment turn-change), so undo can only ever
    reach back to the start of the current turn, never before it.
 ========================================================= */
-let undoStack = [];
+export let undoStack = [];
 
-function snapshotState(){
+export function snapshotState(){
   return JSON.stringify(state, (key, value) => (value instanceof Set) ? {__isSet:true, items:[...value]} : value);
 }
-function restoreState(snap){
+export function restoreState(snap){
   const parsed = JSON.parse(snap, (key, value) => (value && value.__isSet) ? new Set(value.items) : value);
   // Replace the contents in place rather than rebinding `state`. Two reasons:
   // an imported binding is read-only under ES modules, so `state = ...` from
@@ -21,16 +27,16 @@ function restoreState(snap){
   for(const key of Object.keys(state)) delete state[key];
   Object.assign(state, parsed);
 }
-function pushUndoSnapshot(){
+export function pushUndoSnapshot(){
   undoStack.push(snapshotState());
   if(undoStack.length>50) undoStack.shift(); // cap memory use
   updateUndoButtons();
 }
-function resetUndoStack(){
+export function resetUndoStack(){
   undoStack = [];
   updateUndoButtons();
 }
-function undoLastAction(){
+export function undoLastAction(){
   if(undoStack.length===0) return;
   const diceOverlay = document.getElementById('diceOverlay');
   if(diceOverlay && diceOverlay.classList.contains('show')){
@@ -53,7 +59,7 @@ function undoLastAction(){
 // Ensures the visible End-Phase button always matches state.phase — called
 // after undo as a defensive re-sync (the undo stack is now scoped so it can
 // never actually cross a phase boundary, but this keeps the UI honest regardless).
-function syncPhaseButtons(){
+export function syncPhaseButtons(){
   const moveBtn = document.getElementById('endMoveBtn');
   const fireBtn = document.getElementById('endFireBtn');
   const fightBtn = document.getElementById('endFightBtn');
@@ -62,15 +68,15 @@ function syncPhaseButtons(){
   fireBtn.style.display = state.phase==='fire' ? 'inline-block' : 'none';
   fightBtn.style.display = state.phase==='fight' ? 'inline-block' : 'none';
 }
-function updateUndoButtons(){
+export function updateUndoButtons(){
   const disabled = undoStack.length===0;
   const b1 = document.getElementById('undoBtn'); if(b1) b1.disabled = disabled;
   const b2 = document.getElementById('undoBtnBattle'); if(b2) b2.disabled = disabled;
 }
 
-let historicalSlotCounters = { red:{}, blue:{} };
-function resetHistoricalIdentities(){ historicalSlotCounters = { red:{}, blue:{} }; }
-function newUnit(side, typeKey, x, y, brigadeId){
+export let historicalSlotCounters = { red:{}, blue:{} };
+export function resetHistoricalIdentities(){ historicalSlotCounters = { red:{}, blue:{} }; }
+export function newUnit(side, typeKey, x, y, brigadeId){
   const counters = historicalSlotCounters[side];
   const idx = counters[typeKey] || 0;
   counters[typeKey] = idx + 1;
@@ -95,7 +101,7 @@ function newUnit(side, typeKey, x, y, brigadeId){
 /* =========================================================
    LOGGING
 ========================================================= */
-function log(msg, cls){
+export function log(msg, cls){
   if(state.replaying) return;
   const el = document.getElementById('log');
   const div = document.createElement('div');
@@ -104,7 +110,7 @@ function log(msg, cls){
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+export function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 /* =========================================================
    BATTLE REPLAY — event capture
@@ -113,7 +119,7 @@ function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
    the board visually and know when to pause. See REPLAY section near
    the bottom of the file for playback.
 ========================================================= */
-function logReplay(type, data){
+export function logReplay(type, data){
   if(!state.matchLog || state.replaying) return;
   state.matchLog.push(Object.assign({
     type, turn: state.turnNumber, phase: state.phase
@@ -126,7 +132,7 @@ function logReplay(type, data){
 // perspective split (always narrated from the ATTACKER's point of view — did
 // their attack succeed or fail), omitted for buckets that don't (a genuine
 // draw, or ranged artillery fire, which is unilateral).
-function narrate(bucketKey, variant){
+export function narrate(bucketKey, variant){
   const bucket = NARRATION[bucketKey];
   if(!bucket) return null;
   const scene = variant ? bucket[variant] : bucket;
@@ -135,7 +141,7 @@ function narrate(bucketKey, variant){
   const line = [pick(scene.opening), pick(scene.middle).replace('{status}', status), pick(scene.closing)].join(' ');
   return line;
 }
-function logNarration(bucketKey, variant){
+export function logNarration(bucketKey, variant){
   const line = narrate(bucketKey, variant);
   if(line) log(line, 'narrative');
 }

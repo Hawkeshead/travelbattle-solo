@@ -48,13 +48,47 @@ jobs:
           done
           echo "All JS files parse."
 
+      # Shared state must only ever be written by the file that owns it.
+      # Under ES modules an imported binding is read-only, so a cross-file
+      # assignment is a runtime TypeError rather than a compile error.
+      - name: Check module boundaries
+        run: node tools/check-module-boundaries.mjs
+
       # Game data must be valid JSON and internally consistent.
       - name: Unit tests
         run: node --test "test/*.test.js"
 
+  smoke:
+    name: Smoke test (real browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      # Boots the real game in Chromium: title screen, a hotseat match through
+      # the board-setup ceremony into deployment, a complete vs-AI deployment
+      # for both sides, and the phone viewport.
+      - name: Play the game
+        run: npx playwright test
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-failure
+          path: test-results/
+          retention-days: 7
+
   deploy:
     name: Deploy to GitHub Pages
-    needs: [check]
+    needs: [check, smoke]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

@@ -79,13 +79,107 @@ test('a hotseat match starts and reaches deployment', async ({ page }) => {
   // Deployment is live: the roster is showing placeable units.
   await expect(roster.locator('.roster-chip').first()).toBeVisible({ timeout: 10_000 });
 
-  // The engine agrees we are in the deploy phase. `state` is read as a bare
-  // identifier rather than via `window`: today it is a top-level `let`, which
-  // lives in the global lexical scope and is NOT a property of window.
-  const phase = await page.evaluate(() => (typeof state !== 'undefined' ? state.phase : null));
-  expect(phase).toBe('deploy');
+  // The engine agrees we are in the deploy phase. Asserted through the UI
+  // rather than by reading game state: since the ES module conversion, `state`
+  // is module-scoped and deliberately not reachable from the page context.
+  // Testing what the player can see is the better contract anyway.
+  await expect(page.locator('#turnBadge')).toHaveText(/^Deploying:/);
 
   expect(errors, `errors during match start:\n${errors.join('\n')}`).toEqual([]);
+});
+
+/**
+ * Click a board cell by its internal coordinates.
+ *
+ * The click handler divides the canvas rect by COLS/ROWS, then maps screen row
+ * to board row through sy(). sy() only flips when the human is playing France,
+ * and these tests always pick Britain, so screen row == board row here.
+ */
+async function clickCell(page, bx, by, { cols = 20, rows = 10 } = {}) {
+  const rect = await page.locator('#board').boundingBox();
+  await page.mouse.click(
+    rect.x + ((bx + 0.5) * rect.width) / cols,
+    rect.y + ((by + 0.5) * rect.height) / rows
+  );
+}
+
+/** Clear the board-setup rotation prompts until the roster appears. */
+async function clearBoardSetup(page) {
+  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  for (let i = 0; i < 4; i++) {
+    if ((await page.locator('#rosterList .roster-chip').count()) > 0) return;
+    if (await confirmOrientation.isVisible().catch(() => false)) {
+      await confirmOrientation.click();
+      continue;
+    }
+    await page.waitForTimeout(300);
+  }
+}
+
+test('a full vs-AI deployment completes for both sides', async ({ page }) => {
+  const errors = watchForErrors(page);
+
+  await page.goto('/');
+
+  // vs AI -> Play Britain -> Easy. This is the path that pulls in
+  // ai-deployment.js and ai-strategy.js, the most interconnected files in the
+  // codebase and the ones the other tests never touch.
+  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Play Britain' }).click();
+  await page.getByRole('button', { name: 'Easy' }).click();
+
+  await clearBoardSetup(page);
+  await expect(page.locator('#rosterList .roster-chip').first()).toBeVisible({ timeout: 10_000 });
+
+  const confirmBrigade = page.locator('#confirmBrigadeBtn');
+  const endDeploy = page.locator('#endDeployBtn');
+
+  // Britain deploys along rows 8-9. Place units left to right, skipping any
+  // square the rules reject (terrain restrictions, occupancy), confirming each
+  // Brigade and letting the AI take its alternating turns in between.
+  const candidates = [];
+  for (const by of [9, 8]) for (let bx = 2; bx < 18; bx++) candidates.push([bx, by]);
+
+  let next = 0;
+  for (let step = 0; step < 90; step++) {
+    if (await endDeploy.isEnabled().catch(() => false)) break;
+
+    // Wait out the AI's turn.
+    const title = (await page.locator('#rosterTitle').textContent()) ?? '';
+    if (!title.startsWith('Britain')) {
+      await page.waitForTimeout(300);
+      continue;
+    }
+
+    if (await confirmBrigade.isEnabled().catch(() => false)) {
+      await confirmBrigade.click();
+      continue;
+    }
+
+    const chip = page.locator('#rosterList .roster-chip').first();
+    if (!(await chip.count())) {
+      await page.waitForTimeout(200);
+      continue;
+    }
+    await chip.click();
+
+    if (next >= candidates.length) break;
+    const [bx, by] = candidates[next++];
+    await clickCell(page, bx, by);
+  }
+
+  // Both armies are on the board and the battle can begin.
+  await expect(endDeploy).toBeEnabled({ timeout: 20_000 });
+
+  // The AI actually placed units rather than stalling silently mid-deployment,
+  // which is the failure mode that makes the Operations unplayable.
+  const aiConfirms = await page
+    .locator('#log .entry')
+    .filter({ hasText: /France's Brigade \d is fully deployed/ })
+    .count();
+  expect(aiConfirms, 'the AI never finished a Brigade').toBe(3);
+
+  expect(errors, `errors during AI deployment:\n${errors.join('\n')}`).toEqual([]);
 });
 
 test('the board is usable on a phone-sized viewport', async ({ page }) => {

@@ -1,4 +1,11 @@
-function showOverlay(title, html, btnLabel, onClick){
+import { showCampaignMenu } from './campaign.js';
+import { SCENARIOS, SIDES, SIDE_LABEL, boardTerrainFor, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { rollD6 } from './engine-rules.js';
+import { log } from './engine-state.js';
+import { canvas, sizeCanvas, terrainColor } from './render-board.js';
+import { initDeployment } from './ui-deployment.js';
+
+export function showOverlay(title, html, btnLabel, onClick){
   document.getElementById('overlayTitle').textContent = title;
   const textEl = document.getElementById('overlayText');
   textEl.innerHTML = html;
@@ -9,7 +16,7 @@ function showOverlay(title, html, btnLabel, onClick){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showModeSelect(isSplash){
+export function showModeSelect(isSplash){
   const box = document.querySelector('#overlay .box');
   const titleEl = document.getElementById('overlayTitle');
   const subtitleEl = document.getElementById('overlaySubtitle');
@@ -67,7 +74,7 @@ function showModeSelect(isSplash){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showOperationsMenu(){
+export function showOperationsMenu(){
   document.getElementById('overlayTitle').textContent = 'Operations';
   document.getElementById('overlayText').innerHTML =
     'Smaller, asymmetrical scenarios drawn from real actions of the period — different forces, different objectives, not always "break 2 of 3 Brigades."';
@@ -97,7 +104,7 @@ function showOperationsMenu(){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showOperationBrief(scenario){
+export function showOperationBrief(scenario){
   document.getElementById('overlayTitle').textContent = scenario.title;
   document.getElementById('overlayText').innerHTML =
     `<b>${scenario.date}</b><br><br>${scenario.brief}<br><br><b>Objective:</b> ${scenario.objectiveText}` +
@@ -123,7 +130,7 @@ function showOperationBrief(scenario){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showOperationModeSelect(scenario){
+export function showOperationModeSelect(scenario){
   document.getElementById('overlayTitle').textContent = 'How will you play this Operation?';
   document.getElementById('overlayText').innerHTML =
     'Note: the AI plays Operations with the same tactics as a standard battle — it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
@@ -142,7 +149,7 @@ function showOperationModeSelect(scenario){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showSideSelect(){
+export function showSideSelect(){
   const box = document.querySelector('#overlay .box');
   document.getElementById('overlayTitle').textContent = 'Choose Your Side';
   document.getElementById('overlayText').innerHTML = 'The AI takes the other Brigade and will deploy, move, fire and fight on its own turns.';
@@ -160,7 +167,7 @@ function showSideSelect(){
   extra.appendChild(blueBtn);
 }
 
-function showDifficultySelect(){
+export function showDifficultySelect(){
   document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
   document.getElementById('overlayText').innerHTML =
     '<b>Easy</b>: straightforward, reactive tactics. <b>Medium</b>: prioritises finishing off weakened Brigades, uses Charge and Attack Column deliberately. <b>Hard</b>: all of Medium, plus looks a step past the immediate trade before committing to a fight, and can lay ambushes proactively.';
@@ -194,7 +201,7 @@ function showDifficultySelect(){
    the rotation. A human-controlled side gets an on-screen choice; the
    AI picks for itself when it's the AI's board.
 ========================================================= */
-function beginBoardSetup(){
+export function beginBoardSetup(){
   setBoardMode('standard'); // always reset in case the previous match was Grand Strategy
   const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
@@ -211,7 +218,7 @@ function beginBoardSetup(){
 /* Grand Strategy board setup — see beginGrandBoardSetup() below for the note
    on why quadrant assignment is fully automatic rather than the dice-roll
    ceremony beginBoardSetup() uses. */
-function showGrandMatchTypeSelect(){
+export function showGrandMatchTypeSelect(){
   document.getElementById('overlayTitle').textContent = 'Grand Strategy';
   document.getElementById('overlayText').innerHTML =
     'Four boards combined into a 20x20 battlefield — the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
@@ -234,7 +241,7 @@ function showGrandMatchTypeSelect(){
 // per-unit-type plan sized for the standard 17-unit army (see AI_DEPLOY_PLANS
 // in ai-deployment.js); Hard's plan is dynamically scored instead, so it
 // generalizes to the doubled Grand Strategy roster without a second data set.
-function showGrandSideSelect(){
+export function showGrandSideSelect(){
   document.getElementById('overlayTitle').textContent = 'Choose Your Side';
   document.getElementById('overlayText').innerHTML = 'The AI takes the other Brigade and will deploy, move, fire and fight on its own turns, at Hard difficulty.';
   let extra = document.getElementById('modeChoices');
@@ -251,7 +258,7 @@ function showGrandSideSelect(){
   extra.appendChild(blueBtn);
 }
 
-function beginGrandBoardSetup(){
+export function beginGrandBoardSetup(){
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');
@@ -265,7 +272,7 @@ function beginGrandBoardSetup(){
   initDeployment();
 }
 
-function processBoardRoll(sides, i){
+export function processBoardRoll(sides, i){
   if(i >= sides.length){
     document.getElementById('overlay').classList.remove('show');
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
@@ -298,7 +305,7 @@ function processBoardRoll(sides, i){
   }
 }
 
-function renderMiniTerrainPreview(canvas, grid){
+export function renderMiniTerrainPreview(canvas, grid){
   const ctx2 = canvas.getContext('2d');
   const n = grid.length;
   const cell = canvas.width / n;
@@ -343,7 +350,7 @@ function renderMiniTerrainPreview(canvas, grid){
   }
 }
 
-function showRotationChoice(side, callback){
+export function showRotationChoice(side, callback){
   const boardKey = state.boardAssignment[side];
   let previewRotation = 0;
   const canvas = document.getElementById('rotationPreviewCanvas');

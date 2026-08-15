@@ -1,5 +1,7 @@
-const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
-function dieFaceHTML(value, extraClass){
+import { state } from './data-core.js';
+
+export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+export function dieFaceHTML(value, extraClass){
   const active = PIP_LAYOUT[value] || [];
   let cells = '';
   for(let i=0;i<9;i++) cells += active.includes(i) ? '<span class="pip"></span>' : '<span></span>';
@@ -10,8 +12,8 @@ function dieFaceHTML(value, extraClass){
 // blank) and waits for the roll to actually be triggered — a tap for a human
 // player, or a brief pause for the AI, so it doesn't look abruptly different
 // from watching a human turn. Nothing is randomized until onTrigger fires.
-let FAST_DICE_MODE = false; // test/simulation harnesses only — never set by real gameplay
-function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
+export let FAST_DICE_MODE = false; // test/simulation harnesses only — never set by real gameplay
+export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -52,7 +54,7 @@ function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
 // onSettled fires once the popup has fully faded — board consequences (push-backs,
 // removals, retreats) are deferred until then, so they never animate behind
 // dice you're still reading.
-function showDice(groups, resultText, resultCls, onSettled){
+export function showDice(groups, resultText, resultCls, onSettled){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');

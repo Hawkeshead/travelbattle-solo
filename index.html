@@ -307,6 +307,28 @@
   }
   #sidebarToggle{display:none;}
 </style>
+<!-- Opened by double-clicking the file rather than served over http? Say so
+     plainly. This has never worked — the game loads data/*.json over XHR, which
+     browsers block on file:// — but since the move to ES modules the failure
+     happens earlier and produces a blank page with a console message nobody
+     sees on a phone. A classic (non-module) script runs before the module, so
+     this is the last chance to explain what went wrong.
+     Deliberately not a module, and deliberately first. -->
+<script>
+  if (location.protocol === 'file:') {
+    document.addEventListener('DOMContentLoaded', function () {
+      document.body.innerHTML =
+        '<div style="font-family:system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:2rem;' +
+        'background:#2a1a1a;color:#f0e6e6;border:1px solid #8a4a4a;border-radius:10px;line-height:1.6;">' +
+        '<h2 style="margin:0 0 .75rem;color:#f0b0b0;">Open this over a web server</h2>' +
+        '<p style="margin:0 0 1rem;">Field Command loads its board data and code as modules, which ' +
+        'browsers only allow over <code>http://</code> — not by opening the file directly.</p>' +
+        '<p style="margin:0;">Play it at <a style="color:#ffcc88;" ' +
+        'href="https://accipiter117.github.io/travelbattle-solo/">accipiter117.github.io/travelbattle-solo</a>, ' +
+        'or run <code>npm start</code> in this folder to serve it locally.</p></div>';
+    });
+  }
+</script>
 </head>
 <body>
 <div id="app">
@@ -399,21 +421,9 @@
 </div>
 
 <!-- Game logic split across js/*.js, loaded in dependency order (see js/ comments) -->
-<script src="js/data-core.js"></script>
-<script src="js/engine-state.js"></script>
-<script src="js/dice.js"></script>
-<script src="js/engine-rules.js"></script>
-<script src="js/engine-objectives.js"></script>
-<script src="js/render-board.js"></script>
-<script src="js/render-units.js"></script>
-<script src="js/ui-deployment.js"></script>
-<script src="js/ai-deployment.js"></script>
-<script src="js/ai-tactics.js"></script>
-<script src="js/ai-strategy.js"></script>
-<script src="js/ui-battle.js"></script>
-<script src="js/ui-menus.js"></script>
-<script src="js/campaign.js"></script>
-<script src="js/replay.js"></script>
-<script src="js/boot.js"></script>
+<!-- One entry point. Every other file is pulled in by an import, so the load
+     order is declared by the code itself and enforced by the browser, rather
+     than being a hand-maintained list that silently breaks when reordered. -->
+<script type="module" src="js/boot.js"></script>
 </body>
 </html>

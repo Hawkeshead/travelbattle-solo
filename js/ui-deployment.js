@@ -1,3 +1,10 @@
+import { aiDeployStep } from './ai-deployment.js';
+import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
+import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
+import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
+import { canvas, draw, sy } from './render-board.js';
+import { unitLabel, updateHeader } from './ui-battle.js';
+
 /* =========================================================
    DEPLOYMENT PHASE
    Rulebook: players alternate placing whole Brigades, not individual
@@ -9,10 +16,10 @@
    passes to the other side once the active side confirms their current
    Brigade (Brigadier + at least 2 more units).
 ========================================================= */
-const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
-const FULL_ARMY_POOL_GRAND = TB_DATA.unitTypes.brigadeCompositionsGrand.flat(); // Grand Strategy: 3 Brigadier, 4 Guard, 12 Infantry, 4 Heavy Cav, 4 Light Cav, 4 Artillery
+export const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
+export const FULL_ARMY_POOL_GRAND = TB_DATA.unitTypes.brigadeCompositionsGrand.flat(); // Grand Strategy: 3 Brigadier, 4 Guard, 12 Infantry, 4 Heavy Cav, 4 Light Cav, 4 Artillery
 
-function initDeployment(){
+export function initDeployment(){
   resetHistoricalIdentities();
   state.captureHoldCounter = { red:0, blue:0 };
   state.turnNumber = 1;
@@ -40,19 +47,19 @@ function initDeployment(){
   }
 }
 
-function sideFullyDeployed(side){ return state.deployBrigadeIndex[side] >= 3; }
+export function sideFullyDeployed(side){ return state.deployBrigadeIndex[side] >= 3; }
 
 // How many more non-Brigadier units side may add to their CURRENT Brigade
 // right now without leaving a future Brigade short of its 2-unit minimum.
-function canAddMoreToCurrentBrigade(side){
+export function canAddMoreToCurrentBrigade(side){
   const bIdx = state.deployBrigadeIndex[side];
   const remainingBrigadesAfter = 2 - bIdx;
   const poolNonBrig = state.deployPool[side].filter(t=>t!=='BRIGADIER').length;
   return (poolNonBrig - 1) >= 2*remainingBrigadesAfter;
 }
 
-let selectedDeployType = null;
-function renderRoster(){
+export let selectedDeployType = null;
+export function renderRoster(){
   const list = document.getElementById('rosterList');
   const progress = document.getElementById('brigadeProgress');
   const confirmBtn = document.getElementById('confirmBrigadeBtn');
@@ -117,17 +124,17 @@ function renderRoster(){
    threshold counts as a drag; anything less falls through to a normal
    tap so short/imprecise taps still work.
 ========================================================= */
-let dragState = null; // {typeKey, startX, startY, dragging, hoverCell}
+export let dragState = null; // {typeKey, startX, startY, dragging, hoverCell}
 
 // Undo clears the deployment screen's transient selection. It used to assign to
 // selectedDeployType and dragState directly from engine-state.js; an imported
 // binding is read-only under ES modules, so the reset lives here instead.
-function resetDeploymentUiState(){
+export function resetDeploymentUiState(){
   selectedDeployType = null;
   dragState = null;
 }
 
-function startChipDrag(e, typeKey){
+export function startChipDrag(e, typeKey){
   if(state.phase!=='deploy') return;
   dragState = { typeKey, startX:e.clientX, startY:e.clientY, dragging:false, hoverCell:null };
   const move = (ev)=>{
@@ -166,7 +173,7 @@ function startChipDrag(e, typeKey){
   document.addEventListener('pointerup', up);
 }
 
-function updateDragHoverCell(clientX, clientY){
+export function updateDragHoverCell(clientX, clientY){
   const rect = canvas.getBoundingClientRect();
   if(clientX<rect.left || clientX>rect.right || clientY<rect.top || clientY>rect.bottom){
     dragState.hoverCell = null; return;
@@ -180,7 +187,7 @@ function updateDragHoverCell(clientX, clientY){
 
 // Shared deployment-placement validation, used by both tap-to-place and drag-and-drop.
 // Returns true on success, false if the attempt was rejected (and logs why).
-function attemptDeployAt(typeKey, x, y){
+export function attemptDeployAt(typeKey, x, y){
   const side = state.deployTurn;
   const deployRows = state.boardMode==='grand' ? 3 : 2; // Grand Strategy gets a deeper zone for its doubled army
   const zoneOk = side===SIDES.RED ? (y>=ROWS-deployRows) : (y<deployRows);
@@ -193,13 +200,13 @@ function attemptDeployAt(typeKey, x, y){
   return true;
 }
 
-function checkDeployAdvance(){
+export function checkDeployAdvance(){
   if(sideFullyDeployed(SIDES.RED) && sideFullyDeployed(SIDES.BLUE)){
     document.getElementById('endDeployBtn').disabled = false;
   }
 }
 
-function handleDeployClick(x,y){
+export function handleDeployClick(x,y){
   const side = state.deployTurn;
   if(state.mode==='ai' && side===state.aiSide) return; // not human's turn to click
   if(selectedDeployType===null){ log('Select a unit from the roster first, or drag it onto the board.', 'system'); return; }
@@ -212,7 +219,7 @@ function handleDeployClick(x,y){
 
 // Shared by human clicks and the AI: places one unit of `typeKey` from
 // side's pool at (x,y), into their currently in-progress Brigade.
-function placeUnit(side, typeKey, x, y){
+export function placeUnit(side, typeKey, x, y){
   const bIdx = state.deployBrigadeIndex[side];
   const pool = state.deployPool[side];
   const poolIdx = pool.indexOf(typeKey);
@@ -241,7 +248,7 @@ function placeUnit(side, typeKey, x, y){
 // Called when a side confirms their current Brigade is done (Brigadier +
 // at least 2 more units placed). Advances to the next Brigade and passes
 // the turn to the other side, matching the alternate-Brigade rule.
-function confirmCurrentBrigade(){
+export function confirmCurrentBrigade(){
   const side = state.deployTurn;
   if(!(state.currentBrigadeHasBrigadier[side] && state.currentBrigadeCount[side]>=2)) return;
   const bIdx = state.deployBrigadeIndex[side];

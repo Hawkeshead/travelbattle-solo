@@ -1,4 +1,8 @@
-const UNIT_IMAGE_DATA = {
+import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
+import { isConcealedFromEnemy } from './engine-rules.js';
+import { ctx, getUnitVisualPos, sy } from './render-board.js';
+
+export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
   cannon_blue: 'assets/icons/cannon_blue.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
@@ -8,8 +12,8 @@ const UNIT_IMAGE_DATA = {
   brig_murat: 'assets/brigadiers/brig_murat.jpg',
   brig_napoleon: 'assets/brigadiers/brig_napoleon.jpg'
 };
-const UNIT_IMAGES = {};
-const BRIGADIER_PORTRAIT_KEY = {
+export const UNIT_IMAGES = {};
+export const BRIGADIER_PORTRAIT_KEY = {
   'Wellington': 'brig_wellington',
   'Uxbridge': 'brig_uxbridge',
   'Thomas Graham': 'brig_thomasgraham',
@@ -24,7 +28,7 @@ for(const key in UNIT_IMAGE_DATA){
 }
 
 // Regiment portraits imported from the TravelBattle Hub Archive (Infantry/Guard/Cavalry).
-const REGIMENT_IMAGE_DATA = {
+export const REGIMENT_IMAGE_DATA = {
   'b-guard-1': 'assets/portraits/b-guard-1.jpg',
   'b-guard-2': 'assets/portraits/b-guard-2.jpg',
   'b-inf-95rifles': 'assets/portraits/b-inf-95rifles.jpg',
@@ -56,7 +60,7 @@ for(const key in REGIMENT_IMAGE_DATA){
   UNIT_IMAGES[key] = img;
 }
 // Maps a unit's historicalName straight to its Hub Archive portrait id.
-const REGIMENT_PORTRAIT_KEY = {
+export const REGIMENT_PORTRAIT_KEY = {
   '42nd Black Watch': 'b-guard-1',
   '92nd Gordon Highlanders': 'b-guard-2',
   '95th Rifles': 'b-inf-95rifles',
@@ -85,7 +89,7 @@ const REGIMENT_PORTRAIT_KEY = {
 
 // Small gold asterisk badge, positioned in a unit's corner — marks Guard Infantry
 // and Heavy Cavalry as the "upgraded" tier, replacing the old ring/reroll-star convention.
-function drawGoldAsterisk(size, ox, oy){
+export function drawGoldAsterisk(size, ox, oy){
   ctx.save();
   ctx.translate(ox, oy);
   ctx.strokeStyle = '#c9a227';
@@ -103,7 +107,7 @@ function drawGoldAsterisk(size, ox, oy){
 }
 
 // 10 men, 2 ranks of 5 — the standard Infantry/Guard footprint.
-function drawInfantryDots(size){
+export function drawInfantryDots(size){
   size *= 1.4; // enlarged for legibility
   const dotR = size*0.062, spX = size*0.155, spY = size*0.20;
   for(let row=0; row<2; row++) for(let col=0; col<5; col++){
@@ -112,7 +116,7 @@ function drawInfantryDots(size){
   }
 }
 // Square formation: the same 10 men, rearranged into an actual square perimeter.
-function drawInfantrySquareDots(size){
+export function drawInfantrySquareDots(size){
   size *= 1.4; // enlarged for legibility
   const dotR = size*0.062, half = size*0.25;
   const pos = [];
@@ -124,7 +128,7 @@ function drawInfantrySquareDots(size){
   });
 }
 // Attack Column: 20 men, 4 ranks of 5 — two Infantry/Guard units fighting as one mass.
-function drawColumnDots(size){
+export function drawColumnDots(size){
   size *= 1.4; // enlarged for legibility
   const dotR = size*0.052, spX = size*0.15, spY = size*0.15;
   for(let row=0; row<4; row++) for(let col=0; col<5; col++){
@@ -133,7 +137,7 @@ function drawColumnDots(size){
   }
 }
 // Cavalry: 3 chevrons, one per horseman in the unit.
-function drawCavalryChevrons(size){
+export function drawCavalryChevrons(size){
   size *= 1.4; // enlarged for legibility
   const chevR = size*0.15;
   const pts = [[-size*0.20,size*0.05],[size*0.20,size*0.05],[0,-size*0.20]];
@@ -145,10 +149,10 @@ function drawCavalryChevrons(size){
     ctx.restore();
   });
 }
-const CANNON_SILHOUETTE_CACHE = {};
+export const CANNON_SILHOUETTE_CACHE = {};
 // Builds (and caches) a solid-white silhouette of a cannon image, used to paint a thin
 // outline around it — the PNG has transparency so a normal stroke() has nothing to grab.
-function getCannonSilhouette(img, key){
+export function getCannonSilhouette(img, key){
   const cached = CANNON_SILHOUETTE_CACHE[key];
   if(cached && cached.width===img.naturalWidth) return cached;
   const off = document.createElement('canvas');
@@ -161,7 +165,7 @@ function getCannonSilhouette(img, key){
   CANNON_SILHOUETTE_CACHE[key] = off;
   return off;
 }
-function drawCannonImage(size, side){
+export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
   const img = UNIT_IMAGES[key];
   if(img && img.complete && img.naturalWidth>0){
@@ -179,7 +183,7 @@ function drawCannonImage(size, side){
     ctx.closePath(); ctx.fill(); ctx.stroke();
   }
 }
-function drawBrigadierPortrait(size, u, isSel){
+export function drawBrigadierPortrait(size, u, isSel){
   const key = BRIGADIER_PORTRAIT_KEY[u.historicalName];
   const img = key ? UNIT_IMAGES[key] : null;
   if(img && img.complete && img.naturalWidth>0){
@@ -208,7 +212,7 @@ function drawBrigadierPortrait(size, u, isSel){
   return false; // no match or not yet loaded — caller falls back to the star
 }
 
-function drawUnit(u, off){
+export function drawUnit(u, off){
   off = off || {dx:0, dy:0, scale:1};
   const vp = getUnitVisualPos(u);
   const cx = vp.x*CELL+CELL/2 + off.dx*CELL, cy = sy(vp.y)*CELL+CELL/2 + off.dy*CELL;
@@ -282,7 +286,7 @@ function drawUnit(u, off){
 
 // Attack Column: two Infantry/Guard units sharing a square, drawn as a single
 // combined 20-man mass (4 ranks of 5) rather than two overlapping icons.
-function drawColumnUnitPair(u1, u2){
+export function drawColumnUnitPair(u1, u2){
   const vp = getUnitVisualPos(u1);
   const cx = vp.x*CELL+CELL/2, cy = sy(vp.y)*CELL+CELL/2;
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
@@ -315,9 +319,9 @@ function drawColumnUnitPair(u1, u2){
 // replay.js, so the write goes through a function rather than reassigning the
 // binding from another file — an imported binding is read-only under ES
 // modules and a cross-file `highlightCells = ...` would throw.
-let highlightCells = [];
+export let highlightCells = [];
 
-function setHighlightCells(cells){
+export function setHighlightCells(cells){
   highlightCells = cells;
 }
 

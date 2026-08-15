@@ -1,3 +1,8 @@
+import { saveCampaignProgress } from './campaign.js';
+import { SIDES, SIDE_LABEL, state } from './data-core.js';
+import { unitsAt } from './engine-rules.js';
+import { startReplay } from './replay.js';
+
 /* =========================================================
    OPERATIONS — pluggable scenario objectives.
    Five reusable objective types cover all 14 catalogued Operations
@@ -5,9 +10,9 @@
    field is { combinator:'all'|'any', conditions:[{type,params}, ...] }.
    Each condition checker returns 'red', 'blue', or null (undecided).
 ========================================================= */
-function otherSide(side){ return side===SIDES.RED ? SIDES.BLUE : SIDES.RED; }
+export function otherSide(side){ return side===SIDES.RED ? SIDES.BLUE : SIDES.RED; }
 
-function checkCaptureZone(params){
+export function checkCaptureZone(params){
   const { zoneSquares, holdForTurns } = params;
   for(const side of [SIDES.RED, SIDES.BLUE]){
     const enemy = otherSide(side);
@@ -27,7 +32,7 @@ function checkCaptureZone(params){
   return null;
 }
 
-function checkSurviveTurns(params){
+export function checkSurviveTurns(params){
   const { defender, minUnits } = params;
   const attacker = otherSide(defender);
   const defRemaining = state.units.filter(u=>u.side===defender && !u.removed && u.type!=='BRIGADIER').length;
@@ -36,7 +41,7 @@ function checkSurviveTurns(params){
   return null;
 }
 
-function checkEscapeZone(params){
+export function checkEscapeZone(params){
   const { escapingSide, edgeRows, minUnitsToEscape } = params;
   const escaped = state.units.filter(u=>u.side===escapingSide && !u.removed && edgeRows.includes(u.y)).length;
   if(escaped >= minUnitsToEscape) return escapingSide;
@@ -45,7 +50,7 @@ function checkEscapeZone(params){
   return null;
 }
 
-function checkEliminateTarget(params){
+export function checkEliminateTarget(params){
   const { targetSide, targetCount } = params;
   const eliminated = state.units.filter(u=>u.side===targetSide && u.removed).length;
   if(eliminated >= targetCount) return otherSide(targetSide);
@@ -53,7 +58,7 @@ function checkEliminateTarget(params){
   return null;
 }
 
-function checkProtectUnit(params){
+export function checkProtectUnit(params){
   const { protectSide, unitTypes } = params;
   const assets = state.units.filter(u=>u.side===protectSide && unitTypes.includes(u.type));
   const anyLost = assets.some(u=>u.removed);
@@ -62,7 +67,7 @@ function checkProtectUnit(params){
   return null;
 }
 
-const OBJECTIVE_CHECKERS = {
+export const OBJECTIVE_CHECKERS = {
   CAPTURE_ZONE: checkCaptureZone,
   SURVIVE_TURNS: checkSurviveTurns,
   ESCAPE_ZONE: checkEscapeZone,
@@ -70,7 +75,7 @@ const OBJECTIVE_CHECKERS = {
   PROTECT_UNIT: checkProtectUnit
 };
 
-function checkScenarioObjective(){
+export function checkScenarioObjective(){
   const obj = state.scenario.objective;
   const results = obj.conditions.map(c => OBJECTIVE_CHECKERS[c.type](c.params));
   let winner = null;
@@ -91,14 +96,14 @@ function checkScenarioObjective(){
   if(winner) endGame(winner);
 }
 
-function checkScenarioTurnLimit(){
+export function checkScenarioTurnLimit(){
   // Some objective types (SURVIVE_TURNS, ELIMINATE_TARGET, PROTECT_UNIT) resolve
   // their own turn-limit outcome inside their checker; this just forces a check
   // at the moment the limit is reached in case nothing else has triggered it yet.
   if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) checkScenarioObjective();
 }
 
-function endGame(winner){
+export function endGame(winner){
   state.gameOver = true;
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
   const bodyText = state.scenario

@@ -1,3 +1,7 @@
+import { CAMPAIGNS, SCENARIOS, SIDES, SIDE_LABEL, state } from './data-core.js';
+import { log } from './engine-state.js';
+import { beginBoardSetup, showModeSelect } from './ui-menus.js';
+
 /* =========================================================
    CAMPAIGN MODE — chains Battles and Operations per the Hub's actual
    branching structure. Since "New Battle" already does a full page
@@ -5,8 +9,8 @@
    is persisted to localStorage and picked back up on the next load,
    rather than trying to hand-reset every field in memory.
 ========================================================= */
-const CAMPAIGN_STORAGE_KEY = 'tbCampaignProgress';
-function saveCampaignProgress(){
+export const CAMPAIGN_STORAGE_KEY = 'tbCampaignProgress';
+export function saveCampaignProgress(){
   if(!state.campaign){ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); return; }
   try {
     localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify({
@@ -18,15 +22,15 @@ function saveCampaignProgress(){
     }));
   } catch(e){ /* storage unavailable — campaign just won't survive a reload, not fatal */ }
 }
-function loadCampaignProgress(){
+export function loadCampaignProgress(){
   try {
     const raw = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch(e){ return null; }
 }
-function clearCampaignProgress(){ try{ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); }catch(e){} }
+export function clearCampaignProgress(){ try{ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); }catch(e){} }
 
-function showCampaignMenu(){
+export function showCampaignMenu(){
   document.getElementById('overlayTitle').textContent = 'Campaigns';
   document.getElementById('overlayText').innerHTML =
     'A linear sequence of historical Battles, with the winner of each choosing which Operation comes next. Your side and opponent are chosen once, at the start.';
@@ -49,7 +53,7 @@ function showCampaignMenu(){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showCampaignBrief(camp){
+export function showCampaignBrief(camp){
   document.getElementById('overlayTitle').textContent = camp.name;
   document.getElementById('overlayText').innerHTML = camp.brief;
   let extra = document.getElementById('modeChoices');
@@ -67,7 +71,7 @@ function showCampaignBrief(camp){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showCampaignModeSelect(camp){
+export function showCampaignModeSelect(camp){
   document.getElementById('overlayTitle').textContent = 'How will you play this Campaign?';
   document.getElementById('overlayText').innerHTML = 'This choice applies for the whole campaign, not just one battle.';
   let extra = document.getElementById('modeChoices');
@@ -98,7 +102,7 @@ function showCampaignModeSelect(camp){
   document.getElementById('overlay').classList.add('show');
 }
 
-function showCampaignDifficultySelect(camp){
+export function showCampaignDifficultySelect(camp){
   document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
   document.getElementById('overlayText').innerHTML = 'Applies for the whole campaign.';
   let extra = document.getElementById('modeChoices');
@@ -116,7 +120,7 @@ function showCampaignDifficultySelect(camp){
   document.getElementById('overlay').classList.add('show');
 }
 
-function startCampaign(camp){
+export function startCampaign(camp){
   state.campaign = camp;
   state.campaignFlowIndex = 0;
   state.campaignLastWinner = null;
@@ -125,7 +129,7 @@ function startCampaign(camp){
   runCampaignStep();
 }
 
-function runCampaignStep(){
+export function runCampaignStep(){
   const step = state.campaign.flow[state.campaignFlowIndex];
   if(!step){ showCampaignComplete(); clearCampaignProgress(); return; }
   document.getElementById('overlay').classList.remove('show');
@@ -146,7 +150,7 @@ function runCampaignStep(){
   }
 }
 
-function showCampaignBranchChoice(step){
+export function showCampaignBranchChoice(step){
   const chooser = state.campaignLastWinner || SIDES.RED; // fallback if somehow undecided
   const isHumanChoosing = !(state.mode==='ai' && chooser===state.aiSide);
   if(!isHumanChoosing){
@@ -175,7 +179,7 @@ function showCampaignBranchChoice(step){
   document.getElementById('overlay').classList.add('show');
 }
 
-function beginChosenOperation(opt){
+export function beginChosenOperation(opt){
   const scenario = SCENARIOS.find(s=>s.id===opt.operationId);
   if(!scenario){ log(`Could not find Operation data for ${opt.name} — skipping.`, 'system'); advanceCampaignStep(); return; }
   state.scenario = scenario;
@@ -183,13 +187,13 @@ function beginChosenOperation(opt){
   beginBoardSetup();
 }
 
-function advanceCampaignStep(){
+export function advanceCampaignStep(){
   state.campaignFlowIndex++;
   saveCampaignProgress();
   runCampaignStep();
 }
 
-function showCampaignComplete(){
+export function showCampaignComplete(){
   const wins = state.campaignRecord.filter(r=>r===SIDES.RED).length;
   const lwins = state.campaignRecord.length - wins;
   document.getElementById('overlayTitle').textContent = `${state.campaign.name} Complete`;
@@ -203,7 +207,7 @@ function showCampaignComplete(){
   document.getElementById('overlay').classList.add('show');
 }
 
-function resumeCampaignFromStorage(progress){
+export function resumeCampaignFromStorage(progress){
   const camp = CAMPAIGNS.find(c=>c.id===progress.campaignId);
   if(!camp){ clearCampaignProgress(); showModeSelect(); return; }
   state.campaign = camp;
