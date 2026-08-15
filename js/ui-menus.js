@@ -2,7 +2,7 @@ import { showCampaignMenu } from './campaign.js';
 import { SCENARIOS, SIDES, SIDE_LABEL, boardTerrainFor, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { canvas, sizeCanvas, terrainColor } from './render-board.js';
+import { sizeCanvas, terrainColor } from './render-board.js';
 import { initDeployment } from './ui-deployment.js';
 
 export function showOverlay(title, html, btnLabel, onClick){
@@ -16,14 +16,13 @@ export function showOverlay(title, html, btnLabel, onClick){
   document.getElementById('overlay').classList.add('show');
 }
 
-export function showModeSelect(isSplash){
-  const box = document.querySelector('#overlay .box');
-  const titleEl = document.getElementById('overlayTitle');
-  const subtitleEl = document.getElementById('overlaySubtitle');
-  titleEl.textContent = 'TravelBattle';
-  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge — then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
-  document.getElementById('overlayBtn').style.display = 'none';
-  subtitleEl.style.display = 'block';
+// The row of buttons inside the overlay isn't in index.html — it's built the
+// first time a menu needs it. Everything that fills it must go through here,
+// because there are boot paths that reach a menu without ever passing through
+// showModeSelect: resuming a saved campaign goes straight from boot.js to the
+// campaign screens, and before this existed those screens crashed on a null
+// element.
+export function ensureModeChoices(){
   let extra = document.getElementById('modeChoices');
   if(!extra){
     extra = document.createElement('div');
@@ -32,8 +31,20 @@ export function showModeSelect(isSplash){
     extra.style.flexWrap = 'wrap';
     extra.style.gap = '8px';
     extra.style.justifyContent = 'center';
-    box.appendChild(extra);
+    document.querySelector('#overlay .box').appendChild(extra);
   }
+  return extra;
+}
+
+export function showModeSelect(isSplash){
+  const box = document.querySelector('#overlay .box');
+  const titleEl = document.getElementById('overlayTitle');
+  const subtitleEl = document.getElementById('overlaySubtitle');
+  titleEl.textContent = 'TravelBattle';
+  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge — then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
+  document.getElementById('overlayBtn').style.display = 'none';
+  subtitleEl.style.display = 'block';
+  const extra = ensureModeChoices();
   extra.innerHTML = '';
   extra.style.display = 'flex';
   // The title splash treatment only ever plays on the genuine first-load screen —

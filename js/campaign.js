@@ -1,6 +1,6 @@
 import { CAMPAIGNS, SCENARIOS, SIDES, SIDE_LABEL, state } from './data-core.js';
 import { log } from './engine-state.js';
-import { beginBoardSetup, showModeSelect } from './ui-menus.js';
+import { beginBoardSetup, showModeSelect, ensureModeChoices } from './ui-menus.js';
 
 /* =========================================================
    CAMPAIGN MODE — chains Battles and Operations per the Hub's actual
@@ -34,7 +34,7 @@ export function showCampaignMenu(){
   document.getElementById('overlayTitle').textContent = 'Campaigns';
   document.getElementById('overlayText').innerHTML =
     'A linear sequence of historical Battles, with the winner of each choosing which Operation comes next. Your side and opponent are chosen once, at the start.';
-  let extra = document.getElementById('modeChoices');
+  let extra = ensureModeChoices();
   extra.innerHTML = '';
   extra.style.display = 'flex';
   extra.style.flexDirection = 'column';
@@ -56,7 +56,7 @@ export function showCampaignMenu(){
 export function showCampaignBrief(camp){
   document.getElementById('overlayTitle').textContent = camp.name;
   document.getElementById('overlayText').innerHTML = camp.brief;
-  let extra = document.getElementById('modeChoices');
+  let extra = ensureModeChoices();
   extra.innerHTML = '';
   extra.style.display = 'flex';
   const beginBtn = document.createElement('button');
@@ -74,7 +74,7 @@ export function showCampaignBrief(camp){
 export function showCampaignModeSelect(camp){
   document.getElementById('overlayTitle').textContent = 'How will you play this Campaign?';
   document.getElementById('overlayText').innerHTML = 'This choice applies for the whole campaign, not just one battle.';
-  let extra = document.getElementById('modeChoices');
+  let extra = ensureModeChoices();
   extra.innerHTML = '';
   extra.style.display = 'flex';
   const hotseatBtn = document.createElement('button');
@@ -87,7 +87,7 @@ export function showCampaignModeSelect(camp){
     extra.style.display='none';
     document.getElementById('overlayTitle').textContent = 'Choose Your Side';
     document.getElementById('overlayText').innerHTML = 'This is who you\'ll play as for the whole campaign.';
-    let extra2 = document.getElementById('modeChoices');
+    let extra2 = ensureModeChoices();
     extra2.innerHTML=''; extra2.style.display='flex';
     const redBtn = document.createElement('button');
     redBtn.className='primary'; redBtn.textContent='Play Britain';
@@ -105,7 +105,7 @@ export function showCampaignModeSelect(camp){
 export function showCampaignDifficultySelect(camp){
   document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
   document.getElementById('overlayText').innerHTML = 'Applies for the whole campaign.';
-  let extra = document.getElementById('modeChoices');
+  let extra = ensureModeChoices();
   extra.innerHTML = ''; extra.style.display = 'flex'; extra.style.flexWrap = 'wrap';
   const mk = (label, value, primary)=>{
     const b = document.createElement('button');
@@ -137,7 +137,7 @@ export function runCampaignStep(){
     state.scenario = null;
     document.getElementById('overlayTitle').textContent = step.name;
     document.getElementById('overlayText').innerHTML = `<b>${step.date}</b><br><br>${step.intro}`;
-    let extra = document.getElementById('modeChoices');
+    let extra = ensureModeChoices();
     extra.innerHTML = ''; extra.style.display = 'flex';
     const beginBtn = document.createElement('button');
     beginBtn.className = 'primary';
@@ -163,7 +163,7 @@ export function showCampaignBranchChoice(step){
   }
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[chooser]} Chooses`;
   document.getElementById('overlayText').innerHTML = 'You won the last engagement — pick which Operation comes next.';
-  let extra = document.getElementById('modeChoices');
+  let extra = ensureModeChoices();
   extra.innerHTML = ''; extra.style.display = 'flex'; extra.style.flexDirection = 'column'; extra.style.gap = '6px';
   for(const opt of step.options){
     const b = document.createElement('button');

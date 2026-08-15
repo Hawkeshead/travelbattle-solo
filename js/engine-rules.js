@@ -3,7 +3,7 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './dat
 import { FAST_DICE_MODE, presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
-import { addDeathEffect, animateUnitTo, canvas, showActionLine, sy } from './render-board.js';
+import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
 import { renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
 /* =========================================================

@@ -13,6 +13,18 @@ export function dieFaceHTML(value, extraClass){
 // player, or a brief pause for the AI, so it doesn't look abruptly different
 // from watching a human turn. Nothing is randomized until onTrigger fires.
 export let FAST_DICE_MODE = false; // test/simulation harnesses only — never set by real gameplay
+
+// Before the move to ES modules, a harness could flip FAST_DICE_MODE straight
+// off the global scope. Module bindings aren't reachable that way, and an
+// imported binding is read-only anyway, so the capability is exposed
+// deliberately instead: as an accessor, and on a clearly-named test hook.
+export function setFastDiceMode(on){
+  FAST_DICE_MODE = !!on;
+}
+
+if(typeof window !== 'undefined'){
+  window.__tbTest = Object.assign(window.__tbTest || {}, { setFastDiceMode });
+}
 export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');

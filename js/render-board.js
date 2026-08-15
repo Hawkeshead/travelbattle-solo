@@ -1,4 +1,3 @@
-import { start } from './boot.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, setCell, state } from './data-core.js';
 import { inBounds, neighbors8, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';

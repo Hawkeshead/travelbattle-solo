@@ -182,6 +182,41 @@ test('a full vs-AI deployment completes for both sides', async ({ page }) => {
   expect(errors, `errors during AI deployment:\n${errors.join('\n')}`).toEqual([]);
 });
 
+test('resuming a saved campaign into a branch choice does not crash', async ({ page }) => {
+  const errors = watchForErrors(page);
+
+  // Seed a saved campaign sitting on flow step 1 of Flanders, which is a
+  // branch — the player is about to choose their next Operation.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'tbCampaignProgress',
+      JSON.stringify({
+        campaignId: 'flanders',
+        flowIndex: 1,
+        lastWinner: 'red',
+        record: ['red'],
+        mode: 'hotseat',
+        aiSide: null,
+        aiDifficulty: 'medium',
+      })
+    );
+  });
+
+  await page.goto('/');
+
+  // This boot path goes straight from boot.js into the campaign screens and
+  // never passes through showModeSelect, which is the only other thing that
+  // builds #modeChoices. Before ensureModeChoices() existed, the branch screen
+  // threw "Cannot set properties of null" here and the game died on load.
+  await expect(page.locator('#modeChoices button').first()).toBeVisible({ timeout: 10_000 });
+
+  // Both branch options are offered, the locked one included.
+  const labels = await page.locator('#modeChoices button').allTextContents();
+  expect(labels.length).toBeGreaterThanOrEqual(2);
+
+  expect(errors, `errors resuming a campaign:\n${errors.join('\n')}`).toEqual([]);
+});
+
 test('the board is usable on a phone-sized viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
