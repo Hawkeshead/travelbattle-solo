@@ -231,14 +231,25 @@ export function missionMoveBonus(u, side, pos, mission, plan){
   }
 }
 
-export function orderAiUnitsForMove(side){  // Brigadiers move first: they anchor their Brigade's cohesion chain (never
-  // penalized for their own "disconnection" — see movableUnitsForSide), so
-  // leading with them gives everyone else a new, already-moved anchor to
-  // path toward. Moving them last caused a standoff: nobody wants to be the
-  // first unit to step away from the Brigadier's stale position, so an
-  // entire Brigade could freeze in place once no immediate threat pushed it.
+export function orderAiUnitsForMove(side){
+  // Grouped by Brigade, leftmost Brigade first, so a human watching can follow
+  // "now it's doing the left Brigade's turn" rather than units from all three
+  // Brigades interleaving across the board in the same pass. Within each
+  // Brigade the Brigadier still goes first — it anchors that Brigade's
+  // cohesion chain (never penalized for its own "disconnection" — see
+  // movableUnitsForSide), so leading with it gives the rest of that Brigade a
+  // freshly-moved anchor to path toward before they decide their own moves.
   const pri = { BRIGADIER:0, INFANTRY:1, GUARD:1, LIGHT_CAV:2, HEAVY_CAV:2, ARTILLERY:3 };
-  return state.units.filter(u=>!u.removed && u.side===side).sort((a,b)=>pri[a.type]-pri[b.type]).map(u=>u.id);
+  const units = state.units.filter(u=>!u.removed && u.side===side);
+  const brigadeX = {};
+  for(const bId of new Set(units.map(u=>u.brigadeId))){
+    const brig = units.find(u=>u.brigadeId===bId && u.type==='BRIGADIER');
+    const members = units.filter(u=>u.brigadeId===bId);
+    brigadeX[bId] = brig ? brig.x : members.reduce((s,u)=>s+u.x,0)/members.length;
+  }
+  return units
+    .sort((a,b)=> (brigadeX[a.brigadeId]-brigadeX[b.brigadeId]) || (pri[a.type]-pri[b.type]))
+    .map(u=>u.id);
 }
 
 export function nearestEnemyDist(pos, side){
