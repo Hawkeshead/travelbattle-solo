@@ -63,10 +63,9 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
 // rolled for that side (bonus/re-roll dice included), keptValue is the one that counts.
 // The animation is purely cosmetic: the real values are already decided by the time
 // this is called, so it briefly flickers random faces before settling on them.
-// onSettled fires once the popup has fully faded — board consequences (push-backs,
-// removals, retreats) are deferred until then, so they never animate behind
-// dice you're still reading.
-export function showDice(groups, resultText, resultCls, onSettled){
+// holdOpen=true skips the auto-fade-and-dismiss (used when a re-roll might still be
+// offered) — the caller is then responsible for calling finishDice() once ready.
+export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -98,8 +97,7 @@ export function showDice(groups, resultText, resultCls, onSettled){
     renderFrame(true);
     resultEl.textContent = resultText || '';
     resultEl.className = 'dice-result ' + (resultCls||'');
-    overlay.classList.remove('show');
-    if(onSettled) onSettled();
+    if(!holdOpen){ overlay.classList.remove('show'); if(onSettled) onSettled(); }
     return;
   }
   renderFrame(false);
@@ -111,13 +109,67 @@ export function showDice(groups, resultText, resultCls, onSettled){
       renderFrame(true);
       resultEl.textContent = resultText || '';
       resultEl.className = 'dice-result ' + (resultCls||'');
+      if(!holdOpen) finishDice(onSettled);
     } else {
       renderFrame(false);
     }
   }, 180);
+}
+
+// Instantly updates the dice already on screen — no flicker, no fade timer.
+// Used after a re-roll (the die already "rolled", we're just showing the new
+// value) and for the final settle once any re-roll decisions are done, so the
+// flicker-in only ever plays once, on the very first reveal.
+export function refreshDiceFrame(groups, resultText, resultCls){
+  const overlay = document.getElementById('diceOverlay');
+  const groupsEl = overlay.querySelector('.dice-groups');
+  const resultEl = overlay.querySelector('.dice-result');
+  groupsEl.innerHTML = groups.map((g,i)=>{
+    const diceHTML = g.rolls.map(v=>{
+      const cls = v===g.keptValue ? 'kept' : (g.rolls.length>1 ? 'discard' : '');
+      return dieFaceHTML(v, cls);
+    }).join('');
+    const notesHTML = (g.notes && g.notes.length) ?
+      `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
+    const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
+    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
+  }).join('');
+  resultEl.textContent = resultText || '';
+  resultEl.className = 'dice-result ' + (resultCls||'');
+}
+
+// A button under the dice, not a separate modal — used for the re-roll offer.
+// Auto-declines after a few seconds so the popup can't hang forever if the
+// player just doesn't act on it.
+export function showDiceRerollButton(label, onAccept, onDecline){
+  const rollBtn = document.getElementById('diceRollBtn');
+  clearTimeout(showDiceRerollButton._t);
+  rollBtn.textContent = label;
+  rollBtn.style.display = 'inline-block';
+  rollBtn.disabled = false;
+  rollBtn.className = 'primary';
+  rollBtn.onclick = ()=>{
+    clearTimeout(showDiceRerollButton._t);
+    rollBtn.style.display = 'none';
+    rollBtn.className = '';
+    onAccept();
+  };
+  showDiceRerollButton._t = setTimeout(()=>{
+    rollBtn.style.display = 'none';
+    rollBtn.className = '';
+    onDecline();
+  }, 4500);
+}
+
+// Starts the normal fade-and-dismiss — call once the dice popup is showing its
+// true final state (no more re-roll offers pending).
+export function finishDice(onSettled){
+  const overlay = document.getElementById('diceOverlay');
+  clearTimeout(showDice._fadeT);
+  if(FAST_DICE_MODE){ overlay.classList.remove('show'); if(onSettled) onSettled(); return; }
   showDice._fadeT = setTimeout(()=>{
     overlay.classList.remove('show');
     if(onSettled) onSettled();
-  }, 2900); // was 3400 — trimmed 500ms per feedback
+  }, 2900);
 }
 
