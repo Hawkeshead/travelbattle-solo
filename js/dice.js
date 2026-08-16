@@ -50,6 +50,8 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   const isHuman = !(state.mode==='ai' && triggerSide===state.aiSide);
   if(FAST_DICE_MODE){ onTrigger(); return; }
   if(isHuman){
+    rollBtn.textContent = 'Roll'; // reset from any previous fight's re-roll offer — see showDiceRerollButton, which never resets this itself, only its own caller should decide what a *fresh* prompt says
+    rollBtn.className = 'primary';
     rollBtn.style.display = 'inline-block';
     rollBtn.disabled = false;
     rollBtn.onclick = ()=>{ rollBtn.style.display='none'; onTrigger(); };
