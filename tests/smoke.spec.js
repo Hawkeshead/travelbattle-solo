@@ -53,13 +53,18 @@ test('every game global the inline handlers depend on is reachable', async ({ pa
   expect(reachable, 'window.toggleUnitBio must remain globally reachable').toBe(true);
 });
 
-test('a hotseat match starts and reaches deployment', async ({ page }) => {
+test('a match starts and reaches deployment', async ({ page }) => {
   const errors = watchForErrors(page);
 
   await page.goto('/');
 
-  // Start a hotseat game.
-  await page.getByRole('button', { name: 'Hotseat (2 players)' }).click();
+  // Hotseat is temporarily removed from the home menu (still fully working
+  // underneath, see beginBoardSetup() — just not offered here for now), so
+  // this exercises the same "does board setup reach deployment" path via the
+  // vs-AI entry point instead.
+  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Play Britain' }).click();
+  await page.getByRole('button', { name: 'Easy' }).click();
 
   // Board setup rolls a d6 per side for table orientation. On a 4-6 the player
   // is asked to choose, so between zero and two rotation prompts appear. Accept
