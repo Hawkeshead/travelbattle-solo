@@ -411,6 +411,29 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     : null;
   const legend = 'Draw: fight continues \u00b7 Margin 1: pushed back \u00b7 Margin 2: routed \u00b7 Margin 3+: destroyed' + (tieWinNote ? ` \u00b7 ${tieWinNote}` : '');
 
+  // Pure — no side effects — so it's safe to call more than once (the interim
+  // display before any re-roll decision, and again after) without double-adding
+  // a tie-win note to aReasons/dReasons each time it's called.
+  function computeFightResult(aVal, dVal){
+    const isTie = aVal === dVal;
+    const defenderHillTieWin = isTie &&
+      terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
+    const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
+      UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
+      terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
+    const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
+      (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
+    const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
+    let resultText, resultCls;
+    if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; }
+    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; }
+    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; }
+    else if(aVal > dVal){ resultText = `${aName} wins by ${aVal-dVal}`; resultCls = 'win'; }
+    else { resultText = `${dName} wins by ${dVal-aVal}`; resultCls = 'win'; }
+    return { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin };
+  }
+
   presentRollTrigger([
     {label:aName, diceCount:aDice, notes:aReasons},
     {label:dName, diceCount:dDice, notes:dReasons}
@@ -421,31 +444,22 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     if(dValueBonus) dRoll.value = Math.min(6, dRoll.value + dValueBonus);
 
     // Show the actual roll immediately — held open rather than auto-fading —
-    // so it's genuinely visible before any re-roll decision is asked for.
-    const leadText = aRoll.value===dRoll.value ? 'Tied so far' : (aRoll.value>dRoll.value ? `${aName} leads` : `${dName} leads`);
+    // so it's genuinely visible before any re-roll decision is asked for. Uses
+    // the exact same result phrasing as the final settle below (not a
+    // placeholder "X leads"), recomputed here since the tie-break rules
+    // (Charge/Column/Hill) can only be evaluated once real values exist.
+    const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
       {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
       {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
-    ], leadText, '', null, true);
+    ], interim.resultText, interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
-    const isTie = aRoll.value === dRoll.value;
-    const defenderHillTieWin = isTie &&
-      terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
-    const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
-      UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
-      terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
-    const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
-      (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
-    const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
-
-    let resultText, resultCls;
-    if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
-    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; dReasons.push('Tie-win: Hill defence'); }
-    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Charge'); }
-    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; aReasons.push('Tie-win: Attack Column'); }
-    else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
-    else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
+    const final = computeFightResult(aRoll.value, dRoll.value);
+    const { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin } = final;
+    if(defenderHillTieWin) dReasons.push('Tie-win: Hill defence');
+    else if(attackerChargeTieWin) aReasons.push('Tie-win: Charge');
+    else if(attackerColumnTieWin) aReasons.push('Tie-win: Attack Column');
 
     refreshDiceFrame([
       {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
