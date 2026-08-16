@@ -60,12 +60,15 @@ export function showModeSelect(isSplash){
     subtitleEl.classList.add('splash-title-group');
     extra.classList.add('splash-buttons-group');
     document.getElementById('overlayText').classList.add('splash-buttons-group');
+    // Strip the splash classes the moment each animation finishes, so they can
+    // never linger and delay/blank-box a later, unrelated overlay (ambush,
+    // leadership roll, etc.) that happens to reuse these same elements.
+    [titleEl, subtitleEl, extra, document.getElementById('overlayText')].forEach(el=>{
+      el.addEventListener('animationend', ()=> el.classList.remove('splash-title-group','splash-buttons-group'), { once:true });
+    });
   }
-  const hotseatBtn = document.createElement('button');
-  hotseatBtn.className = 'primary';
-  hotseatBtn.textContent = 'Hotseat (2 players)';
-  hotseatBtn.onclick = ()=>{ state.mode='hotseat'; state.scenario=null; state.campaign=null; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
   const aiBtn = document.createElement('button');
+  aiBtn.className = 'primary';
   aiBtn.textContent = 'vs AI Opponent';
   aiBtn.onclick = ()=>{ state.scenario=null; state.campaign=null; extra.style.display='none'; showSideSelect(); };
   const opsBtn = document.createElement('button');
@@ -77,7 +80,9 @@ export function showModeSelect(isSplash){
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
   grandBtn.onclick = ()=>{ extra.style.display='none'; showGrandMatchTypeSelect(); };
-  extra.appendChild(hotseatBtn);
+  // Hotseat (2 players) removed from the home menu for now — beginBoardSetup()
+  // and everything it needs is untouched, so this is just the one entry point
+  // no longer being offered, easy to re-add later.
   extra.appendChild(aiBtn);
   extra.appendChild(opsBtn);
   extra.appendChild(campBtn);
