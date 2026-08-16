@@ -1,6 +1,6 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './data-core.js';
-import { FAST_DICE_MODE, presentRollTrigger, showDice } from './dice.js';
+import { FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
 import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
@@ -331,37 +331,35 @@ export function combatBonuses(unit, opponent, defending, extraSources){
 
 // Guard Infantry and Heavy Cavalry's own re-roll (the physical rulebook card:
 // "Gets to re-roll in combat") is an interactive choice offered to whichever
-// of the two currently has the lower roll, not an automatic extra die —
-// mirrors the same Yes/No pattern offerLeadershipRoll() already uses. No
-// listed limit on the card, so it's available every fight, and the AI always
-// takes it when eligible since there's no cost to declining.
+// of the two currently has the lower roll — shown as a button under the dice
+// that are already on screen, not a separate modal, so the actual roll is
+// visible before any decision is asked for. No listed limit on the card, so
+// it's available every fight, and the AI always takes it when eligible since
+// there's no cost to declining.
 export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
+  const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
+  function currentGroups(){
+    return [
+      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
+      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+    ];
+  }
+  function leadText(){
+    if(aRoll.value === dRoll.value) return 'Tied so far';
+    return aRoll.value > dRoll.value ? `${aLabel} leads` : `${dLabel} leads`;
+  }
   function tryOne(unit, roll, reasons, valueBonus, opponentValue, next){
     if(!UNIT_TYPES[unit.type].reroll || roll.value >= opponentValue){ next(); return; }
     const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && unit.side===state.aiSide);
+    const doReroll = ()=> applyCombatReroll(unit, roll, reasons, valueBonus, ()=>{
+      refreshDiceFrame(currentGroups(), leadText(), '');
+      next();
+    });
     if(!isHuman){
-      applyCombatReroll(unit, roll, reasons, valueBonus, next);
+      setTimeout(doReroll, 500); // AI always takes it when eligible — no cost to declining
       return;
     }
-    document.getElementById('overlayTitle').textContent = 'Use Re-roll?';
-    document.getElementById('overlayText').innerHTML =
-      `${unitLabel(unit)} rolled a ${roll.rolls[0]}, currently behind. Guard Infantry and Heavy Cavalry may re-roll their own die — use it now?`;
-    document.getElementById('overlayBtn').style.display = 'none';
-    const previewCanvas = document.getElementById('rotationPreviewCanvas');
-    if(previewCanvas) previewCanvas.style.display = 'none';
-    let extra = document.getElementById('modeChoices');
-    extra.innerHTML = '';
-    extra.style.display = 'flex';
-    const yesBtn = document.createElement('button');
-    yesBtn.className = 'primary';
-    yesBtn.textContent = 'Re-roll';
-    yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyCombatReroll(unit, roll, reasons, valueBonus, next); };
-    const noBtn = document.createElement('button');
-    noBtn.textContent = 'Keep Roll';
-    noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); next(); };
-    extra.appendChild(yesBtn);
-    extra.appendChild(noBtn);
-    document.getElementById('overlay').classList.add('show');
+    showDiceRerollButton(`Use Re-roll (${unitLabel(unit)})`, doReroll, next);
   }
   // Attacker's chance first, then defender's — using whatever aRoll.value now
   // is after any attacker re-roll, so a defender who was only just barely
@@ -422,6 +420,14 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     if(aValueBonus) aRoll.value = Math.min(6, aRoll.value + aValueBonus);
     if(dValueBonus) dRoll.value = Math.min(6, dRoll.value + dValueBonus);
 
+    // Show the actual roll immediately — held open rather than auto-fading —
+    // so it's genuinely visible before any re-roll decision is asked for.
+    const leadText = aRoll.value===dRoll.value ? 'Tied so far' : (aRoll.value>dRoll.value ? `${aName} leads` : `${dName} leads`);
+    showDice([
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+    ], leadText, '', null, true);
+
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
     const isTie = aRoll.value === dRoll.value;
     const defenderHillTieWin = isTie &&
@@ -441,10 +447,11 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     else if(aRoll.value > dRoll.value){ resultText = `${aName} wins by ${aRoll.value-dRoll.value}`; resultCls = 'win'; }
     else { resultText = `${dName} wins by ${dRoll.value-aRoll.value}`; resultCls = 'win'; }
 
-    showDice([
+    refreshDiceFrame([
       {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
       {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
-    ], resultText, resultCls, ()=>{
+    ], resultText, resultCls);
+    finishDice(()=>{
       // Deferred until the popup has fully faded — nothing on the board moves
       // while there are still dice on screen to read.
       attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
