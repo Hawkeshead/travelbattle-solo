@@ -626,6 +626,17 @@ export function applyArtilleryEffect(u, roll, onComplete){
 // listeners at module-evaluation time would tie start-up to module ordering;
 // doing it explicitly keeps the sequence obvious and under our control.
 export function initBattleControls(){
+  const exportPanel = document.getElementById('aiLogExportPanel');
+  const exportText = document.getElementById('aiLogExportText');
+  document.getElementById('aiLogExportCloseBtn').onclick = ()=> exportPanel.classList.add('hidden');
+  document.getElementById('aiLogExportBackdrop').onclick = ()=> exportPanel.classList.add('hidden');
+  document.getElementById('aiLogExportCopyBtn').onclick = ()=>{
+    exportText.select();
+    navigator.clipboard?.writeText(exportText.value).catch(()=>{
+      document.execCommand('copy'); // older-browser fallback — clipboard API isn't universal on mobile Safari yet
+    });
+  };
+
   document.getElementById('logIconBtn').onclick = ()=>{
     const overlay = document.getElementById('logOverlay');
     overlay.classList.remove('hidden');
