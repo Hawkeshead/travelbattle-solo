@@ -268,7 +268,8 @@ export let state = {
   _aiPlan: { red:null, blue:null },     // OperationalPlan per side, Hard difficulty only — persists across AI turns
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
   _aiDebugLog: { red:null, blue:null }, // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
-  _aiMoveHistory: { red:[], blue:[] }   // every AI move for the whole match, any difficulty — see exportAiMoveLog()
+  _aiMoveHistory: { red:[], blue:[] }, // every AI move for the whole match, any difficulty — see exportAiMoveLog()
+  _aiVulnCache: null // per-(side,turn) cache of findVulnerableEnemyUnits — see getVulnerableEnemyUnits()
 };
 export let uidCounter = 1;
 
