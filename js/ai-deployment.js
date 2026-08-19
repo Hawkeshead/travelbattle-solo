@@ -14,21 +14,35 @@ import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deploy
 // rather than a fixed column. Easy/Medium keep the exact original static plan below.
 export const HARD_DEPLOY_COL_BANDS = [[0,6],[7,13],[14,19]];
 
-export function scoreDeployCell(typeKey, x, y){
+export function scoreDeployCell(typeKey, x, y, side, bIdx){
   const terr = terrainAt(x,y);
   if(terr.restrictTo && !terr.restrictTo.includes(typeKey)) return -Infinity;
   if(unitsAt(x,y).length>0) return -Infinity;
   let score = terrainSeekBonus(typeKey, x, y);
   if(typeKey==='ARTILLERY' && terr.key==='HILL') score += 0.4; // elevation for the guns specifically, Section 10
   if((typeKey==='HEAVY_CAV'||typeKey==='LIGHT_CAV') && terr.isRoad) score += 0.3; // faster manoeuvre off the start line
+  // Cohesion: strongly favour landing adjacent to an already-placed unit of the
+  // same Brigade, so the Brigade actually forms one connected cluster as it's
+  // deployed, rather than each unit independently chasing the best terrain
+  // anywhere in its (up to 7-column-wide) band. Without this, a unit placed
+  // several columns from its Brigadier with nothing chaining them together is
+  // disconnected from turn one — and a disconnected unit can't move at all
+  // (see movableUnitsForSide), so it stays stuck and useless the entire match.
+  if(side !== undefined && bIdx !== undefined){
+    const mates = state.units.filter(u=>!u.removed && u.side===side && u.brigadeId===bIdx);
+    if(mates.length > 0){
+      const nearestDist = Math.min(...mates.map(m => Math.max(Math.abs(m.x-x), Math.abs(m.y-y))));
+      score += nearestDist <= 1 ? 2.0 : -1.2*(nearestDist-1); // adjacency beats any plausible terrain bonus; every extra square costs more than one
+    }
+  }
   return score;
 }
 
-export function findBestHardDeployCell(zoneRows, colRange, typeKey){
+export function findBestHardDeployCell(zoneRows, colRange, typeKey, side, bIdx){
   let best=null, bestScore=-Infinity;
   for(const y of zoneRows){
     for(let x=colRange[0]; x<=colRange[1]; x++){
-      const s = scoreDeployCell(typeKey, x, y) + Math.random()*0.05;
+      const s = scoreDeployCell(typeKey, x, y, side, bIdx) + Math.random()*0.05;
       if(s>bestScore && s>-Infinity){ bestScore=s; best={x,y}; }
     }
   }
@@ -43,8 +57,8 @@ export function placeHardDeployUnit(side, typeKey, bIdx){
     : Array.from({length: deployRows-1}, (_,i)=>deployRows-2-i);
   const isBack = typeKey==='BRIGADIER' || typeKey==='ARTILLERY';
   const colBand = HARD_DEPLOY_COL_BANDS[bIdx] || [0, COLS-1];
-  let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey)
-    || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey)
+  let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey, side, bIdx)
+    || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey, side, bIdx)
     || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRows[0]:frontRow, typeKey);
   placeUnit(side, typeKey, cell.x, cell.y);
 }
