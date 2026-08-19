@@ -155,6 +155,22 @@
   }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
+  #aiLogExportPanel{ position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center; }
+  #aiLogExportPanel.hidden{ display:none; }
+  #aiLogExportBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.5); }
+  #aiLogExportBox{
+    position:relative;background:var(--paper);border:2px solid var(--brass-dim);border-radius:4px;
+    padding:20px 24px;width:min(560px,90vw);box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  #aiLogExportBox h3{ font-family:'Cinzel',serif;color:var(--brass-bright);text-transform:uppercase;font-size:15px;margin:0 0 6px; }
+  .ai-log-export-hint{ font-size:12px;color:var(--ink-dim);margin:0 0 10px; }
+  #aiLogExportText{
+    width:100%;height:min(50vh,320px);font-family:monospace;font-size:11px;line-height:1.4;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:3px;padding:8px;
+    resize:vertical;color:var(--ink);
+  }
+  .ai-log-export-actions{ display:flex;gap:8px;justify-content:flex-end;margin-top:10px; }
+
   #logOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
   #logOverlay.hidden{ display:none; }
   #logOverlayBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.35);opacity:0;transition:opacity 0.18s; }
@@ -408,6 +424,19 @@
     </div>
 
   </main>
+</div>
+
+<div id="aiLogExportPanel" class="hidden">
+  <div id="aiLogExportBackdrop"></div>
+  <div id="aiLogExportBox">
+    <h3>AI Move Log</h3>
+    <p class="ai-log-export-hint">Select all and copy, then paste wherever you need it.</p>
+    <textarea id="aiLogExportText" readonly></textarea>
+    <div class="ai-log-export-actions">
+      <button id="aiLogExportCopyBtn" class="primary">Copy to Clipboard</button>
+      <button id="aiLogExportCloseBtn">Close</button>
+    </div>
+  </div>
 </div>
 
 <div id="overlay">
