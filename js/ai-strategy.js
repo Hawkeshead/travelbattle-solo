@@ -348,10 +348,18 @@ export function aiDecideAndExecuteMove(u){
   const holdingReserve = mission ? (mission==='RESERVE' && !reserveCrisisExists(side))
     : (state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side));
   const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
+  const wasConnected = connectedBefore; // captured before any candidate is tried, at the unit's real starting position
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
     let s = evaluateState(side) - 0.5*threatPenalty(u, side);
+    // A currently-cohesive unit stranding itself is worse than evaluateState's flat
+    // per-unit disconnection penalty alone accounts for — that penalty also applies
+    // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
+    // outweigh a Charge's +2.2 (or more, stacked with a Column combo/mission bonus).
+    // This is what let a charge strand a Cavalry unit turn after turn — the charge
+    // always scored higher despite cutting the unit off from its Brigadier for good.
+    if(wasConnected && !movableUnitsForSide(side).has(u.id)) s -= 2.4;
     // Without some positional pull, every "safe" square scores identically and the
     // AI never closes to fight. Infantry/cavalry are pulled toward the nearest enemy;
     // artillery is pulled toward its ideal firing band (3-5 squares) instead.
