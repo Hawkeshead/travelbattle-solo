@@ -267,7 +267,8 @@ export let state = {
   replaying: false,       // true while the replay player is stepping through matchLog
   _aiPlan: { red:null, blue:null },     // OperationalPlan per side, Hard difficulty only — persists across AI turns
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
-  _aiDebugLog: { red:null, blue:null }  // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
+  _aiDebugLog: { red:null, blue:null }, // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
+  _aiMoveHistory: { red:[], blue:[] }   // every AI move for the whole match, any difficulty — see exportAiMoveLog()
 };
 export let uidCounter = 1;
 
