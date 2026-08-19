@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, reserveCrisisExists, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { animateUnitTo, displaceBrigadierIfPresent, draw } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
@@ -296,6 +296,15 @@ export function aiDecideAndExecuteMove(u){
   if(u.removed || u.turnOnly) return;
   const side = u.side;
   const t = UNIT_TYPES[u.type];
+  const connectedBefore = movableUnitsForSide(side).has(u.id);
+  const startX = u.x, startY = u.y;
+  function recordMove(action, to){
+    state._aiMoveHistory[side].push({
+      turn: state.turnNumber, unit: unitLabel(u), type: u.type, brigadeId: u.brigadeId,
+      mission: missionFor(u), action, from: {x:startX, y:startY}, to: to || null,
+      connectedBefore, connectedAfter: movableUnitsForSide(side).has(u.id)
+    });
+  }
 
   if(u.formation==='square'){
     // Reconsider every phase: leaving Square costs this whole move phase (per rulebook),
@@ -304,6 +313,9 @@ export function aiDecideAndExecuteMove(u){
       u.formation = 'line';
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
+      recordMove('Reform Line');
+    } else {
+      recordMove('Hold (Square)');
     }
     return; // whether it left Square or stayed, a squared unit takes no other move action this phase
   }
@@ -321,6 +333,7 @@ export function aiDecideAndExecuteMove(u){
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Lay Ambush', reason:`nearest enemy ${near} squares away` });
+      recordMove('Lay Ambush');
       return;
     }
   }
@@ -409,6 +422,7 @@ export function aiDecideAndExecuteMove(u){
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Form Square', reason:`squareScore ${squareScore.toFixed(2)} beat best move ${bestScore.toFixed(2)}` });
+      recordMove('Form Square');
       return;
     }
   }
@@ -436,6 +450,7 @@ export function aiDecideAndExecuteMove(u){
   if(mission){
     logAiDebugMove(side, { unit: unitLabel(u), mission, action: (best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', to: best?`(${best.x},${best.y})`:null, score: bestScore.toFixed(2) });
   }
+  recordMove((best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', best && !best.stay ? {x:best.x, y:best.y} : null);
 }
 
 export function aiDoMovePhase(){
@@ -614,5 +629,40 @@ export function aiDoFightPhase(){
     }
   }
   step();
+}
+
+// Plain-text, copy-pasteable transcript of every AI move for the whole match —
+// grouped by turn, flagging any move that broke or was made while disconnected
+// from the Brigadier, since that's the specific weakness under investigation.
+// Difficulty-agnostic (mission/score columns are simply blank on Easy/Medium,
+// where no mission exists).
+export function exportAiMoveLog(){
+  const side = state.aiSide;
+  if(!side) return 'No AI opponent in this match — nothing to export.';
+  const history = state._aiMoveHistory[side] || [];
+  if(history.length===0) return 'No AI moves recorded this match.';
+
+  const lines = [];
+  lines.push(`=== AI MOVE LOG — ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
+  lines.push(`Total AI moves: ${history.length}`);
+  const disconnectedCount = history.filter(h=>!h.connectedAfter).length;
+  lines.push(`Moves ending disconnected from Brigadier: ${disconnectedCount}`);
+  lines.push('');
+
+  let lastTurn = null;
+  for(const h of history){
+    if(h.turn !== lastTurn){
+      lines.push(`--- Turn ${h.turn} ---`);
+      lastTurn = h.turn;
+    }
+    const fromStr = `(${h.from.x},${h.from.y})`;
+    const toStr = h.to ? ` -> (${h.to.x},${h.to.y})` : '';
+    const missionStr = h.mission ? ` [mission: ${h.mission}]` : '';
+    const scoreStr = h.score!==undefined ? ` score:${h.score}` : '';
+    const flag = !h.connectedAfter ? '  \u26A0 DISCONNECTED FROM BRIGADIER'
+      : (h.connectedBefore && !h.connectedAfter ? '  \u26A0 LOST connection this move' : '');
+    lines.push(`${h.unit} (Brigade ${h.brigadeId}) [${h.type}]: ${h.action} ${fromStr}${toStr}${missionStr}${scoreStr}${flag}`);
+  }
+  return lines.join('\n');
 }
 
