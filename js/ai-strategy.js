@@ -1,4 +1,4 @@
-import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, reserveCrisisExists, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty } from './ai-tactics.js';
+import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, findVulnerableEnemyUnits, isIsolatedAndThreatened, reserveCrisisExists, retreatToSupportBonus, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
@@ -292,6 +292,17 @@ export function lookaheadMovePenalty(u, side){
   return worst;
 }
 
+// Cached per (side, turn) — findVulnerableEnemyUnits is cheap but there's no
+// reason to recompute it for every one of a side's dozen-odd units in the
+// same move phase, when the board hasn't changed between them starting.
+function getVulnerableEnemyUnits(side){
+  const cache = state._aiVulnCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.list;
+  const list = findVulnerableEnemyUnits(side);
+  state._aiVulnCache = { side, turn: state.turnNumber, list };
+  return list;
+}
+
 export function aiDecideAndExecuteMove(u){
   if(u.removed || u.turnOnly) return;
   const side = u.side;
@@ -349,6 +360,8 @@ export function aiDecideAndExecuteMove(u){
     : (state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side));
   const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
   const wasConnected = connectedBefore; // captured before any candidate is tried, at the unit's real starting position
+  const currentlyThreatened = threatPenalty(u, side) >= 1.2; // at the unit's real starting position, before any candidate is tried
+  const selfPreservation = seekTactics && isIsolatedAndThreatened(u, side); // also at the real starting position
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
@@ -365,13 +378,32 @@ export function aiDecideAndExecuteMove(u){
     // artillery is pulled toward its ideal firing band (3-5 squares) instead.
     // Reserve Doctrine (Hard): suppress this pull for a held-back Guard/Heavy
     // Cavalry unit until a real crisis exists, so it doesn't rush the opening exchanges.
-    if(!holdingReserve){
+    // Self-preservation (below) suppresses it too — an isolated, threatened unit
+    // should be falling back toward support, not still being pulled forward alone.
+    if(!holdingReserve && !selfPreservation){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
         s -= Math.abs(d-4) * 0.06;
       } else {
         s -= nearestEnemyDist(c, side) * 0.12;
       }
+    }
+
+    // The defensive mirror of the concentration tactic below: an isolated unit
+    // under real threat right now falls back toward its own side rather than the
+    // AI continuing to press it forward alone — exactly the exposure the AI is
+    // now taught to actively punish an enemy unit for standing in.
+    if(selfPreservation){
+      s += retreatToSupportBonus(c, side, u);
+    }
+
+    // Concentrate on a vulnerable (isolated/unsupported) enemy unit specifically,
+    // on top of the generic "close on nearest enemy" pull above — several units
+    // converging on the same weak point in one turn is what actually punishes an
+    // overextended enemy, rather than each unit independently picking whichever
+    // enemy happens to be closest to itself.
+    if(seekTactics && !holdingReserve && !selfPreservation && !t.isArtillery){
+      s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
     }
 
     // Medium+: deliberately seek out a Charge instead of only charging by accident.
@@ -394,8 +426,16 @@ export function aiDecideAndExecuteMove(u){
       const occ = unitsAt(c.x,c.y).filter(o=>!o.removed && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
       if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += 1.4;
     }
-    // Core Tactic #5, Ground Worth Bleeding For: value good terrain when otherwise similar.
-    if(seekTactics) s += terrainSeekBonus(t.key, c.x, c.y);
+    // Core Tactic #5, Ground Worth Bleeding For: value good terrain when otherwise similar —
+    // weighted much more heavily when the unit isn't actively closing for an attack (holding,
+    // reserving, or a defensive-flavoured mission) or is already under real threat. That's
+    // exactly when a real commander repositions onto good ground, rather than just mildly
+    // preferring it as a tie-break while advancing straight past it regardless.
+    if(seekTactics){
+      const defensivePosture = holdingReserve || currentlyThreatened ||
+        mission==='HOLD' || mission==='FIX' || mission==='SCREEN' || mission==='WITHDRAW';
+      s += terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1);
+    }
     // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
     if(seekTactics) s += screensGunBonus(u, side, c);
     // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
@@ -562,7 +602,13 @@ export function simulateFightAftermathScore(attacker, defender, side){
   else if(margin <= -1){ attacker.turnOnly = true; }
   // roughly even (|margin|<1): treat as a draw, no change — matches the real rule's tie-continues behaviour
 
-  const score = evaluateState(side) + brigadeBreakBonus(defender)*0.5;
+  // "And then what" — a fight that wins but leaves the attacker (if it survives)
+  // badly exposed to the rest of the enemy army next turn shouldn't score as well
+  // as an identical win somewhere safer. Computed after the defender's projected
+  // fate is applied above, so a fight that removes the defender correctly reads
+  // as one less threat source afterwards.
+  const postFightExposure = attacker.removed ? 0 : threatPenalty(attacker, side) * 0.35;
+  const score = evaluateState(side) + brigadeBreakBonus(defender)*0.5 - postFightExposure;
 
   attacker.removed=snap.aRemoved; attacker.x=snap.aX; attacker.y=snap.aY; attacker.turnOnly=snap.aTurnOnly;
   defender.removed=snap.dRemoved; defender.x=snap.dX; defender.y=snap.dY; defender.turnOnly=snap.dTurnOnly;
