@@ -1,3 +1,4 @@
+import { exportAiMoveLog } from './ai-strategy.js';
 import { saveCampaignProgress } from './campaign.js';
 import { SIDES, SIDE_LABEL, state } from './data-core.js';
 import { unitsAt } from './engine-rules.js';
@@ -142,6 +143,25 @@ export function endGame(winner){
     replayBtn.textContent = 'Watch Replay';
     replayBtn.onclick = startReplay;
     extra.appendChild(replayBtn);
+  }
+  if(state.aiSide){
+    const box = document.querySelector('#overlay .box');
+    let extra = document.getElementById('modeChoices');
+    if(!extra){
+      extra = document.createElement('div');
+      extra.id = 'modeChoices';
+      extra.style.gap = '8px';
+      extra.style.justifyContent = 'center';
+      box.appendChild(extra);
+    }
+    extra.style.display = 'flex';
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export AI Move Log';
+    exportBtn.onclick = ()=>{
+      document.getElementById('aiLogExportText').value = exportAiMoveLog();
+      document.getElementById('aiLogExportPanel').classList.remove('hidden');
+    };
+    extra.appendChild(exportBtn);
   }
   document.getElementById('overlay').classList.add('show');
 }
