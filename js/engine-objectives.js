@@ -127,42 +127,34 @@ export function endGame(winner){
     document.getElementById('overlayBtn').textContent = 'New Battle';
     document.getElementById('overlayBtn').onclick = ()=> location.reload();
   }
+  const box = document.querySelector('#overlay .box');
+  let extra = document.getElementById('modeChoices');
+  if(!extra){
+    extra = document.createElement('div');
+    extra.id = 'modeChoices';
+    extra.style.gap = '8px';
+    extra.style.justifyContent = 'center';
+    box.appendChild(extra);
+  }
+  extra.innerHTML = ''; // always rebuilt fresh here — no dependency on what an earlier menu left behind
+  const endScreenButtons = [];
   if(state.matchLog && state.matchLog.length>0 && state.replayStartUnits){
-    const box = document.querySelector('#overlay .box');
-    let extra = document.getElementById('modeChoices');
-    if(!extra){
-      extra = document.createElement('div');
-      extra.id = 'modeChoices';
-      extra.style.gap = '8px';
-      extra.style.justifyContent = 'center';
-      box.appendChild(extra);
-    }
-    extra.innerHTML = '';
-    extra.style.display = 'flex';
     const replayBtn = document.createElement('button');
     replayBtn.textContent = 'Watch Replay';
     replayBtn.onclick = startReplay;
-    extra.appendChild(replayBtn);
+    endScreenButtons.push(replayBtn);
   }
   if(state.aiSide){
-    const box = document.querySelector('#overlay .box');
-    let extra = document.getElementById('modeChoices');
-    if(!extra){
-      extra = document.createElement('div');
-      extra.id = 'modeChoices';
-      extra.style.gap = '8px';
-      extra.style.justifyContent = 'center';
-      box.appendChild(extra);
-    }
-    extra.style.display = 'flex';
     const exportBtn = document.createElement('button');
     exportBtn.textContent = 'Export AI Move Log';
     exportBtn.onclick = ()=>{
       document.getElementById('aiLogExportText').value = exportAiMoveLog();
       document.getElementById('aiLogExportPanel').classList.remove('hidden');
     };
-    extra.appendChild(exportBtn);
+    endScreenButtons.push(exportBtn);
   }
+  extra.style.display = endScreenButtons.length ? 'flex' : 'none';
+  endScreenButtons.forEach(b=>extra.appendChild(b));
   document.getElementById('overlay').classList.add('show');
 }
 
