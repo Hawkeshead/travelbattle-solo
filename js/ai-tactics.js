@@ -7,6 +7,34 @@ import { brigadeCavalryCount, chebyshev, isAdjacent, isConcealedFromEnemy, movab
 ========================================================= */
 export const AI_UNIT_VALUE = { BRIGADIER:2, INFANTRY:4, GUARD:5, HEAVY_CAV:5, LIGHT_CAV:4, ARTILLERY:6 };
 
+// Manoeuvre: an enemy unit standing without support — either it's lost its own
+// chain of command back to its Brigadier (see movableUnitsForSide), or it
+// simply has no friendly-to-it units within a short support radius even though
+// technically still connected. Either way, it's the kind of target a human
+// player concentrates several units against rather than trading evenly with.
+// Reuses the exact same connectivity check already built for the AI's own
+// cohesion — this is that same weakness, aimed at the opponent instead.
+export function findVulnerableEnemyUnits(side){
+  const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  const connEnemy = movableUnitsForSide(enemy);
+  const enemyUnits = state.units.filter(u=>!u.removed && u.side===enemy && u.type!=='BRIGADIER' && !isConcealedFromEnemy(u));
+  return enemyUnits.filter(u=>{
+    if(!connEnemy.has(u.id)) return true;
+    const nearbySupport = enemyUnits.some(o=>o.id!==u.id && chebyshev(u,o)<=2);
+    return !nearbySupport;
+  });
+}
+
+// How much a candidate square helps concentrate force on the nearest vulnerable
+// enemy unit — a stronger pull than the generic "close on the nearest enemy"
+// term, so several units genuinely converge on the same weak point in the same
+// turn instead of each independently picking whichever enemy happens closest.
+export function vulnerableTargetPullBonus(pos, side, vulnerable){
+  if(!vulnerable || vulnerable.length===0) return 0;
+  const nearest = vulnerable.reduce((best,v)=> chebyshev(pos,v) < chebyshev(pos,best) ? v : best);
+  return -chebyshev(pos,nearest) * 0.22;
+}
+
 export function evaluateState(perspective){
   let score = 0;
   const enemy = perspective===SIDES.RED ? SIDES.BLUE : SIDES.RED;
@@ -108,5 +136,25 @@ export function scenarioMoveBonus(mover, side, pos){
     }
   }
   return bonus;
+}
+
+// The defensive mirror of findVulnerableEnemyUnits — is THIS unit itself
+// standing without support and under real threat right now. Used to pull an
+// exposed unit back toward its own side rather than continuing to advance
+// alone into the situation the AI is now actively taught to punish an enemy
+// unit for being in.
+export function isIsolatedAndThreatened(u, side){
+  if(threatPenalty(u, side) < 1.0) return false;
+  const friendlies = state.units.filter(o=>!o.removed && o.side===side && o.id!==u.id && o.type!=='BRIGADIER');
+  return !friendlies.some(o=>chebyshev(u,o)<=2);
+}
+
+// Pull toward the nearest friendly unit — retreat-to-support for a unit that's
+// isolated and under threat, rather than continuing to press forward alone.
+export function retreatToSupportBonus(pos, side, self){
+  const friendlies = state.units.filter(o=>!o.removed && o.side===side && o.id!==self.id && o.type!=='BRIGADIER');
+  if(friendlies.length===0) return 0;
+  const nearest = friendlies.reduce((best,o)=> chebyshev(pos,o) < chebyshev(pos,best) ? o : best);
+  return -chebyshev(pos,nearest) * 0.30;
 }
 
