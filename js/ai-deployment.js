@@ -162,6 +162,7 @@ export function placeAiPlanEntry(side, planEntry){
 export function deployArmyComposition(side, armyId){
   const army = TB_DATA.armyCompositions.find(a => a.id === armyId);
   if(!army) return false;
+  state._suppressArmyPicker = true; // this loop's own confirmCurrentBrigade() calls momentarily flip deployTurn to the other side between Brigades — without this, that could flash open the OTHER side's picker mid-loop in a hotseat match before this loop forces the turn back
   for(const brig of army.brigades){
     state.deployTurn = side; // deployment normally alternates sides per Brigade — this places all of THIS side's Brigades in one go, so it must hold the turn itself throughout
     const bIdx = state.deployBrigadeIndex[side];
@@ -171,6 +172,7 @@ export function deployArmyComposition(side, armyId){
     }
     confirmCurrentBrigade();
   }
+  state._suppressArmyPicker = false;
   return true;
 }
 
