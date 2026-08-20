@@ -1,0 +1,236 @@
+[
+  {
+    "id": "balanced",
+    "name": "Army A — Balanced Advance",
+    "summary": "Three similar general-purpose Brigades. The default shape — no single Brigade stands out, but no single weakness either.",
+    "brigades": [
+      {
+        "name": "1st Brigade",
+        "doctrine": "A solid Line that can form Square against a charge, with the gun firing through gaps in the front rank and the cavalry free to peel off toward a flank if one opens up.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "2nd Brigade",
+        "doctrine": "A plain Infantry line backed by a gun and a squadron of Heavy Cavalry held ready to exploit whatever the line's fire opens up.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "3rd Brigade",
+        "doctrine": "Guard-anchored line with both a Heavy and a Light squadron behind it — flexible enough to go on the attack or hold, depending what the battle needs.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cavalry_wing",
+    "name": "Army B — Cavalry Wing",
+    "summary": "One dedicated all-cavalry Brigade, one Grand Battery, one reinforced infantry Anvil. Push the cavalry wing hard and fast on whichever flank opens up.",
+    "brigades": [
+      {
+        "name": "The Hammer",
+        "doctrine": "All cavalry, no infantry to slow it down. Both Heavy squadrons lead, charge-ready from turn one; the Light squadrons hold slightly behind to exploit whatever gap the Heavies open rather than both waves hitting together. Free to swing between flanks — this is the Brigade to push quickly wherever the opening is.",
+        "units": [
+          {"type":"HEAVY_CAV","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"front"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"}
+        ]
+      },
+      {
+        "name": "The Battery",
+        "doctrine": "A Grand Battery — both guns massed together for concentrated fire on one point, screened by two Infantry so it can't be charged directly. Wants the Hammer or another Brigade doing the actual attacking while this one anchors the centre.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"ARTILLERY","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "The Anvil",
+        "doctrine": "No cavalry, no guns, nothing to distract it. Both Guard units up front with four Infantry in depth — this Brigade's only job is to not break. Good for whichever wing takes the enemy's main push while the Hammer is off attacking elsewhere.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"back"},
+          {"type":"INFANTRY","rank":"back"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "grand_assault",
+    "name": "Army C — Grand Assault",
+    "summary": "A concentrated Guard+Infantry fist with no distractions, flanked by two mirrored wings each carrying their own cavalry and gun.",
+    "brigades": [
+      {
+        "name": "The Fist",
+        "doctrine": "Pure Guard and Infantry, nothing else — no cavalry or artillery to divide its attention. Meant to go straight at the strongest point of the enemy line and break it through sheer weight.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"back"},
+          {"type":"INFANTRY","rank":"back"}
+        ]
+      },
+      {
+        "name": "Right Wing",
+        "doctrine": "A complete combined-arms force in miniature — Infantry, a Heavy squadron, a Light squadron and a gun. Screens the Fist's flank and can fight alone if it has to.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "Left Wing",
+        "doctrine": "The mirror of the Right Wing — same composition, same job. Whichever flank the enemy commits to, this side is equally ready either way.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "refused_flank",
+    "name": "Army D — The Refused Flank",
+    "summary": "Properly asymmetric. One flank does all the real work, the other is deliberately thin and just buys time.",
+    "brigades": [
+      {
+        "name": "Strong Flank",
+        "doctrine": "Both Guard, two Infantry, and both Heavy Cavalry squadrons together — this Brigade is the whole point of the army. Commit it and follow through.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"GUARD","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"INFANTRY","rank":"back"},
+          {"type":"INFANTRY","rank":"back"}
+        ]
+      },
+      {
+        "name": "Weak Flank",
+        "doctrine": "Two Infantry and nothing else. Not meant to fight, meant to delay — give ground, form Square if charged, and buy the Strong Flank time to finish the job elsewhere.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"back"}
+        ]
+      },
+      {
+        "name": "Centre",
+        "doctrine": "Both guns and both Light squadrons, screened by two Infantry. Holds the middle and keeps the two flanks from being cut off from each other.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "twin_batteries",
+    "name": "Army E — Twin Batteries",
+    "summary": "The opposite instinct from the Cavalry Wing's massed guns — each anchor Brigade carries its own artillery, while all the cavalry masses in one striking force.",
+    "brigades": [
+      {
+        "name": "1st Anchor",
+        "doctrine": "Guard, two Infantry and a gun — a complete, self-sufficient Brigade that doesn't need support from anyone else to hold its ground.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "2nd Anchor",
+        "doctrine": "The mirror of the 1st Anchor. Two identical, independent strongpoints rather than one Brigade leaning on another.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "The Strike Force",
+        "doctrine": "All four cavalry units together — both Heavy and both Light squadrons — screened by two Infantry. Bigger and more mixed than a dedicated Hammer, meant to go wherever the fight is actually won.",
+        "units": [
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"},
+          {"type":"LIGHT_CAV","rank":"back"}
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vanguard",
+    "name": "Army F — The Vanguard",
+    "summary": "A small, fast, expendable screening force out front, backed by two complete, mirrored striking forces held in reserve.",
+    "brigades": [
+      {
+        "name": "The Vanguard",
+        "doctrine": "Just four units — both Light squadrons and two Infantry. Meant to find the enemy and report back, not win the fight on its own. Treat it as sacrificial if it has to be.",
+        "units": [
+          {"type":"LIGHT_CAV","rank":"front"},
+          {"type":"LIGHT_CAV","rank":"front"},
+          {"type":"INFANTRY","rank":"back"},
+          {"type":"INFANTRY","rank":"back"}
+        ]
+      },
+      {
+        "name": "1st Main Body",
+        "doctrine": "Guard, two Infantry, a Heavy squadron and a gun — a complete combined-arms force capable of fighting entirely on its own once the Vanguard finds something worth committing to.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      },
+      {
+        "name": "2nd Main Body",
+        "doctrine": "The exact mirror of the 1st Main Body. Whichever side the Vanguard finds the enemy on, an identical force is ready to respond.",
+        "units": [
+          {"type":"GUARD","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"INFANTRY","rank":"front"},
+          {"type":"HEAVY_CAV","rank":"back"},
+          {"type":"ARTILLERY","rank":"back"}
+        ]
+      }
+    ]
+  }
+]
