@@ -311,7 +311,7 @@ function startOrientationPickMode(side, onDone){
   const confirmBtn = document.getElementById('endMoveBtn');
   confirmBtn.style.display = 'inline-block';
   confirmBtn.disabled = false;
-  confirmBtn.textContent = 'Confirm Orientation';
+  confirmBtn.textContent = 'Confirm This Orientation';
   confirmBtn.onclick = ()=>{
     confirmBtn.textContent = 'End Move'; // hand the button back to its normal battle-phase role
     confirmBtn.onclick = endMovePhase;   // its real handler — never gets re-bound after boot.js's one-time initBattleControls() call, so this must restore it explicitly
