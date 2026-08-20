@@ -44,12 +44,18 @@ export function phaseLabel(p){
 }
 
 export function brigadeBrokenStatus(side){
-  // Returns an array of 3 booleans (broken/not) — a Brigade with no units yet (pre-deployment) counts as not broken.
+  // Returns an array of 3 booleans (broken/not) — a Brigade with no combat
+  // units yet (whether that's genuinely empty, or only its Brigadier has been
+  // placed so far during deployment) counts as not broken. Deployment always
+  // places the Brigadier before any combat unit, so without explicitly
+  // excluding "Brigadier-only" here, every single Brigade briefly, incorrectly
+  // read as already broken the instant its Brigadier went down.
   const out = [];
   for(let bId=0; bId<3; bId++){
     const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
-    if(group.length===0){ out.push(false); continue; }
-    out.push(group.filter(u=>!u.removed && u.type!=='BRIGADIER').length===0);
+    const combatUnits = group.filter(u=>u.type!=='BRIGADIER');
+    if(combatUnits.length===0){ out.push(false); continue; }
+    out.push(combatUnits.filter(u=>!u.removed).length===0);
   }
   return out;
 }
