@@ -66,20 +66,8 @@ test('a match starts and reaches deployment', async ({ page }) => {
   await page.getByRole('button', { name: 'Play Britain' }).click();
   await page.getByRole('button', { name: 'Easy' }).click();
 
-  // Board setup rolls a d6 per side for table orientation. On a 4-6 the player
-  // is asked to choose, so between zero and two rotation prompts appear. Accept
-  // whatever orientation is offered until deployment opens.
+  await clearBoardSetup(page);
   const roster = page.locator('#rosterList');
-  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
-
-  for (let i = 0; i < 4; i++) {
-    if ((await roster.locator('.roster-chip').count()) > 0) break;
-    if (await confirmOrientation.isVisible().catch(() => false)) {
-      await confirmOrientation.click();
-      continue;
-    }
-    await page.waitForTimeout(300);
-  }
 
   // Deployment is live: the roster is showing placeable units.
   await expect(roster.locator('.roster-chip').first()).toBeVisible({ timeout: 10_000 });
@@ -108,20 +96,49 @@ async function clickCell(page, bx, by, { cols = 20, rows = 10 } = {}) {
   );
 }
 
-/** Clear the board-setup rotation prompts until the roster appears. */
+/**
+ * Clear the board-setup sequence until the roster appears.
+ *
+ * Board setup is now a chain of dice rolls (a roll for orientation order, then
+ * a roll for each side's right to rotate — each several seconds of flicker-
+ * then-fade before the result is even known) rather than the one-or-two quick
+ * rotation prompts this used to be, so this needs real patience, not a couple
+ * of quick polls. It also has to handle the Army Picker screen, which can
+ * appear the moment it becomes a human side's turn to deploy — "Deploy
+ * Manually Instead" keeps this test exercising the original manual roster
+ * flow rather than needing to know about Army compositions at all.
+ */
 async function clearBoardSetup(page) {
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
-  for (let i = 0; i < 4; i++) {
-    if ((await page.locator('#rosterList .roster-chip').count()) > 0) return;
+  const deployManually = page.getByRole('button', { name: 'Deploy Manually Instead' });
+  const firstChip = page.locator('#rosterList .roster-chip').first();
+  for (let i = 0; i < 40; i++) {
+    // isVisible(), not count() — renderRoster() populates the roster chips
+    // before the Army Picker overlay ever gets a chance to show on top of
+    // them, so the chips already exist (just hidden) the whole time the
+    // Picker is up. count() alone would report "deployment has started" the
+    // instant those hidden chips exist, well before the Picker is actually
+    // dismissed.
+    if (await firstChip.isVisible().catch(() => false)) return;
     if (await confirmOrientation.isVisible().catch(() => false)) {
       await confirmOrientation.click();
       continue;
     }
-    await page.waitForTimeout(300);
+    if (await deployManually.isVisible().catch(() => false)) {
+      await deployManually.click();
+      continue;
+    }
+    await page.waitForTimeout(400);
   }
 }
 
 test('a full vs-AI deployment completes for both sides', async ({ page }) => {
+  // A full 3-Brigade deployment with the AI alternating turns was already a
+  // longer-running test before this; the board-setup dice-roll sequence now
+  // adds several more real seconds before deployment even starts, so the
+  // default 30s test timeout no longer leaves enough room for the deployment
+  // loop itself.
+  test.setTimeout(60_000);
   const errors = watchForErrors(page);
 
   await page.goto('/');
@@ -162,7 +179,7 @@ test('a full vs-AI deployment completes for both sides', async ({ page }) => {
     }
 
     const chip = page.locator('#rosterList .roster-chip').first();
-    if (!(await chip.count())) {
+    if (!(await chip.isVisible().catch(() => false))) {
       await page.waitForTimeout(200);
       continue;
     }
