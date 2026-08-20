@@ -26,6 +26,7 @@ export const TB_DATA = (function(){
       scenarios: loadJSON('data/scenarios.json'),
       terrainLayouts: loadJSON('data/terrain-layouts.json'),
       unitTypes: loadJSON('data/unit-types.json'),
+      armyCompositions: loadJSON('data/army-compositions.json'),
     };
   } catch (err) {
     document.body.innerHTML = '<div style="color:#eee;background:#2a1414;padding:40px;font-family:sans-serif;max-width:600px;margin:60px auto;border:1px solid #a33;border-radius:8px;">'
@@ -269,7 +270,8 @@ export let state = {
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
   _aiDebugLog: { red:null, blue:null }, // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
   _aiMoveHistory: { red:[], blue:[] }, // every AI move for the whole match, any difficulty — see exportAiMoveLog()
-  _aiVulnCache: null // per-(side,turn) cache of findVulnerableEnemyUnits — see getVulnerableEnemyUnits()
+  _aiVulnCache: null, // per-(side,turn) cache of findVulnerableEnemyUnits — see getVulnerableEnemyUnits()
+  _aiCompositionChoice: { red:null, blue:null } // 'standard' or 'cavalryFocused', decided once per match per side — see aiDeployStepHard()
 };
 export let uidCounter = 1;
 
