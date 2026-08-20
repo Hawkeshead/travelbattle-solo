@@ -155,6 +155,31 @@
   }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
+  #armyPickerPanel{ position:absolute;inset:0;z-index:38;display:flex;flex-direction:column;background:var(--map-bg); }
+  #armyPickerPanel.hidden{ display:none; }
+  #armyPickerCards{ flex:1;overflow-y:auto;padding:14px 16px 6px;background:linear-gradient(180deg,#dccfa4,#e9dfc4); }
+  .apLabel{ font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-dim); }
+  #armyPickerName{ font-family:'Cinzel',serif;font-size:18px;color:var(--brass-bright);text-transform:uppercase;letter-spacing:0.03em;margin-top:2px; }
+  #armyPickerSummary{ font-size:12px;color:#5a4d33;margin-top:5px;line-height:1.45; }
+  #armyPickerBrigadeCards{ margin-top:12px; }
+  .apCard{ background:var(--paper);border-radius:5px;padding:10px 12px;margin-bottom:9px;border-left:5px solid var(--brass-dim); }
+  .apCard .apName{ font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.02em;color:var(--ink); }
+  .apCard .apDoctrine{ font-size:11.5px;color:#5a4d33;margin-top:3px;line-height:1.45; }
+  #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:10px 14px 14px;margin-top:auto; }
+  #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px; }
+  .apArrow{ width:30px;height:30px;border-radius:50%;padding:0; }
+  #armyPickerDots{ display:flex;gap:5px; }
+  #armyPickerDots .apDot{ width:6px;height:6px;border-radius:50%;background:var(--line); }
+  #armyPickerDots .apDot.active{ background:var(--brass-bright);width:16px;border-radius:3px; }
+  #armyPickerBtnRow{ display:flex;flex-direction:column;gap:7px; }
+  .apTextBtn{ background:none;border:none;color:var(--ink-dim);text-decoration:underline;font-weight:500;padding:4px; }
+  #armyPickerPanel.viewingMap{ background:transparent; }
+  #armyPickerPanel.viewingMap #armyPickerCards{ display:none; }
+  #armyPickerPanel.viewingMap #armyPickerBar{ background:transparent;border-top:none; }
+  #armyPickerPanel.viewingMap #armyPickerCarousel{ display:none; }
+  #armyPickerPanel.viewingMap #armyPickerDeployBtn,
+  #armyPickerPanel.viewingMap #armyPickerManualBtn{ display:none; }
+
   #aiLogExportPanel{ position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center; }
   #aiLogExportPanel.hidden{ display:none; }
   #aiLogExportBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.5); }
@@ -424,6 +449,27 @@
     </div>
 
   </main>
+</div>
+
+<div id="armyPickerPanel" class="hidden">
+  <div id="armyPickerCards">
+    <div class="apLabel">Choose Your Army &middot; <span id="armyPickerIndex">1</span> of 6</div>
+    <h2 id="armyPickerName">Army</h2>
+    <div id="armyPickerSummary"></div>
+    <div id="armyPickerBrigadeCards"></div>
+  </div>
+  <div id="armyPickerBar">
+    <div id="armyPickerCarousel">
+      <button id="armyPickerPrev" class="apArrow">&lt;</button>
+      <div id="armyPickerDots"></div>
+      <button id="armyPickerNext" class="apArrow">&gt;</button>
+    </div>
+    <div id="armyPickerBtnRow">
+      <button id="armyPickerDeployBtn" class="primary">Deploy This Army</button>
+      <button id="armyPickerViewMapBtn">View Map</button>
+      <button id="armyPickerManualBtn" class="apTextBtn">Deploy Manually Instead</button>
+    </div>
+  </div>
 </div>
 
 <div id="aiLogExportPanel" class="hidden">
