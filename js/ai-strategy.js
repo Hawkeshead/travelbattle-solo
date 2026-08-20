@@ -372,7 +372,25 @@ export function aiDecideAndExecuteMove(u){
     // outweigh a Charge's +2.2 (or more, stacked with a Column combo/mission bonus).
     // This is what let a charge strand a Cavalry unit turn after turn — the charge
     // always scored higher despite cutting the unit off from its Brigadier for good.
-    if(wasConnected && !movableUnitsForSide(side).has(u.id)) s -= 2.4;
+    const connNow = movableUnitsForSide(side);
+    if(wasConnected && !connNow.has(u.id)) s -= 2.4;
+    // A Brigadier is always "connected" to itself by definition (see
+    // movableUnitsForSide — the chain starts FROM the Brigadier), so the penalty
+    // above can never fire for a Brigadier choosing to hold still. That's exactly
+    // how a stationary Brigadier ends up stranding its own advancing Brigade
+    // without ever itself being flagged as the cause — confirmed directly from a
+    // move log: a Brigadier camped in place for a dozen-plus turns while two of
+    // its own units pushed on ahead and lost their chain back to it. A Brigadier's
+    // candidate squares are scored instead by how many of its own Brigade-mates
+    // that position would keep connected, so it actively follows its most
+    // advanced units rather than anchoring the whole Brigade to where it started.
+    if(t.key==='BRIGADIER'){
+      const brigadeMates = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===u.brigadeId && o.id!==u.id);
+      if(brigadeMates.length > 0){
+        const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
+        s += connectedCount * 0.5;
+      }
+    }
     // Without some positional pull, every "safe" square scores identically and the
     // AI never closes to fight. Infantry/cavalry are pulled toward the nearest enemy;
     // artillery is pulled toward its ideal firing band (3-5 squares) instead.
