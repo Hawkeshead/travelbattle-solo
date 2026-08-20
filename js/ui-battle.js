@@ -6,6 +6,7 @@ import { artilleryTargets, chebyshev, computeChargeDestinations, consumePloughEs
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
+import { handleOrientationClick } from './ui-menus.js';
 import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
 
 /* =========================================================
@@ -466,6 +467,7 @@ export function initBoardInput(){
 
 export function onCellClick(x,y){
   if(state.gameOver) return;
+  if(state.phase==='orientation'){ handleOrientationClick(x); return; }
   if(state.phase==='deploy'){ handleDeployClick(x,y); return; }
   if(state.mode==='ai' && state.turn===state.aiSide) return; // AI's turn, ignore human clicks
 
