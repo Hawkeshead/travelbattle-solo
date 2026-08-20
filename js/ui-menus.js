@@ -1,10 +1,11 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_LABEL, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { draw, sizeCanvas } from './render-board.js';
+import { canvas, ctx, draw, sizeCanvas, sy } from './render-board.js';
 import { endMovePhase } from './ui-battle.js';
+import { deployArmyComposition } from './ai-deployment.js';
 import { initDeployment } from './ui-deployment.js';
 
 export function showOverlay(title, html, btnLabel, onClick){
@@ -396,4 +397,130 @@ export function beginGrandBoardSetup(){
   document.getElementById('overlay').classList.remove('show');
   log(`Grand Strategy: top boards ${quadrants.topLeft.board}/${quadrants.topRight.board}, bottom boards ${quadrants.bottomLeft.board}/${quadrants.bottomRight.board}, each independently rotated.`, 'system');
   initDeployment();
+}
+
+/* =========================================================
+   ARMY PICKER
+   The fast-path deployment shortcut: pick one of the six named Armies
+   (see data/army-compositions.json) and it auto-deploys in one go via
+   deployArmyComposition, instead of placing all 17 units by hand.
+   Standard matches only — Grand Strategy and scenario battles keep
+   their own existing deployment untouched. Only offered once per
+   human side, at the exact moment it first becomes their turn to
+   deploy — see the maybeShowArmyPicker() calls in ui-deployment.js.
+========================================================= */
+const ARMY_ZONE_COLORS = ['#c66','#6ac','#7b6'];
+const ARMY_COL_BANDS = [[0,6],[7,13],[14,19]];
+
+export function maybeShowArmyPicker(){
+  if(state._suppressArmyPicker) return false;
+  if(state.scenario || state.boardMode==='grand') return false;
+  const side = state.deployTurn;
+  const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
+  if(!isHumanControlled) return false;
+  if(!(state.deployBrigadeIndex[side]===0 && state.currentBrigadeCount[side]===0 && !state.currentBrigadeHasBrigadier[side])) return false;
+  if(!state._armyPickerShown) state._armyPickerShown = { red:false, blue:false };
+  if(state._armyPickerShown[side]) return false;
+  state._armyPickerShown[side] = true;
+  showArmyPicker(side);
+  return true;
+}
+
+let armyPickerState = null; // { side, index, viewingMap }
+
+function showArmyPicker(side){
+  armyPickerState = { side, index: 0, viewingMap: false };
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('rosterPanel').style.display = 'none';
+  document.getElementById('armyPickerPanel').classList.remove('hidden');
+  document.getElementById('armyPickerPanel').classList.remove('viewingMap');
+  renderArmyPickerCard();
+
+  document.getElementById('armyPickerPrev').onclick = ()=>{
+    armyPickerState.index = (armyPickerState.index + TB_DATA.armyCompositions.length - 1) % TB_DATA.armyCompositions.length;
+    renderArmyPickerCard();
+  };
+  document.getElementById('armyPickerNext').onclick = ()=>{
+    armyPickerState.index = (armyPickerState.index + 1) % TB_DATA.armyCompositions.length;
+    renderArmyPickerCard();
+  };
+  document.getElementById('armyPickerViewMapBtn').onclick = toggleArmyPickerMapView;
+  document.getElementById('armyPickerDeployBtn').onclick = ()=>{
+    const army = TB_DATA.armyCompositions[armyPickerState.index];
+    deployArmyComposition(side, army.id);
+    log(`${SIDE_LABEL[side]} deploys as ${army.name}.`, 'system');
+    closeArmyPicker();
+  };
+  document.getElementById('armyPickerManualBtn').onclick = closeArmyPicker;
+}
+
+function renderArmyPickerCard(){
+  const { index, viewingMap } = armyPickerState;
+  const army = TB_DATA.armyCompositions[index];
+  document.getElementById('armyPickerIndex').textContent = index+1;
+  document.getElementById('armyPickerName').textContent = army.name;
+  document.getElementById('armyPickerSummary').textContent = army.summary;
+  const cardsEl = document.getElementById('armyPickerBrigadeCards');
+  cardsEl.innerHTML = army.brigades.map((b,i)=>
+    `<div class="apCard" style="border-left-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div><div class="apDoctrine">${b.doctrine}</div></div>`
+  ).join('');
+  const dotsEl = document.getElementById('armyPickerDots');
+  dotsEl.innerHTML = TB_DATA.armyCompositions.map((_,i)=>
+    `<div class="apDot${i===index?' active':''}"></div>`
+  ).join('');
+  if(viewingMap) drawArmyZoneHighlights();
+}
+
+function toggleArmyPickerMapView(){
+  armyPickerState.viewingMap = !armyPickerState.viewingMap;
+  const panel = document.getElementById('armyPickerPanel');
+  const btn = document.getElementById('armyPickerViewMapBtn');
+  if(armyPickerState.viewingMap){
+    panel.classList.add('viewingMap');
+    btn.textContent = 'Back to Army Selection';
+    drawArmyZoneHighlights();
+  } else {
+    panel.classList.remove('viewingMap');
+    btn.textContent = 'View Map';
+    draw(); // clear the highlight overlay by redrawing the clean board
+  }
+}
+
+// Draws each Brigade's column band (see HARD_DEPLOY_COL_BANDS in
+// ai-deployment.js — the same bands the actual deployment engine uses)
+// as a translucent colour-coded rectangle over the side's own two rows,
+// directly on the real board so the real terrain underneath is what
+// informs the choice, not a generic diagram.
+function drawArmyZoneHighlights(){
+  draw();
+  const { side, index } = armyPickerState;
+  const army = TB_DATA.armyCompositions[index];
+  const deployRows = 2;
+  const rowStart = side===SIDES.RED ? ROWS-deployRows : 0;
+  const rowEnd = rowStart + deployRows - 1;
+  const cellW = canvas.width/COLS, cellH = canvas.height/ROWS;
+  const yTop = Math.min(sy(rowStart), sy(rowEnd)) * cellH;
+  army.brigades.forEach((brig,i)=>{
+    const [c0,c1] = ARMY_COL_BANDS[i];
+    ctx.save();
+    ctx.fillStyle = ARMY_ZONE_COLORS[i] + '3d';
+    ctx.strokeStyle = ARMY_ZONE_COLORS[i];
+    ctx.lineWidth = 3;
+    ctx.fillRect(c0*cellW, yTop, (c1-c0+1)*cellW, deployRows*cellH);
+    ctx.strokeRect(c0*cellW, yTop, (c1-c0+1)*cellW, deployRows*cellH);
+    ctx.restore();
+  });
+}
+
+function closeArmyPicker(){
+  document.getElementById('armyPickerPanel').classList.add('hidden');
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('rosterPanel').style.display = 'flex';
+  armyPickerState = null;
+  draw();
+  // No extra AI-triggering needed here: "Deploy This Army" already ran
+  // deployArmyComposition, which calls confirmCurrentBrigade() internally —
+  // that already handles handing off to the AI correctly if it's now their
+  // turn. "Deploy Manually Instead" hasn't changed deployTurn at all, so
+  // it's still this human side's turn regardless.
 }
