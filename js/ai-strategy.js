@@ -96,6 +96,20 @@ export function assessBattlefield(side){
   };
 }
 
+// Whether the AI's committed attack (main effort Brigade vs its actual target)
+// still looks sound LOCALLY, even once the whole-army strengthRatio has dipped.
+// Losing a single unit in a good trade can swing the army-wide ratio without
+// changing anything about the actual point of contact — the AI shouldn't read
+// that as "the whole war just went badly" and abandon a push that's still
+// genuinely cornering the enemy Brigade it was aimed at.
+function localAttackStillFavourable(a, mainEffortId, targetId){
+  if(mainEffortId==null || targetId==null) return false;
+  const effort = a.liveOwnBrigades.find(b=>b.id===mainEffortId);
+  const target = a.liveEnemyBrigades.find(b=>b.id===targetId);
+  if(!effort || !target) return false;
+  return effort.strength >= target.strength * 0.85;
+}
+
 // Section 4: pick (or keep) a multi-turn plan. Only reassesses when a Section 12
 // trigger actually fires — otherwise the previous turn's plan is returned as-is,
 // so the AI doesn't re-litigate its whole strategy every single move phase.
@@ -111,16 +125,19 @@ export function updateOperationalPlan(side, assessment){
     if(prev.mainEffortBrigadeId!=null && !mainEffort){ mustReassess = true; reasons.push('main effort Brigade broken/withdrawn'); }
     else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed — exploit or pick a new one'); }
     else if(prev.turnsHeld > MAX_PLAN_TURNS_UNCHANGED){ mustReassess = true; reasons.push('plan stale, no resolution in ' + prev.turnsHeld + ' turns'); }
-    else if(assessment.strengthRatio < 0.75 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'){ mustReassess = true; reasons.push('army badly outnumbered — abandon attack and stabilise'); }
+    else if(assessment.strengthRatio < 0.7 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'
+      && !localAttackStillFavourable(assessment, prev.mainEffortBrigadeId, prev.targetBrigadeId)){
+      mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge — abandon and stabilise');
+    }
   }
 
   if(!mustReassess) return prev;
 
   let plan;
   const a = assessment;
-  if(a.strengthRatio < 0.6){
+  if(a.strengthRatio < 0.5){
     plan = { type:'WITHDRAWAL', mainEffortBrigadeId:null, targetBrigadeId:null };
-  } else if(a.strengthRatio < 0.85){
+  } else if(a.strengthRatio < 0.75){
     plan = { type:'DEFENSIVE', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null, targetBrigadeId:null };
   } else if(a.isolatedEnemyBrigades.length>0){
     const target = a.isolatedEnemyBrigades.slice().sort((x,y)=>x.strength-y.strength)[0];
@@ -149,7 +166,21 @@ export function assignBrigadeMissions(side, plan, assessment){
   const others = brigadeIds.filter(id=>id!==plan.mainEffortBrigadeId);
 
   if(plan.type==='WITHDRAWAL'){
-    for(const id of brigadeIds) missions[id] = 'WITHDRAW';
+    // Only a Brigade that's ACTUALLY in real trouble itself withdraws — applying
+    // this to every Brigade just because the army overall is struggling is
+    // exactly the "whole army huddles in one corner" collapse this avoids.
+    // A Brigade that's still individually healthy instead holds as a Reserve
+    // (see the existing holdingReserve/reserveCrisisExists mechanism, which
+    // already knows to drop that restraint the moment IT runs into real
+    // trouble), consolidating the army into one more defensible shape around
+    // whichever Brigade needs the help most, rather than every Brigade
+    // independently fleeing toward its own board edge.
+    const weakest = assessment.weakestOwnBrigade;
+    for(const id of brigadeIds){
+      const b = assessment.liveOwnBrigades.find(x=>x.id===id);
+      const inRealTrouble = b && (b.exposure >= 1.5 || b.remaining <= 1);
+      missions[id] = inRealTrouble ? 'WITHDRAW' : (weakest && id===weakest.id ? 'HOLD' : 'RESERVE');
+    }
   } else if(plan.type==='DEFENSIVE'){
     for(const id of brigadeIds) missions[id] = (id===plan.mainEffortBrigadeId) ? 'HOLD' : 'SCREEN';
   } else if(plan.type==='MAIN_ATTACK' || plan.type==='BRIGADE_DESTRUCTION' || plan.type==='CAVALRY_EXPLOITATION'){
@@ -373,7 +404,16 @@ export function aiDecideAndExecuteMove(u){
     // This is what let a charge strand a Cavalry unit turn after turn — the charge
     // always scored higher despite cutting the unit off from its Brigadier for good.
     const connNow = movableUnitsForSide(side);
-    if(wasConnected && !connNow.has(u.id)) s -= 2.4;
+    // Artillery is exempt — neither canInitiateFight nor fireArtillery check
+    // connectivity, so a gun that's found a genuinely good firing position can
+    // keep firing indefinitely after its Brigade advances past it, with no need
+    // to move again at all. Artillery also moves last within its own Brigade
+    // (see orderAiUnitsForMove), so by the time it decides, the rest of the
+    // Brigade has usually already moved — without this exemption, simply
+    // staying in a great spot was scoring as a fresh self-inflicted
+    // disconnection every single turn, pushing the AI to keep dragging its guns
+    // forward to keep pace instead of letting them settle and fire.
+    if(wasConnected && !connNow.has(u.id) && !t.isArtillery) s -= 2.4;
     // A Brigadier is always "connected" to itself by definition (see
     // movableUnitsForSide — the chain starts FROM the Brigadier), so the penalty
     // above can never fire for a Brigadier choosing to hold still. That's exactly
@@ -402,6 +442,18 @@ export function aiDecideAndExecuteMove(u){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
         s -= Math.abs(d-4) * 0.06;
+        // Manoeuvre: a gun already well-placed — decent ground, not under real
+        // threat, the enemy already within (or close to) firing range — should
+        // settle there and keep firing, not repeatedly reposition just to keep
+        // pace with the rest of its advancing Brigade. This only rewards
+        // STAYING (c.stay), not moving toward such a square, so it doesn't
+        // create a new reason to relocate — only a reason to stop once there.
+        if(c.stay){
+          const terr = terrainAt(c.x, c.y);
+          const goodGround = terr.elevation>0 || terr.defenseBonus;
+          const safeEnough = threatPenalty(u, side) < 1.4;
+          if(goodGround && safeEnough && d<=6) s += 1.6;
+        }
       } else {
         s -= nearestEnemyDist(c, side) * 0.12;
       }
