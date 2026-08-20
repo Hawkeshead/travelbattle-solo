@@ -4,6 +4,7 @@ import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
 import { canvas, draw, sy } from './render-board.js';
 import { unitLabel, updateHeader } from './ui-battle.js';
+import { maybeShowArmyPicker } from './ui-menus.js';
 
 /* =========================================================
    DEPLOYMENT PHASE
@@ -34,6 +35,7 @@ export function initDeployment(){
   state.currentBrigadeHasBrigadier = { red: false, blue: false };
   state.currentBrigadeCount = { red: 0, blue: 0 };
   state._aiHardDeployRemaining = { red:{}, blue:{} };
+  state._armyPickerShown = { red:false, blue:false };
   state.deployTurn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
@@ -42,6 +44,7 @@ export function initDeployment(){
   document.getElementById('unitOverlay').classList.add('hidden');
   renderRoster();
   updateHeader();
+  if(maybeShowArmyPicker()) return; // offers the fast-path Army picker instead of leaving the roster panel as the only option — see ui-menus.js
   if(state.mode==='ai' && state.deployTurn===state.aiSide){
     setTimeout(aiDeployStep, 500);
   }
@@ -268,6 +271,7 @@ export function confirmCurrentBrigade(){
   updateHeader();
   draw();
 
+  if(maybeShowArmyPicker()) return; // it just became a human side's first turn — offer the fast-path Army picker
   if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
     setTimeout(aiDeployStep, 450);
   }
