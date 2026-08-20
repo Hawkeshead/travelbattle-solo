@@ -1,8 +1,10 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_LABEL, boardTerrainFor, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_LABEL, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { sizeCanvas, terrainColor } from './render-board.js';
+import { draw, sizeCanvas } from './render-board.js';
+import { endMovePhase } from './ui-battle.js';
 import { initDeployment } from './ui-deployment.js';
 
 export function showOverlay(title, html, btnLabel, onClick){
@@ -217,12 +219,120 @@ export function showDifficultySelect(){
    the rotation. A human-controlled side gets an on-screen choice; the
    AI picks for itself when it's the AI's board.
 ========================================================= */
+/* =========================================================
+   BOARD ORIENTATION
+   The two halves join left/right — Britain is always the left half,
+   France always the right, only which physical board (A/B) lands on
+   each side is randomised. The whole map is shown immediately, already
+   at a random starting rotation for both halves — that's what either
+   side keeps if they don't end up eligible (or don't go first) to
+   change it. Then: a roll to see who goes first, a simultaneous roll
+   for each side to see if they've earned the right to rotate at all,
+   then whoever's eligible taps their own half of the already-visible
+   map to cycle it, rather than a separate small preview modal.
+========================================================= */
 export function beginBoardSetup(){
-  setBoardMode('standard'); // always reset in case the previous match was Grand Strategy
+  setBoardMode('standard');
   const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
-  state.boardRotation = { red: 0, blue: 0 };
-  processBoardRoll([SIDES.RED, SIDES.BLUE], 0);
+  state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
+  state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+  state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
+  sizeCanvas();
+  document.getElementById('overlay').classList.remove('show');
+  draw();
+  rollOrientationOrder();
+}
+
+function rollOrientationOrder(){
+  const redRoll = rollD6(), blueRoll = rollD6();
+  const firstSide = redRoll===blueRoll ? null : (redRoll>blueRoll ? SIDES.RED : SIDES.BLUE);
+  const resultText = firstSide===null ? 'Tied \u2014 rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
+  showDice([
+    {label:'Britain', rolls:[redRoll], keptValue:redRoll},
+    {label:'France', rolls:[blueRoll], keptValue:blueRoll}
+  ], resultText, firstSide===null?'draw':'win', ()=>{
+    if(firstSide===null){ rollOrientationOrder(); return; }
+    log(`${SIDE_LABEL[firstSide]} rolls higher and goes first for table orientation.`, 'system');
+    rollRotationEligibility(firstSide);
+  });
+}
+
+function rollRotationEligibility(firstSide){
+  const redRoll = rollD6(), blueRoll = rollD6();
+  const redEligible = redRoll>=4, blueEligible = blueRoll>=4;
+  const resultText = redEligible && blueEligible ? 'Both may rotate their board'
+    : redEligible ? 'Only Britain may rotate their board'
+    : blueEligible ? 'Only France may rotate their board'
+    : 'Neither rolled high enough \u2014 both boards stay as they are';
+  showDice([
+    {label:'Britain', rolls:[redRoll], keptValue:redRoll},
+    {label:'France', rolls:[blueRoll], keptValue:blueRoll}
+  ], resultText, 'draw', ()=>{
+    log(`Britain rolls ${redRoll}, France rolls ${blueRoll} for the right to rotate their board.`, 'system');
+    const order = firstSide===SIDES.BLUE ? [SIDES.BLUE, SIDES.RED] : [SIDES.RED, SIDES.BLUE];
+    const eligible = order.filter(s => (s===SIDES.RED ? redEligible : blueEligible));
+    runRotationPicks(eligible, 0);
+  });
+}
+
+function runRotationPicks(eligibleSides, i){
+  if(i >= eligibleSides.length){
+    state.phase = 'deploy'; // restore from 'orientation' — nothing else in the normal lifecycle ever sets this, it's just the state object's default at creation, which orientation-picking is the first thing to ever change away from it
+    document.getElementById('overlay').classList.remove('show');
+    initDeployment();
+    return;
+  }
+  const side = eligibleSides[i];
+  const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
+  if(!isHumanControlled){
+    const chosen = Math.floor(Math.random()*4);
+    state.boardRotation[side] = chosen;
+    state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+    state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
+    draw();
+    log(`${SIDE_LABEL[side]} (AI) rotates their board to ${chosen*90}\u00b0.`, 'system');
+    runRotationPicks(eligibleSides, i+1);
+    return;
+  }
+  startOrientationPickMode(side, ()=> runRotationPicks(eligibleSides, i+1));
+}
+
+// Tap directly on the real board — the dice fade away and the already-visible
+// map (at its random starting rotation) becomes the picker itself, rather
+// than a small separate preview. Only the current player's own half responds
+// to taps (Britain = left, France = right — see buildTerrainMap).
+function startOrientationPickMode(side, onDone){
+  state.phase = 'orientation';
+  state._orientationPick = { side, onDone };
+  const badge = document.getElementById('turnBadge');
+  badge.textContent = `${SIDE_LABEL[side]}: tap your half of the map to rotate it`;
+  const confirmBtn = document.getElementById('endMoveBtn');
+  confirmBtn.style.display = 'inline-block';
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = 'Confirm Orientation';
+  confirmBtn.onclick = ()=>{
+    confirmBtn.textContent = 'End Move'; // hand the button back to its normal battle-phase role
+    confirmBtn.onclick = endMovePhase;   // its real handler — never gets re-bound after boot.js's one-time initBattleControls() call, so this must restore it explicitly
+    log(`${SIDE_LABEL[side]} confirms a ${state.boardRotation[side]*90}\u00b0 rotation.`, 'system');
+    state._orientationPick = null;
+    onDone();
+  };
+}
+
+// Called from onCellClick when state.phase==='orientation' — cycles the
+// current picker's own half by one 90\u00b0 step per tap; taps on the other
+// half (not theirs to touch) or anywhere once the phase has ended do nothing.
+export function handleOrientationClick(x){
+  const pick = state._orientationPick;
+  if(!pick) return;
+  const isLeftHalf = x < COLS/2;
+  const tappedSide = isLeftHalf ? SIDES.RED : SIDES.BLUE;
+  if(tappedSide !== pick.side) return;
+  state.boardRotation[pick.side] = (state.boardRotation[pick.side]+1) % 4;
+  state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+  state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
+  draw();
 }
 
 /* Grand Strategy board setup — hotseat only for now (no AI opponent yet, see
@@ -287,120 +397,3 @@ export function beginGrandBoardSetup(){
   log(`Grand Strategy: top boards ${quadrants.topLeft.board}/${quadrants.topRight.board}, bottom boards ${quadrants.bottomLeft.board}/${quadrants.bottomRight.board}, each independently rotated.`, 'system');
   initDeployment();
 }
-
-export function processBoardRoll(sides, i){
-  if(i >= sides.length){
-    document.getElementById('overlay').classList.remove('show');
-    state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-    state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
-    sizeCanvas(); // in case the previous match was Grand Strategy (ROWS just changed 20 -> 10)
-    initDeployment();
-    return;
-  }
-  const side = sides[i];
-  const roll = rollD6();
-  log(`${SIDE_LABEL[side]} rolls a ${roll} for Board ${state.boardAssignment[side]}'s table orientation.`, 'system');
-  if(roll <= 3){
-    state.boardRotation[side] = roll;
-    log(`${SIDE_LABEL[side]}'s board is rotated ${roll*90}\u00b0 clockwise.`, 'system');
-    processBoardRoll(sides, i+1);
-  } else {
-    const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
-    if(isHumanControlled){
-      showRotationChoice(side, (chosen)=>{
-        state.boardRotation[side] = chosen;
-        log(`${SIDE_LABEL[side]} chooses a ${chosen*90}\u00b0 rotation for their board.`, 'system');
-        processBoardRoll(sides, i+1);
-      });
-    } else {
-      const chosen = Math.floor(Math.random()*4);
-      state.boardRotation[side] = chosen;
-      log(`${SIDE_LABEL[side]} (AI) chooses a ${chosen*90}\u00b0 rotation for their board.`, 'system');
-      processBoardRoll(sides, i+1);
-    }
-  }
-}
-
-export function renderMiniTerrainPreview(canvas, grid){
-  const ctx2 = canvas.getContext('2d');
-  const n = grid.length;
-  const cell = canvas.width / n;
-  ctx2.clearRect(0,0,canvas.width,canvas.height);
-  for(let y=0;y<n;y++){
-    for(let x=0;x<n;x++){
-      const key = grid[y][x];
-      ctx2.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
-      ctx2.fillRect(x*cell,y*cell,cell,cell);
-    }
-  }
-  // roads as thin connected lines, same treatment as the main board
-  ctx2.strokeStyle = terrainColor('ROAD');
-  ctx2.lineWidth = Math.max(2, cell*0.16);
-  ctx2.lineCap = 'round';
-  for(let y=0;y<n;y++){
-    for(let x=0;x<n;x++){
-      if(grid[y][x]!=='ROAD') continue;
-      const cx = x*cell+cell/2, cy = y*cell+cell/2;
-      [[0,-1],[0,1],[-1,0],[1,0]].forEach(([dx,dy])=>{
-        const nx=x+dx, ny=y+dy;
-        if(nx>=0 && nx<n && ny>=0 && ny<n && grid[ny][nx]==='ROAD'){
-          ctx2.beginPath(); ctx2.moveTo(cx,cy); ctx2.lineTo(x*cell+cell/2+dx*cell/2, y*cell+cell/2+dy*cell/2); ctx2.stroke();
-        }
-      });
-    }
-  }
-  ctx2.lineCap = 'butt';
-  const ICONS2 = { FIELD:'\u{1F33E}', WOODS:'\u{1F332}', HILL:'\u{26F0}', BUILDING:'\u{1F3E0}' };
-  ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
-  ctx2.font = Math.floor(cell*0.55)+'px sans-serif';
-  for(let y=0;y<n;y++){
-    for(let x=0;x<n;x++){
-      const icon = ICONS2[grid[y][x]];
-      if(icon) ctx2.fillText(icon, x*cell+cell/2, y*cell+cell/2);
-    }
-  }
-  ctx2.strokeStyle = 'rgba(0,0,0,0.15)'; ctx2.lineWidth = 1;
-  for(let i=0;i<=n;i++){
-    ctx2.beginPath(); ctx2.moveTo(i*cell,0); ctx2.lineTo(i*cell,canvas.height); ctx2.stroke();
-    ctx2.beginPath(); ctx2.moveTo(0,i*cell); ctx2.lineTo(canvas.width,i*cell); ctx2.stroke();
-  }
-}
-
-export function showRotationChoice(side, callback){
-  const boardKey = state.boardAssignment[side];
-  let previewRotation = 0;
-  const canvas = document.getElementById('rotationPreviewCanvas');
-
-  function render(){
-    canvas.style.display = 'block';
-    renderMiniTerrainPreview(canvas, boardTerrainFor(boardKey, previewRotation));
-    document.getElementById('overlayText').innerHTML =
-      `You rolled a 4, 5 or 6 — you may choose which way Board ${boardKey} faces. Currently: <b>${previewRotation*90}\u00b0</b>`;
-  }
-
-  document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[side]}: Choose Board Orientation`;
-  document.getElementById('overlayBtn').style.display = 'none';
-  let extra = document.getElementById('modeChoices');
-  extra.innerHTML = '';
-  extra.style.display = 'flex';
-  extra.style.flexWrap = 'wrap';
-
-  const rotateBtn = document.createElement('button');
-  rotateBtn.textContent = 'Rotate \u21bb';
-  rotateBtn.onclick = ()=>{ previewRotation = (previewRotation+1)%4; render(); };
-  const confirmBtn = document.createElement('button');
-  confirmBtn.className = 'primary';
-  confirmBtn.textContent = 'Confirm This Orientation';
-  confirmBtn.onclick = ()=>{
-    extra.style.display='none';
-    canvas.style.display='none';
-    document.getElementById('overlay').classList.remove('show');
-    callback(previewRotation);
-  };
-  extra.appendChild(rotateBtn);
-  extra.appendChild(confirmBtn);
-
-  render();
-  document.getElementById('overlay').classList.add('show');
-}
-
