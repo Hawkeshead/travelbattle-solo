@@ -1,5 +1,5 @@
 import { terrainSeekBonus } from './ai-tactics.js';
-import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
+import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
 import { terrainAt, unitsAt } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
 
@@ -49,13 +49,16 @@ export function findBestHardDeployCell(zoneRows, colRange, typeKey, side, bIdx){
   return best;
 }
 
-export function placeHardDeployUnit(side, typeKey, bIdx){
+export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
   const deployRows = state.boardMode==='grand' ? 3 : 2;
   const frontRow = side===SIDES.RED ? ROWS-deployRows : deployRows-1;   // row nearest the enemy
   const backRows = side===SIDES.RED                                     // remaining row(s), furthest from the enemy
     ? Array.from({length: deployRows-1}, (_,i)=>ROWS-deployRows+1+i)
     : Array.from({length: deployRows-1}, (_,i)=>deployRows-2-i);
-  const isBack = typeKey==='BRIGADIER' || typeKey==='ARTILLERY';
+  // forceBack lets an explicit army-composition template (see deployArmyComposition)
+  // override the default "only Brigadier/Artillery go in the back" rule with its
+  // own front/back rank per unit — undefined keeps today's default behaviour.
+  const isBack = forceBack !== undefined ? forceBack : (typeKey==='BRIGADIER' || typeKey==='ARTILLERY');
   const colBand = HARD_DEPLOY_COL_BANDS[bIdx] || [0, COLS-1];
   let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey, side, bIdx)
     || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey, side, bIdx)
@@ -72,10 +75,42 @@ export function aiDeployStepHard(side){
   const store = (state._aiHardDeployRemaining || (state._aiHardDeployRemaining = {red:{}, blue:{}}))[side];
   if(!store[bIdx]){
     store[bIdx] = {};
-    const compositions = state.boardMode==='grand' ? TB_DATA.unitTypes.brigadeCompositionsGrand : BRIGADE_COMPOSITIONS;
-    for(const ty of (compositions[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
+    // Which Army this side uses is decided once per match, not once per Brigade —
+    // a real commander doesn't reinvent the army's whole shape between Brigades.
+    // Grand Strategy's doubled roster keeps its own existing standard/cavalry-
+    // focused split (data/army-compositions.json is sized for the standard
+    // 17-unit army only); a standard match instead picks randomly from the same
+    // six named Armies a human can choose from — one shared system for both,
+    // each with its own explicit front/back rank per unit rather than the old
+    // blanket "only Brigadier/Artillery go in the back" rule.
+    const isGrand = state.boardMode==='grand';
+    if(isGrand){
+      const choices = (state._aiCompositionChoice || (state._aiCompositionChoice = {red:null, blue:null}));
+      if(choices[side] === null) choices[side] = Math.random() < (1/3) ? 'cavalryFocused' : 'standard';
+      const compositions = choices[side]==='cavalryFocused' ? TB_DATA.unitTypes.brigadeCompositionsCavalryFocusedGrand : TB_DATA.unitTypes.brigadeCompositionsGrand;
+      for(const ty of (compositions[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
+    } else {
+      const choices = (state._aiArmyChoice || (state._aiArmyChoice = {red:null, blue:null}));
+      if(!choices[side]){
+        const armies = TB_DATA.armyCompositions;
+        choices[side] = armies[Math.floor(Math.random()*armies.length)].id;
+      }
+      const army = TB_DATA.armyCompositions.find(a=>a.id===choices[side]);
+      const brig = army && army.brigades[bIdx];
+      store[bIdx] = brig ? brig.units.slice() : [];
+    }
   }
   const remaining = store[bIdx];
+  if(Array.isArray(remaining)){
+    // Standard-mode ordered list ({type, rank} entries) — placed in the
+    // template's own order so front-rank units land before back-rank ones.
+    const nextIdx = remaining.findIndex(entry => state.deployPool[side].includes(entry.type));
+    if(nextIdx === -1){ confirmCurrentBrigade(); return; }
+    const [entry] = remaining.splice(nextIdx, 1);
+    placeHardDeployUnit(side, entry.type, bIdx, entry.rank!=='front');
+    return;
+  }
+  // Grand Strategy's unordered count map, unchanged from before.
   const nextType = Object.keys(remaining).find(ty=>remaining[ty]>0 && state.deployPool[side].includes(ty));
   if(!nextType){ confirmCurrentBrigade(); return; }
   remaining[nextType]--;
@@ -117,6 +152,26 @@ export function placeAiPlanEntry(side, planEntry){
   const targetRow = planEntry.front ? frontRow : backRow;
   const cell = findNearestFreeDeployCell(side, planEntry.col, targetRow, planEntry.type);
   placeUnit(side, planEntry.type, cell.x, cell.y);
+}
+
+// A full named Army — three Brigades' worth of units, each with an explicit
+// front/back rank — placed onto the actual board in one pass. This is the
+// human-facing "auto-deploy" shortcut; it shares placeHardDeployUnit with the
+// AI's own use of the same Army data, so a human picking "Army B" and the AI
+// randomly rolling "Army B" can never end up placed differently.
+export function deployArmyComposition(side, armyId){
+  const army = TB_DATA.armyCompositions.find(a => a.id === armyId);
+  if(!army) return false;
+  for(const brig of army.brigades){
+    state.deployTurn = side; // deployment normally alternates sides per Brigade — this places all of THIS side's Brigades in one go, so it must hold the turn itself throughout
+    const bIdx = state.deployBrigadeIndex[side];
+    placeHardDeployUnit(side, 'BRIGADIER', bIdx);
+    for(const entry of brig.units){
+      placeHardDeployUnit(side, entry.type, bIdx, entry.rank !== 'front');
+    }
+    confirmCurrentBrigade();
+  }
+  return true;
 }
 
 export function findNearestFreeDeployCell(side, col, row, typeKey){
