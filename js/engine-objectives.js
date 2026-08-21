@@ -2,7 +2,7 @@ import { exportAiMoveLog } from './ai-strategy.js';
 import { saveCampaignProgress } from './campaign.js';
 import { SIDES, SIDE_LABEL, state } from './data-core.js';
 import { unitsAt } from './engine-rules.js';
-import { startReplay } from './replay.js';
+import { exportFullMatchLog, startReplay } from './replay.js';
 
 /* =========================================================
    OPERATIONS — pluggable scenario objectives.
@@ -148,10 +148,21 @@ export function endGame(winner){
     const exportBtn = document.createElement('button');
     exportBtn.textContent = 'Export AI Move Log';
     exportBtn.onclick = ()=>{
+      document.getElementById('aiLogExportTitle').textContent = 'AI Move Log';
       document.getElementById('aiLogExportText').value = exportAiMoveLog();
       document.getElementById('aiLogExportPanel').classList.remove('hidden');
     };
     endScreenButtons.push(exportBtn);
+  }
+  if(state.matchLog && state.matchLog.length>0){
+    const fullExportBtn = document.createElement('button');
+    fullExportBtn.textContent = 'Export Full Match Log';
+    fullExportBtn.onclick = ()=>{
+      document.getElementById('aiLogExportTitle').textContent = 'Full Match Log';
+      document.getElementById('aiLogExportText').value = exportFullMatchLog();
+      document.getElementById('aiLogExportPanel').classList.remove('hidden');
+    };
+    endScreenButtons.push(fullExportBtn);
   }
   extra.style.display = endScreenButtons.length ? 'flex' : 'none';
   endScreenButtons.forEach(b=>extra.appendChild(b));
