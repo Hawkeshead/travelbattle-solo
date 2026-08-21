@@ -1,4 +1,4 @@
-import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, findVulnerableEnemyUnits, isIsolatedAndThreatened, reserveCrisisExists, retreatToSupportBonus, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
@@ -227,6 +227,17 @@ export function logAiDebugMove(side, entry){
 // Section 6/7: how well a candidate square serves this unit's Brigade mission —
 // added on top of the existing tactical bonuses in aiDecideAndExecuteMove, not
 // instead of them. Only active on Hard, where missions actually exist.
+// Cached per (side, turn) — the rally point is a single shared destination
+// for the whole side this turn, not something to recompute (a full board
+// scan) for every candidate square of every unit deciding a HOLD/WITHDRAW move.
+function getDefensiveRallyPoint(side, nearPos){
+  const cache = state._aiRallyCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.point;
+  const point = findDefensiveRallyPoint(nearPos, 12);
+  state._aiRallyCache = { side, turn: state.turnNumber, point };
+  return point;
+}
+
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
@@ -256,10 +267,10 @@ export function missionMoveBonus(u, side, pos, mission, plan){
     case 'SCREEN':
       return screensGunBonus(u, side, pos) * 1.2;
     case 'HOLD':
-      return terrainSeekBonus(u.type, pos.x, pos.y) * 1.5;
+      return terrainSeekBonus(u.type, pos.x, pos.y) * 1.5 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos));
     case 'WITHDRAW':
       { const homeRow = side===SIDES.RED ? ROWS-1 : 0;
-        return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2; }
+        return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos)); }
     case 'COUNTERATTACK':
       return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.18 : 0;
     default:
@@ -461,6 +472,13 @@ export function aiDecideAndExecuteMove(u){
         }
       } else {
         s -= nearestEnemyDist(c, side) * 0.12;
+        // Core Tactic: prefer the road network while actually closing distance
+        // — the real +1 movement bonus for starting and ending on road, and
+        // the same reason a human player uses roads to move quickly into the
+        // enemy's lines rather than cutting cross-country. Only while
+        // genuinely advancing — holding/withdrawing have their own separate
+        // pulls above, and this one shouldn't compete with them.
+        if(seekTactics) s += roadSeekBonus(c.x, c.y);
       }
     }
 
