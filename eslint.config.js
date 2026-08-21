@@ -51,16 +51,17 @@ export default [
       // The other genuine-bug rules from `recommended` are kept. These few are
       // relaxed because they fire on deliberate, working patterns in this
       // codebase rather than on mistakes.
-      'no-unused-vars': ['warn', { args: 'none', varsIgnorePattern: '^_' }],
+      'no-unused-vars': ['warn', { args: 'none', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
 
-  // The three audio files are still classic scripts — unplugged from the game
-  // and not converted to modules. Lint them as scripts so `no-undef` doesn't
-  // flag the cross-file references that were valid in that world.
+  // The remaining two audio files are still classic scripts — unplugged from
+  // the game and not converted to modules (audio-manager.js has been, see the
+  // general js/**/*.js rule above). Lint these as scripts so `no-undef`
+  // doesn't flag the cross-file references that are valid in that world.
   {
-    files: ['js/audio-*.js'],
+    files: ['js/audio-catalog.js', 'js/audio-hooks.js'],
     languageOptions: { sourceType: 'script' },
     rules: { 'no-undef': 'off' },
   },
