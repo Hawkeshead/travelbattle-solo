@@ -137,12 +137,17 @@ export function updateOperationalPlan(side, assessment){
   const a = assessment;
   if(a.strengthRatio < 0.5){
     plan = { type:'WITHDRAWAL', mainEffortBrigadeId:null, targetBrigadeId:null };
-  } else if(a.strengthRatio < 0.75){
-    plan = { type:'DEFENSIVE', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null, targetBrigadeId:null };
   } else if(a.isolatedEnemyBrigades.length>0){
+    // Checked ahead of the plain material-ratio DEFENSIVE branch on purpose —
+    // an isolated enemy Brigade is worth exploiting precisely when the fight
+    // is close, not just once already comfortably ahead. Picking on the weak,
+    // unsupported link is how a slightly-behind army claws back to even, not
+    // a luxury reserved for when it's already winning.
     const target = a.isolatedEnemyBrigades.slice().sort((x,y)=>x.strength-y.strength)[0];
     const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
     plan = { type:'BRIGADE_DESTRUCTION', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: target.id };
+  } else if(a.strengthRatio < 0.75){
+    plan = { type:'DEFENSIVE', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null, targetBrigadeId:null };
   } else if(a.weakestEnemyBrigade && a.strengthRatio >= 1.15){
     const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
     plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
