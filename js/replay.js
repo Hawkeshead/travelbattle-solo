@@ -158,3 +158,40 @@ export function exitReplay(){
 }
 document.getElementById('replayExitBtn').onclick = exitReplay;
 
+// Plain-text, copy-pasteable transcript of the whole match — both sides,
+// every move, fight, artillery shot, and status change — pulled straight from
+// state.matchLog (the same data the Battle Replay plays back visually). Unlike
+// the AI Move Log, this covers a human player's own moves too, so it's the
+// right export for "what did I actually do differently" style analysis.
+export function exportFullMatchLog(){
+  if(!state.matchLog || state.matchLog.length===0) return 'No match log recorded — matchLog is only captured once a battle has actually started.';
+  const label = id => {
+    const u = state.units.find(o=>o.id===id);
+    return u ? ((u.historicalName) || u.type) : id;
+  };
+  const lines = [];
+  lines.push('=== FULL MATCH LOG (both sides) ===');
+  lines.push(`Total events: ${state.matchLog.length}`);
+  lines.push('');
+
+  let lastTurn = null;
+  for(const ev of state.matchLog){
+    if(ev.turn !== lastTurn){
+      lines.push(`--- Turn ${ev.turn} ---`);
+      lastTurn = ev.turn;
+    }
+    if(ev.type==='turnStart'){
+      lines.push(`[${SIDE_LABEL[ev.side]}'s turn begins]`);
+    } else if(ev.type==='move'){
+      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})`);
+    } else if(ev.type==='fight'){
+      lines.push(`FIGHT at (${ev.x},${ev.y}): ${label(ev.attackerId)} (${SIDE_LABEL[ev.attackerSide]}) vs ${label(ev.defenderId)} (${SIDE_LABEL[ev.defenderSide]}) — rolls ${ev.aRoll} v ${ev.dRoll} — ${ev.result}`);
+    } else if(ev.type==='fire'){
+      lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.roll} — ${ev.effect}`);
+    } else if(ev.type==='status'){
+      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
+    }
+  }
+  return lines.join('\n');
+}
+
