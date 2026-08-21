@@ -1,9 +1,10 @@
 import { showCampaignMenu } from './campaign.js';
 import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
-import { showDice } from './dice.js';
+import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { canvas, ctx, draw, sizeCanvas, sy } from './render-board.js';
+import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
 import { initDeployment } from './ui-deployment.js';
@@ -234,6 +235,7 @@ export function showDifficultySelect(){
 ========================================================= */
 export function beginBoardSetup(){
   setBoardMode('standard');
+  AudioManager.playMusic('audio/music/field-of-austerlitz.mp3');
   const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
@@ -285,7 +287,7 @@ function runRotationPicks(eligibleSides, i){
     return;
   }
   const side = eligibleSides[i];
-  const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
+  const isHumanControlled = !FAST_DICE_MODE && !(state.mode==='ai' && side===state.aiSide);
   if(!isHumanControlled){
     const chosen = Math.floor(Math.random()*4);
     state.boardRotation[side] = chosen;
@@ -389,6 +391,7 @@ export function beginGrandBoardSetup(){
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');
+  AudioManager.playMusic('audio/music/field-of-austerlitz.mp3');
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
@@ -416,7 +419,7 @@ export function maybeShowArmyPicker(){
   if(state._suppressArmyPicker) return false;
   if(state.scenario || state.boardMode==='grand') return false;
   const side = state.deployTurn;
-  const isHumanControlled = !(state.mode==='ai' && side===state.aiSide);
+  const isHumanControlled = !FAST_DICE_MODE && !(state.mode==='ai' && side===state.aiSide);
   if(!isHumanControlled) return false;
   if(!(state.deployBrigadeIndex[side]===0 && state.currentBrigadeCount[side]===0 && !state.currentBrigadeHasBrigadier[side])) return false;
   if(!state._armyPickerShown) state._armyPickerShown = { red:false, blue:false };
