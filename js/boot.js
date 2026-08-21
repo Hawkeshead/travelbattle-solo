@@ -2,6 +2,7 @@ import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { sizeCanvas } from './render-board.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { showModeSelect } from './ui-menus.js';
+import { AudioManager } from './audio-manager.js';
 
 /* =========================================================
    BOOT
@@ -19,6 +20,10 @@ export function start(){
   // screen is drawn.
   initBoardInput();
   initBattleControls();
+
+  // Browsers block audio until a real user gesture — unlock on the very
+  // first tap/click anywhere, regardless of which button starts the game.
+  document.addEventListener('pointerdown', ()=> AudioManager.unlock(), { once:true });
 
   // Then either resume the campaign in progress or show the title screen.
   const savedCampaignProgress = loadCampaignProgress();
