@@ -271,6 +271,7 @@ export let state = {
   _aiDebugLog: { red:null, blue:null }, // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
   _aiMoveHistory: { red:[], blue:[] }, // every AI move for the whole match, any difficulty — see exportAiMoveLog()
   _aiVulnCache: null, // per-(side,turn) cache of findVulnerableEnemyUnits — see getVulnerableEnemyUnits()
+  _aiRallyCache: null, // per-(side,turn) cache of findDefensiveRallyPoint — see getDefensiveRallyPoint()
   _aiCompositionChoice: { red:null, blue:null } // 'standard' or 'cavalryFocused', decided once per match per side — see aiDeployStepHard()
 };
 export let uidCounter = 1;
