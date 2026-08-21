@@ -1,6 +1,6 @@
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { brigadeCavalryCount, chebyshev, isAdjacent, isConcealedFromEnemy, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
+import { brigadeCavalryCount, chebyshev, isAdjacent, isConcealedFromEnemy, isRoadLike, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
 
 /* =========================================================
    AI: EVALUATION
@@ -85,6 +85,53 @@ export function terrainSeekBonus(unitTypeKey, x, y){
   if(terr.key==='WOODS' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD')) return 0.3;
   if(terr.key==='BUILDING' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD'||unitTypeKey==='ARTILLERY')) return 0.3;
   return 0;
+}
+
+// Manoeuvre: when falling back or digging in, head for an actual strongpoint
+// — a cluster of Woods/Building terrain, not just whichever single defensible
+// square happens to be nearest each unit individually. Scores every such cell
+// on the board by how many similar cells surround it (a bigger cluster reads
+// as a stronger position to rally on) minus distance, so the whole group
+// converges on the same real fort rather than scattering across whichever
+// isolated tree or cottage each unit happened to be closest to.
+export function findDefensiveRallyPoint(nearPos, maxRange = 10){
+  const ROWS = state.terrain.length, COLS = state.terrain[0].length;
+  let best = null, bestScore = -Infinity;
+  for(let y=0; y<ROWS; y++){
+    for(let x=0; x<COLS; x++){
+      const t = terrainAt(x,y);
+      if(t.key!=='WOODS' && t.key!=='BUILDING') continue;
+      const dist = chebyshev(nearPos, {x,y});
+      if(dist > maxRange) continue;
+      let clusterSize = 0;
+      for(let dy=-1; dy<=1; dy++){
+        for(let dx=-1; dx<=1; dx++){
+          const nx=x+dx, ny=y+dy;
+          if(nx<0||ny<0||nx>=COLS||ny>=ROWS) continue;
+          const nt = terrainAt(nx,ny);
+          if(nt.key==='WOODS' || nt.key==='BUILDING') clusterSize++;
+        }
+      }
+      const score = clusterSize*2 - dist*0.3;
+      if(score > bestScore){ bestScore = score; best = {x,y}; }
+    }
+  }
+  return best;
+}
+export function rallyPointPullBonus(pos, rallyPoint){
+  if(!rallyPoint) return 0;
+  return -chebyshev(pos, rallyPoint) * 0.16;
+}
+
+// Core Tactic: prefer the road network while actively advancing — both for the
+// real +1 movement bonus a unit gets from starting and ending its move on
+// road (see isRoadLike/unitBaseMove), and because a column that stays on
+// roads simply covers ground faster turn over turn, the same reason a human
+// player uses them to close distance quickly rather than cutting cross-
+// country. Modest on its own so it nudges toward a road without overriding a
+// more direct route to a real target.
+export function roadSeekBonus(x, y){
+  return isRoadLike(terrainAt(x,y)) ? 0.15 : 0;
 }
 
 // Core Tactic #2, The Gunner's Creed: Medium+ non-artillery units value ending a
