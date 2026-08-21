@@ -197,7 +197,12 @@ export function beginFightPhase(){
   }
   // auto-skip if no fights available (human turn)
   if(!anyFightsAvailable(state.turn)){
-    log('No units in contact — skipping Fight phase.', 'system');
+    const stuck = turnedAroundInContact(state.turn);
+    if(stuck.length > 0){
+      log(`${stuck.map(unitLabel).join(', ')} still turned around from being pushed back — can't fight this turn. Skipping Fight phase.`, 'system');
+    } else {
+      log('No units in contact — skipping Fight phase.', 'system');
+    }
     setTimeout(endFightPhase, 400);
   }
 }
@@ -230,6 +235,17 @@ export function canAttackTarget(attacker, defender){
 }
 export function anyFightsAvailable(side){
   return state.units.some(u=>u.side===side && canInitiateFight(u) &&
+    state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
+}
+// Distinguishes "genuinely nothing adjacent" from "adjacent, but every one of
+// those units is still turned around from a pushback and can't fight yet" —
+// same rule (Section 8: a pushed-back unit spends its whole next turn just
+// turning to face, free again the turn after that), but a very different
+// thing to see happen, especially after a multi-unit exchange where several
+// units get turned around at once. The generic "no units in contact" message
+// was misleading here, since there genuinely are units in contact.
+export function turnedAroundInContact(side){
+  return state.units.filter(u=>!u.removed && u.side===side && u.turnOnly &&
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
