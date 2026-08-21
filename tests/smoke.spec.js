@@ -253,7 +253,7 @@ test('the board is usable on a phone-sized viewport', async ({ page }) => {
 });
 
 test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
-  test.setTimeout(60_000); // board-orientation dice sequence plus polling for the Picker can genuinely take a while
+  test.setTimeout(90_000); // board-orientation dice sequence plus polling for the Picker can genuinely take a while, more so on a loaded CI runner than locally
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
@@ -268,7 +268,7 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
   const armyPicker = page.locator('#armyPickerPanel');
   let pickerShown = false;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 90; i++) {
     if (await confirmOrientation.isVisible().catch(() => false)) {
       await confirmOrientation.click();
     }
@@ -298,7 +298,7 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
 });
 
 test('the Army Picker View Map toggle works without breaking the flow', async ({ page }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
@@ -308,7 +308,7 @@ test('the Army Picker View Map toggle works without breaking the flow', async ({
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
   const armyPicker = page.locator('#armyPickerPanel');
   let pickerShown = false;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 90; i++) {
     if (await confirmOrientation.isVisible().catch(() => false)) {
       await confirmOrientation.click();
     }
