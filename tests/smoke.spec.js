@@ -251,3 +251,84 @@ test('the board is usable on a phone-sized viewport', async ({ page }) => {
   );
   expect(overflow, 'page scrolls horizontally on a 390px viewport').toBeLessThanOrEqual(0);
 });
+
+test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
+  test.setTimeout(60_000); // board-orientation dice sequence plus polling for the Picker can genuinely take a while
+  const errors = watchForErrors(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Play Britain' }).click();
+  await page.getByRole('button', { name: 'Hard' }).click();
+
+  // Waits out the board-orientation dice sequence (which can take a real
+  // while) specifically for the Army Picker to appear — it only shows the
+  // very first time it becomes Britain's turn to deploy, which depending on
+  // who's rolled first for orientation and who deploys first could be
+  // immediately or only after the AI finishes its own Brigades.
+  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  const armyPicker = page.locator('#armyPickerPanel');
+  let pickerShown = false;
+  for (let i = 0; i < 60; i++) {
+    if (await confirmOrientation.isVisible().catch(() => false)) {
+      await confirmOrientation.click();
+    }
+    const cls = await armyPicker.getAttribute('class');
+    if (cls !== null && !cls.includes('hidden')) { pickerShown = true; break; }
+    await page.waitForTimeout(500);
+  }
+  expect(pickerShown, 'Army Picker never appeared for a fresh standard match').toBe(true);
+
+  const armyName = await page.locator('#armyPickerName').textContent();
+  await page.locator('#armyPickerDeployBtn').click();
+
+  // Deployment completed in one shot — the roster panel should now be back
+  // to normal deployment state (Britain's Brigade 1 area, or already handed
+  // off to France if Britain went first and finished instantly).
+  await expect(page.locator('#turnBadge')).toHaveText(/^Deploying:/, { timeout: 10_000 });
+
+  // At least Britain's own units are actually on the board, not just the
+  // Picker's own preview state — the auto-deploy genuinely placed them.
+  const britishUnitsLogged = await page
+    .locator('#log .entry')
+    .filter({ hasText: /Britain deploys/ })
+    .count();
+  expect(britishUnitsLogged, `Army Picker (${armyName}) did not actually deploy any units`).toBeGreaterThan(0);
+
+  expect(errors, `errors deploying via Army Picker:\n${errors.join('\n')}`).toEqual([]);
+});
+
+test('the Army Picker View Map toggle works without breaking the flow', async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors = watchForErrors(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Play Britain' }).click();
+  await page.getByRole('button', { name: 'Hard' }).click();
+
+  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  const armyPicker = page.locator('#armyPickerPanel');
+  let pickerShown = false;
+  for (let i = 0; i < 60; i++) {
+    if (await confirmOrientation.isVisible().catch(() => false)) {
+      await confirmOrientation.click();
+    }
+    const cls = await armyPicker.getAttribute('class');
+    if (cls !== null && !cls.includes('hidden')) { pickerShown = true; break; }
+    await page.waitForTimeout(500);
+  }
+  expect(pickerShown, 'Army Picker never appeared').toBe(true);
+
+  await page.locator('#armyPickerViewMapBtn').click();
+  await expect(armyPicker).toHaveClass(/viewingMap/);
+  await expect(page.locator('#armyPickerCards')).toBeHidden();
+
+  // The board itself is genuinely visible underneath, not just the toggle
+  // having flipped a class with nothing to actually show.
+  await expect(page.locator('#board')).toBeVisible();
+
+  await page.locator('#armyPickerViewMapBtn').click();
+  await expect(armyPicker).not.toHaveClass(/viewingMap/);
+  await expect(page.locator('#armyPickerCards')).toBeVisible();
+
+  expect(errors, `errors toggling View Map:\n${errors.join('\n')}`).toEqual([]);
+});
