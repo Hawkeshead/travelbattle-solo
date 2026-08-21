@@ -66,6 +66,40 @@ export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
   placeUnit(side, typeKey, cell.x, cell.y);
 }
 
+// Manoeuvre: whoever deploys second in a Brigade genuinely sees more of the
+// board than whoever went first — that's not a bug to work around, it's the
+// actual tactical edge of deploying last, and it's only fair to let the AI
+// use it when it's genuinely earned, not fabricate a read on an army it
+// hasn't actually seen yet. Called only once the human side has at least one
+// full Brigade confirmed; the caller falls back to a plain random pick
+// otherwise. The three signals mirror real rock-paper-scissors relationships
+// between the six named Armies rather than picking the "best" Army outright:
+// a cavalry-heavy human deployment gets answered with an Infantry/Guard
+// anchor that can form Square and shrug off a charge; a visibly asymmetric,
+// thin-flanked deployment gets answered with something fast enough to punish
+// the weak side before it can be covered; a generic/balanced deployment gets
+// no strong read either way, so it's answered with independent firepower
+// rather than a guess.
+function pickCounterArmy(humanSide){
+  const humanUnits = state.units.filter(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
+  if(humanUnits.length === 0) return null;
+
+  const cavCount = humanUnits.filter(u=>u.type==='HEAVY_CAV'||u.type==='LIGHT_CAV').length;
+  if(cavCount / humanUnits.length >= 0.35){
+    return Math.random()<0.5 ? 'grand_assault' : 'refused_flank';
+  }
+
+  const byBrigade = {};
+  for(const u of humanUnits) byBrigade[u.brigadeId] = (byBrigade[u.brigadeId]||0) + 1;
+  const counts = Object.values(byBrigade);
+  const hasWeakFlank = counts.length >= 2 && Math.min(...counts) <= 2 && Math.max(...counts) >= 5;
+  if(hasWeakFlank){
+    return Math.random()<0.5 ? 'vanguard' : 'cavalry_wing';
+  }
+
+  return Math.random()<0.5 ? 'twin_batteries' : 'balanced';
+}
+
 export function aiDeployStepHard(side){
   const bIdx = state.deployBrigadeIndex[side];
   if(!state.currentBrigadeHasBrigadier[side]){
@@ -93,7 +127,10 @@ export function aiDeployStepHard(side){
       const choices = (state._aiArmyChoice || (state._aiArmyChoice = {red:null, blue:null}));
       if(!choices[side]){
         const armies = TB_DATA.armyCompositions;
-        choices[side] = armies[Math.floor(Math.random()*armies.length)].id;
+        const humanSide = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+        const otherIsHuman = !(state.mode==='ai' && humanSide===state.aiSide);
+        const counterPick = (otherIsHuman && state.deployBrigadeIndex[humanSide] >= 1) ? pickCounterArmy(humanSide) : null;
+        choices[side] = counterPick || armies[Math.floor(Math.random()*armies.length)].id;
       }
       const army = TB_DATA.armyCompositions.find(a=>a.id===choices[side]);
       const brig = army && army.brigades[bIdx];
