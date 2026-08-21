@@ -11,7 +11,9 @@
    breaks gameplay: every play call is wrapped so a failure just means
    silence, not a crashed game.
 ========================================================= */
-const AudioManager = (function(){
+import { COLS } from './data-core.js';
+
+export const AudioManager = (function(){
   const PRIORITY = { cannon:1, majorCombat:2, cavalryCharge:3, musketVolley:4, movement:5, ui:6, ambient:7 };
   const MAX_CONCURRENT = { default: 4 }; // cap on simultaneous copies of the same effect, so a busy turn doesn't turn into noise
 
@@ -33,11 +35,11 @@ const AudioManager = (function(){
         state.muted = !!saved.muted;
         Object.assign(state.volumes, saved.volumes || {});
       }
-    } catch(e) { /* corrupt/missing prefs — defaults stand */ }
+    } catch(_e) { /* corrupt/missing prefs — defaults stand */ }
   }
   function savePrefs(){
     try { localStorage.setItem('tb:audioPrefs', JSON.stringify({ muted: state.muted, volumes: state.volumes })); }
-    catch(e) { /* storage unavailable — session-only, not fatal */ }
+    catch(_e) { /* storage unavailable — session-only, not fatal */ }
   }
 
   // Browsers block audio until a real user gesture. Call this from the
@@ -106,13 +108,12 @@ const AudioManager = (function(){
       setTimeout(release, 8000);
       if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
       audio.play().catch(release);
-    } catch(e) { /* never let an audio failure break the game */ }
+    } catch(_e) { /* never let an audio failure break the game */ }
   }
 
   // Simple left/centre/right stereo positioning based on board x-position (0..COLS).
   // Deliberately coarse — three zones, not a continuous pan — per the "don't over-engineer" brief.
   function panForBoardX(x){
-    if(typeof COLS === 'undefined') return 0;
     const third = COLS/3;
     if(x < third) return -0.5;
     if(x > COLS-third) return 0.5;
@@ -128,9 +129,9 @@ const AudioManager = (function(){
       audio.volume = effectiveVolume('music');
       state.musicEl = audio;
       if(state.unlocked) audio.play().catch(()=>{});
-    } catch(e) { /* silent failure */ }
+    } catch(_e) { /* silent failure */ }
   }
-  function stopMusic(){ if(state.musicEl){ try{ state.musicEl.pause(); }catch(e){} state.musicEl = null; } }
+  function stopMusic(){ if(state.musicEl){ try{ state.musicEl.pause(); }catch(_e){} state.musicEl = null; } }
 
   function playAmbience(src, opts){
     opts = opts || {};
@@ -141,9 +142,9 @@ const AudioManager = (function(){
       audio.volume = effectiveVolume('ambience');
       state.ambienceEl = audio;
       if(state.unlocked) audio.play().catch(()=>{});
-    } catch(e) { /* silent failure */ }
+    } catch(_e) { /* silent failure */ }
   }
-  function stopAmbience(){ if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(e){} state.ambienceEl = null; } }
+  function stopAmbience(){ if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(_e){} state.ambienceEl = null; } }
 
   function setMuted(m){ state.muted = m; applyVolumes(); savePrefs(); }
   function setVolume(category, v){ state.volumes[category] = Math.max(0, Math.min(1, v)); applyVolumes(); savePrefs(); }
