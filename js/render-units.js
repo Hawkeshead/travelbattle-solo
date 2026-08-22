@@ -311,14 +311,13 @@ export function drawUnit(u, off){
   ctx.lineWidth = isSel ? 3 : 1.5;
   if(concealed) ctx.setLineDash([3,2]);
 
-  if(t.key==='INFANTRY' && u.formation!=='square'){
+  if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
     if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
     // Square formation keeps the dedicated dot silhouette regardless of type —
     // it's a real tactical state, not just decoration, so it stays visually
-    // distinct even for Infantry now that Infantry otherwise gets real art.
-    if(u.formation==='square') drawInfantrySquareDots(size);
-    else drawInfantryDots(size);
+    // distinct even now that both Infantry and Guard otherwise get real art.
+    drawInfantrySquareDots(size);
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
     drawCavalryImage(size, u.side, t.key==='HEAVY_CAV');
   } else if(t.isArtillery){
