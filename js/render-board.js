@@ -443,7 +443,9 @@ export function draw(){
 
   // base fill — road cells fill as open ground; Hill matches Open (elevation is
   // shown by its border, not a colour change); the ploughed-field/woods passes
-  // paint over their own cells next.
+  // paint over their own cells next. Kept as a fallback fill even for Open
+  // cells (drawn over next, once the grass tile images are ready) so there's
+  // no flash of blank canvas while those assets are still decoding.
   for(let y=0;y<ROWS;y++){
     const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
@@ -453,15 +455,36 @@ export function draw(){
     }
   }
 
-  // Grass texture on Open/Hill ground — a repeating blade pattern clipped to
-  // just those cells, giving the base ground some life instead of a flat
-  // colour fill (ROAD counts as Open here too, matching the base fill above).
+  // Open ground: each cell independently shows one of 6 grassland tile
+  // styles (assignGrassStyles, computed once per terrain generation — see
+  // ui-menus.js) rather than a flat fill, patched together so same-style
+  // cells clump into small "fields" instead of scattering as noise. These
+  // tiles already fill their full square with real grass/flower detail, so
+  // Road and Hill keep the older flat-colour-plus-blade-texture treatment
+  // below rather than doubling up on top of this.
+  if(state.grassStyles){
+    for(let y=0;y<ROWS;y++){
+      const sy_ = sy(y);
+      for(let x=0;x<COLS;x++){
+        if(terrain[y][x]!=='OPEN') continue;
+        const style = state.grassStyles[y][x];
+        if(!style) continue;
+        const img = UNIT_IMAGES['grass_'+style];
+        if(img && img.complete && img.naturalWidth>0){
+          ctx.drawImage(img, x*CELL, sy_*CELL, CELL, CELL);
+        }
+      }
+    }
+  }
+
+  // Grass texture — a repeating blade pattern clipped to Road/Hill cells
+  // only now; Open ground gets its detail from the grass tile images above.
   ctx.save();
   ctx.beginPath();
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
-      if(key==='OPEN' || key==='ROAD' || key==='HILL') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+      if(key==='ROAD' || key==='HILL') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
     }
   }
   ctx.clip();
