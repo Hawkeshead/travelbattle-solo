@@ -34,7 +34,13 @@ export const UNIT_IMAGE_DATA = {
   forest_french_3: 'assets/terrain/forest_french_3.png',
   forest_french_4: 'assets/terrain/forest_french_4.png',
   forest_french_5: 'assets/terrain/forest_french_5.png',
-  forest_french_6: 'assets/terrain/forest_french_6.png'
+  forest_french_6: 'assets/terrain/forest_french_6.png',
+  grass_1: 'assets/terrain/grass_1.png',
+  grass_2: 'assets/terrain/grass_2.png',
+  grass_3: 'assets/terrain/grass_3.png',
+  grass_4: 'assets/terrain/grass_4.png',
+  grass_5: 'assets/terrain/grass_5.png',
+  grass_6: 'assets/terrain/grass_6.png'
 };
 export const UNIT_IMAGES = {};
 export const BRIGADIER_PORTRAIT_KEY = {
