@@ -5,14 +5,10 @@ import { ctx, getUnitVisualPos, sy } from './render-board.js';
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
   cannon_blue: 'assets/icons/cannon_blue.png',
-  artillery_red_1: 'assets/icons/artillery_red_1.png',
-  artillery_red_2: 'assets/icons/artillery_red_2.png',
-  artillery_blue_1: 'assets/icons/artillery_blue_1.png',
-  artillery_blue_2: 'assets/icons/artillery_blue_2.png',
-  heavy_cav_red: 'assets/icons/heavy_cav_red.png',
-  heavy_cav_blue: 'assets/icons/heavy_cav_blue.png',
-  light_cav_red: 'assets/icons/light_cav_red.png',
-  light_cav_blue: 'assets/icons/light_cav_blue.png',
+  artillery_red: 'assets/icons/artillery_red.png',
+  artillery_blue: 'assets/icons/artillery_blue.png',
+  cavalry_red: 'assets/icons/cavalry_red.png',
+  cavalry_blue: 'assets/icons/cavalry_blue.png',
   infantry_red: 'assets/icons/infantry_red.png',
   infantry_blue: 'assets/icons/infantry_blue.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
@@ -189,28 +185,36 @@ function drawSilhouetteIconImage(size, key, sizeRatio){
   }
   return false;
 }
-// Stable per-unit hash so the artillery crew variant (3-man vs 2-man crop —
-// same unit type, just visual variety) doesn't flicker between the two
-// images on every redraw — same unit always lands on the same variant.
-function stableVariant(id, n){
-  let h = 0;
-  for(let i=0;i<id.length;i++){ h = (h*31 + id.charCodeAt(i)) >>> 0; }
-  return (h % n) + 1;
+// Bottom-anchored variant for the side-profile depth art (cavalry, artillery):
+// width is capped at one full cell so there's never horizontal or downward
+// bleed into a neighbouring square, but height can run up to 1.3 cells,
+// anchored to the cell's bottom edge so all of the extra height bleeds
+// upward into the square above — never sideways, never down — suggesting the
+// standing/mounted figure's real height on a top-down board.
+function drawBottomAnchoredImage(cellSize, key, maxHeightRatio){
+  const img = UNIT_IMAGES[key];
+  if(!(img && img.complete && img.naturalWidth>0)) return false;
+  const aspect = img.naturalWidth/img.naturalHeight;
+  let w = cellSize, h = w/aspect;
+  const maxH = cellSize*maxHeightRatio;
+  if(h>maxH){ h = maxH; w = h*aspect; }
+  ctx.drawImage(img, -w/2, cellSize/2-h, w, h);
+  return true;
 }
-export function drawArtilleryImage(size, side, unitId){
-  const variant = stableVariant(unitId, 2);
-  const key = (side===SIDES.RED ? 'artillery_red_' : 'artillery_blue_') + variant;
-  if(!drawSilhouetteIconImage(size, key, 0.95*0.85)){
+export function drawArtilleryImage(size, side){
+  const key = side===SIDES.RED ? 'artillery_red' : 'artillery_blue';
+  if(!drawBottomAnchoredImage(CELL, key, 1.3)){
     // fallback while the image decodes
     ctx.beginPath(); ctx.moveTo(0,-size*0.35); ctx.lineTo(size*0.35,0); ctx.lineTo(0,size*0.35); ctx.lineTo(-size*0.35,0);
     ctx.closePath(); ctx.fill(); ctx.stroke();
   }
 }
-// Heavy Cavalry uses the 3-horse crop, Light Cavalry the 2-horse crop —
-// distinct art for a distinct unit type, not the same image trimmed down.
-export function drawCavalryImage(size, side, isHeavy){
-  const key = (isHeavy ? 'heavy_cav_' : 'light_cav_') + (side===SIDES.RED ? 'red' : 'blue');
-  if(!drawSilhouetteIconImage(size, key, 0.95)){
+// One shared side-profile image for both Heavy and Light Cavalry now — the
+// gold asterisk (drawn separately, unchanged) is what actually distinguishes
+// Heavy from Light on the board, not a different crop.
+export function drawCavalryImage(size, side){
+  const key = side===SIDES.RED ? 'cavalry_red' : 'cavalry_blue';
+  if(!drawBottomAnchoredImage(CELL, key, 1.3)){
     drawCavalryChevrons(size); // fallback while the image decodes
   }
 }
@@ -318,9 +322,9 @@ export function drawUnit(u, off){
     if(!drawInfantryImage(size, u.side)) drawInfantrySquareDots(size);
     ctx.restore();
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
-    drawCavalryImage(size, u.side, t.key==='HEAVY_CAV');
+    drawCavalryImage(size, u.side);
   } else if(t.isArtillery){
-    drawArtilleryImage(size, u.side, u.id);
+    drawArtilleryImage(size, u.side);
   } else if(t.key==='BRIGADIER'){
     // star fallback (no historical portrait match)
     ctx.beginPath();
