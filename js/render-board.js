@@ -1,7 +1,7 @@
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, setCell, state } from './data-core.js';
 import { inBounds, neighbors8, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
-import { drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
+import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
 import { dragState } from './ui-deployment.js';
 
@@ -335,6 +335,12 @@ export function seededWobble(seed){
   return (v - Math.floor(v)) - 0.5; // -0.5..0.5
 }
 export function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, same generator
+// Deterministic per-cell pick from the 6 Forest tile styles — each Woods cell
+// independently "rolls" its own style, but stays stable across redraws since
+// it's a function of the cell's own coordinates rather than stored RNG state.
+export function woodsStyleIndex(x,y){
+  return 1 + Math.floor(seededRand(x*97+y*131+5) * 6);
+}
 
 // A faint repeating grass-blade texture for Open/Hill ground — cheap (one
 // pattern fill covering the whole board) rather than per-tile stroke calls,
@@ -491,25 +497,29 @@ export function draw(){
     ctx.restore();
   }
 
-  // Woods: each cell is an inflated, jittered rounded blob; adjacent woods
-  // cells overlap into one organic tree-mass instead of a grid of squares.
-  // A cluster of individual canopy shapes is layered on top of each cell so
-  // the mass reads as a stand of trees rather than one flat green blob.
-  const woodsRegions = findConnectedRegions(terrain, 'WOODS');
-  ctx.fillStyle = terrainColor('WOODS');
-  for(const region of woodsRegions){
-    for(const [x,y] of region){
+  // Woods: each cell independently shows one of 6 pre-made Forest tile
+  // images (rather than the old procedural blob-and-canopy mass), bottom-
+  // anchored per the same board-square spec as unit icons — full cell width,
+  // up to 1.3 cells tall, bleeding upward only. Since terrain draws entirely
+  // before any unit (see the unit pass below), a unit standing in the square
+  // above a Woods tile naturally lands on top of any bleeding treetops with
+  // no special-case z-ordering needed. Infantry/Guard actually standing IN
+  // a Woods cell are drawn later, in the unit pass, as the troops-hidden
+  // variant of this same tile instead of their normal icon — see drawUnit.
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      if(terrain[y][x]!=='WOODS') continue;
+      const key = 'forest_notroops_' + woodsStyleIndex(x,y);
+      const img = UNIT_IMAGES[key];
       const sy_ = sy(y);
-      const jx = seededWobble(x*13+y*71+1) * CELL*0.12;
-      const jy = seededWobble(x*47+y*19+2) * CELL*0.12;
-      const pad = CELL*0.10, rad = CELL*0.34;
-      roundedBlobPath(ctx, x*CELL-pad+jx, sy_*CELL-pad+jy, CELL+pad*2, CELL+pad*2, rad);
-      ctx.fill();
-    }
-  }
-  for(const region of woodsRegions){
-    for(const [x,y] of region){
-      drawTreeCanopyCluster(x*CELL+CELL/2, sy(y)*CELL+CELL/2, CELL, x*31+y*53+7);
+      if(img && img.complete && img.naturalWidth>0){
+        const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
+        ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+      } else {
+        // fallback while the image decodes: the old flat fill, no canopy detail
+        ctx.fillStyle = terrainColor('WOODS');
+        ctx.fillRect(x*CELL, sy_*CELL, CELL, CELL);
+      }
     }
   }
 
