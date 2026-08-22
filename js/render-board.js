@@ -91,8 +91,21 @@ export function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
+  if(FAST_ANIMATION_MODE){ delete unitAnimations[u.id]; return; } // test/simulation harnesses only — see setFastAnimationMode
   unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:1040 };
   ensureAnimationLoopRunning();
+}
+
+// Mirrors FAST_DICE_MODE in dice.js exactly — never set by real gameplay, only
+// by an automated harness that needs a full match to complete in a reasonable
+// wall-clock time rather than waiting out 1040ms per unit move, many times a
+// turn, many turns a match.
+export let FAST_ANIMATION_MODE = false;
+export function setFastAnimationMode(on){
+  FAST_ANIMATION_MODE = !!on;
+}
+if(typeof window !== 'undefined'){
+  window.__tbTest = Object.assign(window.__tbTest || {}, { setFastAnimationMode });
 }
 
 export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
@@ -644,11 +657,28 @@ export function draw(){
     ctx.restore();
   }
 
-  // grid
-  ctx.strokeStyle = 'rgba(184,147,79,0.18)';
-  ctx.lineWidth = 1;
-  for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
-  for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
+  // grid — always visible during deployment (placing units needs the whole
+  // board legible); during battle it stays hidden until a unit is selected,
+  // then only draws on the cells that unit can actually act on (so the board
+  // reads as a clean map rather than permanent graph paper). Move squares
+  // keep the standard gold, squares that would trigger a fight (a target or
+  // a charge's resulting contact) draw in red so the consequence of tapping
+  // that square is visible before you commit to it.
+  const showFullGrid = state.phase==='deploy';
+  const showSelectionGrid = !showFullGrid && state.selectedUnitId && highlightCells && highlightCells.length;
+  if(showFullGrid){
+    ctx.strokeStyle = 'rgba(184,147,79,0.18)';
+    ctx.lineWidth = 1;
+    for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
+    for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
+  } else if(showSelectionGrid){
+    ctx.lineWidth = 1.5;
+    for(const c of highlightCells){
+      ctx.strokeStyle = c.kind==='move' ? 'rgba(184,147,79,0.55)' : 'rgba(181,69,63,0.75)';
+      ctx.strokeRect(c.x*CELL, sy(c.y)*CELL, CELL, CELL);
+    }
+    ctx.lineWidth = 1;
+  }
 
   // seam between the two physical boards
   ctx.strokeStyle = 'rgba(233,228,214,0.35)';
