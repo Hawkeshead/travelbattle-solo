@@ -156,28 +156,37 @@
   }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
-  #armyPickerPanel{ position:absolute;inset:0;z-index:38;display:flex;flex-direction:column;background:var(--map-bg); }
+  #armyPickerPanel{ position:absolute;inset:0;z-index:38;display:flex;align-items:center;justify-content:center;background:rgba(20,16,8,0.55);padding:16px; }
   #armyPickerPanel.hidden{ display:none; }
-  #armyPickerCards{ flex:1;overflow-y:auto;padding:14px 16px 6px;background:linear-gradient(180deg,#dccfa4,#e9dfc4); }
-  .apLabel{ font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-dim); }
-  #armyPickerName{ font-family:'Cinzel',serif;font-size:18px;color:var(--brass-bright);text-transform:uppercase;letter-spacing:0.03em;margin-top:2px; }
-  #armyPickerSummary{ font-size:12px;color:#5a4d33;margin-top:5px;line-height:1.45; }
-  #armyPickerBrigadeCards{ margin-top:12px; }
-  .apCard{ background:var(--paper);border-radius:5px;padding:10px 12px;margin-bottom:9px;border-left:5px solid var(--brass-dim); }
-  .apCard .apName{ font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.02em;color:var(--ink); }
-  .apCard .apDoctrine{ font-size:11.5px;color:#5a4d33;margin-top:3px;line-height:1.45; }
-  #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:8px 14px 10px;margin-top:auto; }
+  #armyPickerCard{
+    display:flex;flex-direction:column;background:linear-gradient(180deg,#dccfa4,#e9dfc4);
+    border:2px solid var(--brass-dim);border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    width:min(480px,100%);max-height:100%;overflow:hidden;
+  }
+  #armyPickerCardBody{ overflow-y:auto;padding:12px 14px 4px; }
+  .apLabel{ font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-dim); }
+  #armyPickerName{ font-family:'Cinzel',serif;font-size:15px;color:var(--brass-bright);text-transform:uppercase;letter-spacing:0.02em;margin-top:2px; }
+  #armyPickerBody{ display:flex;gap:10px;margin-top:8px; }
+  #armyPickerMinimapWrap{ flex:0 0 34%;display:flex;flex-direction:column;gap:6px; }
+  #armyPickerMinimap{ width:100%;height:auto;aspect-ratio:2/1;border:1px solid var(--brass-dim);border-radius:3px;display:block; }
+  #armyPickerSummary{ font-size:10px;color:#5a4d33;line-height:1.4; }
+  #armyPickerBrigadeCards{ flex:1;min-width:0; }
+  .apCard{ background:var(--paper);border-radius:5px;padding:6px 9px;margin-bottom:6px;border-left:4px solid var(--brass-dim); }
+  .apCard .apName{ font-family:'Cormorant Garamond',serif;font-weight:700;font-size:12px;letter-spacing:0.02em;color:var(--ink); }
+  .apCard .apDoctrine{ font-size:10px;color:#5a4d33;margin-top:2px;line-height:1.35; }
+  #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:7px 12px 9px; }
   #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;margin-bottom:3px; }
   #armyPickerDots{ display:flex;gap:5px; }
   #armyPickerDots .apDot{ width:6px;height:6px;border-radius:50%;background:var(--line); }
   #armyPickerDots .apDot.active{ background:var(--brass-bright);width:16px;border-radius:3px; }
-  #armyPickerSwipeHint{ text-align:center;font-size:10px;color:var(--ink-dim);letter-spacing:0.03em;margin-bottom:8px; }
+  #armyPickerSwipeHint{ text-align:center;font-size:9.5px;color:var(--ink-dim);letter-spacing:0.03em;margin-bottom:6px; }
   #armyPickerBtnRow{ display:flex;flex-direction:column;gap:5px; }
-  #armyPickerBtnRow button{ padding:8px;font-size:12.5px; }
-  .apTextBtn{ background:none;border:none;color:var(--ink-dim);text-decoration:underline;font-weight:500;padding:3px;font-size:11.5px; }
-  #armyPickerPanel.viewingMap{ background:transparent; }
-  #armyPickerPanel.viewingMap #armyPickerCards{ display:none; }
-  #armyPickerPanel.viewingMap #armyPickerBar{ background:transparent;border-top:none; }
+  #armyPickerBtnRow button{ padding:7px;font-size:12px; }
+  .apTextBtn{ background:none;border:none;color:var(--ink-dim);text-decoration:underline;font-weight:500;padding:3px;font-size:11px; }
+  #armyPickerPanel.viewingMap{ background:transparent;align-items:flex-end;justify-content:center;padding:0 0 10px; }
+  #armyPickerPanel.viewingMap #armyPickerCard{ background:transparent;border:none;box-shadow:none;width:auto;max-width:none; }
+  #armyPickerPanel.viewingMap #armyPickerCardBody{ display:none; }
+  #armyPickerPanel.viewingMap #armyPickerBar{ background:var(--panel-2);border-radius:6px;border:2px solid var(--brass-dim);padding:8px 16px; }
   #armyPickerPanel.viewingMap #armyPickerCarousel{ display:none; }
   #armyPickerPanel.viewingMap #armyPickerSwipeHint{ display:none; }
   #armyPickerPanel.viewingMap #armyPickerDeployBtn,
@@ -351,14 +360,14 @@
     #logOverlayPanel{ width:100%;max-width:100%;top:auto;left:0;right:0;bottom:0;height:65vh;
       border-left:none;border-top:2px solid var(--brass-dim);transform:translateY(100%); }
     #logOverlay.show #logOverlayPanel{ transform:translateY(0); }
-    #armyPickerCards{padding:10px 12px 4px;}
+    #armyPickerCardBody{padding:9px 10px 3px;}
     .apLabel{font-size:9px;}
-    #armyPickerName{font-size:14px;}
-    #armyPickerSummary{font-size:10.5px;margin-top:3px;}
-    #armyPickerBrigadeCards{margin-top:8px;}
-    .apCard{padding:7px 9px;margin-bottom:6px;border-left-width:4px;}
-    .apCard .apName{font-size:12px;}
-    .apCard .apDoctrine{font-size:10px;margin-top:2px;}
+    #armyPickerName{font-size:13px;}
+    #armyPickerBody{gap:8px;margin-top:6px;}
+    #armyPickerSummary{font-size:9.5px;}
+    .apCard{padding:6px 8px;margin-bottom:5px;border-left-width:3px;}
+    .apCard .apName{font-size:11px;}
+    .apCard .apDoctrine{font-size:9.5px;margin-top:2px;}
     #armyPickerBar{padding:6px 10px 8px;}
     #armyPickerCarousel{margin-bottom:2px;}
     #armyPickerSwipeHint{font-size:9px;margin-bottom:6px;}
@@ -372,14 +381,14 @@
     #brigadeStatus{font-size:9px;}
     #sidebar{width:210px;}
     #hudIcons button{width:32px;height:32px;font-size:15px;}
-    #armyPickerCards{padding:6px 10px 2px;}
+    #armyPickerCardBody{padding:6px 9px 2px;}
     .apLabel{font-size:8.5px;}
-    #armyPickerName{font-size:13px;margin-top:0;}
-    #armyPickerSummary{font-size:9.5px;margin-top:2px;line-height:1.3;}
-    #armyPickerBrigadeCards{margin-top:6px;}
-    .apCard{padding:5px 8px;margin-bottom:4px;border-left-width:3px;}
-    .apCard .apName{font-size:10.5px;}
-    .apCard .apDoctrine{font-size:9px;margin-top:1px;line-height:1.3;}
+    #armyPickerName{font-size:12px;margin-top:0;}
+    #armyPickerBody{gap:6px;margin-top:4px;}
+    #armyPickerSummary{font-size:8.5px;line-height:1.3;}
+    .apCard{padding:4px 7px;margin-bottom:3px;border-left-width:3px;}
+    .apCard .apName{font-size:9.5px;}
+    .apCard .apDoctrine{font-size:8.5px;margin-top:1px;line-height:1.25;}
     #armyPickerBar{padding:4px 10px 6px;}
     #armyPickerCarousel{margin-bottom:2px;}
     #armyPickerSwipeHint{font-size:8.5px;margin-bottom:4px;}
@@ -516,21 +525,28 @@
 </div>
 
 <div id="armyPickerPanel" class="hidden">
-  <div id="armyPickerCards">
-    <div class="apLabel">Choose Your Army &middot; <span id="armyPickerIndex">1</span> of 6</div>
-    <h2 id="armyPickerName">Army</h2>
-    <div id="armyPickerSummary"></div>
-    <div id="armyPickerBrigadeCards"></div>
-  </div>
-  <div id="armyPickerBar">
-    <div id="armyPickerCarousel">
-      <div id="armyPickerDots"></div>
+  <div id="armyPickerCard">
+    <div id="armyPickerCardBody">
+      <div class="apLabel">Choose Your Army &middot; <span id="armyPickerIndex">1</span> of 6</div>
+      <h2 id="armyPickerName">Army</h2>
+      <div id="armyPickerBody">
+        <div id="armyPickerMinimapWrap">
+          <canvas id="armyPickerMinimap" width="160" height="80"></canvas>
+          <div id="armyPickerSummary"></div>
+        </div>
+        <div id="armyPickerBrigadeCards"></div>
+      </div>
     </div>
-    <div id="armyPickerSwipeHint">Swipe to browse Armies</div>
-    <div id="armyPickerBtnRow">
-      <button id="armyPickerDeployBtn" class="primary">Deploy This Army</button>
-      <button id="armyPickerViewMapBtn">View Map</button>
-      <button id="armyPickerManualBtn" class="apTextBtn">Deploy Manually Instead</button>
+    <div id="armyPickerBar">
+      <div id="armyPickerCarousel">
+        <div id="armyPickerDots"></div>
+      </div>
+      <div id="armyPickerSwipeHint">Swipe to browse Armies</div>
+      <div id="armyPickerBtnRow">
+        <button id="armyPickerDeployBtn" class="primary">Deploy This Army</button>
+        <button id="armyPickerViewMapBtn">View Map</button>
+        <button id="armyPickerManualBtn" class="apTextBtn">Deploy Manually Instead</button>
+      </div>
     </div>
   </div>
 </div>
