@@ -135,6 +135,84 @@ export function edgeKey(x1,y1,x2,y2){
   return (x1<x2 || (x1===x2 && y1<y2)) ? `${x1},${y1}-${x2},${y2}` : `${x2},${y2}-${x1},${y1}`;
 }
 
+// Patchwork grass style assignment — each Open cell independently gets one
+// of 6 grass tile styles, but not uniformly at random: cells prefer to
+// continue an already-started neighbouring patch, subject to two hard caps
+// checked before every assignment — no cell ends up adjacent (8-direction)
+// to more than 2 cells of its own style, and no cell's border shows more
+// than 4 distinct styles among its neighbours. Computed once per terrain
+// generation (not per-cell-per-render) since later cells' choices depend on
+// earlier ones — order matters, so this isn't a pure function of (x,y) the
+// way woodsStyleIndex is.
+export function assignGrassStyles(terrain){
+  const h = terrain.length, w = terrain[0].length;
+  const NUM_STYLES = 6, MAX_SAME = 2, MAX_VARIETY = 4;
+  const styles = Array.from({length:h}, ()=>new Array(w).fill(null));
+
+  function neighborsOf(x,y){
+    const list = [];
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      if(dx===0 && dy===0) continue;
+      const nx=x+dx, ny=y+dy;
+      if(nx>=0 && nx<w && ny>=0 && ny<h) list.push([nx,ny]);
+    }
+    return list;
+  }
+  function sameStyleCount(x,y,style){
+    let c = 0;
+    for(const [nx,ny] of neighborsOf(x,y)) if(styles[ny][nx]===style) c++;
+    return c;
+  }
+  function varietyIfNeighborBecomes(nx,ny,style){
+    const set = new Set();
+    for(const [ax,ay] of neighborsOf(nx,ny)) if(styles[ay][ax]) set.add(styles[ay][ax]);
+    set.add(style);
+    return set.size;
+  }
+
+  const cells = [];
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(terrain[y][x]==='OPEN') cells.push([x,y]);
+  for(let i=cells.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [cells[i],cells[j]] = [cells[j],cells[i]];
+  }
+
+  for(const [x,y] of cells){
+    const neighbors = neighborsOf(x,y);
+    const candidates = [];
+    for(let s=1;s<=NUM_STYLES;s++){
+      if(sameStyleCount(x,y,s) > MAX_SAME) continue;
+      let ok = true;
+      for(const [nx,ny] of neighbors){
+        if(styles[ny][nx]===s && sameStyleCount(nx,ny,s)+1 > MAX_SAME){ ok = false; break; }
+        if(varietyIfNeighborBecomes(nx,ny,s) > MAX_VARIETY){ ok = false; break; }
+      }
+      if(ok) candidates.push(s);
+    }
+    if(candidates.length===0){
+      // No fully-compliant option (rare, tight corners) — score every style
+      // by how much it would overshoot each constraint and take the least
+      // bad overall, rather than only optimizing the same-style cap.
+      let best = 1, bestScore = Infinity;
+      for(let s=1;s<=NUM_STYLES;s++){
+        const sameOver = Math.max(0, sameStyleCount(x,y,s) - MAX_SAME);
+        let varietyOver = 0;
+        for(const [nx,ny] of neighbors){
+          varietyOver += Math.max(0, varietyIfNeighborBecomes(nx,ny,s) - MAX_VARIETY);
+        }
+        const score = sameOver*10 + varietyOver; // same-style shape is the primary constraint
+        if(score<bestScore){ bestScore=score; best=s; }
+      }
+      styles[y][x] = best;
+      continue;
+    }
+    const continuing = candidates.filter(s => neighbors.some(([nx,ny])=>styles[ny][nx]===s));
+    const pool = (continuing.length>0 && Math.random()<0.75) ? continuing : candidates;
+    styles[y][x] = pool[Math.floor(Math.random()*pool.length)];
+  }
+  return styles;
+}
+
 export function buildTerrainMap(assignment, rotation){
   assignment = assignment || { red:'A', blue:'B' };
   rotation = rotation || { red:0, blue:0 };
