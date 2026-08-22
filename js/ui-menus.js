@@ -441,7 +441,7 @@ function goToArmy(delta){
 // card itself steps to the next/previous Army, which reads more naturally on
 // a phone than two small circular buttons competing for thumb space at the
 // bottom of an already busy bar. Attached once (idempotency guard below)
-// since #armyPickerCards is a static element, not recreated per open.
+// since #armyPickerBody is a static element, not recreated per open.
 function attachArmyPickerSwipe(){
   const el = document.getElementById('armyPickerBody');
   let startX = null, startY = null;
