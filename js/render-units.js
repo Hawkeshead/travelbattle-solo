@@ -5,6 +5,14 @@ import { ctx, getUnitVisualPos, sy } from './render-board.js';
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
   cannon_blue: 'assets/icons/cannon_blue.png',
+  artillery_red_1: 'assets/icons/artillery_red_1.png',
+  artillery_red_2: 'assets/icons/artillery_red_2.png',
+  artillery_blue_1: 'assets/icons/artillery_blue_1.png',
+  artillery_blue_2: 'assets/icons/artillery_blue_2.png',
+  heavy_cav_red: 'assets/icons/heavy_cav_red.png',
+  heavy_cav_blue: 'assets/icons/heavy_cav_blue.png',
+  light_cav_red: 'assets/icons/light_cav_red.png',
+  light_cav_blue: 'assets/icons/light_cav_blue.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
   brig_uxbridge: 'assets/brigadiers/brig_uxbridge.jpg',
   brig_thomasgraham: 'assets/brigadiers/brig_thomasgraham.jpg',
@@ -165,6 +173,50 @@ export function getCannonSilhouette(img, key){
   CANNON_SILHOUETTE_CACHE[key] = off;
   return off;
 }
+// Shared draw routine for every image-backed board icon (artillery crew,
+// cavalry) — white die-cut outline behind the art, same treatment the cannon
+// icon originated. sizeRatio lets a taller (portrait-oriented cavalry crop)
+// or wider (cannon) source scale sensibly against the common cell size.
+function drawSilhouetteIconImage(size, key, sizeRatio){
+  const img = UNIT_IMAGES[key];
+  if(img && img.complete && img.naturalWidth>0){
+    const h = size*sizeRatio, w = h*(img.naturalWidth/img.naturalHeight);
+    const silhouette = getCannonSilhouette(img, key);
+    const outlinePx = Math.max(1, size*0.02);
+    const offsets = [[-1,0],[1,0],[0,-1],[0,1],[-0.7,-0.7],[0.7,-0.7],[-0.7,0.7],[0.7,0.7]];
+    offsets.forEach(([ox,oy])=>{
+      ctx.drawImage(silhouette, -w/2+ox*outlinePx, -h/2+oy*outlinePx, w, h);
+    });
+    ctx.drawImage(img, -w/2, -h/2, w, h);
+    return true;
+  }
+  return false;
+}
+// Stable per-unit hash so the artillery crew variant (3-man vs 2-man crop —
+// same unit type, just visual variety) doesn't flicker between the two
+// images on every redraw — same unit always lands on the same variant.
+function stableVariant(id, n){
+  let h = 0;
+  for(let i=0;i<id.length;i++){ h = (h*31 + id.charCodeAt(i)) >>> 0; }
+  return (h % n) + 1;
+}
+export function drawArtilleryImage(size, side, unitId){
+  const variant = stableVariant(unitId, 2);
+  const key = (side===SIDES.RED ? 'artillery_red_' : 'artillery_blue_') + variant;
+  if(!drawSilhouetteIconImage(size, key, 0.95*0.85)){
+    // fallback while the image decodes
+    ctx.beginPath(); ctx.moveTo(0,-size*0.35); ctx.lineTo(size*0.35,0); ctx.lineTo(0,size*0.35); ctx.lineTo(-size*0.35,0);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+}
+// Heavy Cavalry uses the 3-horse crop, Light Cavalry the 2-horse crop —
+// distinct art for a distinct unit type, not the same image trimmed down.
+export function drawCavalryImage(size, side, isHeavy){
+  const key = (isHeavy ? 'heavy_cav_' : 'light_cav_') + (side===SIDES.RED ? 'red' : 'blue');
+  if(!drawSilhouetteIconImage(size, key, 0.95)){
+    drawCavalryChevrons(size); // fallback while the image decodes
+  }
+}
 export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
   const img = UNIT_IMAGES[key];
@@ -254,9 +306,9 @@ export function drawUnit(u, off){
     if(u.formation==='square') drawInfantrySquareDots(size);
     else drawInfantryDots(size);
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
-    drawCavalryChevrons(size);
+    drawCavalryImage(size, u.side, t.key==='HEAVY_CAV');
   } else if(t.isArtillery){
-    drawCannonImage(size, u.side);
+    drawArtilleryImage(size, u.side, u.id);
   } else if(t.key==='BRIGADIER'){
     // star fallback (no historical portrait match)
     ctx.beginPath();
