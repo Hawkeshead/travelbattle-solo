@@ -166,18 +166,20 @@
   .apCard{ background:var(--paper);border-radius:5px;padding:10px 12px;margin-bottom:9px;border-left:5px solid var(--brass-dim); }
   .apCard .apName{ font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.02em;color:var(--ink); }
   .apCard .apDoctrine{ font-size:11.5px;color:#5a4d33;margin-top:3px;line-height:1.45; }
-  #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:10px 14px 14px;margin-top:auto; }
-  #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px; }
-  .apArrow{ width:30px;height:30px;border-radius:50%;padding:0; }
+  #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:8px 14px 10px;margin-top:auto; }
+  #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;margin-bottom:3px; }
   #armyPickerDots{ display:flex;gap:5px; }
   #armyPickerDots .apDot{ width:6px;height:6px;border-radius:50%;background:var(--line); }
   #armyPickerDots .apDot.active{ background:var(--brass-bright);width:16px;border-radius:3px; }
-  #armyPickerBtnRow{ display:flex;flex-direction:column;gap:7px; }
-  .apTextBtn{ background:none;border:none;color:var(--ink-dim);text-decoration:underline;font-weight:500;padding:4px; }
+  #armyPickerSwipeHint{ text-align:center;font-size:10px;color:var(--ink-dim);letter-spacing:0.03em;margin-bottom:8px; }
+  #armyPickerBtnRow{ display:flex;flex-direction:column;gap:5px; }
+  #armyPickerBtnRow button{ padding:8px;font-size:12.5px; }
+  .apTextBtn{ background:none;border:none;color:var(--ink-dim);text-decoration:underline;font-weight:500;padding:3px;font-size:11.5px; }
   #armyPickerPanel.viewingMap{ background:transparent; }
   #armyPickerPanel.viewingMap #armyPickerCards{ display:none; }
   #armyPickerPanel.viewingMap #armyPickerBar{ background:transparent;border-top:none; }
   #armyPickerPanel.viewingMap #armyPickerCarousel{ display:none; }
+  #armyPickerPanel.viewingMap #armyPickerSwipeHint{ display:none; }
   #armyPickerPanel.viewingMap #armyPickerDeployBtn,
   #armyPickerPanel.viewingMap #armyPickerManualBtn{ display:none; }
 
@@ -230,6 +232,17 @@
   #log .entry.narrative{color:var(--ink-dim);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:12.5px;padding-left:4px;border-left:2px solid var(--line);margin:2px 0 4px 2px;}
 
   #aiDebugPanel{flex:1;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;-webkit-overflow-scrolling:touch;display:none;}
+  #menuPanel{flex:1;overflow-y:auto;padding:14px 16px;}
+  .menuSection{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+  .menuSection:last-child{border-bottom:none;}
+  .menuSection h3{margin:0 0 10px;font-family:'Cinzel',serif;font-size:13px;color:var(--brass-dim);text-transform:uppercase;letter-spacing:0.04em;}
+  .menuToggleRow,.menuSliderRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:12.5px;}
+  .menuSliderRow input[type="range"]{flex:1;max-width:150px;accent-color:var(--brass);}
+  #backToMenuBtn{width:100%;}
+  #backToMenuConfirm{margin-top:10px;background:var(--paper-2);border:1px solid var(--line);border-radius:4px;padding:10px;}
+  #backToMenuConfirm p{margin:0 0 8px;font-size:11.5px;color:var(--ink-dim);}
+  .menuConfirmRow{display:flex;gap:8px;}
+  .menuConfirmRow button{flex:1;}
   #aiDebugPanel h4{font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--brass-bright);margin:10px 0 3px;text-transform:uppercase;letter-spacing:0.04em;}
   #aiDebugPanel h4:first-child{margin-top:0;}
   #aiDebugPanel .dbg-row{color:var(--ink-dim);margin-bottom:2px;}
@@ -346,11 +359,11 @@
     .apCard{padding:7px 9px;margin-bottom:6px;border-left-width:4px;}
     .apCard .apName{font-size:12px;}
     .apCard .apDoctrine{font-size:10px;margin-top:2px;}
-    #armyPickerBar{padding:7px 10px 10px;}
-    #armyPickerCarousel{margin-bottom:7px;}
-    .apArrow{width:26px;height:26px;font-size:11px;}
-    #armyPickerBtnRow{gap:5px;}
-    #armyPickerBtnRow button{padding:7px;font-size:11.5px;}
+    #armyPickerBar{padding:6px 10px 8px;}
+    #armyPickerCarousel{margin-bottom:2px;}
+    #armyPickerSwipeHint{font-size:9px;margin-bottom:6px;}
+    #armyPickerBtnRow{gap:4px;}
+    #armyPickerBtnRow button{padding:6px;font-size:11px;}
   }
   /* Short landscape viewports (phone chrome eating vertical space): compact the chrome */
   @media (max-height:430px){
@@ -367,11 +380,11 @@
     .apCard{padding:5px 8px;margin-bottom:4px;border-left-width:3px;}
     .apCard .apName{font-size:10.5px;}
     .apCard .apDoctrine{font-size:9px;margin-top:1px;line-height:1.3;}
-    #armyPickerBar{padding:5px 10px 7px;}
-    #armyPickerCarousel{margin-bottom:4px;}
-    .apArrow{width:22px;height:22px;font-size:10px;}
-    #armyPickerBtnRow{gap:4px;}
-    #armyPickerBtnRow button{padding:5px;font-size:10.5px;}
+    #armyPickerBar{padding:4px 10px 6px;}
+    #armyPickerCarousel{margin-bottom:2px;}
+    #armyPickerSwipeHint{font-size:8.5px;margin-bottom:4px;}
+    #armyPickerBtnRow{gap:3px;}
+    #armyPickerBtnRow button{padding:4px;font-size:10px;}
   }
   #sidebarToggle{display:none;}
 </style>
@@ -456,11 +469,35 @@
           <div id="logOverlayTabs">
             <button class="log-tab active" id="logTabReport">Field Report</button>
             <button class="log-tab" id="logTabDebug">AI Debug</button>
+            <button class="log-tab" id="logTabMenu">Menu</button>
           </div>
           <button id="logCloseBtn">&times;</button>
         </div>
         <div id="log"></div>
         <div id="aiDebugPanel"></div>
+        <div id="menuPanel" style="display:none;">
+          <div class="menuSection">
+            <h3>Sound</h3>
+            <label class="menuToggleRow">
+              <span>Mute</span>
+              <input type="checkbox" id="muteToggle">
+            </label>
+            <label class="menuSliderRow">
+              <span>Music Volume</span>
+              <input type="range" id="musicVolumeSlider" min="0" max="100" step="5">
+            </label>
+          </div>
+          <div class="menuSection">
+            <button id="backToMenuBtn" class="danger">Back to Main Menu</button>
+            <div id="backToMenuConfirm" style="display:none;">
+              <p>Your current match will be lost.</p>
+              <div class="menuConfirmRow">
+                <button id="backToMenuConfirmYes" class="danger">Return to Menu</button>
+                <button id="backToMenuConfirmNo">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -487,10 +524,9 @@
   </div>
   <div id="armyPickerBar">
     <div id="armyPickerCarousel">
-      <button id="armyPickerPrev" class="apArrow">&lt;</button>
       <div id="armyPickerDots"></div>
-      <button id="armyPickerNext" class="apArrow">&gt;</button>
     </div>
+    <div id="armyPickerSwipeHint">Swipe to browse Armies</div>
     <div id="armyPickerBtnRow">
       <button id="armyPickerDeployBtn" class="primary">Deploy This Army</button>
       <button id="armyPickerViewMapBtn">View Map</button>
