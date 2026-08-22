@@ -13,6 +13,8 @@ export const UNIT_IMAGE_DATA = {
   heavy_cav_blue: 'assets/icons/heavy_cav_blue.png',
   light_cav_red: 'assets/icons/light_cav_red.png',
   light_cav_blue: 'assets/icons/light_cav_blue.png',
+  infantry_red: 'assets/icons/infantry_red.png',
+  infantry_blue: 'assets/icons/infantry_blue.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
   brig_uxbridge: 'assets/brigadiers/brig_uxbridge.jpg',
   brig_thomasgraham: 'assets/brigadiers/brig_thomasgraham.jpg',
@@ -217,6 +219,13 @@ export function drawCavalryImage(size, side, isHeavy){
     drawCavalryChevrons(size); // fallback while the image decodes
   }
 }
+// Ten figures in the same footprint as cavalry's two or three means Infantry
+// needs more of the cell than the sizeRatio used elsewhere — a touch of edge
+// bleed reads better than a crisp inset icon that's too small to read at all.
+export function drawInfantryImage(size, side){
+  const key = side===SIDES.RED ? 'infantry_red' : 'infantry_blue';
+  return drawSilhouetteIconImage(size, key, 1.08);
+}
 export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
   const img = UNIT_IMAGES[key];
@@ -302,7 +311,12 @@ export function drawUnit(u, off){
   ctx.lineWidth = isSel ? 3 : 1.5;
   if(concealed) ctx.setLineDash([3,2]);
 
-  if(t.key==='INFANTRY' || t.key==='GUARD'){
+  if(t.key==='INFANTRY' && u.formation!=='square'){
+    if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
+  } else if(t.key==='INFANTRY' || t.key==='GUARD'){
+    // Square formation keeps the dedicated dot silhouette regardless of type —
+    // it's a real tactical state, not just decoration, so it stays visually
+    // distinct even for Infantry now that Infantry otherwise gets real art.
     if(u.formation==='square') drawInfantrySquareDots(size);
     else drawInfantryDots(size);
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
