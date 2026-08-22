@@ -320,7 +320,7 @@ test('the Army Picker View Map toggle works without breaking the flow', async ({
 
   await page.locator('#armyPickerViewMapBtn').click();
   await expect(armyPicker).toHaveClass(/viewingMap/);
-  await expect(page.locator('#armyPickerCards')).toBeHidden();
+  await expect(page.locator('#armyPickerCardBody')).toBeHidden();
 
   // The board itself is genuinely visible underneath, not just the toggle
   // having flipped a class with nothing to actually show.
@@ -328,7 +328,7 @@ test('the Army Picker View Map toggle works without breaking the flow', async ({
 
   await page.locator('#armyPickerViewMapBtn').click();
   await expect(armyPicker).not.toHaveClass(/viewingMap/);
-  await expect(page.locator('#armyPickerCards')).toBeVisible();
+  await expect(page.locator('#armyPickerCardBody')).toBeVisible();
 
   expect(errors, `errors toggling View Map:\n${errors.join('\n')}`).toEqual([]);
 });
