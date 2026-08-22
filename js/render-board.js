@@ -341,6 +341,15 @@ export function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, sa
 export function woodsStyleIndex(x,y){
   return 1 + Math.floor(seededRand(x*97+y*131+5) * 6);
 }
+// Same idea for Hill — each cell independently picks one of 6 hill-mound
+// tiles. Unlike Woods this trades away the old connected-region outline that
+// made a hill mass read as one landform (each tile is a complete standalone
+// mound, not a modular hillside chunk) — a deliberate trade Matthew chose
+// for richer art. Different seed offsets from woodsStyleIndex so the two
+// don't correlate on cells that happen to share coordinates.
+export function hillStyleIndex(x,y){
+  return 1 + Math.floor(seededRand(x*151+y*211+37) * 6);
+}
 
 // A faint repeating grass-blade texture for Open/Hill ground — cheap (one
 // pattern fill covering the whole board) rather than per-tile stroke calls,
@@ -460,8 +469,8 @@ export function draw(){
   // ui-menus.js) rather than a flat fill, patched together so same-style
   // cells clump into small "fields" instead of scattering as noise. These
   // tiles already fill their full square with real grass/flower detail, so
-  // Road and Hill keep the older flat-colour-plus-blade-texture treatment
-  // below rather than doubling up on top of this.
+  // Road keeps the older flat-colour-plus-blade-texture treatment below
+  // rather than doubling up on top of this.
   if(state.grassStyles){
     for(let y=0;y<ROWS;y++){
       const sy_ = sy(y);
@@ -477,14 +486,31 @@ export function draw(){
     }
   }
 
-  // Grass texture — a repeating blade pattern clipped to Road/Hill cells
-  // only now; Open ground gets its detail from the grass tile images above.
+  // Hill: each cell independently shows one of 6 hill-mound tiles, bottom-
+  // anchored the same way Woods is (full cell width, up to 1.3 cells tall,
+  // bleeding upward only) — a standalone rocky mound per cell rather than
+  // the old connected-region outline.
+  for(let y=0;y<ROWS;y++){
+    const sy_ = sy(y);
+    for(let x=0;x<COLS;x++){
+      if(terrain[y][x]!=='HILL') continue;
+      const style = hillStyleIndex(x,y);
+      const img = UNIT_IMAGES['hill_'+style];
+      if(img && img.complete && img.naturalWidth>0){
+        const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
+        ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+      }
+    }
+  }
+
+  // Grass texture — a repeating blade pattern clipped to Road cells only
+  // now; Open and Hill ground get their detail from the tile images above.
   ctx.save();
   ctx.beginPath();
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
-      if(key==='ROAD' || key==='HILL') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+      if(key==='ROAD') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
     }
   }
   ctx.clip();
@@ -624,54 +650,15 @@ export function draw(){
   }
   ctx.lineCap = 'butt';
 
-  // Hills: same grass fill as Open — elevation reads through a light rocky
-  // border traced around the outer edge of each connected hill mass, not
-  // per-tile, so a cluster reads as one landform (matches the real boards).
-  const hillRegions = findConnectedRegions(terrain, 'HILL');
-  ctx.strokeStyle = 'rgba(176,172,156,0.95)';
-  ctx.lineWidth = Math.max(2, CELL*0.09);
-  ctx.lineCap = 'round';
-  for(const region of hillRegions){
-    const cellSet = new Set(region.map(([x,y])=>x+','+y));
-    for(const [x,y] of region){
-      for(const {dx,dy} of [{dx:0,dy:-1},{dx:0,dy:1},{dx:-1,dy:0},{dx:1,dy:0}]){
-        const nx=x+dx, ny=y+dy;
-        if(inBounds(nx,ny) && cellSet.has(nx+','+ny)) continue; // interior edge, no border needed
-        const sy0 = sy(y);
-        let p1,p2;
-        if(dy===-1){
-          const nsy = sy(y-1);
-          if(nsy<sy0){ p1=[x*CELL,sy0*CELL]; p2=[(x+1)*CELL,sy0*CELL]; }
-          else { p1=[x*CELL,(sy0+1)*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
-        } else if(dy===1){
-          const nsy = sy(y+1);
-          if(nsy<sy0){ p1=[x*CELL,sy0*CELL]; p2=[(x+1)*CELL,sy0*CELL]; }
-          else { p1=[x*CELL,(sy0+1)*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
-        } else if(dx===-1){ p1=[x*CELL,sy0*CELL]; p2=[x*CELL,(sy0+1)*CELL]; }
-        else { p1=[(x+1)*CELL,sy0*CELL]; p2=[(x+1)*CELL,(sy0+1)*CELL]; }
-        const seed = x*31 + y*57 + dx*211 + dy*97;
-        const wobble = seededWobble(seed) * CELL * 0.22;
-        const mx=(p1[0]+p2[0])/2, my=(p1[1]+p2[1])/2;
-        const perpX=-(p2[1]-p1[1]), perpY=(p2[0]-p1[0]);
-        const plen = Math.hypot(perpX,perpY) || 1;
-        const cx_ = mx+(perpX/plen)*wobble, cy_ = my+(perpY/plen)*wobble;
-        ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.quadraticCurveTo(cx_,cy_,p2[0],p2[1]); ctx.stroke();
-      }
-    }
-  }
-  ctx.lineCap = 'butt';
-
-  // terrain icons: quick at-a-glance recognition for hill/building (woods/field
-  // are already visually distinct via their new shapes/colour, no icon needed).
+  // terrain icons: quick at-a-glance recognition for Building (woods/field/hill
+  // are already visually distinct via their own tile art, no icon needed).
   // Hand-drawn in the ink/brass palette rather than emoji, which render
   // inconsistently across platforms and clash with the parchment-map tone.
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
       const cx_ = x*CELL+CELL/2, cyy = sy(y)*CELL+CELL/2;
-      if(key==='HILL'){
-        drawHillGlyph(cx_, cyy, CELL);
-      } else if(key==='BUILDING'){
+      if(key==='BUILDING'){
         drawBuildingCluster(cx_, cyy, CELL, x*41+y*67+3);
       }
     }
