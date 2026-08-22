@@ -40,7 +40,13 @@ export const UNIT_IMAGE_DATA = {
   grass_3: 'assets/terrain/grass_3.png',
   grass_4: 'assets/terrain/grass_4.png',
   grass_5: 'assets/terrain/grass_5.png',
-  grass_6: 'assets/terrain/grass_6.png'
+  grass_6: 'assets/terrain/grass_6.png',
+  hill_1: 'assets/terrain/hill_1.png',
+  hill_2: 'assets/terrain/hill_2.png',
+  hill_3: 'assets/terrain/hill_3.png',
+  hill_4: 'assets/terrain/hill_4.png',
+  hill_5: 'assets/terrain/hill_5.png',
+  hill_6: 'assets/terrain/hill_6.png'
 };
 export const UNIT_IMAGES = {};
 export const BRIGADIER_PORTRAIT_KEY = {
