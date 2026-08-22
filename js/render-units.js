@@ -125,9 +125,13 @@ export function drawInfantryDots(size){
     ctx.beginPath(); ctx.arc(dx,dy,dotR,0,Math.PI*2); ctx.fill(); ctx.stroke();
   }
 }
-// Square formation: the same 10 men, rearranged into an actual square perimeter.
+// Square formation: the same 10 men, rearranged into an actual square perimeter,
+// rotated 45° so it reads as a distinct diamond shape rather than looking like
+// a stray axis-aligned box among the other icons.
 export function drawInfantrySquareDots(size){
   size *= 1.4; // enlarged for legibility
+  ctx.save();
+  ctx.rotate(Math.PI/4);
   const dotR = size*0.062, half = size*0.25;
   const pos = [];
   for(let i=0;i<4;i++) pos.push([-half + i*(half*2/3), -half]);
@@ -136,6 +140,7 @@ export function drawInfantrySquareDots(size){
   pos.forEach(([dx,dy])=>{
     ctx.beginPath(); ctx.arc(dx,dy,dotR,0,Math.PI*2); ctx.fill(); ctx.stroke();
   });
+  ctx.restore();
 }
 // Attack Column: 20 men, 4 ranks of 5 — two Infantry/Guard units fighting as one mass.
 export function drawColumnDots(size){
@@ -176,19 +181,12 @@ export function getCannonSilhouette(img, key){
   return off;
 }
 // Shared draw routine for every image-backed board icon (artillery crew,
-// cavalry) — white die-cut outline behind the art, same treatment the cannon
-// icon originated. sizeRatio lets a taller (portrait-oriented cavalry crop)
-// or wider (cannon) source scale sensibly against the common cell size.
+// cavalry, infantry). sizeRatio lets a taller (portrait-oriented cavalry
+// crop) or wider (cannon) source scale sensibly against the common cell size.
 function drawSilhouetteIconImage(size, key, sizeRatio){
   const img = UNIT_IMAGES[key];
   if(img && img.complete && img.naturalWidth>0){
     const h = size*sizeRatio, w = h*(img.naturalWidth/img.naturalHeight);
-    const silhouette = getCannonSilhouette(img, key);
-    const outlinePx = Math.max(1, size*0.02);
-    const offsets = [[-1,0],[1,0],[0,-1],[0,1],[-0.7,-0.7],[0.7,-0.7],[-0.7,0.7],[0.7,0.7]];
-    offsets.forEach(([ox,oy])=>{
-      ctx.drawImage(silhouette, -w/2+ox*outlinePx, -h/2+oy*outlinePx, w, h);
-    });
     ctx.drawImage(img, -w/2, -h/2, w, h);
     return true;
   }
@@ -349,34 +347,49 @@ export function drawUnit(u, off){
   }
 }
 
-// Attack Column: two Infantry/Guard units sharing a square, drawn as a single
-// combined 20-man mass (4 ranks of 5) rather than two overlapping icons.
+// Attack Column: two Infantry/Guard units sharing a square. Drawn as the same
+// Infantry art twice — a slightly larger copy set back and to the right
+// suggesting a second rank behind the first, rather than the old abstracted
+// 20-dot mass.
 export function drawColumnUnitPair(u1, u2){
   const vp = getUnitVisualPos(u1);
   const cx = vp.x*CELL+CELL/2, cy = sy(vp.y)*CELL+CELL/2;
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
-  const col = SIDE_COLOR[u1.side];
-  const size = CELL*0.66;
+  const side = u1.side;
+  const size = CELL*0.62;
   const concealed = isConcealedFromEnemy(u1) || isConcealedFromEnemy(u2);
 
   ctx.save();
   ctx.translate(cx,cy);
   ctx.globalAlpha = concealed ? 0.55 : 1;
-  ctx.fillStyle = col;
-  ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
-  ctx.lineWidth = isSel ? 3 : 1.5;
   if(concealed) ctx.setLineDash([3,2]);
-  drawColumnDots(size);
+
+  ctx.save();
+  ctx.translate(size*0.15, -size*0.15);
+  if(!drawInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
+  ctx.restore();
+
+  if(!drawInfantryImage(size, side)) drawInfantryDots(size);
+
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
   ctx.restore();
 
+  if(isSel){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.strokeStyle = '#f4e9c9';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-size*0.7, -size*0.7, size*1.4, size*1.4);
+    ctx.restore();
+  }
+
   if(u1.type==='GUARD' || u2.type==='GUARD'){
-    drawGoldAsterisk(size, cx + size*0.34, cy - size*0.36);
+    drawGoldAsterisk(size, cx + size*0.5, cy - size*0.5);
   }
   if(u1.turnOnly || u2.turnOnly){
     ctx.fillStyle = '#c9a24a';
-    ctx.beginPath(); ctx.arc(cx-size*0.34, cy-size*0.36, 5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx-size*0.5, cy-size*0.5, 5, 0, Math.PI*2); ctx.fill();
   }
 }
 
