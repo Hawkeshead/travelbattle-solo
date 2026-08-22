@@ -125,13 +125,11 @@ export function drawInfantryDots(size){
     ctx.beginPath(); ctx.arc(dx,dy,dotR,0,Math.PI*2); ctx.fill(); ctx.stroke();
   }
 }
-// Square formation: the same 10 men, rearranged into an actual square perimeter,
-// rotated 45° so it reads as a distinct diamond shape rather than looking like
-// a stray axis-aligned box among the other icons.
+// Square formation fallback (used only while the Infantry image is still
+// decoding): same 10 men arranged into a square perimeter. Rotation is
+// applied by the caller, not here, so it stays correct whichever path draws.
 export function drawInfantrySquareDots(size){
   size *= 1.4; // enlarged for legibility
-  ctx.save();
-  ctx.rotate(Math.PI/4);
   const dotR = size*0.062, half = size*0.25;
   const pos = [];
   for(let i=0;i<4;i++) pos.push([-half + i*(half*2/3), -half]);
@@ -140,7 +138,6 @@ export function drawInfantrySquareDots(size){
   pos.forEach(([dx,dy])=>{
     ctx.beginPath(); ctx.arc(dx,dy,dotR,0,Math.PI*2); ctx.fill(); ctx.stroke();
   });
-  ctx.restore();
 }
 // Attack Column: 20 men, 4 ranks of 5 — two Infantry/Guard units fighting as one mass.
 export function drawColumnDots(size){
@@ -312,10 +309,14 @@ export function drawUnit(u, off){
   if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
     if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
-    // Square formation keeps the dedicated dot silhouette regardless of type —
-    // it's a real tactical state, not just decoration, so it stays visually
-    // distinct even now that both Infantry and Guard otherwise get real art.
-    drawInfantrySquareDots(size);
+    // Square formation still stays visually distinct from open-order Infantry —
+    // real art now instead of dots, but rotated 45° so the tactical state
+    // (formed square) still reads at a glance rather than looking identical
+    // to a normal line.
+    ctx.save();
+    ctx.rotate(Math.PI/4);
+    if(!drawInfantryImage(size, u.side)) drawInfantrySquareDots(size);
+    ctx.restore();
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
     drawCavalryImage(size, u.side, t.key==='HEAVY_CAV');
   } else if(t.isArtillery){
