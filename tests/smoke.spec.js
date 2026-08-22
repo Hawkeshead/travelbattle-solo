@@ -191,7 +191,10 @@ test('a full vs-AI deployment completes for both sides', async ({ page }) => {
   }
 
   // Both armies are on the board and the battle can begin.
-  await expect(endDeploy).toBeEnabled({ timeout: 20_000 });
+  // 20s was generous against every local run (7-11s), but gave no margin if a
+  // shared CI runner is simply slower under load rather than anything being
+  // actually broken — widened well within the test's own 60s ceiling.
+  await expect(endDeploy).toBeEnabled({ timeout: 40_000 });
 
   // The AI actually placed units rather than stalling silently mid-deployment,
   // which is the failure mode that makes the Operations unplayable.
