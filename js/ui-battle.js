@@ -4,9 +4,10 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { FAST_ANIMATION_MODE, addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
-import { handleOrientationClick } from './ui-menus.js';
+import { handleOrientationClick, showModeSelect } from './ui-menus.js';
+import { AudioManager } from './audio-manager.js';
 import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
 
 /* =========================================================
@@ -74,6 +75,18 @@ export function renderBrigadeStatus(){
 
 // Section 14: the AI Debug panel. Reads whatever aiPlanTurn last wrote to
 // state._aiDebugLog — nothing here computes anything fresh, it's a pure read.
+function renderMenuPanel(){
+  const prefs = AudioManager.getPrefs();
+  document.getElementById('muteToggle').checked = prefs.muted;
+  document.getElementById('musicVolumeSlider').value = Math.round(prefs.volumes.music * 100);
+  document.getElementById('backToMenuConfirm').style.display = 'none';
+}
+
+function returnToMainMenu(){
+  document.getElementById('logOverlay').classList.remove('show');
+  showModeSelect();
+}
+
 export function renderAiDebugPanel(){
   const el = document.getElementById('aiDebugPanel');
   if(!el) return;
@@ -141,7 +154,7 @@ export function beginMovePhase(){
   document.getElementById('endMoveBtn').disabled = aiTurn;
   if(aiTurn){
     aiPlanTurn(state.aiSide);
-    setTimeout(aiDoMovePhase, 500);
+    setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
   }
 }
 
@@ -176,7 +189,7 @@ export function beginFirePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
-  if(aiTurn) setTimeout(aiDoFirePhase, 400);
+  if(aiTurn) setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400);
 }
 
 export function beginFightPhase(){
@@ -192,7 +205,7 @@ export function beginFightPhase(){
   document.getElementById('endFightBtn').disabled = aiTurn;
   if(aiTurn){
     if(!anyFightsAvailable(state.turn)){ setTimeout(endFightPhase, 400); return; }
-    setTimeout(aiDoFightPhase, 500);
+    setTimeout(aiDoFightPhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
   }
   // auto-skip if no fights available (human turn)
@@ -677,15 +690,42 @@ export function initBattleControls(){
   document.getElementById('logTabReport').onclick = ()=>{
     document.getElementById('logTabReport').classList.add('active');
     document.getElementById('logTabDebug').classList.remove('active');
+    document.getElementById('logTabMenu').classList.remove('active');
     document.getElementById('log').style.display = 'block';
     document.getElementById('aiDebugPanel').style.display = 'none';
+    document.getElementById('menuPanel').style.display = 'none';
   };
   document.getElementById('logTabDebug').onclick = ()=>{
     document.getElementById('logTabDebug').classList.add('active');
     document.getElementById('logTabReport').classList.remove('active');
+    document.getElementById('logTabMenu').classList.remove('active');
     document.getElementById('log').style.display = 'none';
     document.getElementById('aiDebugPanel').style.display = 'block';
+    document.getElementById('menuPanel').style.display = 'none';
     renderAiDebugPanel();
+  };
+  document.getElementById('logTabMenu').onclick = ()=>{
+    document.getElementById('logTabMenu').classList.add('active');
+    document.getElementById('logTabReport').classList.remove('active');
+    document.getElementById('logTabDebug').classList.remove('active');
+    document.getElementById('log').style.display = 'none';
+    document.getElementById('aiDebugPanel').style.display = 'none';
+    document.getElementById('menuPanel').style.display = 'block';
+    renderMenuPanel();
+  };
+
+  document.getElementById('muteToggle').onchange = (e)=> AudioManager.setMuted(e.target.checked);
+  document.getElementById('musicVolumeSlider').oninput = (e)=> AudioManager.setVolume('music', e.target.value/100);
+  document.getElementById('backToMenuBtn').onclick = ()=>{
+    if(state.gameOver){
+      returnToMainMenu();
+    } else {
+      document.getElementById('backToMenuConfirm').style.display = 'block';
+    }
+  };
+  document.getElementById('backToMenuConfirmYes').onclick = returnToMainMenu;
+  document.getElementById('backToMenuConfirmNo').onclick = ()=>{
+    document.getElementById('backToMenuConfirm').style.display = 'none';
   };
 
   document.getElementById('squareBtn').onclick = ()=>{
