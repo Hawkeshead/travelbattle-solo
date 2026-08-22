@@ -430,6 +430,36 @@ export function maybeShowArmyPicker(){
 }
 
 let armyPickerState = null; // { side, index, viewingMap }
+let armyPickerSwipeAttached = false;
+
+function goToArmy(delta){
+  armyPickerState.index = (armyPickerState.index + TB_DATA.armyCompositions.length + delta) % TB_DATA.armyCompositions.length;
+  renderArmyPickerCard();
+}
+
+// Swipe replaces the old prev/next arrow buttons — one horizontal drag on the
+// card itself steps to the next/previous Army, which reads more naturally on
+// a phone than two small circular buttons competing for thumb space at the
+// bottom of an already busy bar. Attached once (idempotency guard below)
+// since #armyPickerCards is a static element, not recreated per open.
+function attachArmyPickerSwipe(){
+  const el = document.getElementById('armyPickerCards');
+  let startX = null, startY = null;
+  el.addEventListener('touchstart', (e)=>{
+    if(!armyPickerState || armyPickerState.viewingMap) return;
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', (e)=>{
+    if(!armyPickerState || armyPickerState.viewingMap || startX===null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    startX = null; startY = null;
+    // Require a real horizontal swipe, not a vertical scroll of the card list
+    if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    goToArmy(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
 
 function showArmyPicker(side){
   armyPickerState = { side, index: 0, viewingMap: false };
@@ -438,15 +468,8 @@ function showArmyPicker(side){
   document.getElementById('armyPickerPanel').classList.remove('hidden');
   document.getElementById('armyPickerPanel').classList.remove('viewingMap');
   renderArmyPickerCard();
+  if(!armyPickerSwipeAttached){ attachArmyPickerSwipe(); armyPickerSwipeAttached = true; }
 
-  document.getElementById('armyPickerPrev').onclick = ()=>{
-    armyPickerState.index = (armyPickerState.index + TB_DATA.armyCompositions.length - 1) % TB_DATA.armyCompositions.length;
-    renderArmyPickerCard();
-  };
-  document.getElementById('armyPickerNext').onclick = ()=>{
-    armyPickerState.index = (armyPickerState.index + 1) % TB_DATA.armyCompositions.length;
-    renderArmyPickerCard();
-  };
   document.getElementById('armyPickerViewMapBtn').onclick = toggleArmyPickerMapView;
   document.getElementById('armyPickerDeployBtn').onclick = ()=>{
     const army = TB_DATA.armyCompositions[armyPickerState.index];
