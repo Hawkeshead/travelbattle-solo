@@ -1,6 +1,6 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
-import { ctx, getUnitVisualPos, sy } from './render-board.js';
+import { ctx, getUnitVisualPos, sy, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
@@ -16,7 +16,25 @@ export const UNIT_IMAGE_DATA = {
   brig_thomasgraham: 'assets/brigadiers/brig_thomasgraham.jpg',
   brig_soult: 'assets/brigadiers/brig_soult.jpg',
   brig_murat: 'assets/brigadiers/brig_murat.jpg',
-  brig_napoleon: 'assets/brigadiers/brig_napoleon.jpg'
+  brig_napoleon: 'assets/brigadiers/brig_napoleon.jpg',
+  forest_notroops_1: 'assets/terrain/forest_notroops_1.png',
+  forest_notroops_2: 'assets/terrain/forest_notroops_2.png',
+  forest_notroops_3: 'assets/terrain/forest_notroops_3.png',
+  forest_notroops_4: 'assets/terrain/forest_notroops_4.png',
+  forest_notroops_5: 'assets/terrain/forest_notroops_5.png',
+  forest_notroops_6: 'assets/terrain/forest_notroops_6.png',
+  forest_british_1: 'assets/terrain/forest_british_1.png',
+  forest_british_2: 'assets/terrain/forest_british_2.png',
+  forest_british_3: 'assets/terrain/forest_british_3.png',
+  forest_british_4: 'assets/terrain/forest_british_4.png',
+  forest_british_5: 'assets/terrain/forest_british_5.png',
+  forest_british_6: 'assets/terrain/forest_british_6.png',
+  forest_french_1: 'assets/terrain/forest_french_1.png',
+  forest_french_2: 'assets/terrain/forest_french_2.png',
+  forest_french_3: 'assets/terrain/forest_french_3.png',
+  forest_french_4: 'assets/terrain/forest_french_4.png',
+  forest_french_5: 'assets/terrain/forest_french_5.png',
+  forest_french_6: 'assets/terrain/forest_french_6.png'
 };
 export const UNIT_IMAGES = {};
 export const BRIGADIER_PORTRAIT_KEY = {
@@ -225,6 +243,15 @@ export function drawInfantryImage(size, side){
   const key = side===SIDES.RED ? 'infantry_red' : 'infantry_blue';
   return drawSilhouetteIconImage(size, key, 1.08);
 }
+// A unit actually standing in a Woods cell swaps to that exact cell's
+// troops-hidden Forest tile (same style index the background terrain layer
+// picked for that cell — see woodsStyleIndex) rather than its normal icon,
+// bottom-anchored the same way the plain terrain tile is.
+function drawWoodsHiddenImage(cellSize, side, x, y){
+  const style = woodsStyleIndex(x, y);
+  const key = (side===SIDES.RED ? 'forest_british_' : 'forest_french_') + style;
+  return drawBottomAnchoredImage(cellSize, key, 1.3);
+}
 export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
   const img = UNIT_IMAGES[key];
@@ -283,6 +310,14 @@ export function drawUnit(u, off){
   const r = CELL*0.30*off.scale;    // legacy radius, still used by the Brigadier star fallback
 
   const concealed = isConcealedFromEnemy(u);
+  // Only Infantry/Guard can ever be on Woods terrain (terrain restriction),
+  // so "concealed" in practice always means exactly this case. Rather than
+  // dimming the normal icon, swap to the matching side's troops-hidden
+  // Forest tile — same tile the background already shows, so the unit reads
+  // as genuinely tucked into that specific stand of trees. Square formation
+  // keeps its own dedicated treatment even while in woods (rare, but a real
+  // tactical state that shouldn't quietly disappear into the tree art).
+  const inWoodsHiding = concealed && (t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square';
 
   // Brigadier: portrait photo instead of a drawn shape (falls back to the star below if unmatched).
   if(t.key==='BRIGADIER'){
@@ -304,13 +339,15 @@ export function drawUnit(u, off){
 
   ctx.save();
   ctx.translate(cx,cy);
-  ctx.globalAlpha = concealed ? 0.55 : 1;
+  ctx.globalAlpha = (concealed && !inWoodsHiding) ? 0.55 : 1;
   ctx.fillStyle = col;
   ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
   ctx.lineWidth = isSel ? 3 : 1.5;
-  if(concealed) ctx.setLineDash([3,2]);
+  if(concealed && !inWoodsHiding) ctx.setLineDash([3,2]);
 
-  if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
+  if(inWoodsHiding){
+    if(!drawWoodsHiddenImage(CELL, u.side, u.x, u.y)) drawInfantryDots(size); // fallback while the image decodes
+  } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
     if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
     // Square formation still stays visually distinct from open-order Infantry —
@@ -363,18 +400,24 @@ export function drawColumnUnitPair(u1, u2){
   const side = u1.side;
   const size = CELL*0.62;
   const concealed = isConcealedFromEnemy(u1) || isConcealedFromEnemy(u2);
+  // Woods doesn't allow two units sharing a square (allowDouble: false), so
+  // this is unreachable in practice — handled anyway for safety, matching
+  // the single-unit swap in drawUnit.
 
   ctx.save();
   ctx.translate(cx,cy);
-  ctx.globalAlpha = concealed ? 0.55 : 1;
-  if(concealed) ctx.setLineDash([3,2]);
+  ctx.globalAlpha = 1;
 
-  ctx.save();
-  ctx.translate(size*0.15, -size*0.15);
-  if(!drawInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
-  ctx.restore();
+  if(concealed){
+    if(!drawWoodsHiddenImage(CELL, side, u1.x, u1.y)) drawInfantryDots(size);
+  } else {
+    ctx.save();
+    ctx.translate(size*0.15, -size*0.15);
+    if(!drawInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
+    ctx.restore();
 
-  if(!drawInfantryImage(size, side)) drawInfantryDots(size);
+    if(!drawInfantryImage(size, side)) drawInfantryDots(size);
+  }
 
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
