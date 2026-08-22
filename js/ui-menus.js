@@ -1,9 +1,9 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { canvas, ctx, draw, sizeCanvas, sy } from './render-board.js';
+import { canvas, ctx, draw, sizeCanvas, sy, terrainColor } from './render-board.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
@@ -443,7 +443,7 @@ function goToArmy(delta){
 // bottom of an already busy bar. Attached once (idempotency guard below)
 // since #armyPickerCards is a static element, not recreated per open.
 function attachArmyPickerSwipe(){
-  const el = document.getElementById('armyPickerCards');
+  const el = document.getElementById('armyPickerBody');
   let startX = null, startY = null;
   el.addEventListener('touchstart', (e)=>{
     if(!armyPickerState || armyPickerState.viewingMap) return;
@@ -494,7 +494,43 @@ function renderArmyPickerCard(){
   dotsEl.innerHTML = TB_DATA.armyCompositions.map((_,i)=>
     `<div class="apDot${i===index?' active':''}"></div>`
   ).join('');
+  drawArmyPickerMinimap();
   if(viewingMap) drawArmyZoneHighlights();
+}
+
+// Compact always-visible minimap sitting beside the brigade text — a quick
+// "where do these zones actually fall on the real terrain" reference that
+// doesn't require leaving the card, distinct from the full-detail "View Map"
+// toggle below which swaps to the real interactive board.
+function drawArmyPickerMinimap(){
+  const cv = document.getElementById('armyPickerMinimap');
+  const mctx = cv.getContext('2d');
+  const cw = cv.width, ch = cv.height;
+  mctx.clearRect(0,0,cw,ch);
+  const cellW = cw/COLS, cellH = ch/ROWS;
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      mctx.fillStyle = terrainColor(TERRAIN[state.terrain[y][x]].key);
+      mctx.fillRect(x*cellW, y*cellH, cellW+0.5, cellH+0.5);
+    }
+  }
+  const { side, index } = armyPickerState;
+  const army = TB_DATA.armyCompositions[index];
+  const deployRows = 2;
+  const rowStart = side===SIDES.RED ? ROWS-deployRows : 0;
+  army.brigades.forEach((brig,i)=>{
+    const [c0,c1] = ARMY_COL_BANDS[i];
+    mctx.fillStyle = ARMY_ZONE_COLORS[i] + '80';
+    mctx.strokeStyle = ARMY_ZONE_COLORS[i];
+    mctx.lineWidth = 1;
+    mctx.fillRect(c0*cellW, rowStart*cellH, (c1-c0+1)*cellW, deployRows*cellH);
+    mctx.strokeRect(c0*cellW, rowStart*cellH, (c1-c0+1)*cellW, deployRows*cellH);
+  });
+  // seam line between the two halves of the joined board
+  mctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  mctx.setLineDash([2,2]);
+  mctx.beginPath(); mctx.moveTo(cw/2,0); mctx.lineTo(cw/2,ch); mctx.stroke();
+  mctx.setLineDash([]);
 }
 
 function toggleArmyPickerMapView(){
