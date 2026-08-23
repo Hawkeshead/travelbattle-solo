@@ -46,7 +46,13 @@ export const UNIT_IMAGE_DATA = {
   hill_3: 'assets/terrain/hill_3.png',
   hill_4: 'assets/terrain/hill_4.png',
   hill_5: 'assets/terrain/hill_5.png',
-  hill_6: 'assets/terrain/hill_6.png'
+  hill_6: 'assets/terrain/hill_6.png',
+  building_1: 'assets/terrain/building_1.png',
+  building_2: 'assets/terrain/building_2.png',
+  building_3: 'assets/terrain/building_3.png',
+  building_4: 'assets/terrain/building_4.png',
+  building_5: 'assets/terrain/building_5.png',
+  building_6: 'assets/terrain/building_6.png'
 };
 export const UNIT_IMAGES = {};
 export const BRIGADIER_PORTRAIT_KEY = {
