@@ -12,6 +12,7 @@ export const UNIT_IMAGE_DATA = {
   infantry_red: 'assets/icons/infantry_red.png',
   infantry_blue: 'assets/icons/infantry_blue.png',
   infantry_line_british_animated: 'assets/icons/infantry_line_british_animated.png',
+  infantry_line_french_animated: 'assets/icons/infantry_line_french_animated.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
   brig_uxbridge: 'assets/brigadiers/brig_uxbridge.jpg',
   brig_thomasgraham: 'assets/brigadiers/brig_thomasgraham.jpg',
@@ -273,24 +274,30 @@ export function drawInfantryImage(size, side){
   const key = side===SIDES.RED ? 'infantry_red' : 'infantry_blue';
   return drawSilhouetteIconImage(size, key, 1.08);
 }
-// British Line Infantry only (not Guard, not French) — an animated sprite
-// sheet built from a 6-frame GIF, cycled by wall-clock time at the GIF's own
-// 180ms-per-frame pace so it loops continuously rather than freezing on
-// whichever frame happened to be current at the last redraw. Canvas
-// drawImage() never animates a GIF on its own — this is the workaround:
-// frames pre-extracted into one PNG at build time, sliced out by shifting
-// the source rectangle each call. render-board.js keeps the animation loop
-// alive for as long as a unit needing this exists on the board (see
-// ensureAnimationLoopRunning), otherwise it would only advance when some
-// other animation (a move, a fight) happened to trigger a redraw anyway.
-const BRITISH_LINE_INFANTRY_FRAME_COUNT = 6;
-const BRITISH_LINE_INFANTRY_FRAME_MS = 180;
-export function drawBritishLineInfantryImage(size){
-  const img = UNIT_IMAGES['infantry_line_british_animated'];
+// Animated Line Infantry sprites, one per side. Canvas drawImage() never
+// animates a GIF on its own — this is the workaround: the GIF's frames are
+// pre-extracted into a single horizontal sprite sheet at build time, and
+// the current frame is sliced out by shifting the source rectangle each
+// call, cycled by wall-clock time so it loops continuously rather than
+// freezing on whichever frame happened to be current at the last redraw.
+// Each side's GIF was authored separately, so frame count and pace differ
+// per side and are tracked here rather than hardcoded. render-board.js
+// keeps the animation loop alive for as long as a unit needing this exists
+// on the board (see ensureAnimationLoopRunning), otherwise it would only
+// advance when some other animation (a move, a fight) happened to trigger
+// a redraw anyway.
+const LINE_INFANTRY_SPRITES = {
+  [SIDES.RED]:  { key:'infantry_line_british_animated', frames:6, frameMs:180 },
+  [SIDES.BLUE]: { key:'infantry_line_french_animated',  frames:4, frameMs:220 },
+};
+export function drawLineInfantryImage(size, side){
+  const spec = LINE_INFANTRY_SPRITES[side];
+  if(!spec) return false;
+  const img = UNIT_IMAGES[spec.key];
   if(!(img && img.complete && img.naturalWidth>0)) return false;
-  const frameW = img.naturalWidth / BRITISH_LINE_INFANTRY_FRAME_COUNT;
+  const frameW = img.naturalWidth / spec.frames;
   const frameH = img.naturalHeight;
-  const frame = Math.floor(Date.now() / BRITISH_LINE_INFANTRY_FRAME_MS) % BRITISH_LINE_INFANTRY_FRAME_COUNT;
+  const frame = Math.floor(Date.now() / spec.frameMs) % spec.frames;
   const h = size*1.08, w = h*(frameW/frameH);
   ctx.drawImage(img, frame*frameW, 0, frameW, frameH, -w/2, -h/2, w, h);
   return true;
@@ -399,24 +406,18 @@ export function drawUnit(u, off){
 
   if(inWoodsHiding){
     if(!drawWoodsHiddenImage(CELL, u.side, u.x, u.y)) drawInfantryDots(size); // fallback while the image decodes
-  } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.side===SIDES.RED && u.formation!=='square'){
-    // British Line Infantry and Guard both use the animated sprite now —
-    // the gold asterisk (drawn separately below) is what distinguishes
-    // Guard, not a different image. French Infantry/Guard keep the
-    // existing static art below, untouched.
-    if(!drawBritishLineInfantryImage(size)) drawInfantryDots(size); // fallback while the image decodes
   } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
-    if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
+    // Line Infantry and Guard, both sides, use the animated sprite — the gold
+    // asterisk (drawn separately below) is what distinguishes Guard, not a
+    // different image.
+    if(!drawLineInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
-    // Square formation still stays visually distinct from open-order Infantry —
-    // real art now instead of dots, but rotated 45° so the tactical state
-    // (formed square) still reads at a glance rather than looking identical
-    // to a normal line. Kept on the static art even for British Line Infantry —
-    // the animated flag-and-drummer scene isn't composed to read sensibly
-    // rotated, and Square already has its own dedicated visual language.
+    // Square formation: same animated sprite, rotated 45° so the tactical
+    // state still reads at a glance rather than looking identical to a
+    // normal line.
     ctx.save();
     ctx.rotate(Math.PI/4);
-    if(!drawInfantryImage(size, u.side)) drawInfantrySquareDots(size);
+    if(!drawLineInfantryImage(size, u.side)) drawInfantrySquareDots(size);
     ctx.restore();
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
     drawCavalryImage(size, u.side);
@@ -471,12 +472,15 @@ export function drawColumnUnitPair(u1, u2){
   if(concealed){
     if(!drawWoodsHiddenImage(CELL, side, u1.x, u1.y)) drawInfantryDots(size);
   } else {
+    // Same layered depth-of-rank effect as before, now with the animated
+    // sprite: a slightly larger copy set back and to the right, then the
+    // front rank drawn over it.
     ctx.save();
     ctx.translate(size*0.15, -size*0.15);
-    if(!drawInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
+    if(!drawLineInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
     ctx.restore();
 
-    if(!drawInfantryImage(size, side)) drawInfantryDots(size);
+    if(!drawLineInfantryImage(size, side)) drawInfantryDots(size);
   }
 
   ctx.setLineDash([]);
