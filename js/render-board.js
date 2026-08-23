@@ -936,3 +936,107 @@ export function draw(){
   }
 }
 
+/* =========================================================
+   BATTLE INTRO ANIMATION
+   Plays once at the start of a standard (non-campaign) AI-opponent match,
+   right when the board first becomes visible — every grid tile drops in
+   from above and bounce-settles into place, top-left to bottom-right,
+   left-to-right across each row. Cannot be skipped; the caller is expected
+   to hold off anything else (the orientation dice roll, in practice) until
+   the onComplete callback fires.
+
+   Implementation: rather than threading a per-cell animated offset through
+   every existing terrain-drawing pass (grass, hill, road, building, woods,
+   craters, road-to-building connectors...), which would mean touching a
+   lot of delicate, already-working code — this renders the final board
+   exactly once with the normal draw(), captures that as a snapshot, then
+   animates cropped per-cell fragments of that snapshot into place. The
+   live terrain-rendering pipeline itself is never touched.
+========================================================= */
+export function playBoardIntroAnimation(onComplete){
+  draw(); // render the true final board once, to capture as the source for every tile fragment
+  const snapshot = document.createElement('canvas');
+  snapshot.width = canvas.width;
+  snapshot.height = canvas.height;
+  snapshot.getContext('2d').drawImage(canvas, 0, 0);
+
+  const dpr = window.devicePixelRatio || 1;
+  const fallDistance = window.innerHeight; // always starts fully off the top of the current viewport, whatever the phone's orientation
+  const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50;
+  const DUST_MS = 200;
+
+  const tiles = [];
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      tiles.push({ x, y, startDelay:(y*COLS+x)*STAGGER_MS, dustSpawned:false });
+    }
+  }
+  const dustParticles = []; // {x, y, startTime}
+  const startTime = performance.now();
+
+  function tileOffset(elapsed){
+    if(elapsed < 0) return { offset:-fallDistance, phase:'waiting' };
+    if(elapsed < FALL_MS){
+      const t = elapsed/FALL_MS;
+      const eased = 1 - Math.pow(1-t, 2); // ease-out, matching the codebase's existing move-animation easing
+      return { offset:-fallDistance*(1-eased), phase:'falling' };
+    }
+    const b1 = elapsed - FALL_MS;
+    if(b1 < BOUNCE1_MS){
+      const t = b1/BOUNCE1_MS;
+      return { offset:-CELL*0.15*Math.sin(Math.PI*t), phase:'bounce1' };
+    }
+    const b2 = b1 - BOUNCE1_MS;
+    if(b2 < BOUNCE2_MS){
+      const t = b2/BOUNCE2_MS;
+      return { offset:-CELL*0.05*Math.sin(Math.PI*t), phase:'bounce2' };
+    }
+    return { offset:0, phase:'settled' };
+  }
+
+  function tick(){
+    const now = performance.now();
+    const elapsedGlobal = now - startTime;
+    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+
+    let allSettled = true;
+    for(const tile of tiles){
+      const localElapsed = elapsedGlobal - tile.startDelay;
+      const { offset, phase } = tileOffset(localElapsed);
+      if(phase!=='settled') allSettled = false;
+      if(phase!=='waiting'){
+        const dx = tile.x*CELL, dy = tile.y*CELL + offset;
+        const sx = tile.x*CELL*dpr, sy = tile.y*CELL*dpr;
+        ctx.drawImage(snapshot, sx, sy, CELL*dpr, CELL*dpr, dx, dy, CELL, CELL);
+      }
+      if(!tile.dustSpawned && localElapsed >= FALL_MS){
+        tile.dustSpawned = true;
+        dustParticles.push({ x: tile.x*CELL+CELL/2, y: (tile.y+1)*CELL, startTime: now });
+      }
+    }
+
+    let dustActive = false;
+    for(let i=dustParticles.length-1; i>=0; i--){
+      const p = dustParticles[i];
+      const age = now - p.startTime;
+      if(age > DUST_MS){ dustParticles.splice(i,1); continue; }
+      dustActive = true;
+      const t = age/DUST_MS;
+      ctx.save();
+      ctx.globalAlpha = 0.30*(1-t);
+      ctx.fillStyle = '#c9b98a';
+      const r = CELL*0.16*(0.4+0.6*t);
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r*0.45, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    if(!allSettled || dustActive){
+      requestAnimationFrame(tick);
+    } else {
+      draw(); // one final normal render, guaranteed pixel-identical to live state
+      onComplete();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
