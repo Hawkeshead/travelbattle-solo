@@ -11,6 +11,7 @@ export const UNIT_IMAGE_DATA = {
   cavalry_blue: 'assets/icons/cavalry_blue.png',
   infantry_red: 'assets/icons/infantry_red.png',
   infantry_blue: 'assets/icons/infantry_blue.png',
+  infantry_line_british_animated: 'assets/icons/infantry_line_british_animated.png',
   brig_wellington: 'assets/brigadiers/brig_wellington.jpg',
   brig_uxbridge: 'assets/brigadiers/brig_uxbridge.jpg',
   brig_thomasgraham: 'assets/brigadiers/brig_thomasgraham.jpg',
@@ -261,6 +262,28 @@ export function drawInfantryImage(size, side){
   const key = side===SIDES.RED ? 'infantry_red' : 'infantry_blue';
   return drawSilhouetteIconImage(size, key, 1.08);
 }
+// British Line Infantry only (not Guard, not French) — an animated sprite
+// sheet built from a 6-frame GIF, cycled by wall-clock time at the GIF's own
+// 180ms-per-frame pace so it loops continuously rather than freezing on
+// whichever frame happened to be current at the last redraw. Canvas
+// drawImage() never animates a GIF on its own — this is the workaround:
+// frames pre-extracted into one PNG at build time, sliced out by shifting
+// the source rectangle each call. render-board.js keeps the animation loop
+// alive for as long as a unit needing this exists on the board (see
+// ensureAnimationLoopRunning), otherwise it would only advance when some
+// other animation (a move, a fight) happened to trigger a redraw anyway.
+const BRITISH_LINE_INFANTRY_FRAME_COUNT = 6;
+const BRITISH_LINE_INFANTRY_FRAME_MS = 180;
+export function drawBritishLineInfantryImage(size){
+  const img = UNIT_IMAGES['infantry_line_british_animated'];
+  if(!(img && img.complete && img.naturalWidth>0)) return false;
+  const frameW = img.naturalWidth / BRITISH_LINE_INFANTRY_FRAME_COUNT;
+  const frameH = img.naturalHeight;
+  const frame = Math.floor(Date.now() / BRITISH_LINE_INFANTRY_FRAME_MS) % BRITISH_LINE_INFANTRY_FRAME_COUNT;
+  const h = size*1.08, w = h*(frameW/frameH);
+  ctx.drawImage(img, frame*frameW, 0, frameW, frameH, -w/2, -h/2, w, h);
+  return true;
+}
 // A unit actually standing in a Woods cell swaps to that exact cell's
 // troops-hidden Forest tile (same style index the background terrain layer
 // picked for that cell — see woodsStyleIndex) rather than its normal icon,
@@ -365,13 +388,19 @@ export function drawUnit(u, off){
 
   if(inWoodsHiding){
     if(!drawWoodsHiddenImage(CELL, u.side, u.x, u.y)) drawInfantryDots(size); // fallback while the image decodes
+  } else if(t.key==='INFANTRY' && u.side===SIDES.RED && u.formation!=='square'){
+    // British Line Infantry only — Guard and French Infantry keep the
+    // existing static art below, untouched.
+    if(!drawBritishLineInfantryImage(size)) drawInfantryDots(size); // fallback while the image decodes
   } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
     if(!drawInfantryImage(size, u.side)) drawInfantryDots(size); // fallback while the image decodes
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
     // Square formation still stays visually distinct from open-order Infantry —
     // real art now instead of dots, but rotated 45° so the tactical state
     // (formed square) still reads at a glance rather than looking identical
-    // to a normal line.
+    // to a normal line. Kept on the static art even for British Line Infantry —
+    // the animated flag-and-drummer scene isn't composed to read sensibly
+    // rotated, and Square already has its own dedicated visual language.
     ctx.save();
     ctx.rotate(Math.PI/4);
     if(!drawInfantryImage(size, u.side)) drawInfantrySquareDots(size);
