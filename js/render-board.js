@@ -349,6 +349,9 @@ export function seededRand(seed){ return seededWobble(seed) + 0.5; } // 0..1, sa
 // Deterministic per-cell pick from the 6 Forest tile styles — each Woods cell
 // independently "rolls" its own style, but stays stable across redraws since
 // it's a function of the cell's own coordinates rather than stored RNG state.
+// How far the Woods art is drawn beyond its cell so the treetops overhang
+// the tile above (see the drawing loop for why the art needs it).
+export const WOODS_OVERSCAN = 1.3;
 export function woodsStyleIndex(x,y){
   return 1 + Math.floor(seededRand(x*97+y*131+5) * 6);
 }
@@ -508,8 +511,18 @@ export function draw(){
       const style = hillStyleIndex(x,y);
       const img = UNIT_IMAGES['hill_'+style];
       if(img && img.complete && img.naturalWidth>0){
-        const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
-        ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+        // The source art fits its whole composition (ground platform plus
+        // trees) inside its bottom 1000x1000 square, leaving the 300px
+        // overflow band empty — so drawn at exactly one cell wide the trees
+        // stop dead at the cell's top edge and never overlap the tile above.
+        // Scaling past the cell fixes that: the platform grows to fill more
+        // of the square and the canopies genuinely break out over the
+        // neighbouring tile. The sideways spill lands on transparent canopy,
+        // not on the platform edge, so it reads as overhang rather than one
+        // tile covering another.
+        const w = CELL*WOODS_OVERSCAN;
+        const h = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
       }
     }
   }
@@ -605,8 +618,18 @@ export function draw(){
         if(gimg && gimg.complete && gimg.naturalWidth>0){
           ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
         }
-        const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
-        ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+        // The source art fits its whole composition (ground platform plus
+        // trees) inside its bottom 1000x1000 square, leaving the 300px
+        // overflow band empty — so drawn at exactly one cell wide the trees
+        // stop dead at the cell's top edge and never overlap the tile above.
+        // Scaling past the cell fixes that: the platform grows to fill more
+        // of the square and the canopies genuinely break out over the
+        // neighbouring tile. The sideways spill lands on transparent canopy,
+        // not on the platform edge, so it reads as overhang rather than one
+        // tile covering another.
+        const w = CELL*WOODS_OVERSCAN;
+        const h = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
       } else {
         // fallback while the image decodes: the old flat fill, no canopy detail
         ctx.fillStyle = terrainColor('WOODS');
