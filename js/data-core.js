@@ -213,6 +213,48 @@ export function assignGrassStyles(terrain){
   return styles;
 }
 
+// Building style assignment — much simpler than Grass's patchwork: no
+// clumping wanted here, just avoidance. Each Building cell independently
+// rolls one of 6 housing-cluster styles, excluding whatever styles its
+// already-assigned neighbours (8-direction) are using, so no two adjacent
+// Building squares ever show the same visual. With 6 styles and Buildings
+// typically sparse/scattered on real boards, this is essentially always
+// satisfiable; the random fallback only matters in the deliberately
+// pathological case of one cell fully boxed in by all 6 styles at once.
+export function assignBuildingStyles(terrain){
+  const h = terrain.length, w = terrain[0].length;
+  const NUM_STYLES = 6;
+  const styles = Array.from({length:h}, ()=>new Array(w).fill(null));
+
+  function neighborsOf(x,y){
+    const list = [];
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      if(dx===0 && dy===0) continue;
+      const nx=x+dx, ny=y+dy;
+      if(nx>=0 && nx<w && ny>=0 && ny<h) list.push([nx,ny]);
+    }
+    return list;
+  }
+
+  const cells = [];
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(terrain[y][x]==='BUILDING') cells.push([x,y]);
+  for(let i=cells.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [cells[i],cells[j]] = [cells[j],cells[i]];
+  }
+
+  for(const [x,y] of cells){
+    const used = new Set();
+    for(const [nx,ny] of neighborsOf(x,y)) if(styles[ny][nx]) used.add(styles[ny][nx]);
+    const candidates = [];
+    for(let s=1;s<=NUM_STYLES;s++) if(!used.has(s)) candidates.push(s);
+    styles[y][x] = candidates.length>0
+      ? candidates[Math.floor(Math.random()*candidates.length)]
+      : 1 + Math.floor(Math.random()*NUM_STYLES); // boxed in by all 6 — vanishingly rare
+  }
+  return styles;
+}
+
 export function buildTerrainMap(assignment, rotation){
   assignment = assignment || { red:'A', blue:'B' };
   rotation = rotation || { red:0, blue:0 };
