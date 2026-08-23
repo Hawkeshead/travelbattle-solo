@@ -3,7 +3,7 @@ import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, a
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { canvas, ctx, draw, sizeCanvas, sy, terrainColor } from './render-board.js';
+import { canvas, ctx, draw, playBoardIntroAnimation, sizeCanvas, sy, terrainColor } from './render-board.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
@@ -245,8 +245,16 @@ export function beginBoardSetup(){
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
   sizeCanvas();
   document.getElementById('overlay').classList.remove('show');
-  draw();
-  rollOrientationOrder();
+  // The falling-tile intro plays only for a standard (non-campaign) AI
+  // match — not hotseat, not campaign/Operations restarts. It has to run
+  // to completion before the orientation dice roll appears, since the
+  // whole point is that it can't be skipped or interrupted.
+  if(state.mode==='ai' && !state.campaign){
+    playBoardIntroAnimation(rollOrientationOrder);
+  } else {
+    draw();
+    rollOrientationOrder();
+  }
 }
 
 function rollOrientationOrder(){
