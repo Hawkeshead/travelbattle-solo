@@ -298,7 +298,13 @@ export function drawLineInfantryImage(size, side){
   const frameW = img.naturalWidth / spec.frames;
   const frameH = img.naturalHeight;
   const frame = Math.floor(Date.now() / spec.frameMs) % spec.frames;
-  const h = size*1.08, w = h*(frameW/frameH);
+  // 1.62 = the original 1.08 scaled up 50%. Infantry deliberately overflow
+  // their cell — the models are narrow enough that the overlap reads as
+  // depth rather than clutter, and the extra size makes them legible at
+  // phone-sized cells. Every infantry presentation (open order, Square,
+  // both ranks of an Attack Column) routes through here, so they all scale
+  // together from this one number.
+  const h = size*1.62, w = h*(frameW/frameH);
   ctx.drawImage(img, frame*frameW, 0, frameW, frameH, -w/2, -h/2, w, h);
   return true;
 }
