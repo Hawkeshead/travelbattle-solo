@@ -399,8 +399,10 @@ export function drawUnit(u, off){
 
   if(inWoodsHiding){
     if(!drawWoodsHiddenImage(CELL, u.side, u.x, u.y)) drawInfantryDots(size); // fallback while the image decodes
-  } else if(t.key==='INFANTRY' && u.side===SIDES.RED && u.formation!=='square'){
-    // British Line Infantry only — Guard and French Infantry keep the
+  } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.side===SIDES.RED && u.formation!=='square'){
+    // British Line Infantry and Guard both use the animated sprite now —
+    // the gold asterisk (drawn separately below) is what distinguishes
+    // Guard, not a different image. French Infantry/Guard keep the
     // existing static art below, untouched.
     if(!drawBritishLineInfantryImage(size)) drawInfantryDots(size); // fallback while the image decodes
   } else if((t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square'){
