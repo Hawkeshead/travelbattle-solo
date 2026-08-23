@@ -23,7 +23,14 @@ export function start(){
 
   // Browsers block audio until a real user gesture — unlock on the very
   // first tap/click anywhere, regardless of which button starts the game.
-  document.addEventListener('pointerdown', ()=> AudioManager.unlock(), { once:true });
+  // Preload the effects a player is likely to trigger almost immediately
+  // (selecting/moving a unit) right here too, so the very first click
+  // doesn't also pay that effect's one-time fetch+decode cost on top of
+  // unlocking — see AudioManager.playEffect's buffer cache.
+  document.addEventListener('pointerdown', ()=>{
+    AudioManager.unlock();
+    AudioManager.preloadEffects(['audio/effects/chess-piece-placed.wav', 'audio/effects/infantry-marching.wav']);
+  }, { once:true });
 
   // Then either resume the campaign in progress or show the title screen.
   const savedCampaignProgress = loadCampaignProgress();
