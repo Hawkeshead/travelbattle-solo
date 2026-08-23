@@ -26,6 +26,8 @@ export const AudioManager = (function(){
     activeEffects: new Map(), // key -> count of currently-playing copies
     lastVariant: new Map(),   // key -> index last played, so we don't immediately repeat
     duckTimer: null,
+    audioCtx: null,
+    bufferCache: new Map(),   // url -> Promise<AudioBuffer>, decoded once and reused forever
   };
 
   function loadPrefs(){
@@ -49,6 +51,43 @@ export const AudioManager = (function(){
     state.unlocked = true;
     if(state.musicEl){ state.musicEl.play().catch(()=>{}); }
     if(state.ambienceEl){ state.ambienceEl.play().catch(()=>{}); }
+    getAudioContext().resume().catch(()=>{});
+  }
+
+  // Lazily created — some browsers refuse to even construct an AudioContext
+  // before a user gesture, so this waits until the first real playEffect/
+  // unlock call rather than running at module load.
+  function getAudioContext(){
+    if(!state.audioCtx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new Ctx();
+    }
+    return state.audioCtx;
+  }
+
+  // Decode each effect file exactly once and keep the AudioBuffer in memory —
+  // every playEffect() call after that just spins up a fresh, essentially-free
+  // AudioBufferSourceNode from the already-decoded data. Without this, every
+  // single trigger did a full fetch+decode via `new Audio()`, and under any
+  // burst of triggers (several units selected/moved in quick succession,
+  // especially during an AI turn) those decodes queued up behind each other
+  // and the resulting sounds all landed at once, late, instead of each
+  // playing right when its own trigger fired.
+  function loadBuffer(url){
+    if(state.bufferCache.has(url)) return state.bufferCache.get(url);
+    const promise = fetch(url)
+      .then(res => res.arrayBuffer())
+      .then(bytes => getAudioContext().decodeAudioData(bytes));
+    state.bufferCache.set(url, promise);
+    return promise;
+  }
+
+  // Call as early as convenient (e.g. right after unlock) for any effect
+  // likely to be needed soon, so its buffer is already decoded and sitting
+  // in memory well before the first real trigger — otherwise that first
+  // trigger still pays the one-time fetch+decode cost itself.
+  function preloadEffects(urls){
+    urls.forEach(loadBuffer);
   }
 
   function effectiveVolume(category){
@@ -91,24 +130,36 @@ export const AudioManager = (function(){
     const cap = MAX_CONCURRENT[key] || MAX_CONCURRENT.default;
     const current = state.activeEffects.get(key) || 0;
     if(current >= cap) return; // already plenty of this sound playing — drop it rather than pile on
+    state.activeEffects.set(key, current+1); // reserve the slot now, not after the (async) decode resolves
 
-    try {
-      const audio = new Audio(chosen);
-      audio.volume = effectiveVolume('effects') * (opts.volumeScale ?? 1);
-      if(opts.pan && audio.pan !== undefined) audio.pan = opts.pan; // simple stereo positioning, see setPositional()
-      state.activeEffects.set(key, current+1);
-      let settled = false;
-      const release = ()=>{ if(settled) return; settled = true; state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)); };
-      audio.addEventListener('ended', release);
-      audio.addEventListener('error', release);
-      // Safety net: on a slow/flaky real connection, 'ended'/'error' aren't
-      // guaranteed to fire promptly for every browser/file — without this,
-      // one stuck count silently caps out at MAX_CONCURRENT and the sound
-      // just stops playing entirely with no visible error.
-      setTimeout(release, 8000);
-      if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
-      audio.play().catch(release);
-    } catch(_e) { /* never let an audio failure break the game */ }
+    let settled = false;
+    const release = ()=>{ if(settled) return; settled = true; state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)); };
+
+    loadBuffer(chosen).then(buffer => {
+      if(settled) return; // e.g. the safety-net timeout already fired while this was still decoding
+      try {
+        const ctx = getAudioContext();
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const gain = ctx.createGain();
+        gain.gain.value = effectiveVolume('effects') * (opts.volumeScale ?? 1);
+        source.connect(gain);
+        if(opts.pan != null && ctx.createStereoPanner){
+          const panner = ctx.createStereoPanner();
+          panner.pan.value = opts.pan;
+          gain.connect(panner);
+          panner.connect(ctx.destination);
+        } else {
+          gain.connect(ctx.destination);
+        }
+        source.onended = release;
+        if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
+        source.start();
+      } catch(_e) { release(); }
+    }).catch(release);
+    // Safety net: if decode stalls or onended never fires for some reason,
+    // don't let one stuck reservation silently cap out this key forever.
+    setTimeout(release, 8000);
   }
 
   // Simple left/centre/right stereo positioning based on board x-position (0..COLS).
@@ -158,6 +209,6 @@ export const AudioManager = (function(){
 
   return {
     unlock, playEffect, playMusic, stopMusic, playAmbience, stopAmbience,
-    setMuted, setVolume, getPrefs, panForBoardX,
+    setMuted, setVolume, getPrefs, panForBoardX, preloadEffects,
   };
 })();
