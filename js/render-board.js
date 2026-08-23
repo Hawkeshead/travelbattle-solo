@@ -605,11 +605,15 @@ export function draw(){
     }
   }
 
-  // Roads: one gently-curved stroke per unique connection, not filling the
-  // whole square. 90-degree turns pull their anchor toward the inside corner
-  // instead of routing dead-through the cell centre, softening the bend. A
-  // small deterministic wobble per edge gives a hand-drawn feel rather than
-  // rigid geometry, and stays stable across redraws (not re-randomized).
+  // Roads: tile art for genuine 2+ way connections (straight, corner, T,
+  // cross), matching whichever cardinal directions are connected on SCREEN —
+  // not logical grid direction, since the board can flip vertically for the
+  // human player's side (screenFlipActive) while the tile art itself has a
+  // fixed visual orientation. X never flips in this game, only Y. A cell
+  // with 0 or 1 connections (an isolated stub, or a genuine dead-end from
+  // excludedRoadEdges) has no matching tile, so those keep the original
+  // small-dot/curved-stroke treatment below rather than needing bespoke art
+  // for a rare edge case.
   function roadPoint(x,y){ return { x:x*CELL+CELL/2, y:sy(y)*CELL+CELL/2 }; }
   const excluded = state.excludedRoadEdges || new Set();
   const roadConn = {};
@@ -624,6 +628,66 @@ export function draw(){
       list.push({x:nx,y:ny});
     }
     roadConn[x+','+y] = list;
+  }
+  function roadScreenDirs(x, y, list){
+    const dirs = { up:false, down:false, left:false, right:false };
+    const sy0 = sy(y);
+    for(const n of list){
+      if(n.x < x) dirs.left = true;
+      else if(n.x > x) dirs.right = true;
+      else if(sy(n.y) < sy0) dirs.up = true;
+      else if(sy(n.y) > sy0) dirs.down = true;
+    }
+    return dirs;
+  }
+  function roadTileKey(dirs){
+    const count = (dirs.up?1:0)+(dirs.down?1:0)+(dirs.left?1:0)+(dirs.right?1:0);
+    if(count===4) return 'road_cross';
+    if(count===3){
+      if(!dirs.up) return 'road_t_missing_up';
+      if(!dirs.down) return 'road_t_missing_down';
+      if(!dirs.left) return 'road_t_missing_left';
+      return 'road_t_missing_right';
+    }
+    if(count===2){
+      if(dirs.up && dirs.down) return 'road_straight_v';
+      if(dirs.left && dirs.right) return 'road_straight_h';
+      if(dirs.up && dirs.right) return 'road_corner_tr';
+      if(dirs.down && dirs.right) return 'road_corner_br';
+      if(dirs.down && dirs.left) return 'road_corner_bl';
+      if(dirs.up && dirs.left) return 'road_corner_tl';
+    }
+    return null;
+  }
+  const roadTiled = new Set(); // cells drawn as tile art, skipped by the stroke fallback below
+  for(let y=0;y<ROWS;y++){
+    const sy_ = sy(y);
+    for(let x=0;x<COLS;x++){
+      if(terrain[y][x]!=='ROAD') continue;
+      const list = roadConn[x+','+y] || [];
+      const key = roadTileKey(roadScreenDirs(x, y, list));
+      if(!key){
+        // 0 or 1 connections — no matching tile art, so this cell would
+        // otherwise sit on the plain dark Open-terrain fallback fill with
+        // nothing to soften it, unlike an actual Open cell (which gets a
+        // proper grass tile). Give it the same grass backdrop Woods/Hill
+        // use for their own per-cell art — a deterministic hash, not the
+        // constrained patchwork algorithm, since this is just a rare
+        // fallback backdrop, not a real "grass square" needing that
+        // clustering behaviour — then the old stroke/dot still draws on
+        // top of it, unchanged, below.
+        const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
+        if(gimg && gimg.complete && gimg.naturalWidth>0){
+          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
+        }
+        continue;
+      }
+      const img = UNIT_IMAGES[key];
+      if(img && img.complete && img.naturalWidth>0){
+        ctx.drawImage(img, x*CELL, sy_*CELL, CELL, CELL);
+        roadTiled.add(x+','+y);
+      }
+    }
   }
   function roadAnchor(x,y){
     const list = roadConn[x+','+y] || [];
@@ -645,6 +709,7 @@ export function draw(){
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       if(terrain[y][x]!=='ROAD') continue;
+      if(roadTiled.has(x+','+y)) continue;
       const list = roadConn[x+','+y] || [];
       const a1 = roadAnchor(x,y);
       for(const n of list){
