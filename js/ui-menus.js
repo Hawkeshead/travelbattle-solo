@@ -1,5 +1,5 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
@@ -241,6 +241,7 @@ export function beginBoardSetup(){
   state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
   state.grassStyles = assignGrassStyles(state.terrain);
+  state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
   sizeCanvas();
   document.getElementById('overlay').classList.remove('show');
@@ -294,6 +295,7 @@ function runRotationPicks(eligibleSides, i){
     state.boardRotation[side] = chosen;
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
     state.grassStyles = assignGrassStyles(state.terrain);
+    state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
     draw();
     log(`${SIDE_LABEL[side]} (AI) rotates their board to ${chosen*90}\u00b0.`, 'system');
@@ -337,6 +339,7 @@ export function handleOrientationClick(x){
   state.boardRotation[pick.side] = (state.boardRotation[pick.side]+1) % 4;
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
   state.grassStyles = assignGrassStyles(state.terrain);
+  state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
   draw();
 }
@@ -399,6 +402,7 @@ export function beginGrandBoardSetup(){
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
   state.grassStyles = assignGrassStyles(state.terrain);
+  state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSetGrand(quadrants);
   sizeCanvas(); // ROWS just changed (10 -> 20) — canvas pixel size must be recomputed, it doesn't happen automatically
   document.getElementById('overlay').classList.remove('show');
