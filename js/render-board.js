@@ -713,13 +713,17 @@ export function draw(){
     ctx.lineWidth = 1;
   }
 
-  // seam between the two physical boards
-  ctx.strokeStyle = 'rgba(233,228,214,0.35)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6,4]);
-  ctx.beginPath(); ctx.moveTo(HALF_COLS*CELL,0); ctx.lineTo(HALF_COLS*CELL,ROWS*CELL); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.lineWidth = 1;
+  // seam between the two physical boards — only relevant while still picking
+  // orientation; once that's settled and deployment begins, the seam is no
+  // longer meaningful and just clutters the board.
+  if(state.phase==='orientation'){
+    ctx.strokeStyle = 'rgba(233,228,214,0.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(HALF_COLS*CELL,0); ctx.lineTo(HALF_COLS*CELL,ROWS*CELL); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+  }
 
   // deployment zone tint during deploy phase (Blue = top rows, Red = bottom rows;
   // depth is 2 for a standard match, 3 for Grand Strategy — see attemptDeployAt)
@@ -759,8 +763,14 @@ export function draw(){
     ctx.save();
     ctx.strokeStyle = ln.color;
     ctx.globalAlpha = alpha;
-    ctx.lineWidth = Math.max(2, CELL*0.06);
-    if(ln.dashed) ctx.setLineDash([CELL*0.12, CELL*0.10]);
+    if(ln.dashed){
+      // Artillery firing line specifically — much bolder than the plain fight
+      // line so it reads clearly across the board, not just up close.
+      ctx.lineWidth = Math.max(5, CELL*0.16);
+      ctx.setLineDash([CELL*0.18, CELL*0.09]);
+    } else {
+      ctx.lineWidth = Math.max(2, CELL*0.06);
+    }
     ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
     ctx.setLineDash([]);
     // arrowhead at the target end
