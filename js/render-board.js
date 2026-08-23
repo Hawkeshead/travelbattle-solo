@@ -503,6 +503,28 @@ export function draw(){
     }
   }
 
+  // Building: each cell independently shows one of 6 housing-cluster tiles,
+  // bottom-anchored the same way (full cell width, up to 1.3 cells tall,
+  // bleeding upward only — church steeples etc. need the headroom). Styles
+  // are assigned once per terrain generation (assignBuildingStyles, see
+  // ui-menus.js), not per-render, since the "never match an adjacent
+  // square" rule needs to know what neighbours already picked.
+  if(state.buildingStyles){
+    for(let y=0;y<ROWS;y++){
+      const sy_ = sy(y);
+      for(let x=0;x<COLS;x++){
+        if(terrain[y][x]!=='BUILDING') continue;
+        const style = state.buildingStyles[y][x];
+        if(!style) continue;
+        const img = UNIT_IMAGES['building_'+style];
+        if(img && img.complete && img.naturalWidth>0){
+          const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
+          ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+        }
+      }
+    }
+  }
+
   // Grass texture — a repeating blade pattern clipped to Road cells only
   // now; Open and Hill ground get their detail from the tile images above.
   ctx.save();
@@ -649,20 +671,6 @@ export function draw(){
     }
   }
   ctx.lineCap = 'butt';
-
-  // terrain icons: quick at-a-glance recognition for Building (woods/field/hill
-  // are already visually distinct via their own tile art, no icon needed).
-  // Hand-drawn in the ink/brass palette rather than emoji, which render
-  // inconsistently across platforms and clash with the parchment-map tone.
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      const key = terrain[y][x];
-      const cx_ = x*CELL+CELL/2, cyy = sy(y)*CELL+CELL/2;
-      if(key==='BUILDING'){
-        drawBuildingCluster(cx_, cyy, CELL, x*41+y*67+3);
-      }
-    }
-  }
 
   // craters: every square Artillery has hit this match, above terrain, below units
   for(const c of state.craters){
