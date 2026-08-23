@@ -133,7 +133,7 @@ export function ensureAnimationLoopRunning(){
     // without this, it only re-renders (and so only appears to animate)
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
-    const spriteAnimActive = state.units.some(u => !u.removed && u.side===SIDES.RED && UNIT_TYPES[u.type].key==='INFANTRY');
+    const spriteAnimActive = state.units.some(u => !u.removed && u.side===SIDES.RED && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
     if(stillAnimating || lineActive || deathActive || spriteAnimActive){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
@@ -931,7 +931,7 @@ export function draw(){
   // toggles...), and without this the sprite sheet would only start
   // advancing once some unrelated move/fight animation happened to trigger
   // it first, sitting frozen on frame 0 until then.
-  if(!animFrameHandle && state.units.some(u => !u.removed && u.side===SIDES.RED && UNIT_TYPES[u.type].key==='INFANTRY')){
+  if(!animFrameHandle && state.units.some(u => !u.removed && u.side===SIDES.RED && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'))){
     ensureAnimationLoopRunning();
   }
 }
