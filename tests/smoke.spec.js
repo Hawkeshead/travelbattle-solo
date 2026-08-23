@@ -112,7 +112,10 @@ async function clearBoardSetup(page) {
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
   const deployManually = page.getByRole('button', { name: 'Deploy Manually Instead' });
   const firstChip = page.locator('#rosterList .roster-chip').first();
-  for (let i = 0; i < 40; i++) {
+  // 70 iterations of 400ms — up from 40 — to leave headroom for the ~10.5s
+  // falling-tile intro animation that now plays before an AI match's
+  // orientation sequence even begins (see playBoardIntroAnimation).
+  for (let i = 0; i < 70; i++) {
     // isVisible(), not count() — renderRoster() populates the roster chips
     // before the Army Picker overlay ever gets a chance to show on top of
     // them, so the chips already exist (just hidden) the whole time the
