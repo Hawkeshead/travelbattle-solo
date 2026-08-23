@@ -1,4 +1,4 @@
-import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, setCell, state } from './data-core.js';
+import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
 import { inBounds, neighbors8, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
@@ -128,7 +128,13 @@ export function ensureAnimationLoopRunning(){
     const now = Date.now();
     deathEffects = deathEffects.filter(d => now - d.startTime < DEATH_SKULL_MS + DEATH_SMOKE_MS);
     const deathActive = deathEffects.length>0;
-    if(stillAnimating || lineActive || deathActive){
+    // British Line Infantry's sprite-sheet animation (see
+    // drawBritishLineInfantryImage) needs continuous redraws to advance —
+    // without this, it only re-renders (and so only appears to animate)
+    // when some unrelated move/fight/death animation happens to be running,
+    // freezing on whatever frame was current the rest of the time.
+    const spriteAnimActive = state.units.some(u => !u.removed && u.side===SIDES.RED && UNIT_TYPES[u.type].key==='INFANTRY');
+    if(stillAnimating || lineActive || deathActive || spriteAnimActive){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;
@@ -853,5 +859,15 @@ export function draw(){
   vignette.addColorStop(1, 'rgba(10,8,4,0.30)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, vw, vh);
+
+  // Kick the animation loop if it isn't already running and British Line
+  // Infantry are on the board — draw() itself gets called from plenty of
+  // places that aren't already inside that loop (unit selection, menu
+  // toggles...), and without this the sprite sheet would only start
+  // advancing once some unrelated move/fight animation happened to trigger
+  // it first, sitting frozen on frame 0 until then.
+  if(!animFrameHandle && state.units.some(u => !u.removed && u.side===SIDES.RED && UNIT_TYPES[u.type].key==='INFANTRY')){
+    ensureAnimationLoopRunning();
+  }
 }
 
