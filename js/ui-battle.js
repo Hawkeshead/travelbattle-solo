@@ -371,6 +371,7 @@ export function selectUnit(id){
   state.selectedUnitId = id;
   setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
+  if(u) AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
   renderUnitInfo(u);
   if(u && u.side===state.turn){
     if(state.phase==='move'){
@@ -527,6 +528,9 @@ export function onCellClick(x,y){
       displaceBrigadierIfPresent(x, y, fromX, fromY);
       if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
       animateUnitTo(sel, x, y);
+      if(UNIT_TYPES[sel.type].key==='INFANTRY' || UNIT_TYPES[sel.type].key==='GUARD'){
+        AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
+      }
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
