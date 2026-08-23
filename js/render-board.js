@@ -595,6 +595,16 @@ export function draw(){
       const img = UNIT_IMAGES[key];
       const sy_ = sy(y);
       if(img && img.complete && img.naturalWidth>0){
+        // Lay a grass tile down first. The forest art's own base doesn't
+        // quite reach the cell's top corners (the treeline curves inward
+        // there), and unlike an Open cell a Woods cell otherwise has nothing
+        // underneath it — so those corners showed the plain dark Open-terrain
+        // fallback fill instead of ground, which read as the tile "not
+        // filling its square". Same fix already applied to road dead-ends.
+        const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
+        if(gimg && gimg.complete && gimg.naturalWidth>0){
+          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
+        }
         const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
         ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
       } else {
