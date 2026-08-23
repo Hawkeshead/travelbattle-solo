@@ -1,6 +1,6 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
-import { ctx, getUnitVisualPos, sy, woodsStyleIndex } from './render-board.js';
+import { WOODS_OVERSCAN, ctx, getUnitVisualPos, sy, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
@@ -240,12 +240,15 @@ function drawSilhouetteIconImage(size, key, sizeRatio){
 // anchored to the cell's bottom edge so all of the extra height bleeds
 // upward into the square above — never sideways, never down — suggesting the
 // standing/mounted figure's real height on a top-down board.
-function drawBottomAnchoredImage(cellSize, key, maxHeightRatio){
+function drawBottomAnchoredImage(cellSize, key, maxHeightRatio, overscan){
   const img = UNIT_IMAGES[key];
   if(!(img && img.complete && img.naturalWidth>0)) return false;
   const aspect = img.naturalWidth/img.naturalHeight;
-  let w = cellSize, h = w/aspect;
-  const maxH = cellSize*maxHeightRatio;
+  // overscan (default 1, i.e. unchanged) lets Woods draw past its cell so the
+  // treetops overhang the tile above; cavalry and artillery keep 1.
+  const k = overscan || 1;
+  let w = cellSize*k, h = w/aspect;
+  const maxH = cellSize*maxHeightRatio*k;
   if(h>maxH){ h = maxH; w = h*aspect; }
   ctx.drawImage(img, -w/2, cellSize/2-h, w, h);
   return true;
@@ -315,7 +318,7 @@ export function drawLineInfantryImage(size, side){
 function drawWoodsHiddenImage(cellSize, side, x, y){
   const style = woodsStyleIndex(x, y);
   const key = (side===SIDES.RED ? 'forest_british_' : 'forest_french_') + style;
-  return drawBottomAnchoredImage(cellSize, key, 1.3);
+  return drawBottomAnchoredImage(cellSize, key, 1.3, WOODS_OVERSCAN);
 }
 export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
