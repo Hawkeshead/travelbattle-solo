@@ -621,10 +621,8 @@ export function draw(){
   // human player's side (screenFlipActive) while the tile art itself has a
   // fixed visual orientation. X never flips in this game, only Y. A cell
   // with 0 or 1 connections (an isolated stub, or a genuine dead-end from
-  // excludedRoadEdges) has no matching tile, so those keep the original
-  // small-dot/curved-stroke treatment below rather than needing bespoke art
-  // for a rare edge case.
-  function roadPoint(x,y){ return { x:x*CELL+CELL/2, y:sy(y)*CELL+CELL/2 }; }
+  // excludedRoadEdges) has no matching tile, so it just shows the grass
+  // backdrop with nothing drawn over it.
   const excluded = state.excludedRoadEdges || new Set();
   const roadConn = {};
   for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
@@ -669,7 +667,6 @@ export function draw(){
     }
     return null;
   }
-  const roadTiled = new Set(); // cells drawn as tile art, skipped by the stroke fallback below
   for(let y=0;y<ROWS;y++){
     const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
@@ -684,8 +681,7 @@ export function draw(){
         // use for their own per-cell art — a deterministic hash, not the
         // constrained patchwork algorithm, since this is just a rare
         // fallback backdrop, not a real "grass square" needing that
-        // clustering behaviour — then the old stroke/dot still draws on
-        // top of it, unchanged, below.
+        // clustering behaviour. Nothing is drawn over it.
         const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
         if(gimg && gimg.complete && gimg.naturalWidth>0){
           ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
@@ -695,68 +691,15 @@ export function draw(){
       const img = UNIT_IMAGES[key];
       if(img && img.complete && img.naturalWidth>0){
         ctx.drawImage(img, x*CELL, sy_*CELL, CELL, CELL);
-        roadTiled.add(x+','+y);
       }
     }
   }
-  function roadAnchor(x,y){
-    const list = roadConn[x+','+y] || [];
-    const center = roadPoint(x,y);
-    if(list.length !== 2) return center;
-    const isOpposite = (list[0].x-x)===-(list[1].x-x) && (list[0].y-y)===-(list[1].y-y);
-    if(isOpposite) return center; // straight through, no turn to soften
-    const p1 = roadPoint(list[0].x,list[0].y), p2 = roadPoint(list[1].x,list[1].y);
-    const midX=(p1.x+p2.x)/2, midY=(p1.y+p2.y)/2;
-    const dirX=midX-center.x, dirY=midY-center.y;
-    const len = Math.hypot(dirX,dirY) || 1;
-    const pull = CELL*0.20;
-    return { x:center.x+(dirX/len)*pull, y:center.y+(dirY/len)*pull };
-  }
-  ctx.strokeStyle = terrainColor('ROAD');
-  ctx.lineWidth = Math.max(3, CELL*0.16);
-  ctx.lineCap = 'round';
-  const drawnEdges = new Set();
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      if(terrain[y][x]!=='ROAD') continue;
-      if(roadTiled.has(x+','+y)) continue;
-      const list = roadConn[x+','+y] || [];
-      const a1 = roadAnchor(x,y);
-      for(const n of list){
-        const key = (x<n.x || (x===n.x && y<n.y)) ? `${x},${y}-${n.x},${n.y}` : `${n.x},${n.y}-${x},${y}`;
-        if(drawnEdges.has(key)) continue;
-        drawnEdges.add(key);
-        const a2 = roadAnchor(n.x,n.y);
-        const seed = x*17 + y*131 + n.x*29 + n.y*271;
-        const wobble = seededWobble(seed) * CELL * 0.28;
-        const dx=a2.x-a1.x, dy=a2.y-a1.y, len=Math.hypot(dx,dy)||1;
-        const px=-dy/len, py=dx/len;
-        const mx=(a1.x+a2.x)/2+px*wobble, my=(a1.y+a2.y)/2+py*wobble;
-        ctx.beginPath(); ctx.moveTo(a1.x,a1.y); ctx.quadraticCurveTo(mx,my,a2.x,a2.y); ctx.stroke();
-      }
-      if(list.length===0){ const c = roadPoint(x,y); ctx.beginPath(); ctx.arc(c.x,c.y,CELL*0.08,0,Math.PI*2); ctx.fillStyle=terrainColor('ROAD'); ctx.fill(); }
-    }
-  }
-  // Buildings: a full line from the building's own centre out to each adjacent
-  // road (not a short stub from the road's side) — a building with roads on
-  // two sides then reads as one continuous path passing through it, rather
-  // than two stubs that stop short of each other with a visible gap between.
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      if(terrain[y][x]!=='BUILDING') continue;
-      const centre = roadPoint(x,y);
-      for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
-        const nx=x+dx, ny=y+dy;
-        if(!inBounds(nx,ny) || terrain[ny][nx]!=='ROAD') continue;
-        const p2 = roadAnchor(nx,ny);
-        ctx.beginPath();
-        ctx.moveTo(centre.x, centre.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.stroke();
-      }
-    }
-  }
-  ctx.lineCap = 'butt';
+  // Road and building connections are entirely tile art now — the old
+  // hand-drawn brown strokes (per-edge curved road lines, the dot for an
+  // isolated road cell, and the building-to-road connector lines) have all
+  // been removed. Road cells that don't match one of the 11 tile patterns
+  // (an isolated stub or a genuine dead-end from excludedRoadEdges) just
+  // show the grass backdrop laid down above, with no stroke over it.
 
   // craters: every square Artillery has hit this match, above terrain, below units
   for(const c of state.craters){
