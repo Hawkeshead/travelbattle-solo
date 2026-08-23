@@ -3,7 +3,8 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { animateUnitTo, displaceBrigadierIfPresent, draw } from './render-board.js';
+import { AudioManager } from './audio-manager.js';
+import { UNIT_MOVE_ANIMATION_MS, animateUnitTo, displaceBrigadierIfPresent, draw } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -573,6 +574,9 @@ export function aiDecideAndExecuteMove(u){
     displaceBrigadierIfPresent(best.x, best.y, fromX, fromY);
     if(t.isArtillery && !isHorseArtillery(u) && terrainAt(best.x,best.y).plough) consumePloughEscort(u);
     animateUnitTo(u, best.x, best.y);
+    if(t.key==='INFANTRY' || t.key==='GUARD'){
+      AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
+    }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);
@@ -601,9 +605,16 @@ export function aiDoMovePhase(){
     if(state.gameOver) return;
     if(i>=order.length){ endMovePhase(); return; }
     const u = state.units.find(x=>x.id===order[i]); i++;
+    const beforeX = u.x, beforeY = u.y;
     aiDecideAndExecuteMove(u);
     draw();
-    setTimeout(step, 340);
+    // Only wait out the full move animation when this unit actually moved —
+    // a unit that stayed, formed Square, or fired has nothing animating, so
+    // holding up the next unit's turn for it would just slow the AI down
+    // for no visual benefit. +60ms settle buffer past the animation itself
+    // so the next unit's turn doesn't visually overlap the tail end of it.
+    const moved = u && (u.x!==beforeX || u.y!==beforeY);
+    setTimeout(step, moved ? UNIT_MOVE_ANIMATION_MS+60 : 340);
   }
   step();
 }
