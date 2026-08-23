@@ -87,12 +87,17 @@ export function displaceBrigadierIfPresent(x, y, fromX, fromY){
   }
 }
 
+// Single source of truth for how long a move animation actually takes —
+// referenced by the AI's move-phase pacing (aiDoMovePhase in ai-strategy.js)
+// so the two can never drift apart the way a duplicated magic number could.
+export const UNIT_MOVE_ANIMATION_MS = 1040;
+
 export function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
   if(FAST_ANIMATION_MODE){ delete unitAnimations[u.id]; return; } // test/simulation harnesses only — see setFastAnimationMode
-  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:1040 };
+  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:UNIT_MOVE_ANIMATION_MS };
   ensureAnimationLoopRunning();
 }
 
