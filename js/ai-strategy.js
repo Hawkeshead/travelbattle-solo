@@ -17,9 +17,31 @@ import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFire
    isolation with no notion of what the army as a whole was trying to do.)
 ========================================================= */
 export const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
-  'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL'];
-export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW'];
+  'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL','FINISHING_BLOW'];
+export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP'];
 export const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
+
+/* Re-escalation. Every reassessment trigger below MAX_PLAN_TURNS_UNCHANGED used to
+   describe deterioration; nothing described improvement. A passive plan could
+   therefore only be escaped by the six-turn stale clock, and because HOLD/SCREEN/
+   RESERVE/WITHDRAW generate no casualties the strength ratio hadn't moved by the
+   time it expired, so the same passive branch was selected again with the clock
+   reset. These constants give the passive plans a way out. */
+// Exit ratios sit ABOVE the entry ratios (0.5 and 0.75) on purpose: hysteresis, so
+// an army hovering on a threshold doesn't flip posture every other turn.
+export const PASSIVE_EXIT_RATIO = { WITHDRAWAL: 0.62, DEFENSIVE: 0.88 };
+// A plan gets at least this many turns to work before a ratio-recovery trigger can
+// unseat it. A genuine finishing chance is exempt — see updateOperationalPlan.
+export const MIN_PLAN_TURNS_BEFORE_OPPORTUNITY = 2;
+// Below this, exploiting an isolated enemy Brigade stops being a way back into the
+// fight and starts being a way to lose the rest of the army faster.
+export const MIN_RATIO_FOR_OPPORTUNISM = 0.35;
+// An enemy Brigade at or under this many fighters is close enough to breaking that
+// finishing it is worth reordering the whole plan around.
+export const BRIGADE_ON_THE_BRINK = 2;
+// Below this fraction of its fighters still in command from their Brigadier, a
+// Brigade cannot prosecute an offensive mission and is sent to REGROUP instead.
+export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
 
 export function brigadeIdsForSide(side){
   const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
@@ -37,12 +59,26 @@ export function assessBattlefield(side){
   const enemyStrength = strengthOf(enemyUnits);
 
   function assessBrigades(brigSide, units){
+    // One BFS for the whole side rather than one per Brigade per candidate square.
+    const connected = movableUnitsForSide(brigSide);
     return brigadeIdsForSide(brigSide).map(id=>{
       const group = units.filter(u=>u.brigadeId===id);
       const brig = group.find(u=>u.type==='BRIGADIER');
       const fighters = group.filter(u=>u.type!=='BRIGADIER');
       const strength = strengthOf(group);
       const remaining = fighters.length;
+      // Command state. `remaining` counts fighters that are alive; it says nothing
+      // about whether they can actually be ordered anywhere. A fighter that has
+      // fallen off the adjacency chain back to its Brigadier cannot move at all,
+      // and one standing in Square has forfeited its move phase whether connected
+      // or not. A Brigade ordered to attack with neither is being given an order it
+      // has no means of obeying, which is precisely how the Brigadier ends up
+      // advancing alone while its own battalions sit stranded behind it.
+      const connectedCount = fighters.filter(u=>connected.has(u.id)).length;
+      const squaredCount = fighters.filter(u=>u.formation==='square').length;
+      const effectiveRemaining = fighters.filter(u=>connected.has(u.id) && u.formation!=='square').length;
+      const commandFraction = fighters.length ? connectedCount/fighters.length : 1;
+      const strandedUnits = fighters.filter(u=>!connected.has(u.id) || u.formation==='square');
       // Cohesion: average distance of this Brigade's units from their Brigadier
       // (or their own centroid unit if he's fallen) — low = still one fist.
       const anchor = brig || group[0];
@@ -50,7 +86,8 @@ export function assessBattlefield(side){
       const exposure = fighters.length ? fighters.reduce((s,u)=>s+threatPenalty(u,brigSide),0)/fighters.length : 0;
       // Isolated: no other friendly Brigade has any unit within supporting distance.
       const isolated = fighters.length>0 && !units.some(o=>o.brigadeId!==id && fighters.some(u=>chebyshev(u,o)<=6));
-      return { id, side:brigSide, strength, remaining, cohesion, exposure, isolated, hasBrigadier: !!brig };
+      return { id, side:brigSide, strength, remaining, cohesion, exposure, isolated, hasBrigadier: !!brig,
+               connectedCount, squaredCount, effectiveRemaining, commandFraction, strandedUnits };
     });
   }
 
@@ -88,12 +125,29 @@ export function assessBattlefield(side){
     }
   }
 
+  // Break proximity: how close either side is to actually WINNING, as opposed to
+  // how much material each has left. strengthRatio is blind to this, which is how
+  // an AI one casualty away from breaking the enemy's second Brigade could read
+  // itself as materially behind and withdraw from a won position. brigadeBreakBonus
+  // already understands this at unit level; the operational layer did not.
+  const brigadesToBreak = Math.max(1, Math.ceil(enemyBrigades.length * 2/3));
+  const enemyBrigadesBroken = enemyBrigades.filter(b=>b.remaining===0).length;
+  const ownBrigadesBroken = ownBrigades.filter(b=>b.remaining===0).length;
+  const brigadesFromVictory = Math.max(0, brigadesToBreak - enemyBrigadesBroken);
+  const brigadesFromDefeat = Math.max(0, Math.max(1, Math.ceil(ownBrigades.length * 2/3)) - ownBrigadesBroken);
+  // The live enemy Brigade closest to breaking, and whether taking it wins outright.
+  const brinkEnemyBrigade = liveEnemyBrigades.slice().sort((a,b)=>a.remaining-b.remaining)[0] || null;
+  const finishingChance = brigadesFromVictory === 1 && brinkEnemyBrigade
+    && brinkEnemyBrigade.remaining <= BRIGADE_ON_THE_BRINK;
+
   return {
     side, enemy, armyStrength, enemyStrength,
     strengthRatio: armyStrength / Math.max(1, enemyStrength),
     ownBrigades, enemyBrigades, liveOwnBrigades, liveEnemyBrigades,
     centreOfGravity, weakestEnemyBrigade, weakestOwnBrigade, isolatedEnemyBrigades,
-    exposedEnemyArtillery, exposedEnemyCavalry, weakFlank, decisivePoints
+    exposedEnemyArtillery, exposedEnemyCavalry, weakFlank, decisivePoints,
+    brigadesToBreak, enemyBrigadesBroken, ownBrigadesBroken,
+    brigadesFromVictory, brigadesFromDefeat, brinkEnemyBrigade, finishingChance
   };
 }
 
@@ -130,33 +184,78 @@ export function updateOperationalPlan(side, assessment){
       && !localAttackStillFavourable(assessment, prev.mainEffortBrigadeId, prev.targetBrigadeId)){
       mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge — abandon and stabilise');
     }
+
+    /* --- OPPORTUNITY TRIGGERS ---
+       The counterparts to the four above, which between them only ever describe
+       things getting worse. Without these a passive plan can only be escaped by
+       the stale clock, and since passive missions produce no casualties the
+       strength ratio is unchanged when it expires, so the same passive branch is
+       re-selected and the clock restarts. The AI wasn't failing to re-escalate; it
+       was re-committing to passivity every six turns. */
+    if(!mustReassess){
+      const passive = prev.type==='DEFENSIVE' || prev.type==='WITHDRAWAL';
+      const settled = (prev.turnsHeld||0) >= MIN_PLAN_TURNS_BEFORE_OPPORTUNITY;
+
+      // A finishing chance overrides everything, including the settling period. One
+      // more Brigade break ends the battle; there is no posture worth holding
+      // through that.
+      if(assessment.finishingChance && prev.type!=='FINISHING_BLOW'){
+        mustReassess = true;
+        reasons.push('one Brigade break from victory and an enemy Brigade is on the brink — go and finish it');
+      }
+      // An enemy Brigade that has come unstuck from its own army is the opening a
+      // behind-but-not-beaten army needs, whatever posture it happens to be in.
+      else if(settled && assessment.isolatedEnemyBrigades.length>0
+        && assessment.strengthRatio >= MIN_RATIO_FOR_OPPORTUNISM
+        && prev.type!=='BRIGADE_DESTRUCTION'){
+        mustReassess = true;
+        reasons.push('an enemy Brigade has become isolated — worth breaking posture to exploit');
+      }
+      // Material recovery, with hysteresis: the exit ratios sit above the entry
+      // ratios so an army sitting on a threshold doesn't flip posture repeatedly.
+      else if(settled && passive && assessment.strengthRatio >= (PASSIVE_EXIT_RATIO[prev.type] || Infinity)){
+        mustReassess = true;
+        reasons.push('position recovered to ratio ' + assessment.strengthRatio.toFixed(2) + ' — no longer justifies staying passive');
+      }
+    }
   }
 
   if(!mustReassess) return prev;
 
   let plan;
   const a = assessment;
-  if(a.strengthRatio < 0.5){
-    plan = { type:'WITHDRAWAL', mainEffortBrigadeId:null, targetBrigadeId:null };
-  } else if(a.isolatedEnemyBrigades.length>0){
-    // Checked ahead of the plain material-ratio DEFENSIVE branch on purpose —
-    // an isolated enemy Brigade is worth exploiting precisely when the fight
-    // is close, not just once already comfortably ahead. Picking on the weak,
-    // unsupported link is how a slightly-behind army claws back to even, not
-    // a luxury reserved for when it's already winning.
+  const strongestOwn = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
+  // The Brigade a passive plan rallies around. Also gives WITHDRAWAL and the
+  // fallback DEFENSIVE a non-null mainEffortBrigadeId, which matters structurally:
+  // the first two reassessment triggers above are both gated on that field being
+  // non-null, so with it null those plans could ONLY ever be escaped by the stale
+  // clock. WITHDRAWAL was the stickiest plan in the set purely by accident.
+  const rallyBrigadeId = a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null;
+
+  if(a.finishingChance){
+    // Checked first, ahead of every material test. One more break wins the battle,
+    // so the strength ratio is no longer the question being asked.
+    plan = { type:'FINISHING_BLOW', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null,
+             targetBrigadeId: a.brinkEnemyBrigade.id };
+  } else if(a.isolatedEnemyBrigades.length>0 && a.strengthRatio >= MIN_RATIO_FOR_OPPORTUNISM){
+    // Moved ABOVE the WITHDRAWAL branch. The reasoning in the comment below already
+    // argued that picking on an unsupported enemy Brigade is how a slightly-behind
+    // army claws back to even, then placed the branch beneath the withdrawal test
+    // anyway — so an outnumbered AI facing an isolated, nearly-dead Brigade
+    // withdrew instead of finishing it. Floored at MIN_RATIO_FOR_OPPORTUNISM,
+    // below which this stops being a way back in and becomes a faster way to lose.
     const target = a.isolatedEnemyBrigades.slice().sort((x,y)=>x.strength-y.strength)[0];
-    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
-    plan = { type:'BRIGADE_DESTRUCTION', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: target.id };
+    plan = { type:'BRIGADE_DESTRUCTION', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: target.id };
+  } else if(a.strengthRatio < 0.5){
+    plan = { type:'WITHDRAWAL', mainEffortBrigadeId: rallyBrigadeId, targetBrigadeId:null };
   } else if(a.strengthRatio < 0.75){
-    plan = { type:'DEFENSIVE', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null, targetBrigadeId:null };
+    plan = { type:'DEFENSIVE', mainEffortBrigadeId: rallyBrigadeId, targetBrigadeId:null };
   } else if(a.weakestEnemyBrigade && a.strengthRatio >= 1.15){
-    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
-    plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
+    plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
   } else if(a.weakestEnemyBrigade){
-    const effort = a.liveOwnBrigades.slice().sort((x,y)=>y.strength-x.strength)[0];
-    plan = { type:'FIX_AND_FLANK', mainEffortBrigadeId: effort?effort.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
+    plan = { type:'FIX_AND_FLANK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
   } else {
-    plan = { type:'DEFENSIVE', mainEffortBrigadeId:null, targetBrigadeId:null };
+    plan = { type:'DEFENSIVE', mainEffortBrigadeId: rallyBrigadeId, targetBrigadeId:null };
   }
   plan.createdOnTurn = state.turnNumber;
   plan.turnsHeld = 0;
@@ -181,12 +280,22 @@ export function assignBrigadeMissions(side, plan, assessment){
     // trouble), consolidating the army into one more defensible shape around
     // whichever Brigade needs the help most, rather than every Brigade
     // independently fleeing toward its own board edge.
-    const weakest = assessment.weakestOwnBrigade;
+    // Rally anchor comes from the plan, not from a fresh weakestOwnBrigade read:
+    // the plan's choice is frozen at creation, whereas the live weakest Brigade can
+    // change hands turn to turn and drag the whole army's rally point with it.
+    const anchorId = plan.mainEffortBrigadeId != null
+      ? plan.mainEffortBrigadeId
+      : (assessment.weakestOwnBrigade ? assessment.weakestOwnBrigade.id : null);
     for(const id of brigadeIds){
       const b = assessment.liveOwnBrigades.find(x=>x.id===id);
       const inRealTrouble = b && (b.exposure >= 1.5 || b.remaining <= 1);
-      missions[id] = inRealTrouble ? 'WITHDRAW' : (weakest && id===weakest.id ? 'HOLD' : 'RESERVE');
+      missions[id] = inRealTrouble ? 'WITHDRAW' : (id===anchorId ? 'HOLD' : 'RESERVE');
     }
+  } else if(plan.type==='FINISHING_BLOW'){
+    // Everything commits. Holding a Brigade in reserve when a single Brigade break
+    // ends the battle is saving a card for a hand that will not be played.
+    if(plan.mainEffortBrigadeId!=null) missions[plan.mainEffortBrigadeId] = 'MAIN_ATTACK';
+    for(const id of others) missions[id] = 'SUPPORT';
   } else if(plan.type==='DEFENSIVE'){
     for(const id of brigadeIds) missions[id] = (id===plan.mainEffortBrigadeId) ? 'HOLD' : 'SCREEN';
   } else if(plan.type==='MAIN_ATTACK' || plan.type==='BRIGADE_DESTRUCTION' || plan.type==='CAVALRY_EXPLOITATION'){
@@ -198,6 +307,48 @@ export function assignBrigadeMissions(side, plan, assessment){
   } else {
     // fallback: everyone holds
     for(const id of brigadeIds) missions[id] = 'HOLD';
+  }
+
+  /* --- COMMAND-STATE PASS ---
+     Missions above are assigned purely on brigadeId, which says nothing about
+     whether a Brigade can carry the order out. Two things make an offensive
+     mission unexecutable, and neither was visible to this function:
+
+       - a fighter off the adjacency chain back to its Brigadier cannot move at all
+       - a fighter in Square has forfeited its move phase whether connected or not,
+         and because it cannot move it also cannot repair a chain that runs through
+         it, so it freezes every unit behind it in the chain as well
+
+     A Brigade ordered to MAIN_ATTACK in that state sends its Brigadier forward
+     alone (he is connected to himself by definition, so nothing penalises him)
+     while his own battalions sit stranded. REGROUP reverses the direction: the
+     Brigadier rides back to the stalled units instead of the units being expected
+     to catch up, which is both the only mechanism available and the historically
+     correct one.
+
+     Deliberately NOT changed: the Square reform threshold in aiDecideAndExecuteMove
+     stays at threatPenalty < 0.8. Loosening it to repair a chain would push units
+     out of Square while Cavalry are still on them, which trades a stalled Brigade
+     for a destroyed one. */
+  const OFFENSIVE = new Set(['MAIN_ATTACK','FLANK','SUPPORT','FIX','COUNTERATTACK']);
+  let mainEffortRegrouped = false;
+  for(const id of brigadeIds){
+    if(!OFFENSIVE.has(missions[id])) continue;
+    const b = assessment.liveOwnBrigades.find(x=>x.id===id);
+    if(!b || !b.hasBrigadier) continue; // Brigadier down: survivors already act independently
+    if(b.effectiveRemaining === 0 || b.commandFraction < MIN_COMMAND_FRACTION_TO_ATTACK){
+      missions[id] = 'REGROUP';
+      if(id === plan.mainEffortBrigadeId) mainEffortRegrouped = true;
+    }
+  }
+  // If the main effort itself has come apart, hand the push to the best-placed
+  // Brigade still in command rather than leaving the plan with no one prosecuting
+  // it — that gap is another route into the same passive drift.
+  if(mainEffortRegrouped){
+    const relief = assessment.liveOwnBrigades
+      .filter(b=>missions[b.id] && missions[b.id]!=='REGROUP' && b.effectiveRemaining>0)
+      .sort((x,y)=>y.effectiveRemaining-x.effectiveRemaining)[0];
+    if(relief) missions[relief.id] = plan.type==='FIX_AND_FLANK' || plan.type==='FLANK_ATTACK' ? 'FLANK' : 'MAIN_ATTACK';
   }
   return missions;
 }
@@ -274,6 +425,25 @@ export function missionMoveBonus(u, side, pos, mission, plan){
         return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos)); }
     case 'COUNTERATTACK':
       return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.18 : 0;
+    case 'REGROUP': {
+      // Restore the command chain. The pull runs in opposite directions depending
+      // on who is deciding, which is the whole point: a stranded unit may well be
+      // unable to move at all, so the Brigadier has to be the one that closes the
+      // distance. Weighted above MAIN_ATTACK's 0.18 on purpose — a Brigade that
+      // cannot be ordered anywhere has nothing more valuable to be doing.
+      const brigade = assessment ? assessment.ownBrigades.find(b=>b.id===u.brigadeId) : null;
+      if(UNIT_TYPES[u.type].key === 'BRIGADIER'){
+        // strandedUnits is a snapshot taken at the top of the move phase, so filter
+        // casualties out at use time rather than steering the Brigadier at a corpse.
+        const stranded = brigade ? brigade.strandedUnits.filter(o=>!o.removed) : [];
+        if(!stranded.length) return 0;
+        const meanDist = stranded.reduce((s,o)=>s+chebyshev(pos,o),0) / stranded.length;
+        return Math.max(0, 8-meanDist) * 0.30;
+      }
+      const brig = state.units.find(o=>!o.removed && o.side===side && o.brigadeId===u.brigadeId && o.type==='BRIGADIER');
+      if(!brig) return 0;
+      return Math.max(0, 8-chebyshev(pos,brig)) * 0.22;
+    }
     default:
       return 0;
   }
