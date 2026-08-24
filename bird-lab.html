@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Ambient Layer — Bird Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --map-bg:#2a2f22; --map-cell:#3c4a34; --map-woods:#26361f;
+    --map-hill:#556b41; --map-field:#8a7d3f; --map-road:#8a7350;
+    --paper:#e2d6b3; --panel:#e9dfc4; --panel-3:#cfbd8c;
+    --ink:#2e2415; --ink-dim:#7a6b4d; --brass:#a8823f; --brass-dim:#8a6a34;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#1b1f17;
+    font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+  /* ---- stage: stands in for #boardWrap ---- */
+  #stage{flex:1;position:relative;overflow:hidden;background:var(--map-bg);
+    display:flex;align-items:center;justify-content:center;padding:8px;min-height:0;}
+  #fakeBoard{width:100%;height:100%;max-width:900px;border:1px solid rgba(0,0,0,.35);}
+
+  #hint{position:absolute;left:8px;top:8px;z-index:5;font-size:10px;
+    color:rgba(233,223,196,.45);letter-spacing:.04em;pointer-events:none;}
+
+  /* ---- inspector: both frames, hugely magnified ---- */
+  #inspector{position:absolute;right:8px;top:8px;z-index:5;display:none;
+    background:rgba(20,24,17,.82);border:1px solid var(--brass-dim);padding:6px;}
+  #inspector canvas{display:block;}
+  #inspector .lbl{font-size:9px;color:var(--panel-3);text-align:center;letter-spacing:.06em;}
+
+  /* ---- controls ---- */
+  #drawer{background:linear-gradient(180deg,var(--panel),#dccfa4);
+    border-top:2px solid var(--brass-dim);flex-shrink:0;
+    max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:env(safe-area-inset-bottom);}
+  #drawerHead{display:flex;align-items:center;gap:8px;padding:8px 10px;
+    position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--panel-3);z-index:2;}
+  #drawerHead h1{font-family:'Cinzel',serif;font-size:13px;margin:0;flex:1;letter-spacing:.06em;}
+  .collapsed #drawerBody{display:none;}
+
+  button{font-family:'IBM Plex Mono',monospace;font-size:11px;
+    border:1px solid var(--brass-dim);background:var(--paper);color:var(--ink);
+    padding:6px 9px;cursor:pointer;letter-spacing:.03em;}
+  button.on{background:var(--brass);color:#fff;border-color:var(--brass-dim);}
+  button:active{transform:translateY(1px);}
+
+  .row{display:flex;align-items:center;gap:8px;padding:5px 10px;}
+  .row label{font-size:10px;width:104px;flex-shrink:0;color:var(--ink-dim);letter-spacing:.03em;}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--brass);}
+  .row .val{font-size:10px;width:52px;text-align:right;font-weight:500;}
+  .grp{padding:7px 10px 2px;font-size:9px;letter-spacing:.14em;color:var(--brass-dim);
+    border-top:1px solid var(--panel-3);margin-top:4px;}
+  .btns{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;}
+  .sw{width:26px;height:26px;border:1px solid rgba(0,0,0,.4);padding:0;}
+  .sw.on{outline:2px solid var(--brass);outline-offset:1px;}
+
+  #out{margin:6px 10px 12px;padding:8px;background:#1b1f17;color:#c8d8b8;
+    font-size:9.5px;line-height:1.5;white-space:pre;overflow-x:auto;border:1px solid var(--brass-dim);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="fakeBoard"></div>
+    <div id="hint">AMBIENT LAYER · BIRD LAB</div>
+    <div id="inspector">
+      <div class="lbl">WINGS OUT</div><canvas id="insA" width="150" height="150"></canvas>
+      <div class="lbl">WINGS DOWN</div><canvas id="insB" width="150" height="150"></canvas>
+    </div>
+  </div>
+
+  <div id="drawer">
+    <div id="drawerHead">
+      <h1>Bird Lab</h1>
+      <button id="flyBtn">Fly Now</button>
+      <button id="loopBtn">Loop</button>
+      <button id="toggleBtn">Hide</button>
+    </div>
+    <div id="drawerBody">
+
+      <div class="grp">BACKDROP · check the silhouette against the worst case</div>
+      <div class="btns" id="swatches"></div>
+      <div class="btns">
+        <button id="insBtn">Frame Inspector</button>
+        <button id="freezeBtn">Freeze</button>
+      </div>
+
+      <div class="grp">SILHOUETTE</div>
+      <div class="row"><label>Wingspan px</label><input type="range" id="s_span" min="4" max="34" step="1"><span class="val" id="v_span"></span></div>
+      <div class="row"><label>Opacity</label><input type="range" id="s_alpha" min="0.15" max="1" step="0.01"><span class="val" id="v_alpha"></span></div>
+
+      <div class="grp">FLAP</div>
+      <div class="row"><label>Rate Hz</label><input type="range" id="s_hz" min="0.6" max="6" step="0.1"><span class="val" id="v_hz"></span></div>
+      <div class="row"><label>Wings-out %</label><input type="range" id="s_duty" min="0.3" max="0.9" step="0.01"><span class="val" id="v_duty"></span></div>
+      <div class="row"><label>Flaps/glide</label><input type="range" id="s_flaps" min="1" max="8" step="1"><span class="val" id="v_flaps"></span></div>
+      <div class="row"><label>Down-wing</label><input type="range" id="s_stub" min="0" max="0.6" step="0.01"><span class="val" id="v_stub"></span></div>
+      <div class="row"><label>Glide ms</label><input type="range" id="s_glide" min="200" max="3000" step="50"><span class="val" id="v_glide"></span></div>
+
+      <div class="grp">FLOCK</div>
+      <div class="row"><label>Size</label><input type="range" id="s_flock" min="1" max="6" step="1"><span class="val" id="v_flock"></span></div>
+      <div class="row"><label>Spacing</label><input type="range" id="s_space" min="0.8" max="6" step="0.1"><span class="val" id="v_space"></span></div>
+      <div class="row"><label>Trail lag</label><input type="range" id="s_lag" min="0" max="0.06" step="0.002"><span class="val" id="v_lag"></span></div>
+
+      <div class="grp">CROSSING</div>
+      <div class="row"><label>Duration s</label><input type="range" id="s_dur" min="4" max="60" step="1"><span class="val" id="v_dur"></span></div>
+      <div class="row"><label>Altitude ±</label><input type="range" id="s_alt" min="0" max="0.4" step="0.01"><span class="val" id="v_alt"></span></div>
+
+      <div class="grp">TRAJECTORY · force one path, or leave on Random</div>
+      <div class="btns" id="paths"></div>
+
+      <div class="grp">CURRENT VALUES · screenshot or copy this back to me</div>
+      <div id="out"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AmbientLayer, BIRD_CFG, drawBirdFrame } from './js/ambient-layer.js';
+
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+
+AmbientLayer.init(stage);
+AmbientLayer.start();
+
+/* Skip the 30–45s opening wait: this is a review tool, not a game. */
+AmbientLayer.flyNow();
+
+/* ---- backdrops. The woods swatch is the real test: it is the darkest
+   tile in the set, so it is where a dark silhouette is most at risk. ---- */
+const BACKDROPS = [
+  ['Tabletop','#2a2f22'], ['Grass','#3c4a34'], ['Woods','#26361f'],
+  ['Hill','#556b41'], ['Field','#8a7d3f'], ['Road','#8a7350'], ['Parchment','#e2d6b3'],
+];
+BACKDROPS.forEach(([name,col],i)=>{
+  const b = document.createElement('button');
+  b.className = 'sw' + (i===0?' on':'');
+  b.style.background = col; b.title = name;
+  b.onclick = ()=>{
+    stage.style.background = col;
+    [...$('swatches').children].forEach(c=>c.classList.remove('on'));
+    b.classList.add('on');
+  };
+  $('swatches').appendChild(b);
+});
+
+/* ---- forced trajectories ---- */
+let forcedPath = null;
+const mkPath = (label, idx) => {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = ()=>{
+    forcedPath = idx;
+    [...$('paths').children].forEach(c=>c.classList.remove('on'));
+    b.classList.add('on');
+    AmbientLayer.flyNow(idx == null ? undefined : idx);
+  };
+  if(idx === null) b.classList.add('on');
+  $('paths').appendChild(b);
+};
+mkPath('Random', null);
+for(let i=0;i<AmbientLayer.pathCount;i++) mkPath('P'+(i+1), i);
+
+/* ---- sliders bound straight to BIRD_CFG ---- */
+const BIND = [
+  ['s_span','v_span', v=>{ BIRD_CFG.WINGSPAN_MIN_PX=v; BIRD_CFG.WINGSPAN_MAX_PX=v; }, ()=>BIRD_CFG.WINGSPAN_MAX_PX, v=>v+'px'],
+  ['s_alpha','v_alpha', v=>BIRD_CFG.ALPHA=v, ()=>BIRD_CFG.ALPHA, v=>v.toFixed(2)],
+  ['s_hz','v_hz', v=>BIRD_CFG.FLAP_HZ=v, ()=>BIRD_CFG.FLAP_HZ, v=>v.toFixed(1)],
+  ['s_duty','v_duty', v=>BIRD_CFG.WINGS_OUT_DUTY=v, ()=>BIRD_CFG.WINGS_OUT_DUTY, v=>Math.round(v*100)+'%'],
+  ['s_flaps','v_flaps', v=>BIRD_CFG.FLAPS_PER_GLIDE=v, ()=>BIRD_CFG.FLAPS_PER_GLIDE, v=>v],
+  ['s_stub','v_stub', v=>BIRD_CFG.WING_STUB=v, ()=>BIRD_CFG.WING_STUB, v=>v.toFixed(2)],
+  ['s_glide','v_glide', v=>{ BIRD_CFG.GLIDE_MS_MIN=v*0.8; BIRD_CFG.GLIDE_MS_MAX=v*1.2; }, ()=>(BIRD_CFG.GLIDE_MS_MIN+BIRD_CFG.GLIDE_MS_MAX)/2, v=>Math.round(v)],
+  ['s_flock','v_flock', v=>{ BIRD_CFG.FLOCK_MIN=v; BIRD_CFG.FLOCK_MAX=v; }, ()=>BIRD_CFG.FLOCK_MAX, v=>v],
+  ['s_space','v_space', v=>BIRD_CFG.ECHELON_SPACING=v, ()=>BIRD_CFG.ECHELON_SPACING, v=>v.toFixed(1)],
+  ['s_lag','v_lag', v=>BIRD_CFG.ECHELON_LAG=v, ()=>BIRD_CFG.ECHELON_LAG, v=>v.toFixed(3)],
+  ['s_dur','v_dur', v=>{ BIRD_CFG.CROSSING_MS_MIN=v*1000; BIRD_CFG.CROSSING_MS_MAX=v*1000; }, ()=>BIRD_CFG.CROSSING_MS_MAX/1000, v=>v+'s'],
+  ['s_alt','v_alt', v=>BIRD_CFG.ALTITUDE_SWING=v, ()=>BIRD_CFG.ALTITUDE_SWING, v=>v.toFixed(2)],
+];
+
+/* Fix the wingspan in px rather than by ratio while tuning, so the slider
+   means what it says regardless of screen width. Ratio is restored in the
+   summary below. */
+BIRD_CFG.WINGSPAN_RATIO = 1;
+
+function refresh(){
+  BIND.forEach(([sid,vid,,get,fmt])=>{
+    const v = get();
+    $(sid).value = v;
+    $(vid).textContent = fmt(v);
+  });
+  const spanPx = BIRD_CFG.WINGSPAN_MAX_PX;
+  const stageW = stage.getBoundingClientRect().width;
+  $('out').textContent =
+`WINGSPAN_RATIO   : ${(spanPx/stageW).toFixed(4)}   (${spanPx}px on a ${Math.round(stageW)}px stage)
+WINGSPAN_MIN_PX  : ${Math.max(4, Math.round(spanPx*0.6))}
+WINGSPAN_MAX_PX  : ${Math.round(spanPx*1.4)}
+ALPHA            : ${BIRD_CFG.ALPHA.toFixed(2)}
+FLAP_HZ          : ${BIRD_CFG.FLAP_HZ.toFixed(1)}
+WINGS_OUT_DUTY   : ${BIRD_CFG.WINGS_OUT_DUTY.toFixed(2)}
+FLAPS_PER_GLIDE  : ${BIRD_CFG.FLAPS_PER_GLIDE}
+WING_STUB        : ${BIRD_CFG.WING_STUB.toFixed(2)}
+GLIDE_MS         : ${Math.round(BIRD_CFG.GLIDE_MS_MIN)} – ${Math.round(BIRD_CFG.GLIDE_MS_MAX)}
+FLOCK            : ${BIRD_CFG.FLOCK_MAX}
+ECHELON_SPACING  : ${BIRD_CFG.ECHELON_SPACING.toFixed(1)}
+ECHELON_LAG      : ${BIRD_CFG.ECHELON_LAG.toFixed(3)}
+CROSSING_MS      : ${Math.round(BIRD_CFG.CROSSING_MS_MAX)}
+ALTITUDE_SWING   : ${BIRD_CFG.ALTITUDE_SWING.toFixed(2)}`;
+}
+
+BIND.forEach(([sid,,set])=>{
+  $(sid).addEventListener('input', e=>{ set(parseFloat(e.target.value)); refresh();
+    if($('inspector').style.display==='block') drawInspector(); });
+});
+refresh();
+
+/* ---- buttons ---- */
+$('flyBtn').onclick = ()=> AmbientLayer.flyNow(forcedPath == null ? undefined : forcedPath);
+
+let looping = false, loopTimer = null;
+$('loopBtn').onclick = ()=>{
+  looping = !looping;
+  $('loopBtn').classList.toggle('on', looping);
+  clearInterval(loopTimer);
+  if(looping){
+    AmbientLayer.flyNow(forcedPath == null ? undefined : forcedPath);
+    loopTimer = setInterval(()=>AmbientLayer.flyNow(forcedPath == null ? undefined : forcedPath), 1200);
+  }
+};
+
+$('toggleBtn').onclick = ()=>{
+  document.body.classList.toggle('collapsed');
+  $('toggleBtn').textContent = document.body.classList.contains('collapsed') ? 'Show' : 'Hide';
+  setTimeout(()=>AmbientLayer.resize(), 60);
+};
+
+$('freezeBtn').onclick = ()=>{
+  if(AmbientLayer.isRunning){ AmbientLayer.suspend(); $('freezeBtn').classList.add('on'); }
+  else { AmbientLayer.resume(); $('freezeBtn').classList.remove('on'); }
+};
+
+/* ---- frame inspector: the two frames at 150px so the shape can actually
+   be judged, rather than guessed at from a 12px moving dot ---- */
+$('insBtn').onclick = ()=>{
+  const el = $('inspector');
+  const on = el.style.display !== 'block';
+  el.style.display = on ? 'block' : 'none';
+  $('insBtn').classList.toggle('on', on);
+  if(on) drawInspector();
+};
+
+function drawInspector(){
+  for(const [id, wingsOut] of [['insA', true], ['insB', false]]){
+    const c = $(id), x = c.getContext('2d');
+    x.clearRect(0,0,150,150);
+    x.fillStyle = 'rgba(233,223,196,.10)';
+    x.fillRect(0,0,150,150);
+    // Same renderer the game uses, just enormous and pointing north.
+    drawBirdFrame(x, 75, 75, 130, -Math.PI/2, wingsOut, 1);
+  }
+}
+</script>
+</body>
+</html>
