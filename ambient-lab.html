@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Ambient Layer — Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --map-bg:#2a2f22; --map-cell:#3c4a34; --map-woods:#26361f;
+    --paper:#e2d6b3; --panel:#e9dfc4; --panel-3:#cfbd8c;
+    --ink:#2e2415; --ink-dim:#7a6b4d; --brass:#a8823f; --brass-dim:#8a6a34;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#1b1f17;
+    font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+  /* Stands in for #boardWrap. isolation:isolate is applied by the module. */
+  #stage{flex:1;position:relative;overflow:hidden;background:var(--map-bg);
+    display:flex;align-items:center;justify-content:center;padding:14px;min-height:0;}
+
+  /* Stands in for #board. The shadow pass clips to this element's rect, so it
+     is deliberately inset from the stage: the gap around it is the tabletop,
+     and clouds should cross it while shadows must not. */
+  #board{width:100%;height:100%;max-width:900px;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 1px, transparent 1px 40px),
+      var(--map-cell);
+    border:1px solid rgba(0,0,0,.45);}
+
+  #hint{position:absolute;left:10px;top:10px;z-index:30;font-size:10px;
+    color:rgba(233,223,196,.42);letter-spacing:.04em;pointer-events:none;}
+  #readout{position:absolute;right:10px;top:10px;z-index:30;font-size:9.5px;
+    color:rgba(233,223,196,.55);text-align:right;pointer-events:none;line-height:1.6;}
+
+  #drawer{background:linear-gradient(180deg,var(--panel),#dccfa4);
+    border-top:2px solid var(--brass-dim);flex-shrink:0;
+    max-height:58vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:env(safe-area-inset-bottom);}
+  #drawerHead{display:flex;align-items:center;gap:6px;padding:8px 10px;
+    position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--panel-3);z-index:2;}
+  #drawerHead h1{font-family:'Cinzel',serif;font-size:13px;margin:0;flex:1;letter-spacing:.06em;}
+  .collapsed #drawerBody{display:none;}
+
+  button{font-family:'IBM Plex Mono',monospace;font-size:11px;
+    border:1px solid var(--brass-dim);background:var(--paper);color:var(--ink);
+    padding:6px 9px;cursor:pointer;letter-spacing:.03em;}
+  button.on{background:var(--brass);color:#fff;}
+  button:active{transform:translateY(1px);}
+
+  .row{display:flex;align-items:center;gap:8px;padding:5px 10px;}
+  .row label{font-size:10px;width:106px;flex-shrink:0;color:var(--ink-dim);letter-spacing:.03em;}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--brass);}
+  .row .val{font-size:10px;width:56px;text-align:right;font-weight:500;}
+  .grp{padding:7px 10px 2px;font-size:9px;letter-spacing:.14em;color:var(--brass-dim);
+    border-top:1px solid var(--panel-3);margin-top:4px;}
+  .note{padding:0 10px 4px;font-size:9.5px;color:var(--ink-dim);line-height:1.5;}
+  .btns{display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;}
+  .sw{width:26px;height:26px;border:1px solid rgba(0,0,0,.4);padding:0;}
+  .sw.on{outline:2px solid var(--brass);outline-offset:1px;}
+  #out{margin:6px 10px 14px;padding:8px;background:#1b1f17;color:#c8d8b8;
+    font-size:9.5px;line-height:1.5;white-space:pre;overflow-x:auto;border:1px solid var(--brass-dim);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="board"></div>
+    <div id="hint">AMBIENT LAB</div>
+    <div id="readout"></div>
+  </div>
+
+  <div id="drawer">
+    <div id="drawerHead">
+      <h1>Ambient Lab</h1>
+      <button id="fastBtn">Fast</button>
+      <button id="freezeBtn">Freeze</button>
+      <button id="toggleBtn">Hide</button>
+    </div>
+    <div id="drawerBody">
+
+      <div class="grp">TABLETOP · the surround is desk, the inner panel is board</div>
+      <div class="btns" id="swatches"></div>
+      <div class="note">Clouds should cross the whole stage. Shadows must stop dead at the board border. If a shadow touches the surround, that is a bug.</div>
+
+      <div class="grp">CLOUDS</div>
+      <div class="row"><label>Count</label><input type="range" id="c_count" min="1" max="8" step="1"><span class="val" id="v_count"></span></div>
+      <div class="row"><label>Opacity</label><input type="range" id="c_alpha" min="0.02" max="0.40" step="0.005"><span class="val" id="v_alpha"></span></div>
+      <div class="row"><label>Size</label><input type="range" id="c_width" min="0.15" max="1.20" step="0.01"><span class="val" id="v_width"></span></div>
+      <div class="row"><label>Speed</label><input type="range" id="c_speed" min="0.001" max="0.060" step="0.001"><span class="val" id="v_speed"></span></div>
+      <div class="row"><label>Wind angle</label><input type="range" id="c_wind" min="-180" max="180" step="1"><span class="val" id="v_wind"></span></div>
+
+      <div class="grp">SHADOWS</div>
+      <div class="row"><label>Opacity</label><input type="range" id="c_shalpha" min="0" max="0.40" step="0.005"><span class="val" id="v_shalpha"></span></div>
+      <div class="row"><label>Spread</label><input type="range" id="c_shscale" min="0.8" max="2.0" step="0.01"><span class="val" id="v_shscale"></span></div>
+      <div class="row"><label>Offset X</label><input type="range" id="c_shx" min="-0.4" max="0.4" step="0.01"><span class="val" id="v_shx"></span></div>
+      <div class="row"><label>Offset Y</label><input type="range" id="c_shy" min="-0.4" max="0.4" step="0.01"><span class="val" id="v_shy"></span></div>
+      <div class="btns">
+        <button id="shBtn" class="on">Shadows On</button>
+        <button id="soloBtn">Shadows Only</button>
+        <button id="reseedBtn">New Clouds</button>
+      </div>
+
+      <div class="grp">BIRDS · already tuned, here only to judge them together</div>
+      <div class="btns" id="species"></div>
+      <div class="btns" id="depth">
+        <button id="d_auto" class="on">Auto depth</button>
+        <button id="d_below">All below</button>
+        <button id="d_above">All above</button>
+      </div>
+      <div class="note">Auto uses the per-species chance: a pair almost always flies low, geese are an even split, a raptor usually soars above. Above-cloud birds are drawn smaller and fainter.</div>
+      <div class="btns"><button id="noBirdsBtn">Clear Sky</button></div>
+
+      <div class="grp">CURRENT VALUES · screenshot or copy this back to me</div>
+      <div id="out"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AmbientLayer, AmbientPref, CLOUD_CFG, SPECIES } from './js/ambient-layer.js';
+
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+
+// The lab must not inherit a previous "off" from the real game's Field Report
+// toggle, or it opens to an empty sky and looks broken.
+AmbientPref.enabled = true;
+
+AmbientLayer.init(stage, { boardEl: $('board') });
+AmbientLayer.start();
+
+/* ---- tabletop swatches ---- */
+[['Tabletop','#2a2f22'],['Dark walnut','#3b2a1c'],['Grass','#3c4a34'],
+ ['Woods','#26361f'],['Field','#8a7d3f'],['Parchment','#e2d6b3']]
+.forEach(([name,col],i)=>{
+  const b=document.createElement('button');
+  b.className='sw'+(i===0?' on':''); b.style.background=col; b.title=name;
+  b.onclick=()=>{ stage.style.background=col;
+    [...$('swatches').children].forEach(c=>c.classList.remove('on')); b.classList.add('on'); };
+  $('swatches').appendChild(b);
+});
+
+/* ---- species buttons ---- */
+Object.values(SPECIES).forEach(sp=>{
+  const b=document.createElement('button');
+  b.textContent=sp.label;
+  b.onclick=()=>AmbientLayer.flyNow(null, sp.key);
+  $('species').appendChild(b);
+});
+$('noBirdsBtn').onclick=()=>AmbientLayer.clear();
+
+[['d_auto',null],['d_below',false],['d_above',true]].forEach(([id,v])=>{
+  $(id).onclick=()=>{
+    AmbientLayer.forceDepth(v);
+    [...$('depth').children].forEach(c=>c.classList.remove('on'));
+    $(id).classList.add('on');
+  };
+});
+
+/* ---- sliders bound straight to CLOUD_CFG ---- */
+const BIND=[
+  ['c_count','v_count',   v=>{CLOUD_CFG.COUNT=v; AmbientLayer.reseedClouds();}, ()=>CLOUD_CFG.COUNT,          v=>v],
+  ['c_alpha','v_alpha',   v=>{tunedAlpha=v; applyModes();}, ()=>tunedAlpha,              v=>v.toFixed(3)],
+  ['c_width','v_width',   v=>CLOUD_CFG.WIDTH_RATIO=v,     ()=>CLOUD_CFG.WIDTH_RATIO,     v=>v.toFixed(2)],
+  ['c_speed','v_speed',   v=>{tunedSpeed=v; applyModes();}, ()=>tunedSpeed,              v=>v.toFixed(3)],
+  ['c_shalpha','v_shalpha',v=>CLOUD_CFG.SHADOW_ALPHA=v,   ()=>CLOUD_CFG.SHADOW_ALPHA,    v=>v.toFixed(3)],
+  ['c_shscale','v_shscale',v=>CLOUD_CFG.SHADOW_SCALE=v,   ()=>CLOUD_CFG.SHADOW_SCALE,    v=>v.toFixed(2)],
+  ['c_shx','v_shx',       v=>CLOUD_CFG.SHADOW_OFFSET_X=v, ()=>CLOUD_CFG.SHADOW_OFFSET_X, v=>v.toFixed(2)],
+  ['c_shy','v_shy',       v=>CLOUD_CFG.SHADOW_OFFSET_Y=v, ()=>CLOUD_CFG.SHADOW_OFFSET_Y, v=>v.toFixed(2)],
+];
+
+/* Fast and Shadows Only are VIEW modes, not tuning. They multiply the tuned
+   values on the way to the renderer and never overwrite them, so the readout
+   always reports what you actually chose. */
+let tunedAlpha = CLOUD_CFG.ALPHA, tunedSpeed = CLOUD_CFG.SPEED_RATIO;
+let fast = false, solo = false;
+const FAST_X = 12;
+function applyModes(){
+  CLOUD_CFG.ALPHA        = solo ? 0 : tunedAlpha;
+  CLOUD_CFG.SPEED_RATIO  = fast ? tunedSpeed * FAST_X : tunedSpeed;
+}
+
+let windDeg = 0;
+$('c_wind').addEventListener('input', e=>{
+  windDeg = parseFloat(e.target.value);
+  AmbientLayer.setWind(windDeg * Math.PI/180);
+  refresh();
+});
+
+function refresh(){
+  BIND.forEach(([sid,vid,,get,fmt])=>{ const v=get(); $(sid).value=v; $(vid).textContent=fmt(v); });
+  $('c_wind').value = windDeg;
+  $('v_wind').textContent = windDeg.toFixed(0)+'°';
+  $('out').textContent =
+`COUNT            : ${CLOUD_CFG.COUNT}
+ALPHA            : ${tunedAlpha.toFixed(3)}
+SHADOW_ALPHA     : ${CLOUD_CFG.SHADOW_ALPHA.toFixed(3)}
+WIDTH_RATIO      : ${CLOUD_CFG.WIDTH_RATIO.toFixed(2)}
+SPEED_RATIO      : ${tunedSpeed.toFixed(3)}${fast ? '   << FAST view on, this is the real value' : ''}
+SHADOW_SCALE     : ${CLOUD_CFG.SHADOW_SCALE.toFixed(2)}
+SHADOW_OFFSET_X  : ${CLOUD_CFG.SHADOW_OFFSET_X.toFixed(2)}
+SHADOW_OFFSET_Y  : ${CLOUD_CFG.SHADOW_OFFSET_Y.toFixed(2)}
+SHADOWS_ENABLED  : ${CLOUD_CFG.SHADOWS_ENABLED}`;
+}
+BIND.forEach(([sid,,set])=>$(sid).addEventListener('input',e=>{set(parseFloat(e.target.value));refresh();}));
+refresh();
+
+/* ---- buttons ---- */
+$('shBtn').onclick=()=>{
+  CLOUD_CFG.SHADOWS_ENABLED=!CLOUD_CFG.SHADOWS_ENABLED;
+  $('shBtn').classList.toggle('on',CLOUD_CFG.SHADOWS_ENABLED);
+  $('shBtn').textContent=CLOUD_CFG.SHADOWS_ENABLED?'Shadows On':'Shadows Off';
+  refresh();
+};
+
+// Judging a low-opacity shadow is much easier when the cloud casting it is
+// not sitting on top of it.
+$('soloBtn').onclick=()=>{
+  solo=!solo; $('soloBtn').classList.toggle('on',solo); applyModes(); refresh();
+};
+
+// Real drift is slow enough to be unreviewable in a short sitting. Fast runs
+// the view at 12x without touching the tuned value.
+$('fastBtn').onclick=()=>{
+  fast=!fast; $('fastBtn').classList.toggle('on',fast); applyModes(); refresh();
+};
+
+$('freezeBtn').onclick=()=>{
+  if(AmbientLayer.isRunning){AmbientLayer.suspend();$('freezeBtn').classList.add('on');}
+  else {AmbientLayer.resume();$('freezeBtn').classList.remove('on');}
+};
+
+$('reseedBtn').onclick=()=>AmbientLayer.reseedClouds(true);
+
+$('toggleBtn').onclick=()=>{
+  document.body.classList.toggle('collapsed');
+  $('toggleBtn').textContent=document.body.classList.contains('collapsed')?'Show':'Hide';
+  setTimeout(()=>AmbientLayer.resize(),60);
+};
+
+setInterval(()=>{
+  $('readout').textContent =
+    `clouds ${AmbientLayer.cloudCount} · birds ${AmbientLayer.inTheAir} (${AmbientLayer.aboveCloudCount} above)\n` +
+    `wind ${(AmbientLayer.windAngle*180/Math.PI).toFixed(0)}° · ` +
+    `shadow layer ${AmbientLayer.hasShadowLayer?'mounted':'MISSING'}`;
+}, 400);
+</script>
+</body>
+</html>
