@@ -288,9 +288,11 @@ const CLOUD_CFG = {
   SHADOW_ALPHA     : 0.27,
   SHADOWS_ENABLED  : true,
 
-  // Size, as a fraction of host width at scale 1. Clouds are big: a small
-  // cloud reads as a smudge, a large one reads as sky.
-  WIDTH_RATIO      : 0.43,
+  // Size, as a fraction of host width at scale 1. Halved from the original
+  // tuned 0.43 after seeing it over a real battle: at that size the cover
+  // competed with the terrain and the units for attention. 0.22 is the
+  // nearest step the lab's slider can express to exactly half.
+  WIDTH_RATIO      : 0.22,
   SCALE_MIN        : 0.80,
   SCALE_MAX        : 1.80,
 

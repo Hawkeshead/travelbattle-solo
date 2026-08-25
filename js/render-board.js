@@ -522,61 +522,6 @@ export function draw(){
     }
   }
 
-  // Hill: each cell independently shows one of 6 hill-mound tiles, bottom-
-  // anchored the same way Woods is (full cell width, up to 1.3 cells tall,
-  // bleeding upward only) — a standalone rocky mound per cell rather than
-  // the old connected-region outline.
-  for(let y=0;y<ROWS;y++){
-    const sy_ = sy(y);
-    for(let x=0;x<COLS;x++){
-      if(terrain[y][x]!=='HILL') continue;
-      const style = hillStyleIndex(x,y);
-      const img = UNIT_IMAGES['hill_'+style];
-      if(img && img.complete && img.naturalWidth>0){
-        // The source art fits its whole composition (ground platform plus
-        // trees) inside its bottom 1000x1000 square, leaving the 300px
-        // overflow band empty — so drawn at exactly one cell wide the trees
-        // stop dead at the cell's top edge and never overlap the tile above.
-        // Scaling past the cell fixes that: the platform grows to fill more
-        // of the square and the canopies genuinely break out over the
-        // neighbouring tile. The sideways spill lands on transparent canopy,
-        // not on the platform edge, so it reads as overhang rather than one
-        // tile covering another.
-        const w = CELL*WOODS_OVERSCAN;
-        const h = w*(img.naturalHeight/img.naturalWidth);
-        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
-      }
-    }
-  }
-
-  // Building: each cell independently shows one of 6 housing-cluster tiles,
-  // bottom-anchored and drawn at WOODS_OVERSCAN like Hill and Woods above.
-  // It used to draw at exactly one cell wide while every other feature drew at
-  // 1.3, rendering hamlets at 77% the size of the hills and woods beside them.
-  // The old height clamp went with it: at one cell wide min(CELL*1.3, w*ratio)
-  // was a no-op because the art is exactly 1.3:1, but at 1.3 cells wide the
-  // natural height is 1.69 cells and the clamp would have squashed every hamlet
-  // by 23% instead of enlarging it. Styles
-  // are assigned once per terrain generation (assignBuildingStyles, see
-  // ui-menus.js), not per-render, since the "never match an adjacent
-  // square" rule needs to know what neighbours already picked.
-  if(state.buildingStyles){
-    for(let y=0;y<ROWS;y++){
-      const sy_ = sy(y);
-      for(let x=0;x<COLS;x++){
-        if(terrain[y][x]!=='BUILDING') continue;
-        const style = state.buildingStyles[y][x];
-        if(!style) continue;
-        const img = UNIT_IMAGES['building_'+style];
-        if(img && img.complete && img.naturalWidth>0){
-          const w = CELL*WOODS_OVERSCAN;
-          const h = w*(img.naturalHeight/img.naturalWidth);
-          ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
-        }
-      }
-    }
-  }
-
   // Grass texture — a repeating blade pattern clipped to Road cells only
   // now; Open and Hill ground get their detail from the tile images above.
   ctx.save();
@@ -618,52 +563,6 @@ export function draw(){
       }
     }
     ctx.restore();
-  }
-
-  // Woods: each cell independently shows one of 6 pre-made Forest tile
-  // images (rather than the old procedural blob-and-canopy mass), bottom-
-  // anchored per the same board-square spec as unit icons — full cell width,
-  // up to 1.3 cells tall, bleeding upward only. Since terrain draws entirely
-  // before any unit (see the unit pass below), a unit standing in the square
-  // above a Woods tile naturally lands on top of any bleeding treetops with
-  // no special-case z-ordering needed. Infantry/Guard actually standing IN
-  // a Woods cell are drawn later, in the unit pass, as the troops-hidden
-  // variant of this same tile instead of their normal icon — see drawUnit.
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      if(terrain[y][x]!=='WOODS') continue;
-      const key = 'forest_notroops_' + woodsStyleIndex(x,y);
-      const img = UNIT_IMAGES[key];
-      const sy_ = sy(y);
-      if(img && img.complete && img.naturalWidth>0){
-        // Lay a grass tile down first. The forest art's own base doesn't
-        // quite reach the cell's top corners (the treeline curves inward
-        // there), and unlike an Open cell a Woods cell otherwise has nothing
-        // underneath it — so those corners showed the plain dark Open-terrain
-        // fallback fill instead of ground, which read as the tile "not
-        // filling its square". Same fix already applied to road dead-ends.
-        const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
-        if(gimg && gimg.complete && gimg.naturalWidth>0){
-          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
-        }
-        // The source art fits its whole composition (ground platform plus
-        // trees) inside its bottom 1000x1000 square, leaving the 300px
-        // overflow band empty — so drawn at exactly one cell wide the trees
-        // stop dead at the cell's top edge and never overlap the tile above.
-        // Scaling past the cell fixes that: the platform grows to fill more
-        // of the square and the canopies genuinely break out over the
-        // neighbouring tile. The sideways spill lands on transparent canopy,
-        // not on the platform edge, so it reads as overhang rather than one
-        // tile covering another.
-        const w = CELL*WOODS_OVERSCAN;
-        const h = w*(img.naturalHeight/img.naturalWidth);
-        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
-      } else {
-        // fallback while the image decodes: the old flat fill, no canopy detail
-        ctx.fillStyle = terrainColor('WOODS');
-        ctx.fillRect(x*CELL, sy_*CELL, CELL, CELL);
-      }
-    }
   }
 
   // Roads: tile art for genuine 2+ way connections (straight, corner, T,
@@ -745,6 +644,110 @@ export function draw(){
       }
     }
   }
+  /* ---------------------------------------------------------------------
+     RAISED FEATURES — one pass, ordered by SCREEN ROW.
+
+     Hill, Building and Woods all draw at WOODS_OVERSCAN: 1.3 cells wide,
+     1.69 tall, bottom-anchored, so each bleeds 15% of a cell to either side
+     and 0.69 of a cell upward over whatever is behind it.
+
+     They used to be three separate passes, run in type order with Ploughed,
+     the road texture and the road tile art interleaved between them. That
+     ordering has nothing to do with what is in front of what, so it produced
+     two visible faults once the tiles started bleeding:
+
+       - a Building on row 2 painted over a Hill on row 10, because the
+         Building pass simply ran later than the Hill pass
+       - Roads and Ploughed fields, running after Buildings, painted their
+         full CELL x CELL square straight over any village bleeding into
+         them, cutting a hard rectangular seam across the artwork
+
+     The second is why enlarging the hamlets appeared to fix some tiles and
+     not others: a village surrounded by Open grass looked right, because
+     grass draws before it. One touching a road or a field got a square
+     stamped over its corner.
+
+     Sorting by sy(y) rather than y is load-bearing. screenFlipActive()
+     inverts the board for the second player, and sorting on the raw row
+     would invert the entire depth order for them — everything in front
+     drawn behind — which is a hard fault to spot because it only appears on
+     a flipped board.
+
+     Ground passes (base fill, grass, road texture, Ploughed, road art) all
+     draw exactly CELL x CELL and stay where they are, above. Only these
+     three bleed, so only these three need ordering.
+  --------------------------------------------------------------------- */
+  const raisedFeatures = [];
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const key = terrain[y][x];
+      if(key==='HILL' || key==='BUILDING' || key==='WOODS'){
+        raisedFeatures.push({ x, y, key, sy_: sy(y) });
+      }
+    }
+  }
+  // Lower screen row last, so it lands on top of anything behind it. The x
+  // tiebreak only keeps the order deterministic within a row; nothing in a
+  // single row can overlap anything else in that row by more than the 15%
+  // side bleed, so it has no visual consequence.
+  raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.x - b.x);
+
+  for(const f of raisedFeatures){
+    const { x, y, key, sy_ } = f;
+
+    if(key === 'HILL'){
+      const img = UNIT_IMAGES['hill_'+hillStyleIndex(x,y)];
+      if(img && img.complete && img.naturalWidth>0){
+        // The source art fits its whole composition (ground platform plus
+        // trees) inside its bottom 1000x1000 square, leaving the 300px
+        // overflow band empty — so drawn at exactly one cell wide the trees
+        // stop dead at the cell's top edge and never overlap the tile above.
+        const w = CELL*WOODS_OVERSCAN;
+        const h = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+      }
+
+    } else if(key === 'BUILDING'){
+      const style = state.buildingStyles && state.buildingStyles[y][x];
+      if(!style) continue;
+      const img = UNIT_IMAGES['building_'+style];
+      if(img && img.complete && img.naturalWidth>0){
+        // Drawn at WOODS_OVERSCAN like Hill and Woods. It used to draw at
+        // exactly one cell wide while every other feature drew at 1.3, which
+        // rendered hamlets at 77% the size of the terrain beside them. The old
+        // height clamp went with it: at one cell wide min(CELL*1.3, w*ratio)
+        // was a no-op because the art is exactly 1.3:1, but at 1.3 cells wide
+        // the natural height is 1.69 cells and the clamp would have squashed
+        // every hamlet by 23% instead of enlarging it.
+        const w = CELL*WOODS_OVERSCAN;
+        const h = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+      }
+
+    } else { // WOODS
+      const imgKey = 'forest_notroops_' + woodsStyleIndex(x,y);
+      const img = UNIT_IMAGES[imgKey];
+      if(img && img.complete && img.naturalWidth>0){
+        // Lay a grass tile down first. The forest art's own base doesn't quite
+        // reach the cell's top corners (the treeline curves inward there), and
+        // unlike an Open cell a Woods cell otherwise has nothing underneath —
+        // so those corners showed the plain dark fallback fill. Confined to
+        // this cell, so it cannot disturb anything already drawn beside it.
+        const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
+        if(gimg && gimg.complete && gimg.naturalWidth>0){
+          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
+        }
+        const w = CELL*WOODS_OVERSCAN;
+        const h = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+      } else {
+        // fallback while the image decodes: the old flat fill, no canopy detail
+        ctx.fillStyle = terrainColor('WOODS');
+        ctx.fillRect(x*CELL, sy_*CELL, CELL, CELL);
+      }
+    }
+  }
+
   // Road and building connections are entirely tile art now — the old
   // hand-drawn brown strokes (per-edge curved road lines, the dot for an
   // isolated road cell, and the building-to-road connector lines) have all
