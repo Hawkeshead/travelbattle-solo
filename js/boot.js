@@ -1,7 +1,7 @@
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { sizeCanvas } from './render-board.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
-import { showModeSelect } from './ui-menus.js';
+import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 
 /* =========================================================
@@ -33,7 +33,14 @@ export function start(){
   }, { once:true });
 
   // Then either resume the campaign in progress or show the title screen.
-  const savedCampaignProgress = loadCampaignProgress();
+  //
+  // The OPERATIONS_ENABLED check matters as much as withdrawing the menu button:
+  // this path runs before any menu is drawn, so a player who already had a
+  // campaign saved would otherwise be dropped straight back into a parked
+  // feature on every single load, with no route out. The save itself is left
+  // alone rather than cleared — it is their progress, and it should still be
+  // there when Campaigns come back.
+  const savedCampaignProgress = OPERATIONS_ENABLED ? loadCampaignProgress() : null;
   if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
   } else {

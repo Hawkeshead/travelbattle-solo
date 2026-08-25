@@ -221,7 +221,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   expect(errors, `errors during AI deployment:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('resuming a saved campaign into a branch choice does not crash', async ({ page }) => {
+test('a saved campaign does not auto-resume while Campaigns are parked', async ({ page }) => {
   const errors = watchForErrors(page);
 
   // Seed a saved campaign sitting on flow step 1 of Flanders, which is a
@@ -243,17 +243,35 @@ test('resuming a saved campaign into a branch choice does not crash', async ({ p
 
   await page.goto('/');
 
-  // This boot path goes straight from boot.js into the campaign screens and
-  // never passes through showModeSelect, which is the only other thing that
-  // builds #modeChoices. Before ensureModeChoices() existed, the branch screen
-  // threw "Cannot set properties of null" here and the game died on load.
   await expect(page.locator('#modeChoices button').first()).toBeVisible({ timeout: 10_000 });
-
-  // Both branch options are offered, the locked one included.
   const labels = await page.locator('#modeChoices button').allTextContents();
-  expect(labels.length).toBeGreaterThanOrEqual(2);
 
-  expect(errors, `errors resuming a campaign:\n${errors.join('\n')}`).toEqual([]);
+  // While Operations and Campaigns are parked (OPERATIONS_ENABLED = false in
+  // js/ui-menus.js), boot.js must NOT auto-resume a saved campaign. That path
+  // runs before any menu is drawn, so a player with a save would otherwise be
+  // dropped into a withdrawn feature on every load with no route out.
+  //
+  // Asserting the title screen specifically, rather than just "some buttons
+  // exist": the original assertion here was `labels.length >= 2`, which the
+  // mode-select screen also satisfies, so with the resume path closed this test
+  // would have kept passing while testing nothing at all.
+  expect(labels).toContain('vs AI Opponent');
+  expect(labels).not.toContain('Operations');
+  expect(labels).not.toContain('Campaigns');
+
+  // The save itself is deliberately left in storage — it is the player's
+  // progress and must still be there when Campaigns return.
+  const stillSaved = await page.evaluate(() => localStorage.getItem('tbCampaignProgress'));
+  expect(stillSaved, 'the campaign save was destroyed rather than parked').not.toBeNull();
+
+  // WHEN OPERATIONS_ENABLED GOES BACK TO TRUE, restore the original assertions:
+  //   await expect(page.locator('#modeChoices button').first()).toBeVisible();
+  //   expect(labels.length).toBeGreaterThanOrEqual(2);
+  // They guarded the ensureModeChoices() fix — before it existed this boot path
+  // threw "Cannot set properties of null" and the game died on load. That fix
+  // is still in place; it is simply unreachable while the feature is parked.
+
+  expect(errors, `errors on boot with a saved campaign:\n${errors.join('\n')}`).toEqual([]);
 });
 
 test('the board is usable on a phone-sized viewport', async ({ page }) => {

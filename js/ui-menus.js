@@ -41,6 +41,18 @@ export function ensureModeChoices(){
   return extra;
 }
 
+/* Operations and Campaigns are parked.
+   TRIAGE.md C1: 12 of the 28 Operation side-rosters are too small to field the
+   3 Brigades of 2+ units that deployment demands, which makes 11 of the 14
+   Operations unreachable. The failure is silent and unrecoverable — no unit
+   chips render, Confirm stays disabled, and only a page reload gets out. The
+   AI path stalls mid-deployment with no log entry. Rather than leave a menu
+   entry that dead-ends the game, the entry points are withdrawn until the
+   roster question is settled.
+
+   Nothing downstream is deleted. Flip this to true to bring both back. */
+export const OPERATIONS_ENABLED = false;
+
 export function showModeSelect(isSplash){
   const box = document.querySelector('#overlay .box');
   const titleEl = document.getElementById('overlayTitle');
@@ -89,8 +101,14 @@ export function showModeSelect(isSplash){
   // and everything it needs is untouched, so this is just the one entry point
   // no longer being offered, easy to re-add later.
   extra.appendChild(aiBtn);
-  extra.appendChild(opsBtn);
-  extra.appendChild(campBtn);
+  // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
+  // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
+  // showCampaignMenu and everything downstream are untouched and still exported,
+  // so restoring them is deleting one line.
+  if(OPERATIONS_ENABLED){
+    extra.appendChild(opsBtn);
+    extra.appendChild(campBtn);
+  }
   extra.appendChild(grandBtn);
   document.getElementById('overlay').classList.add('show');
 }
