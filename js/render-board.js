@@ -489,7 +489,10 @@ export function draw(){
     for(let y=0;y<ROWS;y++){
       const sy_ = sy(y);
       for(let x=0;x<COLS;x++){
-        if(terrain[y][x]!=='OPEN') continue;
+        // BUILDING as well as OPEN — see assignGrassStyles. Drawn before the
+        // hamlet pass below, so the village plate lands on real grassland
+        // instead of the flat fallback fill.
+        if(terrain[y][x]!=='OPEN' && terrain[y][x]!=='BUILDING') continue;
         const style = state.grassStyles[y][x];
         if(!style) continue;
         const img = UNIT_IMAGES['grass_'+style];
@@ -528,8 +531,13 @@ export function draw(){
   }
 
   // Building: each cell independently shows one of 6 housing-cluster tiles,
-  // bottom-anchored the same way (full cell width, up to 1.3 cells tall,
-  // bleeding upward only — church steeples etc. need the headroom). Styles
+  // bottom-anchored and drawn at WOODS_OVERSCAN like Hill and Woods above.
+  // It used to draw at exactly one cell wide while every other feature drew at
+  // 1.3, rendering hamlets at 77% the size of the hills and woods beside them.
+  // The old height clamp went with it: at one cell wide min(CELL*1.3, w*ratio)
+  // was a no-op because the art is exactly 1.3:1, but at 1.3 cells wide the
+  // natural height is 1.69 cells and the clamp would have squashed every hamlet
+  // by 23% instead of enlarging it. Styles
   // are assigned once per terrain generation (assignBuildingStyles, see
   // ui-menus.js), not per-render, since the "never match an adjacent
   // square" rule needs to know what neighbours already picked.
@@ -542,8 +550,9 @@ export function draw(){
         if(!style) continue;
         const img = UNIT_IMAGES['building_'+style];
         if(img && img.complete && img.naturalWidth>0){
-          const w = CELL, h = Math.min(CELL*1.3, w*(img.naturalHeight/img.naturalWidth));
-          ctx.drawImage(img, x*CELL, sy_*CELL+CELL-h, w, h);
+          const w = CELL*WOODS_OVERSCAN;
+          const h = w*(img.naturalHeight/img.naturalWidth);
+          ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
         }
       }
     }

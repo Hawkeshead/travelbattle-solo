@@ -171,7 +171,16 @@ export function assignGrassStyles(terrain){
   }
 
   const cells = [];
-  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(terrain[y][x]==='OPEN') cells.push([x,y]);
+  // BUILDING cells get a grass style as well as OPEN ones. The hamlet tiles are
+  // a rounded plaque floating inside their frame — the artwork never exceeds 89%
+  // of its own width and stops short of the bottom edge entirely — so there is a
+  // permanent transparent margin around every one, at any scale. Without real
+  // grass beneath, that margin shows the flat terrainColor fill as a grey square
+  // around each village. Scaling the tile up cannot close it: bottom-anchoring
+  // means a larger tile samples a narrower strip of the frame, so coverage
+  // actually falls away above 1.3x rather than improving.
+  const GRASS_UNDER = new Set(['OPEN','BUILDING']);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(GRASS_UNDER.has(terrain[y][x])) cells.push([x,y]);
   for(let i=cells.length-1;i>0;i--){
     const j = Math.floor(Math.random()*(i+1));
     [cells[i],cells[j]] = [cells[j],cells[i]];
