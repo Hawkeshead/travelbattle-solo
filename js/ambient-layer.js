@@ -107,14 +107,51 @@ export const CROSSING_JITTER = 0.12;
    mid-battle takes effect on the next frame instead of on the next match.
 --------------------------------------------------------- */
 const PREF_KEY = 'fc:ambientMotion';
+
+function prefersReducedMotion(){
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  catch { return false; }
+}
+
+/* Resolved once and invalidated on change rather than recomputed per frame:
+   the gate below runs every animation frame, and localStorage.getItem is a
+   synchronous, disk-backed call. Caching is still immediate because the only
+   two things that can change the answer both invalidate it. */
+let prefCache = null;
+function resolvePref(){
+  if(prefCache !== null) return prefCache;
+  let stored = null;
+  try { stored = localStorage.getItem(PREF_KEY); } catch { /* private mode */ }
+  prefCache = (stored === 'on' || stored === 'off')
+    ? stored === 'on'
+    // Reduce Motion sets the DEFAULT only. It used to veto the layer outright,
+    // which was defensible when there was no user control — but now that the
+    // Field Report carries an Ambient Motion switch, a player who deliberately
+    // turns birds ON and sees nothing has no way to discover why. An explicit
+    // choice always wins; the accessibility default still protects anyone who
+    // never opens the menu.
+    : !prefersReducedMotion();
+  return prefCache;
+}
+
+try {
+  window.matchMedia('(prefers-reduced-motion: reduce)')
+        .addEventListener?.('change', () => { prefCache = null; });
+} catch { /* matchMedia unavailable */ }
+
 export const AmbientPref = {
-  get enabled(){
-    try { return localStorage.getItem(PREF_KEY) !== 'off'; }   // default ON
-    catch { return true; }                                     // private mode / storage disabled
-  },
+  get enabled(){ return resolvePref(); },
   set enabled(v){
+    prefCache = !!v;
     try { localStorage.setItem(PREF_KEY, v ? 'on' : 'off'); } catch { /* nothing we can do */ }
   },
+  /* Whether the player has ever made a choice, as opposed to inheriting the
+     accessibility default. Useful for diagnostics. */
+  get isExplicit(){
+    try { const v = localStorage.getItem(PREF_KEY); return v === 'on' || v === 'off'; }
+    catch { return false; }
+  },
+  get reducedMotion(){ return prefersReducedMotion(); },
 };
 
 /* ---------------------------------------------------------
@@ -341,7 +378,6 @@ export const AmbientLayer = (() => {
   let cssW = 0, cssH = 0, dpr = 1;
   let flyovers = [], nextLaunchAt = 0;
   let running = false;
-  let reducedMotion = false;
   let ro = null;
 
   function resize(){
@@ -383,7 +419,7 @@ export const AmbientLayer = (() => {
       return;
     }
 
-    if(now >= nextLaunchAt && !reducedMotion && flyovers.length < BIRD_CFG.MAX_CONCURRENT){
+    if(now >= nextLaunchAt && flyovers.length < BIRD_CFG.MAX_CONCURRENT){
       const inTheAir = flyovers.length ? flyovers[0].species.key : null;
       flyovers.push(newFlyover(null, null, inTheAir));
       nextLaunchAt = now + rand(BIRD_CFG.LAUNCH_GAP_MS_MIN, BIRD_CFG.LAUNCH_GAP_MS_MAX);
@@ -438,14 +474,18 @@ export const AmbientLayer = (() => {
       cv.id = 'ambientLayer';
       // pointer-events:none is the single highest-risk line in this file.
       // Without it the sky silently eats every tap on the board.
+      //
+      // z-index 10 sits deliberately between the map and the chrome. The board
+      // canvas is static (its transform paints it at the 0 level) so birds pass
+      // over terrain, units and portraits; every piece of UI in the app starts
+      // at 20 (dice popup, corner buttons, unit panel, Field Report, modals) so
+      // all of it occludes them. 10 leaves headroom on both sides — the old
+      // value of 2 sat one step off the board and would have been covered by
+      // the first stray z-index:3 anyone added.
       cv.style.cssText =
-        'position:absolute;left:0;top:0;pointer-events:none;z-index:2;';
+        'position:absolute;left:0;top:0;pointer-events:none;z-index:10;';
       host.appendChild(cv);
       ctx = cv.getContext('2d');
-
-      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-      reducedMotion = mq.matches;
-      mq.addEventListener?.('change', e => { reducedMotion = e.matches; });
 
       resize();
       if(window.ResizeObserver){
