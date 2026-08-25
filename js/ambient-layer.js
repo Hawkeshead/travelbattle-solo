@@ -21,47 +21,100 @@
    nowhere else. Mutated live by bird-lab.html.
 --------------------------------------------------------- */
 export const BIRD_CFG = {
-  // Size. Ratio of the ambient canvas width, then clamped, so it survives
-  // orientation changes and the two-board field without re-tuning.
-  WINGSPAN_RATIO   : 0.018,
-  WINGSPAN_MIN_PX  : 7,
-  WINGSPAN_MAX_PX  : 16,
+  // Shared across every species. Anything that varies by bird lives in SPECIES.
+  ALPHA            : 1.00,
+  GLIDE_MS_MIN     : 2400,
+  GLIDE_MS_MAX     : 3600,
+  FLAP_RATE_JITTER : 0.08,   // +/- per bird, so a flock never syncs
 
-  // Silhouette. Not pure black: at this size pure black over the cel-shaded
-  // tiles reads as a dead pixel rather than a bird.
-  COLOUR           : '#2A2620',
-  ALPHA            : 0.62,
+  // Beak length in local wingspan units. Anatomically this should be about
+  // 0.075, which at a 10px wingspan is 0.8 of a pixel: it does not read as a
+  // beak, it just smears the nose slightly warm. Oversized on purpose, the same
+  // caricature logic as the unit icons.
+  BEAK_LEN         : 0.07,
+  BEAK_HALF_W      : 0.030,
 
-  // Two-frame flap. WINGS_OUT_DUTY is the fraction of each flap cycle spent
-  // in the wings-out frame; above 0.5 because the powered downstroke (wings
-  // hidden) is faster than the recovery.
-  FLAP_HZ          : 2.5,
-  WINGS_OUT_DUTY   : 0.65,
-  FLAPS_PER_GLIDE  : 3,
-  // How much wing is still visible on the downstroke. 0 gives a pure
-  // body-only frame; at small sizes that flickers rather than flaps,
-  // so a short stub reads better. Tune this one by eye.
-  WING_STUB        : 0.22,
-  GLIDE_MS_MIN     : 800,
-  GLIDE_MS_MAX     : 1200,
-  FLAP_RATE_JITTER : 0.08,   // +/- per bird, so the flock never syncs
+  // Fade. Paths begin and end outside 0..1, so a bird is already off-canvas for
+  // roughly the first and last tenth of its crossing. Ramping opacity across a
+  // slightly wider band than that means it fades up as it comes over the board
+  // edge rather than snapping into existence at the boundary.
+  FADE_FRACTION    : 0.19,
 
-  // Flock. Loose echelon, never a V.
-  FLOCK_MIN        : 2,
-  FLOCK_MAX        : 3,
-  ECHELON_SPACING  : 2.2,    // wingspans between birds, laterally
-  ECHELON_LAG      : 0.014,  // fraction of the crossing each follower trails
+  // How many crossings may be in the air simultaneously. A second flyover is
+  // always forced to a different species from the one already up, so two
+  // identical formations never share the sky.
+  MAX_CONCURRENT   : 2,
 
-  // Crossing.
-  CROSSING_MS_MIN  : 18000,
-  CROSSING_MS_MAX  : 30000,
-  ALTITUDE_SWING   : 0.10,   // +/- scale across the crossing, implies height change
-
-  // Scheduling.
+  // Scheduling. LAUNCH is the gap between crossings STARTING, not between one
+  // ending and the next beginning, which is what produces the occasional overlap.
   FIRST_DELAY_MS_MIN : 30000,
   FIRST_DELAY_MS_MAX : 45000,
-  DORMANT_MS_MIN     : 60000,
-  DORMANT_MS_MAX     : 120000,
+  // Must sit BELOW the shortest crossing (17s, the raptor) or a second bird can
+  // never get up while the first is still in the air and MAX_CONCURRENT is dead
+  // code. Mean gap is still longer than a crossing, so one bird is the normal
+  // state and two is an occasional overlap rather than the default.
+  LAUNCH_GAP_MS_MIN  : 12000,
+  LAUNCH_GAP_MS_MAX  : 60000,
+};
+
+/* ---------------------------------------------------------
+   SPECIES
+   Three birds, tuned on device in the review harness. Every value here was
+   read off the lab's own summary block, not invented.
+
+   WEIGHT is relative selection frequency, nothing more: a pair of small birds
+   is the everyday sight, geese are a occasional event, and a lone hunter is
+   the rare one worth looking up for.
+--------------------------------------------------------- */
+export const SPECIES = {
+  PAIR: {
+    key:'PAIR', label:'Pair',
+    COLOUR:'#7A3B2E', BEAK:'#1A1713',        // muddy red body, black beak
+    WEIGHT: 5,
+    WINGSPAN_RATIO:0.0254, WINGSPAN_MIN_PX:6, WINGSPAN_MAX_PX:14,
+    FLAP_HZ:3.4, WINGS_OUT_DUTY:0.65, FLAPS_PER_GLIDE:6, WING_STUB:0.30,
+    FLOCK_MIN:2, FLOCK_MAX:2, ECHELON_SPACING:1.1, ECHELON_LAG:0.008,
+    CROSSING_MS:24000, ALTITUDE_SWING:0.26,
+  },
+  GEESE: {
+    key:'GEESE', label:'Geese',
+    COLOUR:'#C9C6BC', BEAK:'#E0A63C',        // whitish grey body, yellow beak
+    WEIGHT: 3,
+    WINGSPAN_RATIO:0.0382, WINGSPAN_MIN_PX:9, WINGSPAN_MAX_PX:21,
+    FLAP_HZ:2.4, WINGS_OUT_DUTY:0.40, FLAPS_PER_GLIDE:5, WING_STUB:0.29,
+    FLOCK_MIN:5, FLOCK_MAX:5, ECHELON_SPACING:1.9, ECHELON_LAG:0.020,
+    CROSSING_MS:24000, ALTITUDE_SWING:0.26,
+  },
+  RAPTOR: {
+    key:'RAPTOR', label:'Raptor',
+    COLOUR:'#6B4A2F', BEAK:'#E0A63C',        // brown body, yellow beak
+    WEIGHT: 1.5,
+    WINGSPAN_RATIO:0.0509, WINGSPAN_MIN_PX:12, WINGSPAN_MAX_PX:28,
+    FLAP_HZ:2.4, WINGS_OUT_DUTY:0.76, FLAPS_PER_GLIDE:2, WING_STUB:0.30,
+    FLOCK_MIN:1, FLOCK_MAX:1, ECHELON_SPACING:1.9, ECHELON_LAG:0.020,
+    CROSSING_MS:17000, ALTITUDE_SWING:0.17,
+  },
+};
+
+// Crossing times were tuned as single values. Repeating one to the millisecond
+// every time reads as mechanical, so each crossing is jittered by this much
+// around the tuned figure. Set to 0 to fly exactly the tuned duration.
+export const CROSSING_JITTER = 0.12;
+
+/* ---------------------------------------------------------
+   PREFERENCE
+   Read through a getter every time rather than cached at init, so toggling it
+   mid-battle takes effect on the next frame instead of on the next match.
+--------------------------------------------------------- */
+const PREF_KEY = 'fc:ambientMotion';
+export const AmbientPref = {
+  get enabled(){
+    try { return localStorage.getItem(PREF_KEY) !== 'off'; }   // default ON
+    catch { return true; }                                     // private mode / storage disabled
+  },
+  set enabled(v){
+    try { localStorage.setItem(PREF_KEY, v ? 'on' : 'off'); } catch { /* nothing we can do */ }
+  },
 };
 
 /* ---------------------------------------------------------
@@ -133,7 +186,8 @@ function pathTail(ctx){
 }
 
 /* Wings at extension `ext`: 1.0 is fully out, and the down frame uses
-   BIRD_CFG.WING_STUB. Set WING_STUB to 0 for a pure body-only down frame. */
+   the species' own WING_STUB. Set a species' WING_STUB to 0 for a pure
+   body-only down frame. */
 function pathWings(ctx, ext){
   if(ext <= 0.001) return;
   for(const s of [1,-1]){
@@ -149,26 +203,45 @@ function pathWings(ctx, ext){
   }
 }
 
-function drawBird(ctx, x, y, wingspan, heading, wingsOut, colour, alpha){
+/* The beak. Drawn as its own fill in its own colour, after the body, so it
+   reads as a coloured tip rather than tinting the whole nose. */
+function pathBeak(ctx){
+  const L = BIRD_CFG.BEAK_LEN, W = BIRD_CFG.BEAK_HALF_W;
+  // Base sits INSIDE the body (0.28 < the body's 0.32 nose) so there is never a
+  // seam between the two fills at small sizes or under anti-aliasing.
+  ctx.moveTo(0.28,  W);
+  ctx.lineTo(0.32 + L, 0);
+  ctx.lineTo(0.28, -W);
+  ctx.closePath();
+}
+
+function drawBird(ctx, x, y, wingspan, heading, wingsOut, sp, alpha){
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(heading);
   ctx.scale(wingspan, wingspan);
-  ctx.fillStyle = colour;
   ctx.globalAlpha = alpha;
+
+  ctx.fillStyle = sp.COLOUR;
   ctx.beginPath();
   pathBody(ctx);
   pathTail(ctx);
-  pathWings(ctx, wingsOut ? 1 : BIRD_CFG.WING_STUB);
+  pathWings(ctx, wingsOut ? 1 : sp.WING_STUB);
   ctx.fill();
+
+  ctx.fillStyle = sp.BEAK;
+  ctx.beginPath();
+  pathBeak(ctx);
+  ctx.fill();
+
   ctx.restore();
 }
 
 /* Exposed so the review harness can magnify the exact same geometry the
    game draws, rather than a copy of it that can drift out of step. */
-export function drawBirdFrame(ctx, x, y, size, heading, wingsOut, alpha){
-  drawBird(ctx, x, y, size, heading, wingsOut, BIRD_CFG.COLOUR,
-           alpha == null ? BIRD_CFG.ALPHA : alpha);
+export function drawBirdFrame(ctx, x, y, size, heading, wingsOut, speciesKey, alpha){
+  const sp = SPECIES[speciesKey] || SPECIES.PAIR;
+  drawBird(ctx, x, y, size, heading, wingsOut, sp, alpha == null ? BIRD_CFG.ALPHA : alpha);
 }
 
 /* ---------------------------------------------------------
@@ -177,22 +250,22 @@ export function drawBirdFrame(ctx, x, y, size, heading, wingsOut, alpha){
    metronomes immediately; three flaps then a glide is what a real bird
    at distance actually looks like.
 --------------------------------------------------------- */
-function newFlapState(){
+function newFlapState(sp){
   return {
     mode        : 'flapping',
-    flapsLeft   : BIRD_CFG.FLAPS_PER_GLIDE,
+    flapsLeft   : sp.FLAPS_PER_GLIDE,
     cyclePhase  : Math.random(),                                        // desync at birth
     rate        : 1 + rand(-BIRD_CFG.FLAP_RATE_JITTER, BIRD_CFG.FLAP_RATE_JITTER),
     glideUntil  : 0,
   };
 }
 
-function stepFlap(f, dtMs, now){
+function stepFlap(f, dtMs, now, sp){
   if(f.mode === 'gliding'){
-    if(now >= f.glideUntil){ f.mode = 'flapping'; f.flapsLeft = BIRD_CFG.FLAPS_PER_GLIDE; f.cyclePhase = 0; }
+    if(now >= f.glideUntil){ f.mode = 'flapping'; f.flapsLeft = sp.FLAPS_PER_GLIDE; f.cyclePhase = 0; }
     return true; // wings out throughout the glide
   }
-  const cycleMs = 1000 / (BIRD_CFG.FLAP_HZ * f.rate);
+  const cycleMs = 1000 / (sp.FLAP_HZ * f.rate);
   f.cyclePhase += dtMs / cycleMs;
   while(f.cyclePhase >= 1){
     f.cyclePhase -= 1;
@@ -202,7 +275,7 @@ function stepFlap(f, dtMs, now){
       return true;
     }
   }
-  return f.cyclePhase < BIRD_CFG.WINGS_OUT_DUTY;
+  return f.cyclePhase < sp.WINGS_OUT_DUTY;
 }
 
 /* ---------------------------------------------------------
@@ -212,7 +285,16 @@ function stepFlap(f, dtMs, now){
    lateral offset. Free, and indistinguishable from real flocking at
    this scale.
 --------------------------------------------------------- */
-function newFlyover(pathIndex){
+function pickSpecies(excludeKey){
+  const pool = Object.values(SPECIES).filter(sp => sp.key !== excludeKey);
+  const total = pool.reduce((t,sp)=>t+sp.WEIGHT, 0);
+  let r = Math.random()*total;
+  for(const sp of pool){ r -= sp.WEIGHT; if(r <= 0) return sp; }
+  return pool[pool.length-1];
+}
+
+function newFlyover(speciesKey, pathIndex, excludeKey){
+  const sp = SPECIES[speciesKey] || pickSpecies(excludeKey);
   const base = PATHS[pathIndex != null ? pathIndex : randI(0, PATHS.length-1)];
   const jitterY = rand(-0.08, 0.08);
   const path = {
@@ -220,21 +302,34 @@ function newFlyover(pathIndex){
     cp: { x: base.cp.x, y: base.cp.y + jitterY },
     p1: { x: base.p1.x, y: base.p1.y + jitterY },
   };
-  const size = randI(BIRD_CFG.FLOCK_MIN, BIRD_CFG.FLOCK_MAX);
+  const size = randI(sp.FLOCK_MIN, sp.FLOCK_MAX);
   const birds = [];
   for(let i=0; i<size; i++){
     birds.push({
-      lag     : i * BIRD_CFG.ECHELON_LAG,
-      lateral : (i === 0 ? 0 : (i % 2 ? 1 : -1) * BIRD_CFG.ECHELON_SPACING * rand(0.75, 1.35)),
-      flap    : newFlapState(),
+      lag     : i * sp.ECHELON_LAG,
+      lateral : (i === 0 ? 0 : (i % 2 ? 1 : -1) * sp.ECHELON_SPACING * rand(0.75, 1.35)),
+      flap    : newFlapState(sp),
     });
   }
+  const j = CROSSING_JITTER;
   return {
+    species: sp,
     path,
     birds,
     t         : 0,
-    durationMs: rand(BIRD_CFG.CROSSING_MS_MIN, BIRD_CFG.CROSSING_MS_MAX),
+    durationMs: sp.CROSSING_MS * rand(1-j, 1+j),
   };
+}
+
+/* Opacity envelope across a crossing: up over the first FADE_FRACTION, full
+   through the middle, down over the last. Without it a bird pops into and out
+   of existence at the canvas boundary. */
+function fadeAt(t){
+  const f = BIRD_CFG.FADE_FRACTION;
+  if(f <= 0) return 1;
+  if(t < f)     return Math.max(0, t / f);
+  if(t > 1 - f) return Math.max(0, (1 - t) / f);
+  return 1;
 }
 
 /* ---------------------------------------------------------
@@ -244,7 +339,7 @@ export const AmbientLayer = (() => {
   let host = null, cv = null, ctx = null;
   let raf = null, lastT = 0;
   let cssW = 0, cssH = 0, dpr = 1;
-  let flyover = null, nextFlyoverAt = 0;
+  let flyovers = [], nextLaunchAt = 0;
   let running = false;
   let reducedMotion = false;
   let ro = null;
@@ -262,10 +357,10 @@ export const AmbientLayer = (() => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  function wingspanPx(){
+  function wingspanPx(sp){
     return Math.max(
-      BIRD_CFG.WINGSPAN_MIN_PX,
-      Math.min(BIRD_CFG.WINGSPAN_MAX_PX, cssW * BIRD_CFG.WINGSPAN_RATIO)
+      sp.WINGSPAN_MIN_PX,
+      Math.min(sp.WINGSPAN_MAX_PX, cssW * sp.WINGSPAN_RATIO)
     );
   }
 
@@ -276,39 +371,57 @@ export const AmbientLayer = (() => {
 
     ctx.clearRect(0, 0, cssW, cssH);
 
-    if(!flyover && now >= nextFlyoverAt && !reducedMotion){
-      flyover = newFlyover();
+    // Launch. Gated on MAX_CONCURRENT rather than on the sky being empty, which
+    // is what lets two crossings overlap. The second is forced to a different
+    // species so two identical formations never share the board.
+    // Checked per frame, not per session: the Field Report toggle takes effect
+    // immediately. Turning it off also clears anything already in the air rather
+    // than letting a bird finish its crossing after the player said no.
+    if(!AmbientPref.enabled){
+      if(flyovers.length) flyovers.length = 0;
+      raf = requestAnimationFrame(tick);
+      return;
     }
 
-    if(flyover){
-      flyover.t += dt / flyover.durationMs;
-      if(flyover.t >= 1 + BIRD_CFG.ECHELON_LAG * flyover.birds.length){
-        flyover = null;
-        nextFlyoverAt = now + rand(BIRD_CFG.DORMANT_MS_MIN, BIRD_CFG.DORMANT_MS_MAX);
-      } else {
-        const W = wingspanPx();
-        // Birds are drawn BEFORE the cloud pass will be, so a bird passing
-        // under a cloud is dimmed by the cloud's own alpha for free.
-        for(const b of flyover.birds){
-          const t = flyover.t - b.lag;
-          if(t < 0 || t > 1) { stepFlap(b.flap, dt, now); continue; }
+    if(now >= nextLaunchAt && !reducedMotion && flyovers.length < BIRD_CFG.MAX_CONCURRENT){
+      const inTheAir = flyovers.length ? flyovers[0].species.key : null;
+      flyovers.push(newFlyover(null, null, inTheAir));
+      nextLaunchAt = now + rand(BIRD_CFG.LAUNCH_GAP_MS_MIN, BIRD_CFG.LAUNCH_GAP_MS_MAX);
+    }
 
-          const p   = bezier(flyover.path, t);
-          const tan = bezierTangent(flyover.path, t);
-          const heading = Math.atan2(tan.y, tan.x);
+    for(let i = flyovers.length - 1; i >= 0; i--){
+      const fo = flyovers[i];
+      const sp = fo.species;
+      fo.t += dt / fo.durationMs;
+      if(fo.t >= 1 + sp.ECHELON_LAG * fo.birds.length){
+        flyovers.splice(i, 1);
+        continue;
+      }
+      const W = wingspanPx(sp);
+      // Birds are drawn BEFORE the cloud pass will be, so a bird passing
+      // under a cloud is dimmed by the cloud's own alpha for free.
+      for(const b of fo.birds){
+        const t = fo.t - b.lag;
+        if(t < 0 || t > 1) { stepFlap(b.flap, dt, now, sp); continue; }
 
-          // Lateral offset is perpendicular to heading, so the echelon holds
-          // its shape through a curve instead of collapsing on the bends.
-          const px = p.x * cssW + Math.cos(heading + Math.PI/2) * b.lateral * W;
-          const py = p.y * cssH + Math.sin(heading + Math.PI/2) * b.lateral * W;
+        const p   = bezier(fo.path, t);
+        const tan = bezierTangent(fo.path, t);
+        const heading = Math.atan2(tan.y, tan.x);
 
-          const altitude = 1 + Math.sin(t * Math.PI) * BIRD_CFG.ALTITUDE_SWING * (b.lag ? 1 : 1);
-          const wingsOut = stepFlap(b.flap, dt, now);
+        // Lateral offset is perpendicular to heading, so the echelon holds
+        // its shape through a curve instead of collapsing on the bends.
+        const px = p.x * cssW + Math.cos(heading + Math.PI/2) * b.lateral * W;
+        const py = p.y * cssH + Math.sin(heading + Math.PI/2) * b.lateral * W;
 
-          // Deliberately NOT snapped to integer pixels: at this size rounding
-          // produces visible jitter. Subpixel plus anti-aliasing is smoother.
-          drawBird(ctx, px, py, W * altitude, heading, wingsOut, BIRD_CFG.COLOUR, BIRD_CFG.ALPHA);
-        }
+        const altitude = 1 + Math.sin(t * Math.PI) * sp.ALTITUDE_SWING;
+        const wingsOut = stepFlap(b.flap, dt, now, sp);
+        // Fade is per BIRD, not per flyover, so a trailing goose is still
+        // fading up while the leader is already at full opacity.
+        const alpha = BIRD_CFG.ALPHA * fadeAt(t);
+
+        // Deliberately NOT snapped to integer pixels: at this size rounding
+        // produces visible jitter. Subpixel plus anti-aliasing is smoother.
+        drawBird(ctx, px, py, W * altitude, heading, wingsOut, sp, alpha);
       }
     }
 
@@ -347,7 +460,7 @@ export const AmbientLayer = (() => {
       if(running || !cv) return;
       running = true;
       lastT = 0;
-      nextFlyoverAt = performance.now() +
+      nextLaunchAt = performance.now() +
         rand(BIRD_CFG.FIRST_DELAY_MS_MIN, BIRD_CFG.FIRST_DELAY_MS_MAX);
       raf = requestAnimationFrame(tick);
     },
@@ -369,9 +482,12 @@ export const AmbientLayer = (() => {
     },
 
     /* Force a crossing immediately. Debug and review only. */
-    flyNow(pathIndex){
-      flyover = newFlyover(pathIndex);
+    flyNow(pathIndex, speciesKey){
+      flyovers.push(newFlyover(speciesKey, pathIndex));
     },
+
+    /* Clear the sky without stopping the loop. Review only. */
+    clear(){ flyovers.length = 0; },
 
     resize,
 
@@ -384,6 +500,9 @@ export const AmbientLayer = (() => {
     },
 
     get isRunning(){ return running; },
+    get isFlying(){ return flyovers.length > 0; },
+    get inTheAir(){ return flyovers.length; },
+    get flightProgress(){ return flyovers.length ? flyovers[0].t : null; },
     get pathCount(){ return PATHS.length; },
   };
 })();

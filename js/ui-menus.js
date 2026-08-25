@@ -4,6 +4,7 @@ import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6 } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { canvas, ctx, draw, playBoardIntroAnimation, sizeCanvas, sy, terrainColor } from './render-board.js';
+import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
@@ -250,11 +251,23 @@ export function beginBoardSetup(){
   // to completion before the orientation dice roll appears, since the
   // whole point is that it can't be skipped or interrupted.
   if(state.mode==='ai' && !state.campaign){
-    playBoardIntroAnimation(rollOrientationOrder);
+    playBoardIntroAnimation(()=>{ startAmbientLayer(); rollOrientationOrder(); });
   } else {
     draw();
+    startAmbientLayer();
     rollOrientationOrder();
   }
+}
+
+/* Birds. Started in BOTH branches on purpose: the falling-tile intro only plays
+   for a standard non-campaign AI match, so hanging the layer off its onComplete
+   alone would mean campaign battles never got any ambient motion at all.
+   init() is idempotent (it returns early if the canvas already exists), so
+   calling this again on a later board setup is harmless. */
+function startAmbientLayer(){
+  const host = document.getElementById('boardWrap');
+  if(!host) return;
+  AmbientLayer.init(host).start();
 }
 
 function rollOrientationOrder(){
