@@ -9,6 +9,7 @@ import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNI
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
+import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 
 /* =========================================================
    MAIN GAME FLOW
@@ -79,12 +80,46 @@ function renderMenuPanel(){
   const prefs = AudioManager.getPrefs();
   document.getElementById('muteToggle').checked = prefs.muted;
   document.getElementById('musicVolumeSlider').value = Math.round(prefs.volumes.music * 100);
+  const ambientEl = document.getElementById('ambientToggle');
+  if(ambientEl) ambientEl.checked = AmbientPref.enabled;
   document.getElementById('backToMenuConfirm').style.display = 'none';
 }
 
 function returnToMainMenu(){
   document.getElementById('logOverlay').classList.remove('show');
   showModeSelect();
+}
+
+/* Pause the birds while anything is over the board.
+
+   The alternative was calling suspend()/resume() at every point that shows or
+   hides an overlay, which is roughly thirty call sites across five files and
+   would silently rot the first time someone added a thirty-first. Watching the
+   three overlay elements for their 'show' class catches all of them, including
+   any added later, and touches none of the existing logic.
+
+   #overlay      dice, dialogs, victory
+   #unitOverlay  unit selection panel
+   #logOverlay   Field Report / AI Debug / Menu                                */
+const AMBIENT_BLOCKING_OVERLAYS = ['overlay', 'unitOverlay', 'logOverlay'];
+let ambientWatcherStarted = false;
+
+export function watchOverlaysForAmbient(){
+  if(ambientWatcherStarted) return;
+  const els = AMBIENT_BLOCKING_OVERLAYS
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  if(!els.length) return;
+  ambientWatcherStarted = true;
+
+  const anyShown = () => els.some(el => el.classList.contains('show'));
+  const sync = () => {
+    if(anyShown()){ if(AmbientLayer.isRunning) AmbientLayer.suspend(); }
+    else if(!AmbientLayer.isRunning) AmbientLayer.resume();
+  };
+  const obs = new MutationObserver(sync);
+  els.forEach(el => obs.observe(el, { attributes:true, attributeFilter:['class'] }));
+  sync();
 }
 
 export function renderAiDebugPanel(){
@@ -667,6 +702,10 @@ export function applyArtilleryEffect(u, roll, onComplete){
 // listeners at module-evaluation time would tie start-up to module ordering;
 // doing it explicitly keeps the sequence obvious and under our control.
 export function initBattleControls(){
+  // Registered here with the rest of the one-time DOM wiring, not at module
+  // evaluation, so the overlay elements are guaranteed to exist.
+  watchOverlaysForAmbient();
+
   const exportPanel = document.getElementById('aiLogExportPanel');
   const exportText = document.getElementById('aiLogExportText');
   document.getElementById('aiLogExportCloseBtn').onclick = ()=> exportPanel.classList.add('hidden');
@@ -719,6 +758,8 @@ export function initBattleControls(){
   };
 
   document.getElementById('muteToggle').onchange = (e)=> AudioManager.setMuted(e.target.checked);
+  const ambientToggleEl = document.getElementById('ambientToggle');
+  if(ambientToggleEl) ambientToggleEl.onchange = (e)=>{ AmbientPref.enabled = e.target.checked; };
   document.getElementById('musicVolumeSlider').oninput = (e)=> AudioManager.setVolume('music', e.target.value/100);
   document.getElementById('backToMenuBtn').onclick = ()=>{
     if(state.gameOver){
