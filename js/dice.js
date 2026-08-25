@@ -25,13 +25,46 @@ export function setFastDiceMode(on){
 if(typeof window !== 'undefined'){
   window.__tbTest = Object.assign(window.__tbTest || {}, { setFastDiceMode });
 }
+/* ---------------------------------------------------------------------
+   PENDING SETTLE — the re-entrancy guard for the roll pipeline.
+
+   Every consequence of a resolved fight (pushback, retreat, removal,
+   recording the attacker in state.fought, the replay entry, clearing
+   charged) runs inside finishDice's onSettled callback, fired by a 2900ms
+   timer. presentRollTrigger used to open by simply clearTimeout-ing that
+   timer, which THREW THE CALLBACK AWAY. The dice panel is a small widget at
+   the top of the screen and the board stays fully interactive underneath, so
+   resolving a fight and then starting another one within 2.9 seconds meant
+   the first fight's outcome silently never applied: nobody pushed back,
+   nobody removed, and because state.fought was never written the first
+   attacker could attack again.
+
+   The callback is now owned here rather than living only inside a closure on
+   the timer. Cancelling the timer FLUSHES it instead of discarding it, so a
+   resolution always applies exactly once — either when its timer expires, or
+   the moment anything else tries to start a new roll.
+
+   flushPendingSettle clears the reference before invoking, so it is safe to
+   call from anywhere and can never double-apply a result.
+--------------------------------------------------------------------- */
+let pendingSettle = null;
+
+export function flushPendingSettle(){
+  const cb = pendingSettle;
+  pendingSettle = null;
+  if(cb) cb();
+}
+
 export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
   const rollBtn = document.getElementById('diceRollBtn');
   const legendEl = document.getElementById('diceLegend');
+  // Apply any still-pending resolution BEFORE this new roll takes the panel
+  // over. Cancelling the timer without this is what voided the previous fight.
   clearTimeout(showDice._fadeT);
+  flushPendingSettle();
   clearInterval(showDice._rollT);
   clearTimeout(presentRollTrigger._aiT);
 
@@ -75,7 +108,10 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   const legendEl = document.getElementById('diceLegend');
   if(legendEl) legendEl.style.display = 'none';
   rollBtn.style.display = 'none';
+  // Same guard as presentRollTrigger: this also cancels the fade timer, so a
+  // second showDice inside the window would otherwise void the first result.
   clearTimeout(showDice._fadeT);
+  flushPendingSettle();
   clearInterval(showDice._rollT);
 
   function renderFrame(final){
@@ -168,10 +204,14 @@ export function showDiceRerollButton(label, onAccept, onDecline){
 export function finishDice(onSettled){
   const overlay = document.getElementById('diceOverlay');
   clearTimeout(showDice._fadeT);
+  // Anything still outstanding from an earlier fight applies now, before this
+  // one takes its place. Only one resolution is ever pending at a time.
+  flushPendingSettle();
   if(FAST_DICE_MODE){ overlay.classList.remove('show'); if(onSettled) onSettled(); return; }
+  pendingSettle = onSettled || null;
   showDice._fadeT = setTimeout(()=>{
     overlay.classList.remove('show');
-    if(onSettled) onSettled();
+    flushPendingSettle();
   }, 2900);
 }
 
