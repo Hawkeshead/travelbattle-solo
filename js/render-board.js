@@ -183,6 +183,14 @@ export let mapZoom = 1, mapPanX = 0, mapPanY = 0;
 export let mapGesturePointers = new Map();
 export let mapPinchStartDist = null, mapPinchStartZoom = 1;
 export let mapPanStart = null;
+// Finger drift, in CSS px, before a touch stops counting as a tap. 6px was well
+// under any reasonable touch slop — a phone tap routinely wanders 8-10px between
+// down and up, especially one-handed — so ordinary taps were being read as pans.
+export const TAP_SLOP_PX = 12;
+// Past this, treat it as a deliberate drag and suppress the tap even if the
+// board could not move, because nobody drags 32px meaning to tap.
+export const TAP_ABANDON_PX = 32;
+
 export let mapGestureMoved = false; // true once the current gesture passed the tap threshold — the click handler checks this to avoid selecting a cell after a pan/pinch
 
 // Read-and-clear, for the board click handler in ui-battle.js. It used to read
@@ -240,11 +248,22 @@ canvas.addEventListener('pointermove', (e)=>{
     applyMapTransform();
   } else if(mapGesturePointers.size===1 && mapPanStart){
     const dx = e.clientX-mapPanStart.x, dy = e.clientY-mapPanStart.y;
-    if(Math.hypot(dx,dy) > 6){
-      mapGestureMoved = true;
+    const drift = Math.hypot(dx,dy);
+    if(drift > TAP_SLOP_PX){
+      // Suppress the tap only if the board ACTUALLY moved. The old code set the
+      // flag the moment the finger passed 6px, before clampMapPan had its say —
+      // and at the default zoom the canvas fits its container, so minX/maxX both
+      // collapse to 0 and the pan is pinned straight back to zero. The board
+      // stayed put AND the tap was swallowed: tap a unit, nothing happens, tap
+      // again, nothing happens. Comparing before and after the clamp means a
+      // gesture that changed nothing on screen no longer eats the tap.
+      const beforeX = mapPanX, beforeY = mapPanY;
       mapPanX = mapPanStart.panX + dx;
       mapPanY = mapPanStart.panY + dy;
       applyMapTransform();
+      if(mapPanX !== beforeX || mapPanY !== beforeY) mapGestureMoved = true;
+      // A drag this long was never a tap, whatever the clamp did with it.
+      else if(drift > TAP_ABANDON_PX) mapGestureMoved = true;
     }
   }
 });
