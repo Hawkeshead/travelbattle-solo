@@ -277,15 +277,29 @@ export function beginBoardSetup(){
   }
 }
 
-/* Birds. Started in BOTH branches on purpose: the falling-tile intro only plays
-   for a standard non-campaign AI match, so hanging the layer off its onComplete
-   alone would mean campaign battles never got any ambient motion at all.
-   init() is idempotent (it returns early if the canvas already exists), so
-   calling this again on a later board setup is harmless. */
+/* Ambient sky: clouds, their shadows, and birds.
+
+   Started in BOTH branches on purpose: the falling-tile intro only plays for a
+   standard non-campaign AI match, so hanging the layer off its onComplete alone
+   would mean campaign battles never got any ambient motion at all. init() is
+   idempotent (it returns early if its canvases already exist), so calling this
+   again on a later board setup is harmless.
+
+   boardEl is passed explicitly rather than left to the module's
+   getElementById('board') default. The shadow pass clips to that element so
+   nothing falls on the tabletop around the map, which makes it a load-bearing
+   argument rather than an optional one — worth stating at the call site so
+   renaming the board canvas breaks here loudly instead of silently spilling
+   shadows onto the desk.
+
+   The module creates two canvases in #boardWrap (#ambientShadows at z-index 9
+   with mix-blend-mode:multiply, #ambientLayer at 10) and sets isolation:isolate
+   on #boardWrap itself, so the blend has an explicit group to work against and
+   cannot darken the app chrome. No CSS in index.html is required. */
 function startAmbientLayer(){
   const host = document.getElementById('boardWrap');
   if(!host) return;
-  AmbientLayer.init(host).start();
+  AmbientLayer.init(host, { boardEl: document.getElementById('board') }).start();
 }
 
 function rollOrientationOrder(){
