@@ -587,6 +587,29 @@ export function draw(){
     }
     roadConn[x+','+y] = list;
   }
+  // For choosing tile ART only, a road running off the edge of the board counts
+  // as a connection. The two boards are laid side by side in play, so a road
+  // that reaches the edge continues onto its neighbour — drawing it as a stub
+  // that stops short of the edge is what made joins look broken. Deliberately
+  // kept separate from roadConn, which stays strictly in-bounds because the
+  // stroke fallback and roadAnchor below both need real coordinates to draw to.
+  //
+  // Off-board neighbours are expressed as out-of-range coordinates on purpose:
+  // sy() maps y=-1 to ROWS when the board is flipped, so an edge that is "up"
+  // in grid space correctly becomes "down" on screen without a special case.
+  function roadArtDirs(x, y, list){
+    const dirs = roadScreenDirs(x, y, list);
+    const sy0 = sy(y);
+    for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+      const nx = x+dx, ny = y+dy;
+      if(inBounds(nx,ny)) continue;          // real neighbour, already handled
+      if(nx < x) dirs.left = true;
+      else if(nx > x) dirs.right = true;
+      else if(sy(ny) < sy0) dirs.up = true;
+      else dirs.down = true;
+    }
+    return dirs;
+  }
   function roadScreenDirs(x, y, list){
     const dirs = { up:false, down:false, left:false, right:false };
     const sy0 = sy(y);
@@ -615,6 +638,15 @@ export function draw(){
       if(dirs.down && dirs.left) return 'road_corner_bl';
       if(dirs.up && dirs.left) return 'road_corner_tl';
     }
+    // A genuine dead end: the road arrives from one side and stops. Named for
+    // the direction the road comes FROM, matching the T tiles' convention of
+    // describing the art rather than the topology.
+    if(count===1){
+      if(dirs.up) return 'road_end_up';
+      if(dirs.down) return 'road_end_down';
+      if(dirs.left) return 'road_end_left';
+      return 'road_end_right';
+    }
     return null;
   }
   for(let y=0;y<ROWS;y++){
@@ -622,7 +654,7 @@ export function draw(){
     for(let x=0;x<COLS;x++){
       if(terrain[y][x]!=='ROAD') continue;
       const list = roadConn[x+','+y] || [];
-      const key = roadTileKey(roadScreenDirs(x, y, list));
+      const key = roadTileKey(roadArtDirs(x, y, list));
       if(!key){
         // 0 or 1 connections — no matching tile art, so this cell would
         // otherwise sit on the plain dark Open-terrain fallback fill with

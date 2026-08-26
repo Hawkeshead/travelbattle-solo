@@ -1,5 +1,6 @@
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { sizeCanvas } from './render-board.js';
+import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -18,6 +19,7 @@ import { AudioManager } from './audio-manager.js';
 export function start(){
   // Input and control wiring first, so the DOM is fully live before any
   // screen is drawn.
+  initDesk();
   initBoardInput();
   initBattleControls();
 

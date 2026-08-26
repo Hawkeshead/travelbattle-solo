@@ -11,6 +11,8 @@ import { deployArmyComposition } from './ai-deployment.js';
 import { initDeployment } from './ui-deployment.js';
 
 export function showOverlay(title, html, btnLabel, onClick){
+  const b = document.querySelector('#overlay .box');
+  if(b) b.classList.remove('as-folio');
   document.getElementById('overlayTitle').textContent = title;
   const textEl = document.getElementById('overlayText');
   textEl.innerHTML = html;
@@ -51,10 +53,47 @@ export function ensureModeChoices(){
    roster question is settled.
 
    Nothing downstream is deleted. Flip this to true to bring both back. */
+// Remembers the last completed setup so the start screen can offer it back as a
+// single tap. Three taps to reach a battle is fine the first time and tiresome by
+// the tenth. Stored under the fc: prefix used by the other display preferences.
+const LAST_SETUP_KEY = 'fc:lastSetup';
+
+function saveLastSetup(){
+  try {
+    localStorage.setItem(LAST_SETUP_KEY, JSON.stringify({
+      aiSide: state.aiSide, difficulty: state.aiDifficulty,
+    }));
+  } catch { /* private mode — the seal simply will not appear next time */ }
+}
+
+function loadLastSetup(){
+  try {
+    const raw = localStorage.getItem(LAST_SETUP_KEY);
+    if(!raw) return null;
+    const v = JSON.parse(raw);
+    // Guard the shape rather than trusting it: a stale or hand-edited entry must
+    // not be able to start a battle with a nonsense side or difficulty.
+    const okSide = v && (v.aiSide === SIDES.RED || v.aiSide === SIDES.BLUE);
+    const okDiff = v && ['easy','medium','hard'].includes(v.difficulty);
+    return (okSide && okDiff) ? v : null;
+  } catch { return null; }
+}
+
+const RANK_LABEL = { easy:'Lieutenant', medium:'Colonel', hard:'Marshal' };
+
 export const OPERATIONS_ENABLED = false;
+// Grand Strategy joins Operations and Campaigns in being parked for the
+// Commander's Desk pass. Same treatment: the entry point is simply not
+// offered, showGrandMatchTypeSelect and everything downstream are untouched
+// and still exported, so restoring it is flipping this to true.
+export const GRAND_STRATEGY_ENABLED = false;
 
 export function showModeSelect(isSplash){
   const box = document.querySelector('#overlay .box');
+  // The folio backing is start-screen only. Every other overlay reuses this
+  // same .box, so the class has to be removed by whoever leaves — done in
+  // clearFolio() below, called from each screen that takes over the box.
+  box.classList.add('as-folio');
   const titleEl = document.getElementById('overlayTitle');
   const subtitleEl = document.getElementById('overlaySubtitle');
   titleEl.textContent = 'TravelBattle';
@@ -109,7 +148,30 @@ export function showModeSelect(isSplash){
     extra.appendChild(opsBtn);
     extra.appendChild(campBtn);
   }
-  extra.appendChild(grandBtn);
+  if(GRAND_STRATEGY_ENABLED) extra.appendChild(grandBtn);
+
+  // Same Again: one tap back into the last setup. Deliberately smaller and lower
+  // than the primary action so it never competes with it, and absent entirely on
+  // a first run when there is nothing to repeat.
+  const last = loadLastSetup();
+  if(last){
+    const side = last.aiSide === SIDES.BLUE ? 'Britain' : 'France';
+    const again = document.createElement('button');
+    again.className = 'same-again';
+    again.innerHTML = '<span class="sa-seal" aria-hidden="true"></span><span class="sa-label"></span>';
+    again.querySelector('.sa-label').textContent =
+      'Same Again \u00B7 ' + side + ', ' + RANK_LABEL[last.difficulty];
+    again.onclick = ()=>{
+      state.scenario = null; state.campaign = null;
+      state.mode = 'ai';
+      state.aiSide = last.aiSide;
+      state.aiDifficulty = last.difficulty;
+      extra.style.display = 'none';
+      document.getElementById('overlay').classList.remove('show');
+      beginBoardSetup();
+    };
+    extra.appendChild(again);
+  }
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -188,47 +250,100 @@ export function showOperationModeSelect(scenario){
   document.getElementById('overlay').classList.add('show');
 }
 
-export function showSideSelect(){
+// Each side is a sealed despatch lying on the desk rather than a labelled
+// button. The period address line does the faction characterisation without
+// needing a caption, and the whole sheet is the tap target so nothing has to
+// be aimed at on a phone. Same handlers as before — only the markup changed.
+function makeDespatch(cls, addressee, name, line, onClick){
+  const b = document.createElement('button');
+  b.className = 'despatch ' + cls;
+  b.innerHTML =
+    '<span class="d-sup"></span>' +
+    '<span class="d-name"></span>' +
+    '<span class="d-line"></span>' +
+    '<span class="d-wax" aria-hidden="true"></span>';
+  b.querySelector('.d-sup').textContent  = addressee;
+  b.querySelector('.d-name').textContent = name;
+  b.querySelector('.d-line').textContent = line;
+  b.onclick = onClick;
+  return b;
+}
+
+export function clearFolio(){
   const box = document.querySelector('#overlay .box');
+  if(box) box.classList.remove('as-folio');
+}
+
+export function showSideSelect(){
+  clearFolio();
   document.getElementById('overlayTitle').textContent = 'Choose Your Side';
-  document.getElementById('overlayText').innerHTML = 'The AI takes the other Brigade and will deploy, move, fire and fight on its own turns.';
+  document.getElementById('overlayText').innerHTML = 'The AI takes the other side and will deploy, move, fire and fight on its own turns.';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
+  extra.className = 'as-despatches';
   extra.style.display = 'flex';
-  const redBtn = document.createElement('button');
-  redBtn.className = 'primary';
-  redBtn.textContent = 'Play Britain';
-  redBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; showDifficultySelect(); };
-  const blueBtn = document.createElement('button');
-  blueBtn.textContent = 'Play France';
-  blueBtn.onclick = ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; showDifficultySelect(); };
-  extra.appendChild(redBtn);
-  extra.appendChild(blueBtn);
+  extra.appendChild(makeDespatch('brit', 'To the Officer Commanding', 'Britain',
+    'Steady lines and disciplined volleys.',
+    ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; showDifficultySelect(); }));
+  extra.appendChild(makeDespatch('fran', 'Au Commandant en Chef', 'France',
+    'The weight of the column, and its speed.',
+    ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; showDifficultySelect(); }));
+}
+
+// Difficulty is presented as the opponent's rank on a service record. Chevrons
+// read as a scale at a glance without being read, and Lieutenant/Colonel/Marshal
+// is vocabulary from the game's own world rather than generic menu language.
+// The stored values are unchanged, so nothing downstream of state.aiDifficulty
+// needs to know this happened.
+const RANKS = [
+  { value:'easy',   rank:'Lieutenant', old:'Easy',
+    line:'Straightforward and reactive. Takes the fight put in front of him.', chevrons:1 },
+  { value:'medium', rank:'Colonel',    old:'Medium',
+    line:'Finishes off weakened Brigades. Uses Charge and Attack Column deliberately.', chevrons:2 },
+  { value:'hard',   rank:'Marshal',    old:'Hard',
+    line:'Looks a step past the immediate trade, and lays ambushes proactively.', chevrons:3 },
+];
+
+function chevronSvg(n){
+  const rows = [];
+  const top = n === 1 ? 30 : (n === 2 ? 22 : 16);
+  const gap = n === 3 ? 14 : 16;
+  for(let i = 0; i < n; i++){
+    const y = top + i*gap;
+    rows.push(`M12 ${y}l18 -12 18 12`);
+  }
+  return `<svg viewBox="0 0 60 52" aria-hidden="true"><g fill="none" stroke="currentColor"
+    stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="${rows.join(' ')}"/></g></svg>`;
 }
 
 export function showDifficultySelect(){
-  document.getElementById('overlayTitle').textContent = 'Choose AI Difficulty';
-  document.getElementById('overlayText').innerHTML =
-    '<b>Easy</b>: straightforward, reactive tactics. <b>Medium</b>: prioritises finishing off weakened Brigades, uses Charge and Attack Column deliberately. <b>Hard</b>: all of Medium, plus looks a step past the immediate trade before committing to a fight, and can lay ambushes proactively.';
+  clearFolio();
+  document.getElementById('overlayTitle').textContent = 'Your Opponent';
+  document.getElementById('overlayText').innerHTML = '';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
+  extra.className = 'as-records';
   extra.style.display = 'flex';
   extra.style.flexWrap = 'wrap';
-  const mk = (label, value, primary)=>{
+  for(const r of RANKS){
     const b = document.createElement('button');
-    if(primary) b.className = 'primary';
-    b.textContent = label;
+    b.className = 'record';
+    b.innerHTML =
+      '<span class="r-chev">' + chevronSvg(r.chevrons) + '</span>' +
+      '<span class="r-name"></span><span class="r-old"></span><span class="r-line"></span>';
+    b.querySelector('.r-name').textContent = r.rank;
+    b.querySelector('.r-old').textContent  = r.old;
+    b.querySelector('.r-line').textContent = r.line;
     b.onclick = ()=>{
-      state.aiDifficulty = value;
+      state.aiDifficulty = r.value;
+      saveLastSetup();
       extra.style.display='none';
       document.getElementById('overlay').classList.remove('show');
       beginBoardSetup();
     };
-    return b;
-  };
-  extra.appendChild(mk('Easy', 'easy', false));
-  extra.appendChild(mk('Medium', 'medium', true));
-  extra.appendChild(mk('Hard', 'hard', false));
+    extra.appendChild(b);
+  }
   document.getElementById('overlay').classList.add('show');
 }
 

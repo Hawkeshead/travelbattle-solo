@@ -48,28 +48,74 @@
 
   #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
 
+  /* ===== BRASS RAIL (battle top bar) =============================
+     The desk continues into the battle. The bar is a length of brass
+     screwed to the desk rather than a grey panel, the phase reads as
+     engraved into it, and Brigade strength becomes inlaid enamel pips.
+  ================================================================= */
   #topBar{
+    position:relative;
     display:flex;align-items:center;gap:8px;
-    padding:4px 8px;background:linear-gradient(180deg, var(--panel-2), var(--panel));border-bottom:2px solid var(--brass-dim);
+    padding:5px 14px;
+    background:linear-gradient(180deg,#CBAA5C 0%,#9A7A36 38%,#B2933F 62%,#6E5624 100%);
+    border-bottom:1px solid #3E2F11;
+    box-shadow:0 4px 12px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,244,206,0.6),
+      inset 0 -3px 6px rgba(0,0,0,0.4);
     flex-shrink:0;flex-wrap:wrap;
   }
+  /* Slotted screws at each end, drawn rather than added as markup. */
+  #topBar::before, #topBar::after{
+    content:"";position:absolute;top:50%;width:7px;height:7px;margin-top:-3.5px;
+    border-radius:50%;
+    background:radial-gradient(circle at 34% 30%,#EFD79C,#6A5220 70%,#3A2C0D);
+    box-shadow:0 1px 1px rgba(0,0,0,0.55);
+  }
+  #topBar::before{ left:4px; }
+  #topBar::after{ right:4px; }
   #turnBadge{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 8px;border-radius:2px;
-    border:1px solid var(--brass-dim);letter-spacing:0.02em;background:var(--paper);white-space:nowrap;
+    font-family:'Cinzel',serif;font-weight:700;font-size:11px;padding:3px 9px;border-radius:2px;
+    border:1px solid rgba(62,47,17,0.45);letter-spacing:0.1em;text-transform:uppercase;
+    background:rgba(62,47,17,0.10);color:#3A2C0D;white-space:nowrap;
+    text-shadow:0 1px 0 rgba(255,244,206,0.45);
   }
 
   main{flex:1;display:flex;min-height:0;position:relative;}
 
   #brigadeStatus{
-    display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;flex-shrink:0;white-space:nowrap;
+    display:flex;gap:12px;font-family:'Cinzel',serif;font-weight:600;font-size:9.5px;
+    letter-spacing:0.09em;flex-shrink:0;white-space:nowrap;
   }
-  #brigadeStatus .side-status{display:flex;align-items:center;gap:4px;}
-  #brigadeStatus .pip{width:8px;height:8px;border-radius:50%;border:1px solid rgba(0,0,0,0.35);}
+  #brigadeStatus .side-status{display:flex;align-items:center;gap:4px;
+    text-shadow:0 1px 0 rgba(255,244,206,0.4);}
+  /* Pips are enamel inlaid into the brass: a broken Brigade is a spent socket
+     rather than a faded dot, which reads at a glance without needing the count. */
+  #brigadeStatus .pip{
+    width:9px;height:9px;border-radius:50%;border:0;
+    box-shadow:inset 0 -1px 2px rgba(0,0,0,0.6),inset 0 1px 1px rgba(255,255,255,0.22),
+      0 1px 0 rgba(255,240,200,0.4);
+  }
   #brigadeStatus .pip.alive{background:currentColor;}
-  #brigadeStatus .pip.broken{background:transparent;opacity:0.4;}
+  #brigadeStatus .pip.broken{
+    background:radial-gradient(circle at 40% 34%,#6E6142,#4A3F27);opacity:0.85;
+    box-shadow:inset 0 2px 4px rgba(0,0,0,0.7),0 1px 0 rgba(255,240,200,0.3);
+  }
 
   #topBarSpacer{ flex:1; }
   #topBar button{ font-size:11.5px;padding:6px 10px; }
+  /* End Move is the commit action of the battle, so it is wax like the menus.
+     No ribbon: it is pressed every turn, and the ceremony would wear thin. */
+  #topBar button.primary{
+    font-family:'Cinzel',serif;font-weight:700;letter-spacing:0.09em;
+    color:#F0DCC0;border:1px solid #2A0708;border-radius:3px;
+    background:radial-gradient(circle at 40% 30%,#7A2024 0%,#571216 46%,#2A0708 100%);
+    text-shadow:0 -1px 1px rgba(0,0,0,0.8);
+    box-shadow:inset 0 1px 4px rgba(196,96,96,0.18),inset 0 -4px 9px rgba(0,0,0,0.6),
+      0 4px 10px rgba(0,0,0,0.6);
+    transition:transform 0.12s cubic-bezier(.34,1.5,.5,1), filter 0.15s;
+  }
+  #topBar button.primary:hover:not(:disabled){ filter:brightness(1.12); }
+  #topBar button.primary:active:not(:disabled){ transform:translateY(2px) scale(0.98); }
+  #topBar button.primary:disabled{ filter:saturate(0.45) brightness(0.7);opacity:0.7; }
 
   #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:hidden;position:relative;padding:8px;}
   /* touch-action:none keeps the browser's own page-pinch-zoom/scroll from firing when a
@@ -82,12 +128,29 @@
   #hudIcons{
     position:absolute;top:8px;right:8px;z-index:20;display:flex;flex-direction:column;gap:6px;
   }
+  /* Brass dials. Same positions and functions as before — instrument bezels
+     rather than grey circles. */
   #hudIcons button{
-    width:38px;height:38px;border-radius:50%;font-size:18px;padding:0;
+    position:relative;
+    width:40px;height:40px;border-radius:50%;font-size:18px;padding:0;
     display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(180deg, var(--panel), var(--panel-2));border:1px solid var(--brass-dim);box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    color:#3A2C0D;
+    background:radial-gradient(circle at 38% 32%,#D8B96A 0%,#A9883A 46%,#6B5320 100%);
+    border:1px solid #3E2F11;
+    box-shadow:inset 0 1px 0 rgba(255,246,214,0.7),inset 0 -3px 6px rgba(0,0,0,0.5),
+      0 4px 9px rgba(0,0,0,0.55);
+    transition:transform 0.12s cubic-bezier(.34,1.5,.5,1), filter 0.15s;
   }
-  #hudIcons button:hover:not(:disabled){background:linear-gradient(180deg, var(--panel-2), var(--panel-3));}
+  /* Inner bezel ring. position:relative on the button is load-bearing here —
+     without it these anchor to #hudIcons and stretch across all three. */
+  #hudIcons button::after{
+    content:"";position:absolute;inset:5px;border-radius:50%;pointer-events:none;
+    border:1px solid rgba(62,47,17,0.45);
+    box-shadow:inset 0 1px 0 rgba(255,244,206,0.4);
+  }
+  #hudIcons button:hover:not(:disabled){ filter:brightness(1.09); }
+  #hudIcons button:active:not(:disabled){ transform:scale(0.93); }
+  #hudIcons button:disabled{ filter:saturate(0.4) brightness(0.72);opacity:0.75; }
 
   /* Deploy-only persistent sidebar */
   #sidebar{
@@ -211,18 +274,39 @@
   #logOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
   #logOverlay.hidden{ display:none; }
   #logOverlayBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.35);opacity:0;transition:opacity 0.18s; }
+  /* ===== THE DESK DRAWER ==========================================
+     The Field Report panel already slid in from the edge, so it did not
+     need restructuring — only the materials. It is now a drawer pulled
+     out of the desk: walnut face, brass pull, and the same grain
+     direction as the menu backdrop.
+  ================================================================= */
   #logOverlayPanel{
     position:absolute;top:0;bottom:0;right:0;width:280px;max-width:85vw;
-    background:var(--panel);border-left:2px solid var(--brass-dim);box-shadow:-6px 0 16px rgba(0,0,0,0.35);
+    background:
+      repeating-linear-gradient(91deg, rgba(0,0,0,0.055) 0 2px, rgba(0,0,0,0) 2px 7px),
+      linear-gradient(180deg,#5C3F1E 0%,#3E2914 58%,#33210F 100%);
+    border-left:2px solid #3E2F11;
+    box-shadow:-8px 0 22px rgba(0,0,0,0.6), inset 2px 0 0 rgba(255,220,160,0.10);
     display:flex;flex-direction:column;min-height:0;
-    transform:translateX(100%);transition:transform 0.18s ease-out;
+    transform:translateX(100%);transition:transform 0.22s cubic-bezier(.25,.9,.3,1);
+  }
+  /* Brass pull on the leading edge — vertical when the drawer comes from the
+     side, horizontal when it comes from the bottom (see the portrait rule). */
+  #logOverlayPanel::before{
+    content:"";position:absolute;left:6px;top:50%;transform:translateY(-50%);
+    width:13px;height:74px;border-radius:7px;z-index:2;
+    background:linear-gradient(90deg,#EBD190 0%,#B08D3F 42%,#6B5320 100%);
+    box-shadow:inset 1px 0 0 rgba(255,246,214,0.75),inset -2px 0 3px rgba(0,0,0,0.45),
+      0 3px 6px rgba(0,0,0,0.6);
   }
   #logOverlay.show{ pointer-events:auto; }
   #logOverlay.show #logOverlayBackdrop{ opacity:1; }
   #logOverlay.show #logOverlayPanel{ transform:translateX(0); }
   #logOverlayHeader{
-    display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);
-    font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;color:var(--brass-bright);
+    display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
+    border-bottom:1px solid rgba(255,220,160,0.14);
+    font-family:'Cinzel',serif;font-weight:700;font-size:13px;letter-spacing:0.18em;text-transform:uppercase;
+    color:#E4C88A;text-shadow:0 1px 3px rgba(0,0,0,0.8);
   }
   #logOverlayTabs{ display:flex;gap:4px; }
   .log-tab{
@@ -232,6 +316,25 @@
   }
   .log-tab.active{ color:var(--brass-bright);border-bottom-color:var(--brass-bright); }
   #logCloseBtn{ background:none;border:none;font-size:20px;line-height:1;padding:0 4px;color:var(--ink-dim); }
+  /* Inside the drawer the panel is walnut, so the inherited dark-on-dark tab
+     and control colours have to be lifted or they vanish against the wood. */
+  #logOverlayPanel .log-tab{ color:#A08B64; }
+  #logOverlayPanel .log-tab.active{ color:#F2DFAF;border-bottom-color:#C9A85A;background:none; }
+  #logOverlayPanel #logCloseBtn{ color:#C3AC80; }
+  #logOverlayPanel input[type="checkbox"]{ accent-color:#B08D3F;width:16px;height:16px; }
+  #logOverlayPanel #backToMenuBtn{
+    font-family:'Cinzel',serif;letter-spacing:0.08em;
+    background:radial-gradient(circle at 40% 30%,#7A2024 0%,#571216 46%,#2A0708 100%);
+    color:#F0DCC0;border:1px solid #2A0708;
+    text-shadow:0 -1px 1px rgba(0,0,0,0.8);
+    box-shadow:inset 0 1px 4px rgba(196,96,96,0.18),inset 0 -4px 9px rgba(0,0,0,0.6),
+      0 4px 10px rgba(0,0,0,0.55);
+  }
+  #logOverlayPanel #backToMenuConfirm{
+    background:linear-gradient(158deg,#EFE5C8,#DCCBA4 60%,#C9B589);
+    border:0;box-shadow:0 6px 14px rgba(0,0,0,0.5);
+  }
+  #logOverlayPanel #backToMenuConfirm p{ color:#3B3020; }
   #log{flex:1;overflow-y:auto;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.5;-webkit-overflow-scrolling:touch;}
   #log .entry{margin-bottom:4px;padding-left:7px;border-left:2px solid var(--line);color:var(--ink-dim);}
   #log .entry.red{border-color:var(--red);}
@@ -244,7 +347,16 @@
   #menuPanel{flex:1;overflow-y:auto;padding:14px 16px;}
   .menuSection{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
   .menuSection:last-child{border-bottom:none;}
-  .menuSection h3{margin:0 0 10px;font-family:'Cinzel',serif;font-size:13px;color:var(--brass-dim);text-transform:uppercase;letter-spacing:0.04em;}
+  .menuSection h3{margin:0 0 10px;font-family:'Cinzel',serif;font-size:11px;color:#B39C74;
+    text-transform:uppercase;letter-spacing:0.24em;}
+  .menuSection{border-bottom-color:rgba(255,220,160,0.12);}
+  #menuPanel{ color:#E8DFC4; }
+  .menuToggleRow, .menuSliderRow{
+    border-left:2px solid var(--brass);padding-left:10px;
+    background:linear-gradient(90deg,rgba(176,141,63,0.13),rgba(176,141,63,0));
+    margin-bottom:6px;
+  }
+  .menuSliderRow input[type="range"]{ accent-color:#C9A85A; }
   .menuToggleRow,.menuSliderRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:12.5px;}
   .menuSliderRow input[type="range"]{flex:1;max-width:150px;accent-color:var(--brass);}
   #backToMenuBtn{width:100%;}
@@ -270,19 +382,271 @@
   .roster-chip.placed{opacity:0.35;cursor:default;}
   .roster-chip .swatch{width:15px;height:15px;border-radius:2px;flex-shrink:0;}
 
+  /* ===== THE COMMANDER'S DESK =====================================
+     The menus are no longer a card floating on a dimmed board. They are
+     objects lying on a walnut desk: a brass plaque for the title, a
+     parchment despatch for the body text, and pressed-brass buttons.
+
+     isolation:isolate is load-bearing. #deskCandle uses mix-blend-mode
+     to warm the wood, and without an isolation group on the parent that
+     blend escapes and paints over higher z-index siblings — the box and
+     buttons included. Removing it makes the menus go dark for no
+     obvious reason.
+  ================================================================= */
   #overlay{
-    position:fixed;inset:0;background:rgba(20,16,8,0.72);display:none;align-items:center;justify-content:center;z-index:50;
+    position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;
+    isolation:isolate;background:#241708;
   }
   #overlay.show{display:flex;}
+  #deskCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block;}
+  #deskCandle{
+    position:absolute;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen;
+    background:radial-gradient(78% 52% at 50% 38%, rgba(255,217,160,0.30) 0%, rgba(255,200,130,0.11) 34%, rgba(0,0,0,0) 66%);
+    animation:candleFlicker 5.5s ease-in-out infinite;
+  }
+  @keyframes candleFlicker{0%,100%{opacity:1}42%{opacity:.9}58%{opacity:.97}73%{opacity:.86}}
+  @media (prefers-reduced-motion:reduce){ #deskCandle{animation:none;} }
+  #deskVignette{
+    position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:radial-gradient(96% 66% at 50% 42%, rgba(0,0,0,0) 38%, rgba(10,7,4,0.62) 76%, rgba(6,4,2,0.94) 100%);
+  }
+
   #overlay .box{
-    background:radial-gradient(ellipse at 50% -20%, var(--paper) 0%, var(--paper-2) 65%);
-    border:2px solid var(--brass-dim);border-radius:4px;padding:24px 28px;max-width:380px;text-align:center;
-    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    position:relative;z-index:3;
+    background:none;border:0;border-radius:0;padding:18px 22px;max-width:420px;text-align:center;
+    box-shadow:none;
     max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   }
-  #overlay .box h2{font-family:'Cinzel',serif;color:var(--brass-bright);letter-spacing:0.05em;text-transform:uppercase;font-size:18px;margin:0 0 10px;}
-  #overlay .box p{font-size:13px;color:var(--ink-dim);line-height:1.55;margin:0 0 16px;font-family:'Cormorant Garamond',serif;font-size:15px;}
-  #overlaySubtitle{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-dim);margin:-6px 0 14px;}
+
+  /* Title becomes a brass plaque screwed into the desk. The screws are drawn
+     with box-shadow spots rather than extra elements, so no markup changes. */
+  #overlay .box h2{
+    position:relative;display:inline-block;
+    font-family:'Cinzel',serif;font-weight:700;
+    color:#3A2C0D;letter-spacing:0.14em;text-transform:uppercase;font-size:20px;
+    margin:0 0 12px;padding:12px 26px 11px;
+    background:linear-gradient(168deg,#CBAA5C 0%,#9A7A36 34%,#C0A050 62%,#7C6229 100%);
+    border-radius:2px;
+    text-shadow:0 1px 0 rgba(255,240,200,0.42);
+    box-shadow:
+      inset 0 1px 0 rgba(255,240,200,0.6),
+      inset 0 -2px 4px rgba(0,0,0,0.5),
+      0 3px 7px rgba(0,0,0,0.62);
+  }
+  #overlay .box h2::after{
+    content:"";position:absolute;inset:4px;border:1px solid rgba(62,47,17,0.5);border-radius:1px;
+    box-shadow:inset 0 1px 0 rgba(255,240,200,0.28);pointer-events:none;
+  }
+
+  /* Body copy becomes a parchment despatch with a torn edge. */
+  #overlay .box p{
+    position:relative;
+    font-family:'Cormorant Garamond',serif;font-size:15px;line-height:1.55;
+    color:#3B3020;margin:0 0 16px;padding:16px 20px;text-align:center;
+    background:
+      radial-gradient(70% 120% at 12% 18%, rgba(160,132,86,0.20), rgba(160,132,86,0) 58%),
+      radial-gradient(60% 90% at 88% 82%, rgba(140,112,70,0.22), rgba(140,112,70,0) 58%),
+      linear-gradient(154deg,#F0E5C7 0%,#E2D2AA 46%,#CFBB90 100%);
+    box-shadow:0 8px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.55);
+    clip-path:polygon(0 2px,7px 0,42% 3px,68% 0,calc(100% - 5px) 2px,100% 9px,
+      calc(100% - 2px) 44%,100% 74%,calc(100% - 6px) 100%,66% calc(100% - 3px),
+      30% 100%,6px calc(100% - 2px),0 calc(100% - 8px),3px 40%);
+  }
+  #overlay .box p:empty{display:none;}
+
+  #overlaySubtitle{
+    font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;
+    letter-spacing:0.14em;text-transform:uppercase;color:#C3AC80;
+    margin:0 0 16px;text-shadow:0 1px 3px rgba(0,0,0,0.9);
+  }
+
+  /* Buttons become pressed brass sitting on the desk. */
+  #overlay button, #modeChoices button{
+    font-family:'Cinzel',serif;font-weight:600;letter-spacing:0.1em;
+    color:#3A2C0D;
+    background:linear-gradient(170deg,#D8B96A 0%,#A9883A 46%,#6B5320 100%);
+    border:1px solid #3E2F11;border-radius:3px;
+    padding:11px 20px;
+    text-shadow:0 1px 0 rgba(255,244,206,0.45);
+    box-shadow:inset 0 1px 0 rgba(255,246,214,0.65),inset 0 -3px 6px rgba(0,0,0,0.42),
+      0 4px 9px rgba(0,0,0,0.6);
+    transition:transform 0.12s cubic-bezier(.34,1.5,.5,1), filter 0.15s;
+  }
+  #overlay button:hover, #modeChoices button:hover{ filter:brightness(1.08); }
+  #overlay button:active, #modeChoices button:active{ transform:translateY(2px) scale(0.98); }
+  /* ===== LEATHER FOLIO (start screen only) =======================
+     The start screen sits on a dark espresso document case with brass
+     corner protectors. Espresso rather than oxblood on purpose: an
+     oxblood cover puts a red wax seal on a red field and the seal
+     disappears.
+
+     Drawn entirely with pseudo-elements on the existing .box so the
+     markup is untouched — the class is added by showModeSelect and
+     removed by clearFolio() when another screen takes the box over.
+  ================================================================= */
+  #overlay .box.as-folio{
+    padding:26px 22px 24px;
+    isolation:isolate;
+    /* Inset from the viewport so the desk shows around all four sides. Without
+       this the folio bleeds to the screen edges on a phone and reads as a panel
+       rather than an object lying on the desk. */
+    width:calc(100% - 44px);
+    max-width:352px;
+  }
+  #overlay .box.as-folio::before{
+    content:"";position:absolute;inset:0;z-index:-2;border-radius:3px 8px 8px 3px;
+    background:
+      radial-gradient(58% 44% at 26% 20%, rgba(150,120,84,0.16), rgba(0,0,0,0) 62%),
+      linear-gradient(154deg,#33261A 0%,#241A11 46%,#150F09 100%);
+    box-shadow:0 16px 30px rgba(0,0,0,0.72),0 4px 8px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(214,180,140,0.20),inset -3px 0 8px rgba(0,0,0,0.5);
+  }
+  /* Blind-tooled border plus the four brass corner protectors. Each corner is
+     a half-transparent linear-gradient sized to its own box, which keeps this
+     to one element instead of four. */
+  #overlay .box.as-folio::after{
+    content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    border-radius:3px 8px 8px 3px;
+    background:
+      linear-gradient(135deg,#EBD190 0 49.5%,rgba(0,0,0,0) 50%) top left / 30px 30px no-repeat,
+      linear-gradient(225deg,#E2C075 0 49.5%,rgba(0,0,0,0) 50%) top right / 30px 30px no-repeat,
+      linear-gradient(45deg,#C7A559 0 49.5%,rgba(0,0,0,0) 50%) bottom left / 30px 30px no-repeat,
+      linear-gradient(315deg,#B99A46 0 49.5%,rgba(0,0,0,0) 50%) bottom right / 30px 30px no-repeat;
+  }
+  /* The tooled rule inside the cover. */
+  #overlay .box.as-folio > h2{ margin-top:2px; }
+
+  /* ===== SAME AGAIN SEAL =========================================
+     A second, smaller commit on the start screen that drops straight back
+     into the last setup. Sits below the primary action and is rendered
+     only when there is a stored setup to repeat.
+  ================================================================= */
+  #overlay .same-again{
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    margin-top:6px;padding:0;background:none;border:0;box-shadow:none;
+    text-shadow:none;width:100%;
+  }
+  #overlay .same-again:active{ transform:none; }
+  .sa-seal{
+    position:relative;width:52px;height:52px;
+    border-radius:48% 52% 51% 49%/50% 48% 52% 50%;
+    background:radial-gradient(circle at 40% 34%,#6B1A1E 0%,#4A0F13 46%,#1E0405 100%);
+    box-shadow:inset 0 -4px 9px rgba(0,0,0,0.66),inset 0 2px 5px rgba(196,96,96,0.12),
+      0 5px 12px rgba(0,0,0,0.6);
+    transition:transform 0.14s cubic-bezier(.34,1.5,.5,1);
+  }
+  /* Impressed arrow, drawn with borders so it needs no extra markup. */
+  .sa-seal::after{
+    content:"";position:absolute;left:50%;top:50%;
+    width:15px;height:15px;margin:-9px 0 0 -9px;
+    border-right:2.5px solid #2A0708;border-bottom:2.5px solid #2A0708;
+    transform:rotate(-45deg);
+    filter:drop-shadow(0 1px 0 rgba(190,110,110,0.28));
+  }
+  #overlay .same-again:active .sa-seal{ transform:scale(0.93) translateY(2px); }
+  .sa-label{
+    font-family:'Cinzel',serif;font-size:11px;letter-spacing:0.12em;
+    color:#2B2016;padding:4px 14px 5px;
+    background:linear-gradient(#EFE4C6,#D7C49A);
+    box-shadow:0 3px 8px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.5);
+    clip-path:polygon(3px 0,calc(100% - 4px) 1px,100% 50%,calc(100% - 3px) 100%,
+      4px calc(100% - 1px),0 52%);
+  }
+
+  /* ===== DESPATCHES (faction choice) =============================
+     A sealed sheet lying on the desk. The whole sheet is the tap target,
+     so nothing has to be aimed at on a phone. Rotations are static and
+     deliberately small — enough to read as "dropped" rather than placed.
+  ================================================================= */
+  #modeChoices.as-despatches{ flex-direction:column; gap:14px; width:100%; }
+  #overlay .despatch{
+    position:relative;display:block;width:100%;text-align:left;
+    padding:16px 74px 16px 20px;cursor:pointer;border:0;border-radius:0;
+    color:#2B2016;
+    background:
+      radial-gradient(70% 120% at 12% 18%, rgba(160,132,86,0.20), rgba(160,132,86,0) 58%),
+      radial-gradient(60% 90% at 88% 82%, rgba(140,112,70,0.22), rgba(140,112,70,0) 58%),
+      linear-gradient(154deg,#F0E5C7 0%,#E2D2AA 46%,#CFBB90 100%);
+    box-shadow:0 8px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.55);
+    clip-path:polygon(0 2px,7px 0,42% 3px,68% 0,calc(100% - 5px) 2px,100% 9px,
+      calc(100% - 2px) 44%,100% 74%,calc(100% - 6px) 100%,66% calc(100% - 3px),
+      30% 100%,6px calc(100% - 2px),0 calc(100% - 8px),3px 40%);
+    text-shadow:none;
+  }
+  #overlay .despatch.brit{ transform:rotate(-1.4deg); }
+  #overlay .despatch.fran{ transform:rotate(1.1deg); }
+  #overlay .despatch:hover{ filter:brightness(1.03); }
+  #overlay .despatch.brit:active{ transform:rotate(-1.4deg) translateY(2px) scale(0.995); }
+  #overlay .despatch.fran:active{ transform:rotate(1.1deg) translateY(2px) scale(0.995); }
+  .d-sup{
+    display:block;font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:0.18em;
+    text-transform:uppercase;color:#8A7452;margin-bottom:5px;
+  }
+  .d-name{
+    display:block;font-family:'Cinzel',serif;font-weight:700;font-size:23px;
+    letter-spacing:0.05em;line-height:1;margin-bottom:5px;color:#2B2016;
+  }
+  .d-line{
+    display:block;font-family:'Cormorant Garamond',serif;font-style:italic;
+    font-size:14px;line-height:1.3;color:#5B4A32;
+  }
+  /* Wax blob, impressed into the sheet. */
+  .d-wax{
+    position:absolute;right:14px;top:50%;transform:translateY(-50%);
+    width:46px;height:46px;border-radius:48% 52% 51% 49%/50% 48% 52% 50%;
+    box-shadow:inset 0 -3px 7px rgba(0,0,0,0.55),inset 0 2px 5px rgba(255,255,255,0.10),
+      0 4px 9px rgba(0,0,0,0.5);
+  }
+  #overlay .despatch.brit .d-wax{ background:radial-gradient(circle at 42% 36%,#6B1A22,#4A1016 48%,#230509); }
+  #overlay .despatch.fran .d-wax{ background:radial-gradient(circle at 42% 36%,#1B2C4E,#12203C 48%,#060B16); }
+
+  /* ===== SERVICE RECORDS (opponent rank) ========================== */
+  #modeChoices.as-records{ gap:9px; align-items:stretch; }
+  #overlay .record{
+    position:relative;flex:1 1 0;min-width:96px;max-width:132px;
+    display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:12px 8px 11px;cursor:pointer;border:0;border-radius:0;
+    color:#4A3A26;text-shadow:none;
+    background:
+      radial-gradient(64% 96% at 18% 14%, rgba(160,132,86,0.18), rgba(160,132,86,0) 60%),
+      linear-gradient(158deg,#F0E5C7 0%,#E0D0A6 52%,#CDB88C 100%);
+    box-shadow:0 6px 13px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.5);
+    clip-path:polygon(0 3px,5px 0,52% 2px,calc(100% - 5px) 0,100% 6px,
+      calc(100% - 2px) 46%,100% calc(100% - 5px),calc(100% - 6px) 100%,
+      46% calc(100% - 2px),4px 100%,0 calc(100% - 6px),2px 44%);
+    transition:transform 0.18s ease, filter 0.18s, box-shadow 0.18s;
+  }
+  #overlay .record:nth-child(1){ transform:rotate(-2deg); }
+  #overlay .record:nth-child(2){ transform:rotate(0.7deg); }
+  #overlay .record:nth-child(3){ transform:rotate(1.8deg); }
+  #overlay .record:hover{ filter:brightness(1.04); }
+  #overlay .record:nth-child(1):active{ transform:rotate(-2deg) translateY(2px) scale(0.985); }
+  #overlay .record:nth-child(2):active{ transform:rotate(0.7deg) translateY(2px) scale(0.985); }
+  #overlay .record:nth-child(3):active{ transform:rotate(1.8deg) translateY(2px) scale(0.985); }
+  .r-chev{ display:block;width:52px;height:44px;color:#4A3A26;opacity:0.82; }
+  .r-chev svg{ width:100%;height:100%;display:block; }
+  .r-name{
+    font-family:'Cinzel',serif;font-weight:700;font-size:13px;letter-spacing:0.05em;
+    line-height:1;color:#2B2016;
+  }
+  .r-old{
+    font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:0.2em;
+    text-transform:uppercase;color:#8A7452;margin-top:-2px;
+  }
+  .r-line{
+    font-family:'Cormorant Garamond',serif;font-style:italic;font-size:12px;
+    line-height:1.26;color:#5B4A32;margin-top:3px;
+  }
+
+  /* The primary action is sealing wax rather than brass — the one commit. */
+  #overlay button.primary, #modeChoices button.primary{
+    color:#F0DCC0;
+    background:radial-gradient(circle at 40% 30%,#7A2024 0%,#571216 46%,#2A0708 100%);
+    border-color:#2A0708;
+    text-shadow:0 -1px 1px rgba(0,0,0,0.8);
+    box-shadow:inset 0 1px 4px rgba(196,96,96,0.18),inset 0 -4px 9px rgba(0,0,0,0.6),
+      0 5px 12px rgba(0,0,0,0.66);
+  }
 
   /* Title splash — first thing shown on load: title+subtitle fade in over 2s,
      then the mode-select buttons fade in a further 1s after that. */
@@ -358,7 +722,15 @@
     #brigadeStatus{flex-wrap:wrap;gap:5px 14px;font-size:9.5px;}
     #unitOverlayPanel{ bottom:6px;width:200px;max-width:56vw;max-height:50vh; }
     #logOverlayPanel{ width:100%;max-width:100%;top:auto;left:0;right:0;bottom:0;height:65vh;
-      border-left:none;border-top:2px solid var(--brass-dim);transform:translateY(100%); }
+      border-left:none;border-top:2px solid #3E2F11;transform:translateY(100%); }
+    #logOverlayPanel::before{
+      left:50%;top:7px;transform:translateX(-50%);
+      width:84px;height:13px;
+      background:linear-gradient(180deg,#EBD190 0%,#B08D3F 42%,#6B5320 100%);
+      box-shadow:inset 0 1px 0 rgba(255,246,214,0.75),inset 0 -2px 3px rgba(0,0,0,0.45),
+        0 3px 6px rgba(0,0,0,0.6);
+    }
+    #logOverlayHeader{ padding-top:26px; }
     #logOverlay.show #logOverlayPanel{ transform:translateY(0); }
     #armyPickerCardBody{padding:9px 10px 3px;}
     .apLabel{font-size:9px;}
@@ -572,6 +944,9 @@
 </div>
 
 <div id="overlay">
+  <canvas id="deskCanvas" aria-hidden="true"></canvas>
+  <div id="deskCandle" aria-hidden="true"></div>
+  <div id="deskVignette" aria-hidden="true"></div>
   <div class="box">
     <h2 id="overlayTitle">TravelBattle</h2>
     <div id="overlaySubtitle" style="display:none;">Field Command</div>
