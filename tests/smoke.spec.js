@@ -9,6 +9,28 @@
 
 import { test, expect } from '@playwright/test';
 
+/* The faction and rank screens are no longer plainly-labelled buttons. Since
+   the Commander's Desk overhaul, a faction is a sealed despatch whose text
+   reads "To the Officer Commanding / Britain / ..." and a difficulty is a
+   service record reading "Marshal / Hard / ...". Both are still real <button>
+   elements with the same handlers, but their accessible name is now the whole
+   card, so an exact-name locator like { name: 'Play Britain' } no longer
+   matches and the click times out.
+
+   Matching on the distinctive word rather than the full string on purpose:
+   these are presentation strings and the period wording around them is likely
+   to be tweaked again. Anchored so 'Britain' cannot also match a France card
+   and vice versa. */
+const faction = (page, side) =>
+  page.getByRole('button', { name: new RegExp(side, 'i') });
+
+// value is the stored difficulty ('easy'|'medium'|'hard'); the card shows the
+// rank as its heading with the old label beneath it, so either word matches.
+const RANK_OF = { easy: 'Lieutenant', medium: 'Colonel', hard: 'Marshal' };
+const rank = (page, value) =>
+  page.getByRole('button', { name: new RegExp(RANK_OF[value], 'i') });
+
+
 /** Collect console errors and uncaught exceptions for the life of a page. */
 function watchForErrors(page) {
   const errors = [];
@@ -63,8 +85,8 @@ test('a match starts and reaches deployment', async ({ page }) => {
   // this exercises the same "does board setup reach deployment" path via the
   // vs-AI entry point instead.
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
-  await page.getByRole('button', { name: 'Play Britain' }).click();
-  await page.getByRole('button', { name: 'Easy' }).click();
+  await faction(page, 'Britain').click();
+  await rank(page, 'easy').click();
 
   await clearBoardSetup(page);
   const roster = page.locator('#rosterList');
@@ -157,12 +179,12 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
 
   await page.goto('/');
 
-  // vs AI -> Play Britain -> Easy. This is the path that pulls in
+  // vs AI -> Britain despatch -> Lieutenant record. This is the path that pulls in
   // ai-deployment.js and ai-strategy.js, the most interconnected files in the
   // codebase and the ones the other tests never touch.
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
-  await page.getByRole('button', { name: 'Play Britain' }).click();
-  await page.getByRole('button', { name: 'Easy' }).click();
+  await faction(page, 'Britain').click();
+  await rank(page, 'easy').click();
 
   await clearBoardSetup(page);
   await expect(page.locator('#rosterList .roster-chip').first()).toBeVisible({ timeout: 10_000 });
@@ -292,8 +314,8 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
-  await page.getByRole('button', { name: 'Play Britain' }).click();
-  await page.getByRole('button', { name: 'Hard' }).click();
+  await faction(page, 'Britain').click();
+  await rank(page, 'hard').click();
 
   // Waits out the board-orientation dice sequence (which can take a real
   // while) specifically for the Army Picker to appear — it only shows the
@@ -337,8 +359,8 @@ test('the Army Picker View Map toggle works without breaking the flow', async ({
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
-  await page.getByRole('button', { name: 'Play Britain' }).click();
-  await page.getByRole('button', { name: 'Hard' }).click();
+  await faction(page, 'Britain').click();
+  await rank(page, 'hard').click();
 
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
   const armyPicker = page.locator('#armyPickerPanel');
