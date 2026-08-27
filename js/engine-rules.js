@@ -169,6 +169,39 @@ export function unitBaseMove(u){
 // start and end your move on a road" bonus a plain road square does.
 export function isRoadLike(terr){ return !!(terr.isRoad || terr.key==='BUILDING'); }
 
+/* The route the last legalMoves search found from a unit's position to a chosen
+   destination, inclusive of both ends. A single-square move therefore returns a
+   two-element array, per the output contract.
+
+   Module-level rather than local because the animator asks for the path AFTER
+   legalMoves has returned, for the move actually chosen. Overwritten by that
+   unit's next search, so it is a cache of the last search rather than state that
+   accumulates.
+
+   Returns null rather than guessing when the cache does not match the unit or
+   the destination was never reached. An animator that invented a route would
+   show a unit crossing ground it could not legally cross, so the caller falls
+   back to a straight two-point slide instead. */
+let lastSearch = null;
+
+export function reconstructPath(u, toX, toY){
+  if(!lastSearch || lastSearch.unitId !== u.id) return null;
+  const target = toX+','+toY;
+  if(target === lastSearch.from) return [{x:toX, y:toY}];
+  if(!lastSearch.cameFrom.has(target)) return null;
+  const out = [];
+  let key = target;
+  const guard = COLS*ROWS + 2;           // no path can be longer than the board
+  for(let i=0; i<guard; i++){
+    const [x,y] = key.split(',').map(Number);
+    out.push({x, y});
+    if(key === lastSearch.from) break;
+    key = lastSearch.cameFrom.get(key);
+    if(key === undefined) return null;   // broken chain: never return half a route
+  }
+  return out.reverse();
+}
+
 export function legalMoves(u){
   if(u.formation==='square') return []; // squares don't move
   if(u.turnOnly) return [];
@@ -182,7 +215,12 @@ export function legalMoves(u){
   const isFootArtillery = UNIT_TYPES[u.type].isArtillery && !isHorseArtillery(u);
   const hasEscort = isFootArtillery ? brigadeHasCavalryEscort(u) : false;
 
+  /* cameFrom records which square each cell was reached FROM, so the route the
+     search already walked can be reconstructed instead of thrown away. The BFS
+     visits every intermediate square anyway; it simply discarded them. Written
+     wherever dist is written, so the two can never disagree. */
   const dist = new Map();
+  const cameFrom = new Map();
   const startKey = u.x+','+u.y;
   dist.set(startKey, 0);
   const queue = [{x:u.x,y:u.y,d:0}];
@@ -210,9 +248,12 @@ export function legalMoves(u){
         if(!canDouble) continue;
       }
       dist.set(key, nd);
+      cameFrom.set(key, cur.x+','+cur.y);
       queue.push({x:n.x,y:n.y,d:nd});
     }
   }
+
+  lastSearch = { unitId: u.id, from: startKey, cameFrom };
 
   const startPlough = terrainAt(u.x,u.y).plough;
   for(const [key,d] of dist){

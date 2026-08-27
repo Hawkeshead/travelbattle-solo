@@ -453,9 +453,9 @@ export function drawUnit(u, off){
   } else if(t.key==='INFANTRY' || t.key==='GUARD'){
     // Square formation: same animated sprite, rotated 45° so the tactical
     // state still reads at a glance rather than looking identical to a
-    // normal line.
+    // normal line. Rotated anticlockwise, for both armies.
     ctx.save();
-    ctx.rotate(Math.PI/4);
+    ctx.rotate(-Math.PI/4);   // anticlockwise, both armies
     if(!drawLineInfantryImage(size, u.side)) drawInfantrySquareDots(size);
     ctx.restore();
   } else if(t.key==='HEAVY_CAV' || t.key==='LIGHT_CAV'){
