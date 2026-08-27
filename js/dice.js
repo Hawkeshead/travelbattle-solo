@@ -73,6 +73,8 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   resultEl.className = 'dice-result';
   if(legendEl){ legendEl.textContent = legendText || ''; legendEl.style.display = legendText ? 'block' : 'none'; }
   groupsEl.innerHTML = groups.map((g,i)=>{
+    // The pending frame: placeholder faces before anything is rolled, so there is
+    // no kept die and no adjustment to show yet.
     const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending')).join('');
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
@@ -100,6 +102,35 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
 // this is called, so it briefly flickers random faces before settling on them.
 // holdOpen=true skips the auto-fade-and-dismiss (used when a re-roll might still be
 // offered) — the caller is then responsible for calling finishDice() once ready.
+/* The kept die and the value it COUNTS AS are not the same number.
+
+   resolveFight keeps the best die, then adds any value bonuses (attacking a
+   turned-around unit, springing an ambush, infantry or cavalry against
+   artillery) and caps the total at 6. It hands this panel the raw faces in
+   `rolls` and that adjusted total in `keptValue`.
+
+   So a die showing 3 could be compared as 5 with nothing on screen saying so:
+   a player reading the faces saw a winning margin of 3 and got a pushback. The
+   highlight made it worse, marking whichever face happened to equal the
+   adjusted total, which could mark the opponent's die and leave the player's
+   own unmarked.
+
+   The best raw die is now highlighted as the one kept, and where bonuses have
+   moved the value away from it the arithmetic is shown. The reasons were
+   already listed underneath; only the sum was missing. */
+function diceValueParts(g){
+  const bestRaw = (g.rolls && g.rolls.length) ? Math.max(...g.rolls) : null;
+  const counts  = (typeof g.keptValue === 'number') ? g.keptValue : bestRaw;
+  return { bestRaw, counts, adjusted: bestRaw !== null && counts !== bestRaw };
+}
+
+function adjustmentHTML(g){
+  const { bestRaw, counts, adjusted } = diceValueParts(g);
+  if(!adjusted) return '';
+  const delta = counts - bestRaw;
+  return `<div class="dice-adjust">${bestRaw} ${delta>0?'+':''}${delta} = <b>${counts}</b></div>`;
+}
+
 export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
@@ -116,15 +147,17 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
 
   function renderFrame(final){
     groupsEl.innerHTML = groups.map((g,i)=>{
+      const { bestRaw } = diceValueParts(g);
       const diceHTML = g.rolls.map(v=>{
         const shown = final ? v : (1+Math.floor(Math.random()*6));
-        const cls = final ? (v===g.keptValue ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
+        const cls = final ? (v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
         return dieFaceHTML(shown, cls);
       }).join('');
+      const adjustHTML = final ? adjustmentHTML(g) : '';
       const notesHTML = (final && g.notes && g.notes.length) ?
         `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
       const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
+      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
     }).join('');
   }
 
@@ -163,14 +196,16 @@ export function refreshDiceFrame(groups, resultText, resultCls){
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
   groupsEl.innerHTML = groups.map((g,i)=>{
+    const { bestRaw } = diceValueParts(g);
     const diceHTML = g.rolls.map(v=>{
-      const cls = v===g.keptValue ? 'kept' : (g.rolls.length>1 ? 'discard' : '');
+      const cls = v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '');
       return dieFaceHTML(v, cls);
     }).join('');
+    const adjustHTML = adjustmentHTML(g);
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
+    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
   }).join('');
   resultEl.textContent = resultText || '';
   resultEl.className = 'dice-result ' + (resultCls||'');

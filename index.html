@@ -675,6 +675,11 @@
   .dice-groups{ display:flex; align-items:center; justify-content:center; gap:12px; }
   .dice-group{ display:flex; flex-direction:column; align-items:center; gap:4px; }
   .dice-group .glabel{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); letter-spacing:0.03em; }
+  /* Shown when value bonuses move a side's total away from the die it kept, so
+     the number the engine actually compares is visible rather than implied. */
+  .dice-adjust{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim);
+    margin-top:3px; letter-spacing:.02em; }
+  .dice-adjust b{ color:var(--ink); font-weight:600; }
   .dice-notes{ display:flex; flex-direction:column; gap:1px; margin-top:3px; max-width:110px; }
   .dice-notes span{ font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--brass-dim); line-height:1.3; white-space:normal; }
   .dice-legend{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:var(--ink-dim); text-align:center; margin-top:6px; padding-top:5px; border-top:1px solid var(--line); line-height:1.4; }
