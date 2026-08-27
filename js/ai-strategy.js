@@ -60,6 +60,22 @@ export const SOLO_ATTACK_PENALTY = 3.0;
 // it before reforming Line regardless of other pressure.
 export const SQUARE_BREAK_TURNS = 2;
 
+// A Brigadier is held this far behind his Brigade's forward-most unit: close
+// enough to keep the cohesion chain intact, far enough not to be in the fight.
+export const BRIGADIER_TRAIL_MIN = 1;
+export const BRIGADIER_TRAIL_MAX = 2;
+export const BRIGADIER_TRAIL_WEIGHT = 0.9;
+export const BRIGADIER_CONTACT_PENALTY = 2.5;
+
+// Staying put when there is a shot to take. A gun may move OR fire, so moving
+// with a target in view throws the shot away.
+export const GUN_HOLDS_FIRE_BONUS = 2.5;
+
+// Pull toward the side's chosen cavalry point. Slightly stronger than the
+// per-unit vulnerable pull it replaces (0.22), because the whole value of the
+// rule is that the squadrons converge rather than each drifting to its own.
+export const CAVALRY_CONCENTRATION_PULL = 0.28;
+
 export const FOCUS_FIRE_BONUS = 1.8;
 export const WOUNDED_TARGET_BONUS = 1.2;
 // An enemy off its Brigadier's chain or with no support within two squares.
@@ -548,6 +564,41 @@ function getVulnerableEnemyUnits(side){
   return list;
 }
 
+/* THE CAVALRY SCHWERPUNKT: one point, chosen for the whole side's horse.
+
+   vulnerableTargetPullBonus pulls each unit toward ITS OWN nearest weak enemy,
+   which for cavalry means two squadrons on opposite wings are each pulled to a
+   different target and neither arrives in strength. Cavalry is the arm that
+   only works concentrated: a single squadron trades itself for nothing, two
+   together break a flank.
+
+   Weakness is measured as the brief specifies, by how well supported a unit is
+   rather than how close it happens to be: friendly units near it, and how near
+   its own Brigadier is (a unit its Brigadier has left behind cannot be
+   reinforced and, if the chain is broken, cannot even withdraw).
+
+   Cached per (side, turn) so every squadron in a turn aims at the same point.
+   Recomputed next turn, so it follows the battle rather than fixating. */
+function cavalrySchwerpunkt(side){
+  const cache = state._aiCavTargetCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.target;
+  const enemy = otherSide(side);
+  const foes = state.units.filter(o=>!o.removed && o.side===enemy &&
+    o.type!=='BRIGADIER' && UNIT_TYPES[o.type].canFight && !isConcealedFromEnemy(o));
+  let target = null, bestWeakness = -Infinity;
+  for(const f of foes){
+    const support = state.units.filter(o=>!o.removed && o.side===enemy && o.id!==f.id &&
+      o.type!=='BRIGADIER' && chebyshev(o,f)<=2).length;
+    const brig = state.units.find(o=>!o.removed && o.side===enemy &&
+      o.type==='BRIGADIER' && o.brigadeId===f.brigadeId);
+    const brigDist = brig ? chebyshev(brig,f) : 12;   // no Brigadier at all is the weakest case
+    const weakness = brigDist - support*2;
+    if(weakness > bestWeakness){ bestWeakness = weakness; target = f; }
+  }
+  state._aiCavTargetCache = { side, turn: state.turnNumber, target };
+  return target;
+}
+
 export function aiDecideAndExecuteMove(u){
   if(u.removed || u.turnOnly) return;
   const side = u.side;
@@ -685,6 +736,30 @@ export function aiDecideAndExecuteMove(u){
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
         s += connectedCount * 0.5;
+
+        /* TRAIL THE LINE. A Brigadier is a chain-of-command marker, not a
+           fighting man: he cannot attack, cannot be attacked, and carries his
+           Brigade's single Leadership Roll. His whole job is to stay close
+           enough to keep the cohesion chain intact so his units can move at all.
+
+           He was being scored like a combat unit, picking up the generic
+           "close on the nearest enemy" pull below, which is why French
+           Brigadiers wander onto independent axes while Wellington, Graham and
+           Uxbridge sit where they are needed. Now he is held a short distance
+           behind whichever of his units is furthest forward. */
+        const forwardMost = brigadeMates.reduce((best,o)=>
+          nearestEnemyDist(o, side) < nearestEnemyDist(best, side) ? o : best, brigadeMates[0]);
+        const gap = chebyshev(c, forwardMost);
+        const off = gap < BRIGADIER_TRAIL_MIN ? (BRIGADIER_TRAIL_MIN - gap)
+                  : gap > BRIGADIER_TRAIL_MAX ? (gap - BRIGADIER_TRAIL_MAX) : 0;
+        s -= off * BRIGADIER_TRAIL_WEIGHT;
+
+        // Never in contact. He cannot be attacked, but standing in the enemy's
+        // face puts the Brigade's only Leadership Roll where the line will move
+        // through it, and blocks a square his own units may need.
+        if(state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o))){
+          s -= BRIGADIER_CONTACT_PENALTY;
+        }
       }
     }
     // Without some positional pull, every "safe" square scores identically and the
@@ -694,7 +769,10 @@ export function aiDecideAndExecuteMove(u){
     // Cavalry unit until a real crisis exists, so it doesn't rush the opening exchanges.
     // Self-preservation (below) suppresses it too — an isolated, threatened unit
     // should be falling back toward support, not still being pulled forward alone.
-    if(!holdingReserve && !selfPreservation){
+    // Brigadiers excluded: they have their own trailing rule above, and taking
+    // this pull as well is what sent them off on independent paths toward the
+    // enemy instead of following their own Brigade.
+    if(!holdingReserve && !selfPreservation && t.key!=='BRIGADIER'){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
         s -= Math.abs(d-4) * 0.06;
@@ -709,6 +787,25 @@ export function aiDecideAndExecuteMove(u){
           const goodGround = terr.elevation>0 || terr.defenseBonus;
           const safeEnough = threatPenalty(u, side) < 1.4;
           if(goodGround && safeEnough && d<=6) s += 1.6;
+
+          /* A gun may MOVE OR FIRE, never both in the same turn. So if it has a
+             shot from where it stands, repositioning does not merely delay the
+             shot, it forfeits it outright.
+
+             The bonus above only rewarded settling on GOOD GROUND (elevation or
+             a defence bonus), so a battery with a clear field of fire on flat
+             open ground got nothing for staying and kept shuffling. That is the
+             logged French Battery A, moving between (0,3) and (1,3) for turns on
+             end without ever establishing a firing position.
+
+             Scaled a little by how many targets are available, so a gun with one
+             marginal shot is still willing to reposition for a better arc, while
+             one covering three units stays put. Gated on not being under real
+             threat: a battery about to be overrun should still run. */
+          if(safeEnough){
+            const shots = artilleryTargets(u).length;
+            if(shots > 0) s += GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2;
+          }
         }
       } else {
         s -= nearestEnemyDist(c, side) * 0.12;
@@ -736,7 +833,15 @@ export function aiDecideAndExecuteMove(u){
     // overextended enemy, rather than each unit independently picking whichever
     // enemy happens to be closest to itself.
     if(seekTactics && !holdingReserve && !selfPreservation && !t.isArtillery){
-      s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
+      if(t.isCavalry){
+        // Cavalry aims at the side's single chosen point rather than each
+        // squadron at its own nearest weak enemy, so the horse arrives together.
+        const point = cavalrySchwerpunkt(side);
+        if(point) s -= chebyshev(c, point) * CAVALRY_CONCENTRATION_PULL;
+        else s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
+      } else {
+        s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
+      }
     }
 
     /* NEVER ATTACK ALONE.
