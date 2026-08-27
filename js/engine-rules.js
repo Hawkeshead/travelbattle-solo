@@ -372,11 +372,13 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
     }
     showDiceRerollButton(`Use Re-roll (${unitLabel(unit)})`, doReroll, next);
   }
-  // Attacker's chance first, then defender's — using whatever aRoll.value now
-  // is after any attacker re-roll, so a defender who was only just barely
-  // ahead can still find themselves behind and eligible in turn.
-  tryOne(attacker, aRoll, aReasons, aValueBonus, dRoll.value, ()=>{
-    tryOne(defender, dRoll, dReasons, dValueBonus, aRoll.value, onComplete);
+  // Defender's chance first, then attacker's — the printed ruleset (p.6) is
+  // explicit that where both sides can re-roll, the defender decides first.
+  // The attacker is then offered whatever aRoll.value/dRoll.value now are
+  // after any defender re-roll, so an attacker who was only just barely ahead
+  // can still find themselves behind and eligible in turn.
+  tryOne(defender, dRoll, dReasons, dValueBonus, aRoll.value, ()=>{
+    tryOne(attacker, aRoll, aReasons, aValueBonus, dRoll.value, onComplete);
   });
 }
 
@@ -585,10 +587,15 @@ export function retreatAndRally(loser, onComplete){
   loser.turnOnly = true;
   loser.rallying = true;
   const t = UNIT_TYPES[loser.type];
+  // House rule: Heavy Cavalry rallies on 3+ alongside Guard Infantry. The printed
+  // ruleset (p.7) grants the easier rally to Guard Infantry only, but Heavy Cavalry
+  // is meant to be the strongest piece on the board, so it gets the same standard.
   let successOn = [4,5,6];
-  if(t.key==='GUARD') successOn = [3,4,5,6];
+  if(t.key==='GUARD' || t.key==='HEAVY_CAV') successOn = [3,4,5,6];
   if(t.key==='ARTILLERY') successOn = [5,6];
-  const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+'] : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
+  const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+']
+    : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
+    : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();

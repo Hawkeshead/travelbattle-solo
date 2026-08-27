@@ -143,8 +143,97 @@ export function ensureAnimationLoopRunning(){
   animFrameHandle = requestAnimationFrame(tick);
 }
 
-export const canvas = document.getElementById('board');
-export const ctx = canvas.getContext('2d');
+/* The render target is a live binding, not a constant.
+
+   Every drawing helper in this module and in render-units.js writes to this one
+   `ctx` and takes no context parameter, so as a `const` they could only ever
+   draw to the battle board. ES modules export live bindings rather than copies,
+   so reassigning it here redirects every importer at once, and every existing
+   helper draws to the new target with no change to any of them. That is what
+   lets the rules manual render its diagrams with the real terrain, unit art and
+   tile canopies instead of a reimplementation that would drift out of step.
+
+   Reassigned ONLY through setRenderTarget below, and only inside the
+   begin/endDiagramMode pair. Nothing else should ever touch it. */
+export let canvas = document.getElementById('board');
+export let ctx = canvas.getContext('2d');
+
+/* --- Diagram render scope ------------------------------------------------
+
+   Swapping the render target while anything is drawing asynchronously would
+   paint diagram content onto the battle board. There is exactly one such
+   source: ensureAnimationLoopRunning's rAF loop, which calls draw() and which
+   during a battle runs CONTINUOUSLY rather than occasionally, because
+   spriteAnimActive is true whenever any Infantry or Guard unit is on the board.
+   So the loop is cancelled for the duration of the swap and restored after,
+   which the plan rightly called non-negotiable.
+
+   (The ambient layer runs a second, independent rAF loop, but it owns its own
+   canvases and never touches this ctx, so it is deliberately left running.)
+
+   The nested guard is not paranoia: a diagram drawn while already swapped would
+   restore the FIRST diagram's target on the inner end() and leave the battle
+   board pointing at a detached canvas for the rest of the session, with no
+   error at the point of failure. It throws instead. */
+let diagramScopeActive = false;
+let savedRenderScope = null;
+
+export function setRenderTarget(nextCanvas){
+  canvas = nextCanvas;
+  ctx = nextCanvas.getContext('2d');
+}
+
+export function isDiagramScopeActive(){ return diagramScopeActive; }
+
+/* Fields the render path reads off `state`. Verified by scanning every
+   `state.*` reference in render-board.js and render-units.js rather than
+   assumed, since a field missed here is a battle-state corruption that only
+   shows up after the manual is closed. */
+const DIAGRAM_SCOPED_STATE = [
+  'terrain', 'units', 'selectedUnitId', 'mode', 'aiSide', 'phase',
+  'grassStyles', 'buildingStyles', 'craters', 'excludedRoadEdges', 'boardMode',
+];
+
+export function beginDiagramMode(targetCanvas, cellPx, scopedState){
+  if(diagramScopeActive){
+    throw new Error('beginDiagramMode: already inside a diagram scope (nested swap)');
+  }
+  diagramScopeActive = true;
+
+  savedRenderScope = {
+    canvas, cell: CELL, animHandle: animFrameHandle,
+    state: Object.fromEntries(DIAGRAM_SCOPED_STATE.map(k => [k, state[k]])),
+  };
+
+  // Stop the loop BEFORE anything is swapped, so no frame can straddle it.
+  if(animFrameHandle){ cancelAnimationFrame(animFrameHandle); animFrameHandle = null; }
+
+  setRenderTarget(targetCanvas);
+  if(cellPx) setCell(cellPx);
+  if(scopedState){
+    for(const k of DIAGRAM_SCOPED_STATE){
+      if(k in scopedState) state[k] = scopedState[k];
+    }
+  }
+}
+
+export function endDiagramMode(){
+  if(!diagramScopeActive) return;         // idempotent: safe in a finally block
+  const saved = savedRenderScope;
+  diagramScopeActive = false;
+  savedRenderScope = null;
+
+  setRenderTarget(saved.canvas);
+  setCell(saved.cell);
+  // Restores an empty or null baseline as happily as a live battle, which is
+  // the pre-battle case: on the rank and orientation screens state.terrain and
+  // state.units are not yet populated.
+  for(const k of DIAGRAM_SCOPED_STATE) state[k] = saved.state[k];
+
+  // Only restart the loop if it was running. Restarting it unconditionally
+  // would spin a rAF on a screen that had none.
+  if(saved.animHandle) ensureAnimationLoopRunning();
+}
 
 export function computeCellSize(){
   const wrap = document.getElementById('boardWrap');

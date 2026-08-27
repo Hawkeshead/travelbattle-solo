@@ -52,10 +52,7 @@ export const TB_DATA = (function(){
    board photos (Aug 2026) — best-effort read of road/woods/building/
    field placement, confirmed against his description. The light grey
    blotches visible in the photos are decorative (rocks / cliff faces
-   on hill inclines) with no gameplay effect on their own, and no hill
-   terrain was confidently identifiable in either photo, so both boards
-   are currently coded with no HILL squares — flag this if either board
-   does have a hill area, since that would need adding explicitly.
+   on hill inclines) with no gameplay effect on their own.
 
    Each game start: one board is randomly assigned to each side, then
    each side rolls a d6 for that board's table orientation (1-3 =
