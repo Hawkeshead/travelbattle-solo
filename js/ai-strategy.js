@@ -47,11 +47,23 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
 // is willing to hold that bet: if nothing has come within AMBUSH_STANDDOWN_RANGE
 // for AMBUSH_STANDDOWN_TURNS consecutive AI turns, the unit breaks cover and
 // rejoins the battle rather than sitting out the rest of the match.
-// Cost of stepping into contact with an enemy that no other friendly unit could
-// also reach this turn. Sized to outweigh the charge bonus (2.2) and the
-// vulnerable-target pull, since an unsupported charge is exactly the trade the
-// AI keeps losing, but not so large that it refuses to advance at all.
-export const SOLO_ATTACK_PENALTY = 3.0;
+/* Cost of stepping into contact with an enemy no other friendly unit could also
+   reach this turn.
+
+   Originally 3.0, sized against the charge bonus (2.2). That was the wrong
+   comparison. The term it really competes with is the advance pull, which is
+   nearestEnemyDist * 0.12, so 0.12 per square closed. At 3.0 the penalty was
+   twenty-five times the value of closing a square, which meant that once any
+   candidate move would put a unit in contact unsupported, nothing in the scorer
+   could outweigh it. The army walked to just outside contact range and stopped
+   permanently: a logged match shows Brigade 0 holding the same four squares from
+   turn 13 to turn 49 while the rest of the army was destroyed.
+
+   1.2 still makes an unsupported charge (2.2 - 1.2 = +1.0) clearly worse than a
+   supported one (2.2), and still outweighs ten squares of advance pull, but it
+   can be overcome by a genuinely good opportunity rather than vetoing outright.
+   Deliberately a discouragement now, not a prohibition. */
+export const SOLO_ATTACK_PENALTY = 1.2;
 
 // Weight toward continuing against the enemy already under attack this phase,
 // and toward one that cannot fight back or has just rallied. Both are ordering
@@ -373,10 +385,21 @@ export function assignBrigadeMissions(side, plan, assessment){
      stays at threatPenalty < 0.8. Loosening it to repair a chain would push units
      out of Square while Cavalry are still on them, which trades a stalled Brigade
      for a destroyed one. */
-  const OFFENSIVE = new Set(['MAIN_ATTACK','FLANK','SUPPORT','FIX','COUNTERATTACK']);
+  /* Every mission where a Brigade is expected to act, not just the offensive
+     ones. RESERVE, SCREEN and HOLD were originally excluded on the reasoning
+     that a Brigade sitting still does not need its command chain intact. That
+     is wrong: a Brigade cannot act on ANY future order if its units are off the
+     Brigadier's chain, and a disconnected unit cannot move itself back, so the
+     Brigadier has to come to it. Excluding the defensive missions is why Soult
+     marched alone from (6,1) to (2,9) across ten turns while his last unit,
+     4e Ligne, sat stranded at (0,0) for fifty. Both were on HOLD, so REGROUP
+     could never fire. WITHDRAW is left out on purpose: a Brigade running for
+     the edge has no use for a rally point behind it. */
+  const NEEDS_COMMAND = new Set(['MAIN_ATTACK','FLANK','SUPPORT','FIX','COUNTERATTACK',
+                                 'RESERVE','SCREEN','HOLD']);
   let mainEffortRegrouped = false;
   for(const id of brigadeIds){
-    if(!OFFENSIVE.has(missions[id])) continue;
+    if(!NEEDS_COMMAND.has(missions[id])) continue;
     const b = assessment.liveOwnBrigades.find(x=>x.id===id);
     if(!b || !b.hasBrigadier) continue; // Brigadier down: survivors already act independently
     if(b.effectiveRemaining === 0 || b.commandFraction < MIN_COMMAND_FRACTION_TO_ATTACK){

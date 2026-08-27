@@ -563,14 +563,34 @@ export function pushBack(loser, winner){
     }
     if(landingClear){ animateUnitTo(loser, nx, ny); }
   } else if(!inBounds(nx,ny)){
-    // Already at the board edge with nowhere further to go — house rule: run to the
-    // nearest corner of its own edge instead of simply standing in place.
-    const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
-    const preferredCornerX = loser.x < COLS/2 ? 0 : COLS-1;
-    const corner = findNearestFreeEdgeCell(edgeY, preferredCornerX, loser.id);
-    if(corner && (corner.x!==loser.x || corner.y!==loser.y)){
-      animateUnitTo(loser, corner.x, corner.y);
-      log(`${unitLabel(loser)} has nowhere left to give and bolts for the corner.`, 'combat');
+    /* Back to the board edge with nowhere further to give. The house rule is that
+       the unit bolts along its own edge rather than standing still.
+
+       It used to pick a CORNER (x = 0 or COLS-1 depending on which half it was
+       in) and then take the free cell nearest that corner along the whole
+       twenty-wide edge row. A unit at (8,0) was therefore thrown to (0,0): eight
+       tiles from a single one-margin pushback, which is four times a cavalry
+       charge and further than any unit can move in a turn. Logged at T21, and it
+       stranded 4e Ligne alone in the corner, disconnected from its Brigade, for
+       the remaining fifty turns of the match.
+
+       A pushback moves one square. It now slides one square ALONG the edge, away
+       from the winner, and only if that square is blocked does it try the other
+       direction. If both are blocked it stands its ground, which is the honest
+       outcome for a unit with genuinely nowhere to go. */
+    const along = Math.sign(loser.x - winner.x) || (loser.x < COLS/2 ? 1 : -1);
+    const options = [loser.x + along, loser.x - along];
+    let moved = false;
+    for(const tx of options){
+      if(tx < 0 || tx >= COLS) continue;
+      if(unitsAt(tx, loser.y).some(o=>o.id!==loser.id)) continue;
+      animateUnitTo(loser, tx, loser.y);
+      log(`${unitLabel(loser)} has nowhere left to give and edges along the board edge.`, 'combat');
+      moved = true;
+      break;
+    }
+    if(!moved){
+      log(`${unitLabel(loser)} is pinned against the board edge with nowhere to go.`, 'combat');
     }
   }
   loser.turnOnly = true;
