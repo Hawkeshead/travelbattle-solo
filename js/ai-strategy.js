@@ -65,6 +65,19 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
    Deliberately a discouragement now, not a prohibition. */
 export const SOLO_ATTACK_PENALTY = 1.2;
 
+// Per-square pull toward a mission's target, applied at ANY range rather than
+// dying off past six squares. Set above terrainSeekBonus's 0.35 for a hill, so
+// an ordered Brigade crosses ground instead of settling on the nicest terrain
+// within reach.
+export const APPROACH_PULL = 0.16;
+
+// Per-square pull toward an enemy Brigade close to breaking. Breaking two
+// Brigades wins the battle, so a Brigade on its last unit is the most valuable
+// thing on the board. Sized above APPROACH_PULL so finishing a Brigade outranks
+// prosecuting the Brigade's own assigned mission.
+export const KILL_PULL_LAST_UNIT = 0.34;
+export const KILL_PULL_PENULTIMATE = 0.20;
+
 // Weight toward continuing against the enemy already under attack this phase,
 // and toward one that cannot fight back or has just rallied. Both are ordering
 // preferences within a mandatory fight phase, never grounds to decline a fight.
@@ -467,17 +480,21 @@ export function missionMoveBonus(u, side, pos, mission, plan){
   switch(mission){
     case 'MAIN_ATTACK':
       // Push hard at the plan's actual target, not just the nearest enemy.
-      return nearestTargetDist!=null ? Math.max(0, 6-nearestTargetDist)*0.18 : 0;
+      return nearestTargetDist!=null
+        ? -nearestTargetDist*APPROACH_PULL + Math.max(0, 6-nearestTargetDist)*0.18 : 0;
     case 'FLANK':
       // Favour the weak-flank column band while closing, rather than a straight line in.
-      if(!assessment) return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.12 : 0;
+      if(!assessment) return nearestTargetDist!=null
+        ? -nearestTargetDist*APPROACH_PULL + Math.max(0,6-nearestTargetDist)*0.12 : 0;
       { const towardFlank = assessment.weakFlank==='left' ? (COLS-pos.x)*0.02 : pos.x*0.02;
-        return (nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.12 : 0) + towardFlank; }
+        return (nearestTargetDist!=null
+          ? -nearestTargetDist*APPROACH_PULL + Math.max(0,6-nearestTargetDist)*0.12 : 0) + towardFlank; }
     case 'FIX':
       // Reward staying in contact with the target Brigade without overextending past it.
       return nearestTargetDist!=null ? Math.max(0, 3-Math.abs(nearestTargetDist-1))*0.15 : 0;
     case 'SUPPORT':
-      return nearestTargetDist!=null ? Math.max(0, 5-nearestTargetDist)*0.1 : 0;
+      return nearestTargetDist!=null
+        ? -nearestTargetDist*APPROACH_PULL*0.7 + Math.max(0, 5-nearestTargetDist)*0.1 : 0;
     case 'RESERVE':
       // Handled mainly via the existing holdingReserve suppression in
       // aiDecideAndExecuteMove; here just a mild pull back toward the Brigadier.
@@ -490,7 +507,8 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       { const homeRow = side===SIDES.RED ? ROWS-1 : 0;
         return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos)); }
     case 'COUNTERATTACK':
-      return nearestTargetDist!=null ? Math.max(0,6-nearestTargetDist)*0.18 : 0;
+      return nearestTargetDist!=null
+        ? -nearestTargetDist*APPROACH_PULL + Math.max(0,6-nearestTargetDist)*0.18 : 0;
     case 'REGROUP': {
       // Restore the command chain. The pull runs in opposite directions depending
       // on who is deciding, which is the whole point: a stranded unit may well be
@@ -602,6 +620,42 @@ function getVulnerableEnemyUnits(side){
 
    Cached per (side, turn) so every squadron in a turn aims at the same point.
    Recomputed next turn, so it follows the battle rather than fixating. */
+/* GO FOR THE KILL: pull toward an enemy Brigade that is nearly broken.
+
+   brigadeBreakBonus already understands that taking a Brigade's last unit is
+   worth 6, but it is only ever consulted in FIGHT scoring, once a unit is
+   already adjacent. Nothing pulled the army TOWARD such a Brigade, so the AI
+   would finish a kill it happened to be standing next to and ignore one two
+   squares away. Breaking two Brigades wins the battle, so a Brigade on its last
+   unit is the single most valuable thing on the board and should be worth
+   crossing ground for.
+
+   Cached per (side, turn) like the other per-turn reads. */
+function killTarget(side){
+  const cache = state._aiKillCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.hit;
+  const enemy = otherSide(side);
+  const byBrigade = new Map();
+  for(const o of state.units){
+    if(o.removed || o.side!==enemy || o.type==='BRIGADIER') continue;
+    if(!byBrigade.has(o.brigadeId)) byBrigade.set(o.brigadeId, []);
+    byBrigade.get(o.brigadeId).push(o);
+  }
+  let hit = null, best = 0;
+  for(const [, members] of byBrigade){
+    // 1 unit left: taking it breaks the Brigade. 2 left: one hit from breaking.
+    const worth = members.length===1 ? KILL_PULL_LAST_UNIT
+                : members.length===2 ? KILL_PULL_PENULTIMATE : 0;
+    if(worth > best){
+      best = worth;
+      hit = { unit: members.reduce((a,b)=> (b.turnOnly||b.rallying) && !(a.turnOnly||a.rallying) ? b : a, members[0]),
+              worth };
+    }
+  }
+  state._aiKillCache = { side, turn: state.turnNumber, hit };
+  return hit;
+}
+
 function cavalrySchwerpunkt(side){
   const cache = state._aiCavTargetCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.target;
@@ -855,6 +909,16 @@ export function aiDecideAndExecuteMove(u){
     // converging on the same weak point in one turn is what actually punishes an
     // overextended enemy, rather than each unit independently picking whichever
     // enemy happens to be closest to itself.
+    /* Closing on a Brigade that is one or two units from breaking. Applies to
+       every fighting type including cavalry, and is deliberately NOT suppressed
+       by holdingReserve: a reserve exists precisely for the moment the battle can
+       be won, and sitting it out while a Brigade is one hit from breaking is the
+       reserve doctrine misfiring. */
+    if(seekTactics && !selfPreservation && !t.isArtillery){
+      const kill = killTarget(side);
+      if(kill) s -= chebyshev(c, kill.unit) * kill.worth;
+    }
+
     if(seekTactics && !holdingReserve && !selfPreservation && !t.isArtillery){
       if(t.isCavalry){
         // Cavalry aims at the side's single chosen point rather than each

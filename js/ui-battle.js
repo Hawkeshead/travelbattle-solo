@@ -27,6 +27,7 @@ export function startBattle(){
   state._aiMissions = { red:null, blue:null };
   state._aiFocusTargetId = null;
   state._aiCavTargetCache = null;
+  state._aiKillCache = null;
   state._aiDebugLog = { red:null, blue:null };
   beginMovePhase();
 }
