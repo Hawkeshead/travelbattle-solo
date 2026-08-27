@@ -4,7 +4,7 @@ import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
-import { UNIT_MOVE_ANIMATION_MS, animateUnitTo, displaceBrigadierIfPresent, draw } from './render-board.js';
+import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, UNIT_MOVE_ANIMATION_MS } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -1176,10 +1176,22 @@ export function aiDecideAndExecuteMove(u){
 export function aiDoMovePhase(){
   const order = orderAiUnitsForMove(state.aiSide);
   let i = 0;
+  cameraParkPlayerView();
+  /* The camera follows by BRIGADE, not by unit. orderAiUnitsForMove already
+     groups the turn Brigade by Brigade (leftmost first), and cohesion keeps a
+     Brigade's units within a few squares of each other, so framing the Brigade's
+     centroid gives roughly three long pans across a turn instead of seventeen
+     jumps. The pan is started when the Brigade changes and left to run while its
+     units move inside the frame. */
+  let cameraBrigade = null;
   function step(){
     if(state.gameOver) return;
     if(i>=order.length){ endMovePhase(); return; }
     const u = state.units.find(x=>x.id===order[i]); i++;
+    if(u && u.brigadeId !== cameraBrigade){
+      cameraBrigade = u.brigadeId;
+      cameraToUnits(state.units.filter(o=>!o.removed && o.side===state.aiSide && o.brigadeId===cameraBrigade));
+    }
     const beforeX = u.x, beforeY = u.y;
     aiDecideAndExecuteMove(u);
     draw();
@@ -1389,6 +1401,9 @@ export function aiDoFightPhase(){
       }
     }
     if(bestA){
+      // A fight is the thing most worth seeing, so the camera reframes on the
+      // pair even if they are inside the Brigade frame already.
+      cameraToUnits([bestA, bestT]);
       logAiDebugMove(state.aiSide, { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
       // Remember what we are working on, so the next attacker in this phase
       // piles onto the same unit. Cleared when the fight phase ends.

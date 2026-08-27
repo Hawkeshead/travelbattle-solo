@@ -4,7 +4,7 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { FAST_ANIMATION_MODE, addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -85,6 +85,8 @@ function renderMenuPanel(){
   document.getElementById('musicVolumeSlider').value = Math.round(prefs.volumes.music * 100);
   const ambientEl = document.getElementById('ambientToggle');
   if(ambientEl) ambientEl.checked = AmbientPref.enabled;
+  const cameraEl = document.getElementById('cameraToggle');
+  if(cameraEl) cameraEl.checked = CameraPref.enabled;
   document.getElementById('backToMenuConfirm').style.display = 'none';
 }
 
@@ -176,6 +178,10 @@ export function renderAiDebugPanel(){
 export function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
+  // Hand the player's own zoom and pan back as their turn starts. Parked at the
+  // top of the AI's move phase; following the action must never cost them where
+  // they were looking.
+  if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
   logReplay('turnStart', { side: state.turn });
   state.moved = new Set();
   state.turnComboTarget = null;
@@ -763,6 +769,8 @@ export function initBattleControls(){
   document.getElementById('muteToggle').onchange = (e)=> AudioManager.setMuted(e.target.checked);
   const ambientToggleEl = document.getElementById('ambientToggle');
   if(ambientToggleEl) ambientToggleEl.onchange = (e)=>{ AmbientPref.enabled = e.target.checked; };
+  const cameraToggleEl = document.getElementById('cameraToggle');
+  if(cameraToggleEl) cameraToggleEl.onchange = (e)=>{ CameraPref.enabled = e.target.checked; };
   document.getElementById('musicVolumeSlider').oninput = (e)=> AudioManager.setVolume('music', e.target.value/100);
   document.getElementById('backToMenuBtn').onclick = ()=>{
     if(state.gameOver){

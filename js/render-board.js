@@ -298,6 +298,115 @@ export function resetMapView(){
   applyMapTransform();
 }
 
+/* =========================================================
+   BATTLE CAMERA
+
+   During the AI's turn the board follows the action, so a player can see where
+   the fighting is without hunting for it. Deliberately a REGION camera, not a
+   unit camera: it frames the part of the map a Brigade is working in, at a
+   modest zoom, rather than pushing right in on two units. Several fights
+   usually happen inside one frame.
+
+   It pans rather than cuts, with an ease-in-out so the movement reads as a
+   camera being swung rather than the board teleporting. Because the AI moves
+   Brigade by Brigade (orderAiUnitsForMove groups them, leftmost first) and
+   cohesion keeps a Brigade's units together, this naturally works out at around
+   three long pans per turn rather than one per unit.
+
+   The player's own view is captured before the AI turn and restored after, so
+   following the action never costs them where they were looking.
+========================================================= */
+export const CAMERA_ZOOM = 1.4;        // enough to frame a Brigade's area, not a duel
+export const CAMERA_PAN_MS = 900;      // long enough to read as a pan, short enough not to drag
+const CAMERA_PREF_KEY = 'fc:battleCamera';
+
+export const CameraPref = {
+  get enabled(){
+    try { return localStorage.getItem(CAMERA_PREF_KEY) !== 'off'; } catch { return true; }
+  },
+  set enabled(v){
+    try { localStorage.setItem(CAMERA_PREF_KEY, v ? 'on' : 'off'); } catch { /* private mode */ }
+  },
+};
+
+let cameraRaf = null;
+let playerView = null;   // the human's own zoom/pan, parked for the AI turn
+
+// Ease-in-out cubic: accelerates away, coasts, settles. A linear pan reads as a
+// mechanism moving; this reads as a camera operator.
+function easeInOut(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2; }
+
+/* Centre the view on a board cell. Coordinates are in CELL space and converted
+   here, so callers pass a square rather than pixels. */
+export function cameraTo(cellX, cellY, opts = {}){
+  if(!CameraPref.enabled) return;
+  const wrap = document.getElementById('boardWrap');
+  if(!wrap || !canvas) return;
+
+  const zoom = opts.zoom != null ? opts.zoom : CAMERA_ZOOM;
+  // The canvas is laid out at its CSS size; CELL is in canvas-internal units, so
+  // scale between them before working out where the cell lands on screen.
+  const scale = canvas.offsetWidth / (COLS * CELL);
+  const targetX = (cellX + 0.5) * CELL * scale * zoom;
+  const targetY = (sy(cellY) + 0.5) * CELL * scale * zoom;
+
+  const fromX = mapPanX, fromY = mapPanY, fromZ = mapZoom;
+  const toX = wrap.clientWidth/2 - targetX;
+  const toY = wrap.clientHeight/2 - targetY;
+
+  if(cameraRaf) cancelAnimationFrame(cameraRaf);
+  const t0 = performance.now();
+  const dur = opts.durationMs != null ? opts.durationMs : CAMERA_PAN_MS;
+
+  function frame(now){
+    const raw = Math.min(1, (now - t0) / dur);
+    const t = easeInOut(raw);
+    mapZoom = fromZ + (zoom - fromZ) * t;
+    mapPanX = fromX + (toX - fromX) * t;
+    mapPanY = fromY + (toY - fromY) * t;
+    applyMapTransform();          // clamps, so the camera cannot swing off-board
+    cameraRaf = raw < 1 ? requestAnimationFrame(frame) : null;
+  }
+  cameraRaf = requestAnimationFrame(frame);
+}
+
+/* Frame a group of units rather than a point: their centroid, so a Brigade
+   spread over a few squares is centred on its middle. */
+export function cameraToUnits(units, opts){
+  const live = (units || []).filter(u => u && !u.removed);
+  if(!live.length) return;
+  const cx = live.reduce((s,u)=>s+u.x,0) / live.length;
+  const cy = live.reduce((s,u)=>s+u.y,0) / live.length;
+  cameraTo(cx, cy, opts);
+}
+
+/* Park the human's own view before the AI takes over, and give it back after.
+   Following the action should never cost the player where they were looking. */
+export function cameraParkPlayerView(){
+  if(!CameraPref.enabled) return;
+  if(playerView) return;                       // already parked; do not overwrite
+  playerView = { zoom: mapZoom, x: mapPanX, y: mapPanY };
+}
+
+export function cameraRestorePlayerView(){
+  const v = playerView;
+  playerView = null;
+  if(!v || !CameraPref.enabled) return;
+  if(cameraRaf) cancelAnimationFrame(cameraRaf);
+  const fromX = mapPanX, fromY = mapPanY, fromZ = mapZoom;
+  const t0 = performance.now();
+  function frame(now){
+    const raw = Math.min(1, (now - t0) / CAMERA_PAN_MS);
+    const t = easeInOut(raw);
+    mapZoom = fromZ + (v.zoom - fromZ) * t;
+    mapPanX = fromX + (v.x - fromX) * t;
+    mapPanY = fromY + (v.y - fromY) * t;
+    applyMapTransform();
+    cameraRaf = raw < 1 ? requestAnimationFrame(frame) : null;
+  }
+  cameraRaf = requestAnimationFrame(frame);
+}
+
 export function clampMapPan(){
   const wrap = document.getElementById('boardWrap');
   const scaledW = canvas.offsetWidth * mapZoom, scaledH = canvas.offsetHeight * mapZoom;
