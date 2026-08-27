@@ -1,6 +1,6 @@
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { brigadeCavalryCount, chebyshev, isAdjacent, isConcealedFromEnemy, isRoadLike, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
+import { brigadeCavalryCount, canAttackTarget, chebyshev, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
 
 /* =========================================================
    AI: EVALUATION
@@ -14,6 +14,84 @@ export const AI_UNIT_VALUE = { BRIGADIER:2, INFANTRY:4, GUARD:5, HEAVY_CAV:5, LI
 // player concentrates several units against rather than trading evenly with.
 // Reuses the exact same connectivity check already built for the AI's own
 // cohesion — this is that same weakness, aimed at the opponent instead.
+/* =========================================================
+   REACHABILITY: who else can get at this target this turn
+
+   The AI had no way to ask "could anyone else join this fight". It could ask
+   whether a unit was already adjacent (canAttackTarget) and how far the nearest
+   enemy was (nearestEnemyDist), but nothing in between. That gap is why it
+   attacks alone: a lone charge and a two-unit converging attack score
+   identically, because nothing in the scoring can tell them apart.
+
+   A unit can engage a target this turn if it is already adjacent and allowed to
+   attack it, or if it has not yet moved and legalMoves() reaches a square from
+   which it could. legalMoves already handles cohesion, allowance, roads,
+   ploughed fields, escorts, Square and turnOnly, so this is a wrapper rather
+   than a reimplementation.
+
+   CACHING. legalMoves runs a BFS per unit, and this gets asked once per
+   candidate target per deciding unit, so the naive version is O(units^2) BFS
+   per turn. Results are cached and invalidated whenever the board changes
+   underneath them: a unit moving (state.moved grows), a unit dying, or the turn
+   advancing. Keyed on that stamp rather than cleared manually, so a missed
+   invalidation is impossible by construction.
+========================================================= */
+let reachCache = new Map();
+let reachStamp = '';
+
+function currentStamp(){
+  const moved = state.moved ? state.moved.size : 0;
+  const alive = state.units.reduce((n,u)=>n + (u.removed?0:1), 0);
+  return `${state.turnNumber}:${state.turn}:${moved}:${alive}`;
+}
+
+function reachableSquares(u){
+  const stamp = currentStamp();
+  if(stamp !== reachStamp){ reachCache = new Map(); reachStamp = stamp; }
+  if(reachCache.has(u.id)) return reachCache.get(u.id);
+  const squares = legalMoves(u).map(m => m.x + ',' + m.y);
+  const set = new Set(squares);
+  reachCache.set(u.id, set);
+  return set;
+}
+
+/* Could `u` fight `target` at some point this turn, from where it stands or
+   after a legal move? Deliberately does NOT consider whether doing so is a good
+   idea; that is the scorer's job. */
+export function canEngageThisTurn(u, target){
+  if(u.removed || target.removed || u.side === target.side) return false;
+  if(UNIT_TYPES[u.type].canFight === false) return false;
+  if(isAdjacent(u, target) && canAttackTarget(u, target)) return true;
+  // Not adjacent: it has to be able to move somewhere that is. canAttackTarget
+  // is evaluated from the prospective square, since terrain matters (cavalry may
+  // never attack into a building, whatever square it attacks from).
+  // canAttackTarget depends on the attacker's type and the DEFENDER's square,
+  // never on where the attacker stands, so it is settled before the search: if
+  // this unit could not attack that target from anywhere, no square helps.
+  if(!canAttackTarget(u, target)) return false;
+  const reach = reachableSquares(u);
+  if(reach.size === 0) return false;
+  for(let dy=-1; dy<=1; dy++){
+    for(let dx=-1; dx<=1; dx++){
+      if(dx===0 && dy===0) continue;
+      if(reach.has((target.x+dx)+','+(target.y+dy))) return true;
+    }
+  }
+  return false;
+}
+
+/* How many OTHER friendly units could also reach this target this turn. The
+   number the "never attack alone" rule is built on. */
+export function supportCountFor(target, side, selfId){
+  let n = 0;
+  for(const o of state.units){
+    if(o.removed || o.side !== side || o.id === selfId) continue;
+    if(o.type === 'BRIGADIER') continue;
+    if(canEngageThisTurn(o, target)) n++;
+  }
+  return n;
+}
+
 export function findVulnerableEnemyUnits(side){
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
   const connEnemy = movableUnitsForSide(enemy);
@@ -79,6 +157,36 @@ export function threatPenalty(unit, side){
 ========================================================= */
 // Core Tactic #5, Ground Worth Bleeding For: Medium+ values ending a move on
 // terrain that actually helps, rather than pure distance-to-enemy pull.
+/* Is there an enemy CAVALRY unit close enough to charge this unit next turn?
+
+   Square exists for exactly one purpose: to break a cavalry charge. It costs the
+   unit its entire move to form, it cannot move at all while formed, and it is
+   MORE vulnerable to artillery (+1 to the enemy's effect roll) and to infantry
+   (who roll a second die against it). Against anything except cavalry it is
+   strictly worse than standing in line.
+
+   The AI was gating Square on threatPenalty() >= 1.4, which is type-blind: it
+   weights cavalry higher but still accumulates from infantry and guns, so three
+   infantry closing in clears the bar just as readily as one cavalry. Three
+   logged matches show squares formed against approaching infantry and artillery
+   and then held for ten-plus turns (the reform gate is the same number read the
+   other way, so a high threat both forms the square and keeps it), each ending
+   with the unit destroyed where it stood. It is a substantial share of the AI's
+   total losses.
+
+   Range is the cavalry's own move plus one to engage. Concealed units do not
+   count, matching threatPenalty: the AI cannot form square against a threat it
+   is not allowed to know about. */
+export function cavalryThreatWithinCharge(unit, side){
+  const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  for(const e of state.units){
+    if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
+    if(!UNIT_TYPES[e.type].isCavalry) continue;
+    if(chebyshev(e, unit) <= unitBaseMove(e) + 1) return true;
+  }
+  return false;
+}
+
 export function terrainSeekBonus(unitTypeKey, x, y){
   const terr = terrainAt(x,y);
   if(terr.key==='HILL') return 0.35; // tie-win vs a lower attacker, benefits any unit type

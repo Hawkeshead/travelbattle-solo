@@ -29,6 +29,17 @@ export function pickUnitAtCell(x,y){
   }
   return list[state._stackCycle.idx];
 }
+/* Whether `attacker` is permitted to fight `defender` at all. Two absolute
+   prohibitions, independent of dice: Brigadiers are never valid targets, and
+   cavalry may never attack a unit sheltering in a building. Depends only on the
+   attacker's TYPE and the defender's SQUARE, not on where the attacker stands,
+   which is what lets the AI ask the question about a prospective move. */
+export function canAttackTarget(attacker, defender){
+  if(defender.type==='BRIGADIER') return false;
+  if(UNIT_TYPES[attacker.type].isCavalry && terrainAt(defender.x,defender.y).key==='BUILDING') return false;
+  return true;
+}
+
 export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
 
 // Woods physically conceal whoever's standing in them (the tree-cluster piece

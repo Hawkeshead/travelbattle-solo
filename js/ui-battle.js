@@ -2,7 +2,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { FAST_ANIMATION_MODE, addCrater, animateUnitTo, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -25,6 +25,7 @@ export function startBattle(){
   document.getElementById('unitOverlay').classList.remove('show');
   state._aiPlan = { red:null, blue:null };
   state._aiMissions = { red:null, blue:null };
+  state._aiFocusTargetId = null;
   state._aiDebugLog = { red:null, blue:null };
   beginMovePhase();
 }
@@ -276,11 +277,11 @@ export function canInitiateFight(u){
 // A Brigadier is never a valid target at all — he's not a combat unit, only a
 // chain-of-command marker. He's immune to being attacked and simply withdraws
 // from the board once every other unit in his Brigade is gone (see removeUnit).
-export function canAttackTarget(attacker, defender){
-  if(defender.type==='BRIGADIER') return false;
-  if(UNIT_TYPES[attacker.type].isCavalry && terrainAt(defender.x,defender.y).key==='BUILDING') return false;
-  return true;
-}
+// canAttackTarget moved to engine-rules.js (it is a combat-legality rule, not a
+// UI concern) so ai-tactics.js can use it without importing this module and
+// joining the ui-battle <-> ai-strategy import cycle. Re-exported here so every
+// existing importer keeps working unchanged.
+export { canAttackTarget };
 export function anyFightsAvailable(side){
   return state.units.some(u=>u.side===side && canInitiateFight(u) &&
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));

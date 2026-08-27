@@ -1,4 +1,4 @@
-import { AI_UNIT_VALUE, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
@@ -42,6 +42,33 @@ export const BRIGADE_ON_THE_BRINK = 2;
 // Below this fraction of its fighters still in command from their Brigadier, a
 // Brigade cannot prosecute an offensive mission and is sent to REGROUP instead.
 export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
+
+// An ambush is a bet that the enemy comes to you. These bound how long the AI
+// is willing to hold that bet: if nothing has come within AMBUSH_STANDDOWN_RANGE
+// for AMBUSH_STANDDOWN_TURNS consecutive AI turns, the unit breaks cover and
+// rejoins the battle rather than sitting out the rest of the match.
+// Cost of stepping into contact with an enemy that no other friendly unit could
+// also reach this turn. Sized to outweigh the charge bonus (2.2) and the
+// vulnerable-target pull, since an unsupported charge is exactly the trade the
+// AI keeps losing, but not so large that it refuses to advance at all.
+export const SOLO_ATTACK_PENALTY = 3.0;
+
+// Weight toward continuing against the enemy already under attack this phase,
+// and toward one that cannot fight back or has just rallied. Both are ordering
+// preferences within a mandatory fight phase, never grounds to decline a fight.
+// Consecutive AI turns a unit will sit in Square with no cavalry able to reach
+// it before reforming Line regardless of other pressure.
+export const SQUARE_BREAK_TURNS = 2;
+
+export const FOCUS_FIRE_BONUS = 1.8;
+export const WOUNDED_TARGET_BONUS = 1.2;
+// An enemy off its Brigadier's chain or with no support within two squares.
+// Below the wounded bonus on purpose: isolation is an opportunity, a unit that
+// cannot fight back is a certainty.
+export const ISOLATED_TARGET_BONUS = 0.9;
+
+export const AMBUSH_STANDDOWN_RANGE = 4;
+export const AMBUSH_STANDDOWN_TURNS = 3;
 
 export function brigadeIdsForSide(side){
   const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
@@ -538,8 +565,23 @@ export function aiDecideAndExecuteMove(u){
   if(u.formation==='square'){
     // Reconsider every phase: leaving Square costs this whole move phase (per rulebook),
     // so only bother once the threat that justified it has actually passed.
-    if(threatPenalty(u, side) < 0.8){
+    //
+    // The old gate was threatPenalty < 0.8, the same type-blind number that
+    // formed the square. A unit ringed by infantry therefore had a high threat
+    // reading that both put it into Square and kept it there, immobile, until
+    // it was destroyed where it stood. Squares held for ten-plus turns against
+    // infantry and guns are a substantial share of the AI's losses.
+    //
+    // Now: no cavalry able to reach it for SQUARE_BREAK_TURNS consecutive turns
+    // and it reforms Line regardless of how much other pressure it is under,
+    // because against everything except cavalry the Square is the thing making
+    // it worse off.
+    const cavNear = cavalryThreatWithinCharge(u, side);
+    u.squareNoCavTurns = cavNear ? 0 : (u.squareNoCavTurns || 0) + 1;
+    const strandedInSquare = u.squareNoCavTurns >= SQUARE_BREAK_TURNS;
+    if(strandedInSquare || threatPenalty(u, side) < 0.8){
       u.formation = 'line';
+      u.squareNoCavTurns = 0;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
       recordMove('Reform Line');
@@ -555,10 +597,37 @@ export function aiDecideAndExecuteMove(u){
   // Hard only: lay an ambush instead of advancing, when an enemy is close enough
   // to plausibly walk into it but not already close enough that fighting normally
   // is clearly better. A first-pass heuristic, not a deep tactical read.
+  // Stand down from an ambush nobody walked into.
+  //
+  // u.hidden appeared exactly ONCE in this file before now: the line that sets
+  // it. Nothing ever read it back, so a unit that hid in a wood the enemy had no
+  // reason to approach was removed from the battle permanently. It cannot move
+  // (canLayAmbush refuses while hidden, and the scoring loop never reconsiders),
+  // it cannot be seen, and it waits for a spring that will never come. Three
+  // logged matches show ambushes laid and none ever triggered.
+  //
+  // The mechanism itself is sound (endMovePhase -> collectAmbushSprings resolves
+  // correctly from both sides). What was missing is a way out.
+  if(u.hidden){
+    const nearNow = nearestEnemyDist(u, side);
+    u.ambushWaited = (nearNow <= AMBUSH_STANDDOWN_RANGE) ? 0 : (u.ambushWaited || 0) + 1;
+    if(u.ambushWaited >= AMBUSH_STANDDOWN_TURNS){
+      u.hidden = false;
+      u.ambushWaited = 0;
+      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) breaks cover, the ambush unsprung.`, side);
+      logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Stand Down',
+        reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
+      // Falls through to normal move scoring this turn rather than idling again.
+    } else {
+      return; // still lying in wait, and something is still plausibly coming
+    }
+  }
+
   if(state.aiDifficulty==='hard' && canLayAmbush(u)){
     const near = nearestEnemyDist(u, side);
     if(near>=2 && near<=5){
       u.hidden = true;
+      u.ambushWaited = 0;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Lay Ambush', reason:`nearest enemy ${near} squares away` });
@@ -670,6 +739,39 @@ export function aiDecideAndExecuteMove(u){
       s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
     }
 
+    /* NEVER ATTACK ALONE.
+
+       The single highest-value behaviour in the AI brief. Every British unit
+       lost across three logged matches was a solo attacker with no supporting
+       unit in reach; almost every French unit destroyed was hit by two or more
+       attackers in sequence.
+
+       This has to be a MOVE-phase rule, not a fight-phase one. Fights are
+       mandatory: endFightPhase refuses to end while anyFightsAvailable(side) is
+       true, so an AI that declined a lone attack once already adjacent would
+       loop forever and freeze the turn. The only place a solo engagement can
+       actually be avoided is before it exists, by not stepping into contact
+       alone in the first place.
+
+       Two exemptions, both from the brief:
+         - the target is already turned around or rallying, where finishing it
+           denies the rally and is worth the risk
+         - the unit is ALREADY in contact, where the decision has been taken and
+           declining changes nothing */
+    if(seekTactics && !holdingReserve){
+      const alreadyInContact = state.units.some(o=>!o.removed && o.side!==side &&
+        isAdjacent({x:ox,y:oy}, o) && canAttackTarget(u, o));
+      if(!alreadyInContact){
+        const wouldContact = state.units.filter(o=>!o.removed && o.side!==side &&
+          isAdjacent(c, o) && canAttackTarget(u, o));
+        for(const target of wouldContact){
+          if(target.turnOnly || target.rallying) continue;   // wounded: finish it
+          // Would anyone else be able to join this fight this turn?
+          if(supportCountFor(target, side, u.id) === 0) s -= SOLO_ATTACK_PENALTY;
+        }
+      }
+    }
+
     // Medium+: deliberately seek out a Charge instead of only charging by accident.
     // Also coordinates with an Attack Column already formed this turn (Manoeuvre
     // #19, Hammer and Column) — a charge against the same target the Column is
@@ -724,13 +826,20 @@ export function aiDecideAndExecuteMove(u){
   }
 
   const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1;
-  if(canSquare && threatPenalty(u, side) >= 1.4){
+  // Square is gated on an actual cavalry unit able to reach this square, not on
+  // a generic threat count. It is the only thing Square is good against, and
+  // against infantry or artillery forming one is strictly worse than staying in
+  // line: no move, +1 to the enemy's artillery effect roll, and a second die for
+  // infantry attacking it. The old log line already claimed "sensing cavalry
+  // nearby" while checking no such thing.
+  if(canSquare && cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
     const origForm = u.formation;
     u.formation = 'square';
     const squareScore = evaluateState(side) - 0.15*threatPenalty(u, side);
     u.formation = origForm;
     if(squareScore > bestScore){
       u.formation = 'square';
+      u.squareNoCavTurns = 0;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Form Square', reason:`squareScore ${squareScore.toFixed(2)} beat best move ${bestScore.toFixed(2)}` });
@@ -932,8 +1041,24 @@ export function aiEstimateFightValue(a, t, side){
 }
 
 export function aiDoFightPhase(){
+  state._aiFocusTargetId = null;
   function step(){
     if(state.gameOver) return;
+    /* Target priority (brief 2.5) is artillery, then isolated units, then the
+       damaged, then everything else. Artillery already comes first via
+       AI_UNIT_VALUE (6 against infantry's 4) inside estimateFightValue, and the
+       damaged are covered by WOUNDED_TARGET_BONUS below. Isolation was the gap:
+       findVulnerableEnemyUnits existed but only ever fed MOVE scoring, so the
+       AI would march toward an unsupported enemy and then, once there, pick its
+       fight without caring. Computed once per step rather than per candidate
+       pair, since it runs a cohesion BFS.
+
+       Deliberately NOT the getVulnerableEnemyUnits cache above: that is keyed on
+       (side, turnNumber) and never invalidates on a death, which is correct in
+       the move phase where nothing dies, and wrong here where every resolved
+       fight can isolate a unit by removing the neighbour that was supporting
+       it. Recomputed per step so it always reflects the board as it now is. */
+    const vulnerableIds = new Set(findVulnerableEnemyUnits(state.aiSide).map(v=>v.id));
     const attackers = state.units.filter(u=>u.side===state.aiSide && canInitiateFight(u) && !state.fought.has(u.id) &&
       state.units.some(o=>!o.removed && o.side!==state.aiSide && isAdjacent(u,o) && canAttackTarget(u,o)));
     if(attackers.length===0){ endFightPhase(); return; }
@@ -941,14 +1066,42 @@ export function aiDoFightPhase(){
     for(const a of attackers){
       const targets = state.units.filter(o=>!o.removed && o.side!==state.aiSide && isAdjacent(a,o) && canAttackTarget(a,o));
       for(const t of targets){
-        const s = aiEstimateFightValue(a, t, state.aiSide);
+        let s = aiEstimateFightValue(a, t, state.aiSide);
+
+        /* FOCUS FIRE. Once this turn's fighting has started against a given
+           enemy, keep going at it rather than spreading across separate
+           targets. Extra rolls against one unit beat single rolls against
+           several: the loser of each fight is pushed back, routed or destroyed,
+           so every additional attack lands on an enemy that is already worse
+           off. The human player's kill sequences are almost entirely this
+           shape. Costs nothing when only one attack is available. */
+        if(state._aiFocusTargetId === t.id) s += FOCUS_FIRE_BONUS;
+
+        /* FINISH THE WOUNDED. A unit still turned around from a pushback cannot
+           fight back at all and grants the attacker +1, and one that has just
+           rallied is one loss from gone. Denying the rally is a deliberate,
+           repeated pattern in the player's play that the AI did not have. */
+        if(t.turnOnly)  s += WOUNDED_TARGET_BONUS;
+        if(t.rallying)  s += WOUNDED_TARGET_BONUS;
+
+        // Cut off from its Brigadier, or with no friendly unit within two
+        // squares. It cannot be reinforced and, if disconnected, cannot even
+        // move itself back to safety.
+        if(vulnerableIds.has(t.id)) s += ISOLATED_TARGET_BONUS;
+
         if(s>bestScore){ bestScore=s; bestA=a; bestT=t; }
       }
     }
     if(bestA){
       logAiDebugMove(state.aiSide, { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
+      // Remember what we are working on, so the next attacker in this phase
+      // piles onto the same unit. Cleared when the fight phase ends.
+      state._aiFocusTargetId = bestT.id;
       resolveFight(bestA, bestT, undefined, ()=>{
         state.fought.add(bestA.id);
+        // A destroyed or routed target is finished business; let the next
+        // attacker choose freshly rather than chasing a unit that has gone.
+        if(bestT.removed || bestT.rallying) state._aiFocusTargetId = null;
         draw();
         setTimeout(step, 300);
       });
