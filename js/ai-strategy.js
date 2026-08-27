@@ -78,6 +78,12 @@ export const APPROACH_PULL = 0.16;
 export const KILL_PULL_LAST_UNIT = 0.34;
 export const KILL_PULL_PENULTIMATE = 0.20;
 
+// Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
+// A reserve that is never spent is just an absent third of the army.
+export const RESERVE_COMMIT_TURN = 12;        // holding back past this is not a plan
+export const RESERVE_RELIEF_REMAINING = 2;    // a sister Brigade down to 2 fighters
+export const RESERVE_ENEMY_RANGE = 6;         // the enemy has come to us
+
 // Weight toward continuing against the enemy already under attack this phase,
 // and toward one that cannot fight back or has just rallied. Both are ordering
 // preferences within a mandatory fight phase, never grounds to decline a fight.
@@ -333,6 +339,41 @@ export function updateOperationalPlan(side, assessment){
 }
 
 // Section 5: turn the plan into one mission per own Brigade.
+/* RESERVE HAS NO EXIT, AND THAT IS HOW A WHOLE BRIGADE DIES WHERE IT STANDS.
+
+   A reserve Brigade has no term pulling it anywhere at all. holdingReserve
+   suppresses the advance pull outright, and RESERVE's own movement bonus only
+   pulls units back toward their Brigadier, while the Brigadier (since the escort
+   rule) is pulled toward its own units. Units follow the Brigadier, the
+   Brigadier follows the units, and the whole formation sits in a stable
+   equilibrium. Six logged matches show one or two Brigades per match never
+   committing; Murat's sat on RESERVE for 45 turns and was destroyed piecemeal
+   without moving toward the fighting.
+
+   The one existing release, reserveCrisisExists, needs a friendly non-cavalry
+   unit already in contact AND under real threat. That is a rescue trigger, not
+   a commitment trigger: by the time it fires the battle is usually decided.
+
+   Three additional releases, per the brief:
+     - a friendly Brigade has taken real losses and needs relieving
+     - the enemy has come to the reserve rather than the other way round
+     - enough turns have passed that holding back is no longer a plan
+   Any one of them commits the reserve. */
+function reserveShouldCommit(side, assessment){
+  if(state.turnNumber >= RESERVE_COMMIT_TURN) return 'turn count';
+  // A sister Brigade down to this many fighters or fewer needs relieving.
+  const hurt = assessment.liveOwnBrigades.some(b => b.remaining <= RESERVE_RELIEF_REMAINING);
+  if(hurt) return 'a friendly Brigade is being broken up';
+  // The enemy has arrived. Measured against the Brigade's own units rather than
+  // the army, since a reserve on the far flank should react to its own sector.
+  const enemy = otherSide(side);
+  const foes = state.units.filter(o=>!o.removed && o.side===enemy && o.type!=='BRIGADIER');
+  const ourUnits = state.units.filter(u=>!u.removed && u.side===side && u.type!=='BRIGADIER');
+  const pressed = ourUnits.some(u => foes.some(o => chebyshev(u,o) <= RESERVE_ENEMY_RANGE));
+  if(pressed) return 'enemy within reach of the reserve';
+  return null;
+}
+
 export function assignBrigadeMissions(side, plan, assessment){
   const missions = {};
   const brigadeIds = assessment.liveOwnBrigades.map(b=>b.id);
@@ -375,6 +416,21 @@ export function assignBrigadeMissions(side, plan, assessment){
   } else {
     // fallback: everyone holds
     for(const id of brigadeIds) missions[id] = 'HOLD';
+  }
+
+  /* --- RESERVE RELEASE ---
+     Applied before the command-state pass so a committed reserve is still
+     checked for a broken command chain like any other active Brigade. */
+  const commitReason = reserveShouldCommit(side, assessment);
+  if(commitReason){
+    for(const id of brigadeIds){
+      if(missions[id] !== 'RESERVE') continue;
+      const b = assessment.liveOwnBrigades.find(x=>x.id===id);
+      if(!b) continue;
+      // Committed toward the same target the plan is already prosecuting, so
+      // the reserve reinforces the main effort rather than opening a third axis.
+      missions[id] = 'SUPPORT';
+    }
   }
 
   /* --- COMMAND-STATE PASS ---
