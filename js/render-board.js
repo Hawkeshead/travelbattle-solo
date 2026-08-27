@@ -904,10 +904,19 @@ export function draw(){
     for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
     for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
   } else if(showSelectionGrid){
-    ctx.lineWidth = 1.5;
+    /* A double stroke, dark under light. A single light outline disappears
+       against the pale parts of the grass art and a single dark one disappears
+       into woods and hedges, so each is drawn over the other: whichever the
+       terrain swallows, the other survives. The highlight then never depends on
+       what happens to be underneath it. */
     for(const c of highlightCells){
-      ctx.strokeStyle = c.kind==='move' ? 'rgba(184,147,79,0.55)' : 'rgba(181,69,63,0.75)';
-      ctx.strokeRect(c.x*CELL, sy(c.y)*CELL, CELL, CELL);
+      const hx = c.x*CELL, hy = sy(c.y)*CELL;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(24,20,14,0.55)';
+      ctx.strokeRect(hx+1.5, hy+1.5, CELL-3, CELL-3);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = c.kind==='move' ? 'rgba(253,246,227,0.95)' : 'rgba(255,150,140,0.95)';
+      ctx.strokeRect(hx+1.5, hy+1.5, CELL-3, CELL-3);
     }
     ctx.lineWidth = 1;
   }
@@ -936,11 +945,35 @@ export function draw(){
     ctx.fillRect(0, redTop*CELL, COLS*CELL, deployRows*CELL);
   }
 
-  // movement / target highlights
+  /* Movement and target highlights.
+
+     The move wash was gold rgba(184,147,79,0.35) over grass whose mean colour is
+     #7a7816. Both are yellow-green, giving 1.18:1 contrast, which is invisible.
+     Raising the alpha barely helped, because the HUE was the problem rather than
+     the strength: gold at 60% still only reaches 1.34:1. Pale parchment reaches
+     2.1:1 against the same grass while staying in the same family as the rest of
+     the chrome.
+
+     A corner tick is drawn as well. On a busy board an edge-to-edge wash gets
+     lost in the tile art, but four short marks at the corners of a square are a
+     SHAPE, and the eye picks a shape out regardless of what is underneath it. */
   if(highlightCells && highlightCells.length){
     for(const c of highlightCells){
-      ctx.fillStyle = c.kind==='move' ? 'rgba(184,147,79,0.35)' : c.kind==='charge' ? 'rgba(224,110,30,0.5)' : 'rgba(181,69,63,0.4)';
-      ctx.fillRect(c.x*CELL+3, sy(c.y)*CELL+3, CELL-6, CELL-6);
+      const hx = c.x*CELL, hy = sy(c.y)*CELL;
+      ctx.fillStyle = c.kind==='move' ? 'rgba(253,246,227,0.30)'
+        : c.kind==='charge' ? 'rgba(224,110,30,0.55)' : 'rgba(181,69,63,0.50)';
+      ctx.fillRect(hx+3, hy+3, CELL-6, CELL-6);
+
+      const tick = Math.max(5, CELL*0.18);
+      ctx.strokeStyle = c.kind==='move' ? 'rgba(253,246,227,0.95)' : 'rgba(255,180,170,0.95)';
+      ctx.lineWidth = Math.max(2, CELL*0.045);
+      ctx.beginPath();
+      for(const [cx,cy,dx,dy] of [[hx+4,hy+4,1,1],[hx+CELL-4,hy+4,-1,1],
+                                  [hx+4,hy+CELL-4,1,-1],[hx+CELL-4,hy+CELL-4,-1,-1]]){
+        ctx.moveTo(cx+dx*tick, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy+dy*tick);
+      }
+      ctx.stroke();
+      ctx.lineWidth = 1;
     }
   }
 
