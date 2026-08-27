@@ -84,6 +84,17 @@ export const RESERVE_COMMIT_TURN = 12;        // holding back past this is not a
 export const RESERVE_RELIEF_REMAINING = 2;    // a sister Brigade down to 2 fighters
 export const RESERVE_ENEMY_RANGE = 6;         // the enemy has come to us
 
+// Hysteresis floor. A plan gets at least this many AI turns to execute before a
+// SOFT trigger may unseat it. Hard triggers (main effort broken, target Brigade
+// destroyed) bypass it, and MAX_PLAN_TURNS_UNCHANGED still forces an eventual
+// rethink, so this is a floor rather than a ceiling.
+export const MIN_PLAN_TURNS_BEFORE_CHANGE = 3;
+
+// Withdraw once one more Brigade break would lose the battle and the army is
+// materially behind. Higher than WITHDRAWAL's 0.5 material threshold because
+// the win condition, not the unit count, is what actually decides the match.
+export const WITHDRAW_ON_BRINK_RATIO = 0.8;
+
 // Weight toward continuing against the enemy already under attack this phase,
 // and toward one that cannot fight back or has just rallied. Both are ordering
 // preferences within a mandatory fight phase, never grounds to decline a fight.
@@ -254,7 +265,21 @@ export function updateOperationalPlan(side, assessment){
     if(prev.mainEffortBrigadeId!=null && !mainEffort){ mustReassess = true; reasons.push('main effort Brigade broken/withdrawn'); }
     else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed — exploit or pick a new one'); }
     else if(prev.turnsHeld > MAX_PLAN_TURNS_UNCHANGED){ mustReassess = true; reasons.push('plan stale, no resolution in ' + prev.turnsHeld + ' turns'); }
-    else if(assessment.strengthRatio < 0.7 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'
+    /* Soft trigger, so it is gated by the hysteresis floor. The two triggers
+       above are HARD (the main effort Brigade broken, the target Brigade
+       destroyed) and deliberately bypass it: a plan whose subject no longer
+       exists cannot be persevered with. Everything else waits.
+
+       Match 3 shows why the floor is needed: Brigade 1 was given MAIN_ATTACK at
+       T15 and had it revoked at T17, having advanced Soult exactly one tile in
+       between. Nothing held long enough to execute.
+
+       The counter-evidence matters just as much. Match 6's Brigade 1 held FLANK
+       for 45 turns and was the best-performing AI Brigade in six matches. Long
+       commitment is not the fault; churn is. So this adds a floor, not a
+       ceiling, and MAX_PLAN_TURNS_UNCHANGED still forces a rethink eventually. */
+    else if(prev.turnsHeld >= MIN_PLAN_TURNS_BEFORE_CHANGE
+      && assessment.strengthRatio < 0.7 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'
       && !localAttackStillFavourable(assessment, prev.mainEffortBrigadeId, prev.targetBrigadeId)){
       mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge — abandon and stabilise');
     }
@@ -270,10 +295,17 @@ export function updateOperationalPlan(side, assessment){
       const passive = prev.type==='DEFENSIVE' || prev.type==='WITHDRAWAL';
       const settled = (prev.turnsHeld||0) >= MIN_PLAN_TURNS_BEFORE_OPPORTUNITY;
 
+      // One Brigade break from LOSING is as urgent as one from winning, and
+      // bypasses the settling period for the same reason.
+      if(assessment.brigadesFromDefeat <= 1 && prev.type!=='WITHDRAWAL'
+        && assessment.strengthRatio < WITHDRAW_ON_BRINK_RATIO){
+        mustReassess = true;
+        reasons.push('one Brigade break from defeat — withdraw while there is still something to save');
+      }
       // A finishing chance overrides everything, including the settling period. One
       // more Brigade break ends the battle; there is no posture worth holding
       // through that.
-      if(assessment.finishingChance && prev.type!=='FINISHING_BLOW'){
+      else if(assessment.finishingChance && prev.type!=='FINISHING_BLOW'){
         mustReassess = true;
         reasons.push('one Brigade break from victory and an enemy Brigade is on the brink — go and finish it');
       }
@@ -306,7 +338,23 @@ export function updateOperationalPlan(side, assessment){
   // clock. WITHDRAWAL was the stickiest plan in the set purely by accident.
   const rallyBrigadeId = a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null;
 
-  if(a.finishingChance){
+  /* WITHDRAW ON THE WIN CONDITION, not only on the material ratio.
+
+     WITHDRAWAL previously fired at strengthRatio < 0.5 alone. In match 5 it did
+     not appear until T63, roughly forty turns after the battle was decided,
+     because the ratio is a poor read late on: an army reduced to a few intact
+     Guard units can still score respectably against a spread-out winner.
+
+     brigadesFromDefeat is the mirror of finishingChance, which already lets the
+     AI recognise it is one break from WINNING. This lets it recognise it is one
+     break from LOSING, which is exactly when a withdrawal is still worth
+     something. Checked before the finishing branch on purpose: if both are true
+     the battle is decided either way, and preserving the Brigade that is about
+     to break is the more useful instinct. */
+  if(a.brigadesFromDefeat <= 1 && a.strengthRatio < WITHDRAW_ON_BRINK_RATIO && !a.finishingChance){
+    plan = { type:'WITHDRAWAL', mainEffortBrigadeId: a.weakestOwnBrigade ? a.weakestOwnBrigade.id : null,
+             targetBrigadeId:null };
+  } else if(a.finishingChance){
     // Checked first, ahead of every material test. One more break wins the battle,
     // so the strength ratio is no longer the question being asked.
     plan = { type:'FINISHING_BLOW', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null,
