@@ -680,6 +680,17 @@
   .dice-adjust{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim);
     margin-top:3px; letter-spacing:.02em; }
   .dice-adjust b{ color:var(--ink); font-weight:600; }
+  /* Portrait and regiment name above each side's dice, so a fight reads as who
+     against whom rather than just Britain against France. Sized to sit above the
+     dice without pushing the panel taller than the board on a phone. */
+  .dice-face{ width:42px; height:42px; border-radius:3px; overflow:hidden; margin:0 auto 3px;
+    border:1px solid var(--brass-dim); background:var(--paper-2);
+    display:flex; align-items:center; justify-content:center; }
+  .dice-face .portrait-img{ width:100%; height:100%; object-fit:cover; object-position:center top; }
+  .dice-face .portrait-icon{ width:82%; height:auto; }
+  .dice-face .portrait-glyph{ font-size:13px; letter-spacing:1px; }
+  .dice-who{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:var(--ink-dim);
+    max-width:96px; margin:0 auto 2px; line-height:1.25; }
   .dice-notes{ display:flex; flex-direction:column; gap:1px; margin-top:3px; max-width:110px; }
   .dice-notes span{ font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--brass-dim); line-height:1.3; white-space:normal; }
   .dice-legend{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:var(--ink-dim); text-align:center; margin-top:6px; padding-top:5px; border-top:1px solid var(--line); line-height:1.4; }

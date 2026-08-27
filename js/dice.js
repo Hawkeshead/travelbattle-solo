@@ -75,11 +75,15 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   groupsEl.innerHTML = groups.map((g,i)=>{
     // The pending frame: placeholder faces before anything is rolled, so there is
     // no kept die and no adjustment to show yet.
+    // The pending frame carries the portraits too, so the fight is legible as
+    // "who against whom" while the player is still deciding whether to roll.
+    const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
+    const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
     const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending')).join('');
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
+    return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
   }).join('');
 
   const isHuman = !(state.mode==='ai' && triggerSide===state.aiSide);
@@ -163,10 +167,15 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
         return dieFaceHTML(shown, cls);
       }).join('');
       const adjustHTML = final ? adjustmentHTML(g) : '';
+      // Portrait and regiment name, so a fight reads as "who against whom"
+      // rather than just "Britain vs France". Absent for rally and artillery
+      // rolls, which are not unit-against-unit.
+      const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
+      const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
       const notesHTML = (final && g.notes && g.notes.length) ?
         `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
       const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-      return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
+      return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
     }).join('');
   }
 
@@ -211,10 +220,12 @@ export function refreshDiceFrame(groups, resultText, resultCls){
       return dieFaceHTML(v, cls);
     }).join('');
     const adjustHTML = adjustmentHTML(g);
+    const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
+    const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-    return `<div class="dice-group"><div class="glabel">${g.label}</div><div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
+    return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
   }).join('');
   resultEl.textContent = resultText || '';
   resultEl.className = 'dice-result ' + (resultCls||'');

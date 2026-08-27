@@ -146,6 +146,32 @@ export const REGIMENT_PORTRAIT_KEY = {
   '11e Hussards': 'f-lcav-11e',
 };
 
+/* The artwork for a unit, resolved once so the selection panel and the fight
+   panel can never drift apart. Order matters and is the panel's existing order:
+   a Brigadier's own portrait, then the cannon icon for artillery (which have no
+   regimental artwork), then the regimental portrait, then a glyph.
+
+   Returns markup rather than a URL because the artillery case sizes differently
+   (the cannon is a wide icon, the portraits are square crops) and the fallback
+   is text, not an image at all. */
+export function unitPortraitHTML(u){
+  const t = UNIT_TYPES[u.type];
+  if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
+    return `<img src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}" class="portrait-img">`;
+  }
+  if(t.isArtillery){
+    return `<img src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}" class="portrait-icon">`;
+  }
+  if(REGIMENT_PORTRAIT_KEY[u.historicalName]){
+    return `<img src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}" class="portrait-img">`;
+  }
+  const glyph = (t.key==='HEAVY_CAV'||t.key==='LIGHT_CAV') ? '\u25B2\u25B2\u25B2'
+    : (t.key==='BRIGADIER' ? '\u2605' : '\u25CF\u25CF\u25CF\u25CF\u25CF');
+  return `<span class="portrait-glyph" style="color:${SIDE_COLOR[u.side]};">${glyph}</span>`;
+}
+
+
+
 // Small gold asterisk badge, positioned in a unit's corner — marks Guard Infantry
 // and Heavy Cavalry as the "upgraded" tier, replacing the old ring/reroll-star convention.
 export function drawGoldAsterisk(size, ox, oy){

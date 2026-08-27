@@ -4,6 +4,7 @@ import { FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showD
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
 import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
+import { unitPortraitHTML } from './render-units.js';
 import { renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -351,8 +352,10 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
   function currentGroups(){
     return [
-      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
-      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
+      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
+      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
     ];
   }
   function leadText(){
@@ -468,8 +471,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     // (Charge/Column/Hill) can only be evaluated once real values exist.
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], interim.resultText, interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
@@ -480,8 +485,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     else if(attackerColumnTieWin) aReasons.push('Tie-win: Attack Column');
 
     refreshDiceFrame([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
     finishDice(()=>{
       // Deferred until the popup has fully faded — nothing on the board moves
