@@ -284,7 +284,7 @@ export function isInActiveFight(u){
    COMBAT
 ========================================================= */
 export function rollD6(){ return 1+Math.floor(Math.random()*6); }
-export function rollBest(n){ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all}; }
+export function rollBest(n){ /* keptDie is the die that COUNTS, tracked separately from value because value later absorbs bonuses and re-rolls */ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all, keptDie: best }; }
 
 // Two Infantry/Guard units doubled into the same open-terrain square form
 // a Column: a genuine combat bonus, not just shared artillery vulnerability.
@@ -351,8 +351,8 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
   function currentGroups(){
     return [
-      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
-      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
+      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
     ];
   }
   function leadText(){
@@ -385,6 +385,11 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
 export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   const newVal = rollD6();
   roll.rolls.push(newVal);
+  // A re-roll REPLACES the result, it is not keep-best across every die thrown.
+  // keptDie has to move with it or the panel highlights the discarded die and
+  // shows a nonsense adjustment (a Guard rolling 5, re-rolling to 2 and fighting
+  // on 2 was displaying "5 -3 = 2" with the 5 marked as kept).
+  roll.keptDie = newVal;
   roll.value = Math.min(6, newVal + valueBonus);
   reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}`);
   log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav) — new roll: ${newVal}.`, 'combat');
@@ -463,8 +468,8 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     // (Charge/Column/Hill) can only be evaluated once real values exist.
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
     ], interim.resultText, interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
@@ -475,8 +480,8 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     else if(attackerColumnTieWin) aReasons.push('Tie-win: Attack Column');
 
     refreshDiceFrame([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.value, notes:aReasons},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.value, notes:dReasons}
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons},
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons}
     ], resultText, resultCls);
     finishDice(()=>{
       // Deferred until the popup has fully faded — nothing on the board moves

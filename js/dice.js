@@ -119,8 +119,17 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
    moved the value away from it the arithmetic is shown. The reasons were
    already listed underneath; only the sum was missing. */
 function diceValueParts(g){
-  const bestRaw = (g.rolls && g.rolls.length) ? Math.max(...g.rolls) : null;
-  const counts  = (typeof g.keptValue === 'number') ? g.keptValue : bestRaw;
+  const any = (g.rolls && g.rolls.length) ? g.rolls : null;
+  // The die that COUNTS. Supplied explicitly by the caller, because it cannot be
+  // inferred from the faces: a second die is keep-best, but a RE-ROLL replaces
+  // the result outright. A Guard rolling 5, re-rolling to 2 and fighting on 2
+  // was having its discarded 5 highlighted as kept and "5 -3 = 2" printed
+  // underneath, which reads as the board ignoring the dice. Falls back to
+  // keep-best only when no kept die is given (rally and artillery rolls, which
+  // are single dice and cannot be re-rolled).
+  const bestRaw = (typeof g.keptValue === 'number') ? g.keptValue
+                : any ? Math.max(...any) : null;
+  const counts  = (typeof g.finalValue === 'number') ? g.finalValue : bestRaw;
   return { bestRaw, counts, adjusted: bestRaw !== null && counts !== bestRaw };
 }
 
