@@ -20,8 +20,12 @@ export const AudioManager = (function(){
   const state = {
     unlocked: false,
     muted: false,
-    volumes: { master: 0.8, music: 0.6, effects: 0.85, ambience: 0.5 },
+    // Music sits well below the effects on purpose: it is a bed, and at 0.6 it
+    // buried the marching, the gallop and the sabres unless everything else was
+    // pushed to maximum.
+    volumes: { master: 0.8, music: 0.32, effects: 0.9, ambience: 0.5 },
     liveEffectGains: new Set(),   // gain nodes of effects currently sounding; see applyVolumes
+    musicSrc: null,               // what the music element is playing, so the same track is not restarted
     musicEl: null,
     ambienceEl: null,
     activeEffects: new Map(), // key -> count of currently-playing copies
@@ -200,18 +204,43 @@ export const AudioManager = (function(){
     return 0;
   }
 
+  /* playMusic is called more than once for the same track (menu, then battle).
+     The old version paused the existing element and dropped the reference. That
+     leaks: pause() on an element whose play() promise is still pending does not
+     stick, the element resumes, and it is no longer tracked by anything. The
+     result is a second copy of the score playing at whatever volume it was
+     created with, deaf to the slider forever after, which is exactly the
+     reported symptom.
+
+     Two guards. Playing the SAME track again is now a no-op beyond refreshing
+     the volume, so the common case never creates a second element at all. And
+     teardown is real: pause, clear the source, and load(), which cancels any
+     pending play rather than letting it resume behind us. */
+  function stopMusicEl(){
+    const el = state.musicEl;
+    state.musicEl = null;
+    if(!el) return;
+    try { el.pause(); el.removeAttribute('src'); el.load(); } catch(_e) { /* already gone */ }
+  }
+
   function playMusic(src, opts){
     opts = opts || {};
     try {
-      if(state.musicEl){ state.musicEl.pause(); state.musicEl = null; }
+      if(state.musicEl && state.musicSrc === src){
+        state.musicEl.volume = effectiveVolume('music');   // already playing; just re-level it
+        if(state.unlocked && state.musicEl.paused) state.musicEl.play().catch(()=>{});
+        return;
+      }
+      stopMusicEl();
       const audio = new Audio(src);
       audio.loop = opts.loop !== false;
       audio.volume = effectiveVolume('music');
       state.musicEl = audio;
+      state.musicSrc = src;
       if(state.unlocked) audio.play().catch(()=>{});
     } catch(_e) { /* silent failure */ }
   }
-  function stopMusic(){ if(state.musicEl){ try{ state.musicEl.pause(); }catch(_e){} state.musicEl = null; } }
+  function stopMusic(){ stopMusicEl(); state.musicSrc = null; }
 
   function playAmbience(src, opts){
     opts = opts || {};
