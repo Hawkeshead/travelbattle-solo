@@ -2,7 +2,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, terrainAt, unitsAt } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -497,6 +497,12 @@ export function renderUnitInfo(u){
       portraitEl.innerHTML = `<span style="font-size:26px;letter-spacing:2px;color:${SIDE_COLOR[u.side]};">${glyph}</span>`;
     }
   }
+  /* Hidden outright for anything that can never form Square, rather than shown
+     greyed out. Cavalry, artillery and Brigadiers have no use for this control
+     at any point in the game, so a permanently dead button beside them is just
+     clutter competing with the unit's own details for space. Matches how the
+     ambush button already behaves. */
+  sqBtn.style.display = t.canFormSquare ? 'inline-block' : 'none';
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
   const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
   if(u.formation==='square'){
@@ -712,10 +718,27 @@ export function applyArtilleryEffect(u, roll, onComplete){
     onComplete();
   } else if(roll===5){
     logNarration('artillery_rout');
-    retreatAndRally(u, onComplete);
+    // A Column breaks as one, so both halves rout together.
+    const routPartner = stackPartner(u);
+    retreatAndRally(u, ()=>{
+      if(routPartner && !routPartner.removed) retreatAndRally(routPartner, onComplete);
+      else onComplete();
+    });
   } else {
     logNarration('artillery_destroy');
+    /* THE COLUMN RULE BELONGS HERE, and only here. A roundshot goes through a
+       doubled stand and kills both units: that is the risk of stacking, and the
+       most efficient result in the game.
+    
+       It was previously applied in MELEE and not applied here at all, which is
+       exactly backwards. Infantry and cavalry fight one unit at a time, so
+       beating the top of a Column does not kill the one beneath it. A gun does
+       not care which of them it hits. */
+    const killPartner = stackPartner(u);
     removeUnit(u,'destroyed by artillery');
+    if(killPartner && !killPartner.removed){
+      removeUnit(killPartner, 'Column broken alongside its partner');
+    }
     onComplete();
   }
 }

@@ -324,7 +324,7 @@ export const UNIT_MOVE_ANIMATION_MS = 1040;
    plan proposed: at 900 a three-square move alone runs 2.7s and an average AI
    turn grows by a third, which works against the battle camera being able to
    keep up. Tunable. */
-export const MOVE_MS_PER_SQUARE = 420;
+export const MOVE_MS_PER_SQUARE = 840;   // doubled from 420 on playtest feedback
 
 /* Per-kind motion profiles. The point is that a player can tell what HAPPENED
    from how a unit moved, before reading any log line: an ordered advance, a

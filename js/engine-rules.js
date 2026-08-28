@@ -347,12 +347,28 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   const oppT = UNIT_TYPES[opponent.type];
   const terr = terrainAt(unit.x,unit.y);
   const sources = [];
+  // Bonuses that must be a flat +1 rather than the second die that the FIRST
+  // entry in `sources` always grants.
+  let valueBonusDirect = 0;
+  const directReasons = [];
 
   const eligibleDefender = t.key==='INFANTRY' || t.key==='GUARD' || t.key==='ARTILLERY';
   // A unit that sprang a Woodland Ambush this round gets no woods defence bonus until its side's next turn.
   const ambushSuppressed = terr.key==='WOODS' && unit.ambushSpentThisRound;
   if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed){
-    sources.push(terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building');
+    const coverLabel = terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building';
+    if(t.isArtillery){
+      /* A gun in cover gets +1 to its result, never a second die. Crews
+         sheltering in a building fight better than in the open, but the cover
+         does not put more of them in the firing line the way it does for
+         infantry, who can line every window. Applied directly rather than
+         through `sources`, because the first entry there always grants a
+         second die and that is precisely what should not happen here. */
+      valueBonusDirect += 1;
+      directReasons.push(coverLabel + ': +1 to roll');
+    } else {
+      sources.push(coverLabel);
+    }
   }
   if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
     sources.push('Square vs Cavalry');
@@ -383,7 +399,9 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   // the totals. The FIRST source grants a second die and every further source
   // grants +1 to the value instead, so a duplicated entry is invisible in the
   // totals and obvious in the list.
-  return { dice, valueBonus, reasons, sources };
+  valueBonus += valueBonusDirect;
+  for(const r of directReasons) reasons.push(r);
+  return { dice, valueBonus, reasons, sources: sources.concat(directReasons) };
 }
 
 // Guard Infantry and Heavy Cavalry's own re-roll (the physical rulebook card:
@@ -643,7 +661,17 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       } else {
         logNarration('melee_destroy', attackerSucceeded ? 'win' : 'loss');
         removeUnit(loser, 'destroyed in combat');
-        if(columnPartner) removeUnit(columnPartner, 'Column broken alongside its partner');
+        /* NO SHARED FATE IN MELEE. Only an ARTILLERY hit takes both halves of a
+           Column: a roundshot goes through a doubled stand and kills the lot, which
+           is the risk of stacking. Infantry and cavalry fight one unit at a time,
+           and beating the top one does not kill the one underneath it.
+        
+           Both halves still ROUT together on a margin of 2 (see above): the stand
+           breaks as one and the partner cannot hold the ground alone. Only
+           destruction is separated.
+        
+           This also removes the most efficient result in the game from melee, where
+           it was two kills from a single roll. */
         onComplete();
       }
     });

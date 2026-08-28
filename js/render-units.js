@@ -410,7 +410,23 @@ export function drawUnit(u, off){
   const size = CELL*0.62*off.scale; // common scale basis for the new marker drawing functions
   const r = CELL*0.30*off.scale;    // legacy radius, still used by the Brigadier star fallback
 
+  /* CONCEALMENT IS ALL-OR-NOTHING NOW.
+  
+     A unit in woods used to be redrawn as a troops-hidden forest tile. That was
+     meant to read as "tucked into the trees", but in play it reads as the unit
+     turning into a bush: your own infantry appear to vanish and be replaced by
+     scenery, which is worse than either showing them or not.
+  
+     Your own units now always draw as themselves, in woods or out. A concealed
+     ENEMY unit is not drawn at all, which is what concealment actually means:
+     the woods tile is already there, so the square simply looks like empty
+     woods, exactly as it should to someone who cannot see into it.
+  
+     Only applied against the AI, since in a shared-screen game hiding one
+     side's units from the other would make the game unplayable. */
   const concealed = isConcealedFromEnemy(u);
+  if(concealed && state.mode==='ai' && u.side===state.aiSide) return;
+  const inWoodsHiding = false;   // retained below; the tile swap is gone
   // Only Infantry/Guard can ever be on Woods terrain (terrain restriction),
   // so "concealed" in practice always means exactly this case. Rather than
   // dimming the normal icon, swap to the matching side's troops-hidden
@@ -418,7 +434,7 @@ export function drawUnit(u, off){
   // as genuinely tucked into that specific stand of trees. Square formation
   // keeps its own dedicated treatment even while in woods (rare, but a real
   // tactical state that shouldn't quietly disappear into the tree art).
-  const inWoodsHiding = concealed && (t.key==='INFANTRY' || t.key==='GUARD') && u.formation!=='square';
+  // (old tile-swap flag removed; see the note above)
 
   // Brigadier: portrait photo instead of a drawn shape (falls back to the star below if unmatched).
   if(t.key==='BRIGADIER'){
@@ -440,7 +456,7 @@ export function drawUnit(u, off){
 
   ctx.save();
   ctx.translate(cx,cy);
-  ctx.globalAlpha = (concealed && !inWoodsHiding) ? 0.55 : 1;
+  ctx.globalAlpha = 1;   // own units in cover stay fully legible; the dashed outline is the cue
   ctx.fillStyle = col;
   ctx.strokeStyle = isSel ? '#f4e9c9' : 'rgba(0,0,0,0.4)';
   ctx.lineWidth = isSel ? 3 : 1.5;
