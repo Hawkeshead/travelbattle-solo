@@ -23,7 +23,9 @@ export const AudioManager = (function(){
     // Music sits well below the effects on purpose: it is a bed, and at 0.6 it
     // buried the marching, the gallop and the sabres unless everything else was
     // pushed to maximum.
-    volumes: { master: 0.8, music: 0.32, effects: 0.9, ambience: 0.5 },
+    // Master starts at full: with the curve below, a category slider at 100%
+    // should mean full, not 80% of it.
+    volumes: { master: 1.0, music: 0.55, effects: 1.0, ambience: 0.75 },
     liveEffectGains: new Set(),   // gain nodes of effects currently sounding; see applyVolumes
     musicSrc: null,               // what the music element is playing, so the same track is not restarted
     musicEl: null,
@@ -35,17 +37,26 @@ export const AudioManager = (function(){
     bufferCache: new Map(),   // url -> Promise<AudioBuffer>, decoded once and reused forever
   };
 
+  /* Bumped when the meaning of a stored value changes. Slider positions were
+     linear gain; they are now positions on a squared curve, so an old 0.85 is a
+     different sound from a new 0.85. Reapplying the old numbers under the new
+     curve would make everything quieter at once, which is the opposite of what
+     the change is for, so a stale set is discarded once and the new defaults
+     stand. The mute setting is harmless and carries over. */
+  const PREFS_VERSION = 2;
+
   function loadPrefs(){
     try {
       const saved = JSON.parse(localStorage.getItem('tb:audioPrefs') || 'null');
       if(saved){
         state.muted = !!saved.muted;
-        Object.assign(state.volumes, saved.volumes || {});
+        if(saved.version === PREFS_VERSION) Object.assign(state.volumes, saved.volumes || {});
       }
     } catch(_e) { /* corrupt/missing prefs — defaults stand */ }
   }
   function savePrefs(){
-    try { localStorage.setItem('tb:audioPrefs', JSON.stringify({ muted: state.muted, volumes: state.volumes })); }
+    try { localStorage.setItem('tb:audioPrefs',
+      JSON.stringify({ version: PREFS_VERSION, muted: state.muted, volumes: state.volumes })); }
     catch(_e) { /* storage unavailable — session-only, not fatal */ }
   }
 
@@ -95,9 +106,21 @@ export const AudioManager = (function(){
     urls.forEach(loadBuffer);
   }
 
+  /* Perceptual curve on the sliders.
+
+     Gain is linear, hearing is not. On a straight mapping, half the slider's
+     travel is spent inside the top 6dB: 75% is barely quieter than 100% and 50%
+     only just noticeable, so the control feels dead until the bottom third.
+     Squaring spreads it out, so 50% lands at -12dB and reads as genuinely half.
+
+     Applied to master and the category separately, so each behaves the same way
+     rather than the pair compounding into something steeper. */
+  const SLIDER_CURVE = 2;
+  function curve(v){ return Math.pow(Math.max(0, Math.min(1, v)), SLIDER_CURVE); }
+
   function effectiveVolume(category){
     if(state.muted) return 0;
-    return state.volumes.master * (state.volumes[category] ?? 1);
+    return curve(state.volumes.master) * curve(state.volumes[category] ?? 1);
   }
 
   // Picks a random file from a category's variant list, avoiding an
