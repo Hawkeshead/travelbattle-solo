@@ -4,7 +4,7 @@ import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
-import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, UNIT_MOVE_ANIMATION_MS } from './render-board.js';
+import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -1201,7 +1201,11 @@ export function aiDoMovePhase(){
     // for no visual benefit. +60ms settle buffer past the animation itself
     // so the next unit's turn doesn't visually overlap the tail end of it.
     const moved = u && (u.x!==beforeX || u.y!==beforeY);
-    setTimeout(step, moved ? UNIT_MOVE_ANIMATION_MS+60 : 340);
+    // Wait for as long as THIS move actually takes. A three-square move now runs
+    // three times as long as a one-square step, so a fixed wait would start the
+    // next unit while the previous was still crossing the board.
+    const steps = Math.max(Math.abs(u.x-beforeX), Math.abs(u.y-beforeY));
+    setTimeout(step, moved ? moveAnimationMs(Math.max(1, steps)) + 60 : 340);
   }
   step();
 }

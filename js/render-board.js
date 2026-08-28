@@ -1,5 +1,5 @@
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
-import { inBounds, neighbors8, unitsAt } from './engine-rules.js';
+import { inBounds, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -56,6 +56,113 @@ export function addCrater(x, y){
   state.craters.push({x, y});
 }
 
+/* =========================================================
+   DISPLAY PATH — how a unit got there, not whether it could
+
+   The engine has already ruled the move legal. This exists only so the icon
+   travels through the squares it crossed instead of sliding across the board on
+   a straight line.
+
+   Deliberately NOT reconstructPath from the movement search. That search treats
+   squares holding other units as blocked, because for legality they are. For
+   DISPLAY they are not: a unit whose route runs through its own supports rides
+   through those squares and out the far side, which is what actually happened.
+   Routing around them, or failing to find a route and falling back to a straight
+   line, would both be wrong.
+
+   Terrain restrictions ARE respected, so cavalry never animates through a
+   building it could not enter. Occupancy is the only thing ignored.
+========================================================= */
+const DISPLAY_PATH_MAX = 8;   // no legal move is longer; a guard against a runaway search
+
+export function displayPath(u, fromX, fromY, toX, toY){
+  if(fromX===toX && fromY===toY) return [{x:fromX, y:fromY}];
+  const t = UNIT_TYPES[u.type];
+  const passable = (x,y)=>{
+    if(!inBounds(x,y)) return false;
+    const terr = terrainAt(x,y);
+    return !(terr.restrictTo && !terr.restrictTo.includes(t.key));
+  };
+  /* The straight walk first. Movement is chebyshev, so stepping one square at a
+     time toward the destination is ALWAYS optimal in step count, and it is the
+     straightest possible route by construction. That settles the plan's
+     tie-breaking rule (fewest direction changes) without needing to score
+     alternatives: a search would find equal-cost routes that wander around
+     occupied squares and pick between them arbitrarily, which is how a unit
+     ends up appearing to sidestep its own supports.
+
+     Only when terrain blocks the straight walk does the search below run. */
+  const straight = [{x:fromX, y:fromY}];
+  let sx = fromX, sy_ = fromY, straightOk = true;
+  for(let i=0; i<DISPLAY_PATH_MAX; i++){
+    if(sx===toX && sy_===toY) break;
+    sx += Math.sign(toX-sx); sy_ += Math.sign(toY-sy_);
+    const atGoal = (sx===toX && sy_===toY);
+    if(!passable(sx, sy_) && !atGoal){ straightOk = false; break; }
+    straight.push({x:sx, y:sy_});
+    if(atGoal) break;
+  }
+  if(straightOk && straight.length &&
+     straight[straight.length-1].x===toX && straight[straight.length-1].y===toY){
+    return straight;
+  }
+
+  const startKey = fromX+','+fromY, goal = toX+','+toY;
+  const cameFrom = new Map();
+  const dist = new Map([[startKey, 0]]);
+  const queue = [{x:fromX, y:fromY, d:0}];
+  while(queue.length){
+    const cur = queue.shift();
+    if(cur.d >= DISPLAY_PATH_MAX) continue;
+    for(const n of neighbors8(cur.x, cur.y)){
+      const key = n.x+','+n.y, nd = cur.d+1;
+      if(dist.has(key) && dist.get(key) <= nd) continue;
+      if(!passable(n.x, n.y) && key !== goal) continue;   // the destination is legal by definition
+      dist.set(key, nd);
+      cameFrom.set(key, cur.x+','+cur.y);
+      queue.push({x:n.x, y:n.y, d:nd});
+    }
+  }
+  if(!cameFrom.has(goal)) return [{x:fromX,y:fromY},{x:toX,y:toY}];
+  const out = [];
+  let key = goal;
+  for(let i=0; i<DISPLAY_PATH_MAX+2; i++){
+    const [x,y] = key.split(',').map(Number);
+    out.push({x, y});
+    if(key === startKey) break;
+    key = cameFrom.get(key);
+    if(key === undefined) return [{x:fromX,y:fromY},{x:toX,y:toY}];
+  }
+  return out.reverse();
+}
+
+/* Distance along a polyline, so the tween is parametrised by how far the unit
+   has travelled rather than by which segment it is on. Per-segment easing
+   stutters at every waypoint; this does not. */
+function polylineLength(path){
+  let total = 0;
+  for(let i=1;i<path.length;i++){
+    total += Math.hypot(path[i].x-path[i-1].x, path[i].y-path[i-1].y);
+  }
+  return total;
+}
+
+function pointAlongPolyline(path, fraction){
+  if(path.length === 1) return { x:path[0].x, y:path[0].y };
+  const target = polylineLength(path) * fraction;
+  let walked = 0;
+  for(let i=1;i<path.length;i++){
+    const seg = Math.hypot(path[i].x-path[i-1].x, path[i].y-path[i-1].y);
+    if(walked + seg >= target || i === path.length-1){
+      const local = seg === 0 ? 0 : Math.min(1, (target - walked) / seg);
+      return { x: path[i-1].x + (path[i].x-path[i-1].x)*local,
+               y: path[i-1].y + (path[i].y-path[i-1].y)*local };
+    }
+    walked += seg;
+  }
+  return { x:path[path.length-1].x, y:path[path.length-1].y };
+}
+
 export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
@@ -63,6 +170,10 @@ export function getUnitVisualPos(u){
   const t = Math.min(1, elapsed/anim.duration);
   if(t>=1){ delete unitAnimations[u.id]; return {x:u.x, y:u.y}; }
   const eased = 1 - Math.pow(1-t, 2); // ease-out — starts fast, settles gently
+  // Walk the route if one was found, otherwise the old two-point slide. Eased
+  // across the WHOLE polyline by distance travelled, not per segment, so a
+  // three-square move reads as one continuous movement rather than three hops.
+  if(anim.path && anim.path.length > 2) return pointAlongPolyline(anim.path, eased);
   return { x: anim.fromX + (anim.toX-anim.fromX)*eased, y: anim.fromY + (anim.toY-anim.fromY)*eased };
 }
 
@@ -92,12 +203,40 @@ export function displaceBrigadierIfPresent(x, y, fromX, fromY){
 // so the two can never drift apart the way a duplicated magic number could.
 export const UNIT_MOVE_ANIMATION_MS = 1040;
 
+/* Constant speed per square, so a three-square road move takes three times as
+   long as an infantry step and the difference is legible. Below the 900ms the
+   plan proposed: at 900 a three-square move alone runs 2.7s and an average AI
+   turn grows by a third, which works against the battle camera being able to
+   keep up. Tunable. */
+export const MOVE_MS_PER_SQUARE = 420;
+
+/* How long a given move will take, so the AI's pacing can wait exactly as long
+   as the animation runs instead of a fixed guess. */
+export function moveAnimationMs(steps){
+  return Math.max(UNIT_MOVE_ANIMATION_MS * 0.55, steps * MOVE_MS_PER_SQUARE);
+}
+
 export function animateUnitTo(u, newX, newY){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
-  logReplay('move', { unitId:u.id, side:u.side, from:{x:u.x,y:u.y}, to:{x:newX,y:newY} });
+  const fromX = u.x, fromY = u.y;
+  logReplay('move', { unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY} });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
   if(FAST_ANIMATION_MODE){ delete unitAnimations[u.id]; return; } // test/simulation harnesses only — see setFastAnimationMode
-  unitAnimations[u.id] = { fromX:start.x, fromY:start.y, toX:newX, toY:newY, startTime:Date.now(), duration:UNIT_MOVE_ANIMATION_MS };
+
+  const path = displayPath(u, fromX, fromY, newX, newY);
+  const squares = Math.max(Math.abs(newX-fromX), Math.abs(newY-fromY));
+  /* A move of N squares must produce a path of N+1 points. Warn rather than
+     silently sliding in a straight line, which is exactly the failure that is
+     invisible until someone watches closely and wonders why a three-square move
+     looks like a one-square one. */
+  if(squares > 1 && path.length !== squares + 1){
+    console.warn(`[move] ${u.historicalName || u.type}: ${squares}-square move produced a ` +
+      `${path.length}-point path (expected ${squares + 1}) — animating on a straight line`, path);
+  }
+  unitAnimations[u.id] = {
+    fromX:start.x, fromY:start.y, toX:newX, toY:newY, path,
+    startTime:Date.now(), duration: moveAnimationMs(Math.max(1, path.length - 1)),
+  };
   ensureAnimationLoopRunning();
 }
 
@@ -1135,14 +1274,21 @@ export function draw(){
     (stackGroups[key] = stackGroups[key] || []).push(u);
   }
   const STACK_OFFSETS = [{dx:-0.15,dy:-0.15,scale:0.72},{dx:0.15,dy:0.15,scale:0.72}];
+  /* A unit in mid-move is drawn last, above anything it rides through. Its
+     LOGICAL square is already the destination, so without this it would be
+     grouped with whatever stands there and could be drawn underneath a unit it
+     is currently crossing. Held back and drawn after the rest. */
+  const moving = [];
   for(const key in stackGroups){
     const list = stackGroups[key];
+    if(list.length===1 && unitAnimations[list[0].id]){ moving.push(list[0]); continue; }
     if(list.length===1){ drawUnit(list[0]); }
     else if(list.length===2 && (list[0].type==='INFANTRY'||list[0].type==='GUARD') && (list[1].type==='INFANTRY'||list[1].type==='GUARD')){
       drawColumnUnitPair(list[0], list[1]);
     }
     else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
   }
+  for(const u of moving) drawUnit(u);
 
   // muzzle smoke: lingers around a gun from the moment it fires until its side's next turn
   for(const u of state.units){
