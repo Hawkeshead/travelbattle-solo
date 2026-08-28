@@ -140,6 +140,11 @@ export const ISOLATED_TARGET_BONUS = 0.9;
 export const AMBUSH_STANDDOWN_RANGE = 4;
 export const AMBUSH_STANDDOWN_TURNS = 3;
 
+// Turns a unit must spend back in the battle after standing down before it may
+// lay another ambush. Without it, standing down and immediately re-hiding on the
+// same square is a stable loop a unit can sit in for a whole match.
+export const AMBUSH_COOLDOWN_TURNS = 6;
+
 export function brigadeIdsForSide(side){
   const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
   return [...ids].sort((a,b)=>a-b);
@@ -947,6 +952,18 @@ export function aiDecideAndExecuteMove(u){
     if(u.ambushWaited >= AMBUSH_STANDDOWN_TURNS){
       u.hidden = false;
       u.ambushWaited = 0;
+      /* COOLDOWN, and this is the whole bug. Standing down only cleared the
+         hidden flag, so the very next time the unit was scored it met the same
+         board, judged an ambush worthwhile again, and hid on the same square.
+         The logged match shows 1er Grenadiers and 17e Legere doing exactly that
+         every six turns from turn 4 to turn 56: set, stand down, set again,
+         never once moving. Two of Napoleon's four fighting units spent the
+         entire battle in that loop, which is a large part of why his Brigade
+         did nothing.
+
+         The unit now has to rejoin the battle for a while before it may hide
+         again. */
+      u.ambushCooldown = AMBUSH_COOLDOWN_TURNS;
       logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'standDown',
         reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) breaks cover, the ambush unsprung.`, side);
@@ -958,7 +975,10 @@ export function aiDecideAndExecuteMove(u){
     }
   }
 
-  if(state.aiDifficulty==='hard' && canLayAmbush(u)){
+  // Tick the cooldown down once per AI turn for this unit.
+  if(u.ambushCooldown > 0) u.ambushCooldown -= 1;
+
+  if(state.aiDifficulty==='hard' && !u.ambushCooldown && canLayAmbush(u)){
     const near = nearestEnemyDist(u, side);
     if(near>=2 && near<=5){
       u.hidden = true;
@@ -993,7 +1013,30 @@ export function aiDecideAndExecuteMove(u){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
     const parts = {};
-    let s = addScore(parts, 'baseState', evaluateState(side) - 0.5*threatPenalty(u, side));
+    /* BASE_STATE_WEIGHT: the fix for a 93% Hold rate.
+
+         evaluateState is a whole-board safety read, and moving toward the enemy
+         always makes it worse. Measured across a real match, it varied by 0.79
+         between rival squares and decided more moves than any other term, while
+         every intent term (mission 0.51, cavalry 0.56, converge 0.15, advance
+         0.16) is a per-square distance gradient worth a fraction of that. Even
+         combined they came to roughly half a point against its 0.79.
+
+         So the AI wanted to advance and something bigger and quieter kept
+         vetoing it. That is why fixing the mission cliff, adding the kill pull
+         and adding converge-after-contact each changed behaviour so little:
+         every one of them was an order of magnitude too small to be heard.
+
+         At 0.35 its spread drops to about 0.28, in the same range as the terms
+         it was drowning. This demotes it from decider to contributor rather than
+         removing it.
+
+         threatPenalty is deliberately left at FULL weight: a unit stepping into
+         immediate danger should still notice. What stops is the vague
+         board-wide unease that was vetoing every advance. */
+      const BASE_STATE_WEIGHT = 0.35;
+      let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
+            + addScore(parts, 'threat', -0.5*threatPenalty(u, side));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
