@@ -559,6 +559,35 @@ export function computeCellSize(){
   return Math.max(22, Math.min(byWidth, byHeight, 68));
 }
 
+/* The board is sized from boardWrap's measured box, so it has to be measured
+   AFTER the layout has settled. Calling sizeCanvas at the moment deployment
+   finishes measures the box the wrapper had while the setup UI was still in it,
+   which comes out too small; rotating the device forces a reflow and a
+   re-measure, which is why turning the phone and back "fixed" it.
+
+   A ResizeObserver removes the need to guess when layout is done: whenever the
+   wrapper's box actually changes, the board is resized to match. That covers the
+   end of deployment, rotation, the browser chrome hiding on scroll, and the
+   split-screen and keyboard cases nobody has hit yet.
+
+   Guarded against re-entry because sizeCanvas changes the canvas, which is
+   inside the observed element, which would otherwise fire the observer again. */
+let boardResizeObserver = null;
+let resizingBoard = false;
+
+export function observeBoardResize(){
+  if(boardResizeObserver || typeof ResizeObserver === 'undefined') return;
+  const wrap = document.getElementById('boardWrap');
+  if(!wrap) return;
+  boardResizeObserver = new ResizeObserver(()=>{
+    if(resizingBoard) return;
+    const want = computeCellSize();
+    if(want === CELL) return;   // nothing to do; avoids a redraw on every scroll
+    sizeCanvas();
+  });
+  boardResizeObserver.observe(wrap);
+}
+
 export function sizeCanvas(){
   setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
@@ -568,7 +597,12 @@ export function sizeCanvas(){
   canvas.height = ROWS*CELL*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
+  resizingBoard = true;
   draw();
+  // Released on the next frame: the observer fires asynchronously after this
+  // function has already returned, so clearing it here would not prevent the
+  // re-entry it exists to stop.
+  requestAnimationFrame(()=>{ resizingBoard = false; });
 }
 
 /* =========================================================

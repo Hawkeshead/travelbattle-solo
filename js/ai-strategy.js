@@ -842,6 +842,48 @@ function tempoPhase(side){
   return phase;
 }
 
+/* IS THIS GUN EARNING ITS ISOLATION?
+
+   A battery is scored like everyone else for breaking the Brigadier's chain,
+   which is wrong for artillery specifically. A gun on a rise with the enemy in
+   front of it is doing its job whether or not anyone is holding its hand, and
+   dragging it back into the chain gives up the position for nothing.
+
+   A gun EARNS its isolation by having targets, or by holding ground worth
+   denying: woods or a building an attacker would otherwise take, or ground
+   alongside its own infantry that would be uncovered if it left.
+
+   The inverse matters as much. A gun with nothing to shoot and no ground worth
+   holding is not being bold, it is stranded, and that is what should bring the
+   Brigadier over. */
+export const GUN_VANTAGE_TARGETS = 1;   // one target in arc justifies standing alone
+// Holding a good position alone is worth about what breaking the chain costs
+// everyone else, so a gun with a field of fire will choose to stay put.
+export const GUN_VANTAGE_BONUS = 2.0;
+/* How near a Brigadier must already be before collecting a stranded gun becomes
+   his business. Beyond this it is someone else's problem: crossing the board for
+   one gun is how a Brigade's plan gets quietly abandoned. */
+export const GUN_RECOVERY_RANGE = 6;
+// Below APPROACH_PULL (0.16) on purpose: an errand, not a mission.
+export const GUN_RECOVERY_PULL = 0.13;
+
+export function gunHasVantage(gun){
+  if(!UNIT_TYPES[gun.type].isArtillery) return false;
+  if(artilleryTargets(gun).length >= GUN_VANTAGE_TARGETS) return true;
+  const terr = terrainAt(gun.x, gun.y);
+  if(terr.key==='HILL' || terr.key==='WOODS' || terr.key==='BUILDING') return true;
+  return state.units.some(o => !o.removed && o.side===gun.side && o.id!==gun.id &&
+    !UNIT_TYPES[o.type].isArtillery && chebyshev(gun, o) <= 2);
+}
+
+/* A gun the Brigadier should come and collect: cut off, nothing to shoot, and
+   no ground worth denying. */
+export function gunIsStranded(gun){
+  if(!UNIT_TYPES[gun.type].isArtillery) return false;
+  if(movableUnitsForSide(gun.side).has(gun.id)) return false;
+  return !gunHasVantage(gun);
+}
+
 function cavalrySchwerpunkt(side){
   const cache = state._aiCavTargetCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.target;
@@ -1053,7 +1095,19 @@ export function aiDecideAndExecuteMove(u){
     // staying in a great spot was scoring as a fresh self-inflicted
     // disconnection every single turn, pushing the AI to keep dragging its guns
     // forward to keep pace instead of letting them settle and fire.
-    if(wasConnected && !connNow.has(u.id) && !t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
+    /* Artillery was already exempt from the cohesion penalty, but only because
+       guns cannot move and fire in the same turn. Now it is exempt for a reason:
+       a gun with targets, or on ground worth denying, is doing its job alone and
+       is positively rewarded for holding there rather than merely not punished.
+       A gun with neither takes the penalty like anyone else, because it is
+       stranded rather than bold. */
+    if(wasConnected && !connNow.has(u.id)){
+      if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
+      else if(!gunHasVantage(u)) s -= subScore(parts, 'gunStranded', 2.4);
+    }
+    if(t.isArtillery && !connNow.has(u.id) && gunHasVantage(u)){
+      s += addScore(parts, 'gunVantage', GUN_VANTAGE_BONUS);
+    }
     // A Brigadier is always "connected" to itself by definition (see
     // movableUnitsForSide — the chain starts FROM the Brigadier), so the penalty
     // above can never fire for a Brigadier choosing to hold still. That's exactly
@@ -1082,6 +1136,22 @@ export function aiDecideAndExecuteMove(u){
           s -= subScore(parts, 'brigadierContact', BRIGADIER_CONTACT_PENALTY);
         }
       }
+      /* COLLECTING A STRANDED GUN. Deliberately a pull on the Brigadier's own
+         movement rather than a change of mission: the Brigade keeps doing what
+         it was doing, and its Brigadier drifts toward the gun as he goes. It
+         only bites when the two are already fairly close, so he tidies up a gun
+         he happens to be near rather than marching across the board for it and
+         abandoning the plan.
+
+         A gun with a field of fire is NOT collected: it is where it should be,
+         and gunHasVantage already keeps it there. */
+      const strandedGun = state.units.find(o => !o.removed && o.side===side &&
+        o.brigadeId===u.brigadeId && gunIsStranded(o));
+      if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
+        s -= subScore(parts, 'collectStrandedGun',
+          chebyshev(c, strandedGun) * GUN_RECOVERY_PULL);
+      }
+
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
         s += addScore(parts, 'cohesionGain', connectedCount * 0.5);
