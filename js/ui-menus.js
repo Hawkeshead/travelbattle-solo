@@ -384,6 +384,15 @@ export function beginBoardSetup(){
   // to completion before the orientation dice roll appears, since the
   // whole point is that it can't be skipped or interrupted.
   if(state.mode==='ai' && !state.campaign){
+    /* Countryside ambience starts WITH the board reveal, so it comes in as the
+       tiles land rather than a beat before or after them. Deliberately a
+       separate stream from the score rather than a replacement: it plays over
+       the music on its own volume category, so either can be turned down
+       without touching the other.
+
+       Started here rather than inside the renderer, which has no business
+       knowing about audio. */
+    AudioManager.playAmbience('audio/ambience/countryside.mp3');
     playBoardIntroAnimation(()=>{ startAmbientLayer(); rollOrientationOrder(); });
   } else {
     draw();

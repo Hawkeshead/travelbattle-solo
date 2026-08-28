@@ -21,6 +21,7 @@ export const AudioManager = (function(){
     unlocked: false,
     muted: false,
     volumes: { master: 0.8, music: 0.6, effects: 0.85, ambience: 0.5 },
+    liveEffectGains: new Set(),   // gain nodes of effects currently sounding; see applyVolumes
     musicEl: null,
     ambienceEl: null,
     activeEffects: new Map(), // key -> count of currently-playing copies
@@ -143,6 +144,8 @@ export const AudioManager = (function(){
         source.buffer = buffer;
         const gain = ctx.createGain();
         gain.gain.value = effectiveVolume('effects') * (opts.volumeScale ?? 1);
+        const liveGain = { node: gain, scale: (opts.volumeScale ?? 1) };
+        state.liveEffectGains.add(liveGain);
         source.connect(gain);
         if(opts.pan != null && ctx.createStereoPanner){
           const panner = ctx.createStereoPanner();
@@ -152,7 +155,7 @@ export const AudioManager = (function(){
         } else {
           gain.connect(ctx.destination);
         }
-        source.onended = release;
+        source.onended = ()=>{ state.liveEffectGains.delete(liveGain); release(); };
         /* opts.loop repeats the clip rather than letting it run out. Paired with
            durationMs this covers any length of action from a short sample: the
            gallop is 4s and a three-square cavalry move is 5.04s, so it wraps once
@@ -228,6 +231,14 @@ export const AudioManager = (function(){
   function applyVolumes(){
     if(state.musicEl) state.musicEl.volume = effectiveVolume('music');
     if(state.ambienceEl) state.ambienceEl.volume = effectiveVolume('ambience');
+    /* Effects run through Web Audio rather than an <audio> element, and each one
+       reads its gain once at the moment it starts. Without this, dragging the
+       effects slider (or muting) left anything already playing at its old
+       level, which for a looping five-second gallop is long enough to look
+       broken. Live gains are tracked so they can be updated in place. */
+    for(const g of state.liveEffectGains){
+      try { g.node.gain.value = effectiveVolume('effects') * g.scale; } catch(_e) { /* node already gone */ }
+    }
   }
   function getPrefs(){ return { muted: state.muted, volumes: {...state.volumes} }; }
 

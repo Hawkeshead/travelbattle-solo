@@ -96,10 +96,22 @@ export function renderBrigadeStatus(){
 
 // Section 14: the AI Debug panel. Reads whatever aiPlanTurn last wrote to
 // state._aiDebugLog — nothing here computes anything fresh, it's a pure read.
+const VOLUME_SLIDERS = [
+  ['masterVolumeSlider','master'], ['musicVolumeSlider','music'],
+  ['effectsVolumeSlider','effects'], ['ambienceVolumeSlider','ambience'],
+];
+
 function renderMenuPanel(){
   const prefs = AudioManager.getPrefs();
   document.getElementById('muteToggle').checked = prefs.muted;
-  document.getElementById('musicVolumeSlider').value = Math.round(prefs.volumes.music * 100);
+  /* One slider per category. Only 'music' was populated, and only 'music' was
+     wired, so master, effects and ambience were unreachable from the menu
+     entirely: all four categories existed in the mixer with nothing attached
+     to three of them. */
+  for(const [id, category] of VOLUME_SLIDERS){
+    const el = document.getElementById(id);
+    if(el) el.value = Math.round((prefs.volumes[category] ?? 0.8) * 100);
+  }
   const ambientEl = document.getElementById('ambientToggle');
   if(ambientEl) ambientEl.checked = AmbientPref.enabled;
   const cameraEl = document.getElementById('cameraToggle');
@@ -850,7 +862,10 @@ export function initBattleControls(){
   if(ambientToggleEl) ambientToggleEl.onchange = (e)=>{ AmbientPref.enabled = e.target.checked; };
   const cameraToggleEl = document.getElementById('cameraToggle');
   if(cameraToggleEl) cameraToggleEl.onchange = (e)=>{ CameraPref.enabled = e.target.checked; };
-  document.getElementById('musicVolumeSlider').oninput = (e)=> AudioManager.setVolume('music', e.target.value/100);
+  for(const [id, category] of VOLUME_SLIDERS){
+    const el = document.getElementById(id);
+    if(el) el.oninput = (e)=> AudioManager.setVolume(category, e.target.value/100);
+  }
   document.getElementById('backToMenuBtn').onclick = ()=>{
     if(state.gameOver){
       returnToMainMenu();
