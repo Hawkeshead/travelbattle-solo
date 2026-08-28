@@ -464,11 +464,17 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   // result of 4) gives the attacker +1 to their rolled value (capped at 6) if
   // struck while in that state — same phrasing/mechanic as the Ambush bonus.
   let aValueBonus = aBonus.valueBonus, dValueBonus = dBonus.valueBonus;
-  if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); }
-  if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll (capped at 6)'); }
+  /* Several +1s are applied HERE rather than inside combatBonuses, so they were
+     absent from the logged sources list and a fight could show "bonus +2" with
+     nothing accounting for it. They were never hidden from the player (they are
+     in the panel's notes), but they were hidden from the log, which is exactly
+     where someone checking the arithmetic would look. */
+  const extraASources = [];
+  if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); extraASources.push('Defender turned around +1'); }
+  if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll (capped at 6)'); extraASources.push('Ambush +1'); }
   // Infantry, Guard, and Cavalry all get +1 to the roll when attacking Artillery.
   if((aType.key==='INFANTRY'||aType.key==='GUARD'||aType.isCavalry) && dType.key==='ARTILLERY'){
-    aValueBonus += 1; aReasons.push('Attacking Artillery: +1 to roll');
+    aValueBonus += 1; aReasons.push('Attacking Artillery: +1 to roll'); extraASources.push('Attacking Artillery +1');
   }
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
@@ -570,11 +576,15 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         diag: {
           aRolls: aRoll.rolls.slice(), aKept: aRoll.keptDie, aBonus: aValueBonus,
           dRolls: dRoll.rolls.slice(), dKept: dRoll.keptDie, dBonus: dValueBonus,
-          aDice: aBonus.dice, dDice: dBonus.dice,
+          // The count actually rolled with, not aBonus.dice: aDice is a `let` that
+          // later code can raise, and a re-roll pushes another entry into rolls,
+          // so the two legitimately differ and comparing them raised false alarms.
+          aDice, dDice,
           // Every bonus that fired, in order. The first grants a second die and
           // each later one grants +1, so a source appearing twice inflates the
           // value silently. This is the list to read if a bonus is doubled.
-          aSources: (aBonus.sources||[]).slice(), dSources: (dBonus.sources||[]).slice(),
+          aSources: (aBonus.sources||[]).concat(extraASources),
+          dSources: (dBonus.sources||[]).slice(),
           panelText: resultText,
           panelA: panelSnapshot.a, panelD: panelSnapshot.d,
           settleA: aRoll.value, settleD: dRoll.value,

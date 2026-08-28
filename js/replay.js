@@ -205,6 +205,10 @@ export function exportFullMatchLog(){
         lines.push(`    panel "${d.panelText}" (${d.panelA} v ${d.panelD})` +
                    ` -> settle (${d.settleA} v ${d.settleD}) margin ${d.margin} = ${ev.result}` +
                    ` | tie-break ${tie}${d.drift ? '   *** VALUES DRIFTED BETWEEN PANEL AND BOARD ***' : ''}`);
+        // Notes carry any modifier not in the sources list, so nothing is
+        // unaccounted for when someone is checking the arithmetic by hand.
+        if(d.aNotes && d.aNotes.length) lines.push(`    A notes: ${d.aNotes.join(' / ')}`);
+        if(d.dNotes && d.dNotes.length) lines.push(`    D notes: ${d.dNotes.join(' / ')}`);
         if(d.build && (!d.build.keptDie || !d.build.sources)){
           lines.push(`    *** STALE BUILD: running code is missing ` +
             `${!d.build.keptDie?'keptDie ':''}${!d.build.sources?'bonus-sources ':''}— hard-refresh needed ***`);
