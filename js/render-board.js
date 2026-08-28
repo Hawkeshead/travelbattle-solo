@@ -147,7 +147,31 @@ function polylineLength(path){
   return total;
 }
 
-function pointAlongPolyline(path, fraction){
+/* Corner rounding. A sharp 90-degree turn reads as mechanical, and a fully
+   smoothed spline reads as if the unit skipped squares, so the corner is eased
+   only within CORNER_R of the waypoint. The icon still passes through the centre
+   region of every square it enters. */
+const CORNER_R = 0.30;
+
+function roundCorner(path, i, local){
+  const prev = path[i-1], here = path[i], next = path[i+1];
+  if(!next) return null;
+  const inDir  = { x: here.x-prev.x, y: here.y-prev.y };
+  const outDir = { x: next.x-here.x, y: next.y-here.y };
+  if(inDir.x===outDir.x && inDir.y===outDir.y) return null;  // straight through
+  const distToCorner = 1 - local;
+  if(distToCorner > CORNER_R) return null;
+  // Quadratic bezier with the control point AT the corner, so the curve still
+  // passes close to the square's centre rather than cutting it off.
+  const b = (1 - distToCorner/CORNER_R) * 0.5 + 0.5;
+  const p0 = { x: here.x - inDir.x*CORNER_R,  y: here.y - inDir.y*CORNER_R };
+  const p2 = { x: here.x + outDir.x*CORNER_R, y: here.y + outDir.y*CORNER_R };
+  const mt = 1-b;
+  return { x: mt*mt*p0.x + 2*mt*b*here.x + b*b*p2.x,
+           y: mt*mt*p0.y + 2*mt*b*here.y + b*b*p2.y };
+}
+
+function pointAlongPolyline(path, fraction, corners){
   if(path.length === 1) return { x:path[0].x, y:path[0].y };
   const target = polylineLength(path) * fraction;
   let walked = 0;
@@ -155,12 +179,34 @@ function pointAlongPolyline(path, fraction){
     const seg = Math.hypot(path[i].x-path[i-1].x, path[i].y-path[i-1].y);
     if(walked + seg >= target || i === path.length-1){
       const local = seg === 0 ? 0 : Math.min(1, (target - walked) / seg);
+      if(corners){
+        const c = roundCorner(path, i, local);
+        if(c) return c;
+      }
       return { x: path[i-1].x + (path[i].x-path[i-1].x)*local,
                y: path[i-1].y + (path[i].y-path[i-1].y)*local };
     }
     walked += seg;
   }
   return { x:path[path.length-1].x, y:path[path.length-1].y };
+}
+
+/* Vertical gait bob, DRAW TIME ONLY.
+
+   Deliberately not part of getUnitVisualPos: that value feeds the depth sort,
+   and a unit whose sort key bobbed would flicker in front of and behind terrain
+   at a row boundary. Callers that need to sort ask for the position; callers
+   that draw add this on top. */
+export function unitGaitOffset(u){
+  const anim = unitAnimations[u.id];
+  if(!anim) return 0;
+  const g = GAIT[UNIT_TYPES[u.type].key];
+  if(!g) return 0;
+  const elapsed = (Date.now() - anim.startTime) / 1000;
+  // Faded in and out so a unit does not appear to jolt as it starts and stops.
+  const t = Math.min(1, (Date.now() - anim.startTime) / anim.duration);
+  const fade = Math.sin(Math.PI * t);
+  return -Math.abs(Math.sin(elapsed * Math.PI * g.hz)) * g.amp * fade;
 }
 
 export function getUnitVisualPos(u){
@@ -173,8 +219,32 @@ export function getUnitVisualPos(u){
   // Walk the route if one was found, otherwise the old two-point slide. Eased
   // across the WHOLE polyline by distance travelled, not per segment, so a
   // three-square move reads as one continuous movement rather than three hops.
-  if(anim.path && anim.path.length > 2) return pointAlongPolyline(anim.path, eased);
-  return { x: anim.fromX + (anim.toX-anim.fromX)*eased, y: anim.fromY + (anim.toY-anim.fromY)*eased };
+  const prof = anim.profile || MOVE_PROFILES.march;
+
+  /* Overshoot and settle. A pushback is involuntary: the unit is shoved a little
+     past where it ends up and staggers back, which reads differently from an
+     ordered step of the same distance. */
+  let travel = eased;
+  if(prof.settle){
+    const OVERSHOOT_UNTIL = 0.82;
+    travel = t < OVERSHOOT_UNTIL
+      ? eased * (1 + prof.settle)
+      : (1 + prof.settle) + (1 - (1 + prof.settle)) * ((t - OVERSHOOT_UNTIL) / (1 - OVERSHOOT_UNTIL));
+  }
+
+  let pos = (anim.path && anim.path.length > 2)
+    ? pointAlongPolyline(anim.path, Math.min(1, Math.max(0, travel)), prof.corners)
+    : { x: anim.fromX + (anim.toX-anim.fromX)*travel, y: anim.fromY + (anim.toY-anim.fromY)*travel };
+
+  /* A routing unit does not run in a clean line. Irregular rather than a sine,
+     or it reads as a deliberate weave. Faded out at both ends so the unit still
+     leaves and arrives on its squares exactly. */
+  if(prof.jitter){
+    const fade = Math.sin(Math.PI * t);
+    const n = (Math.sin(t*37.1 + u.id*11.3) + Math.sin(t*61.7 + u.id*5.9)) * 0.5;
+    pos = { x: pos.x + n * prof.jitter * fade, y: pos.y + n * prof.jitter * fade * 0.6 };
+  }
+  return pos;
 }
 
 // A Brigadier is never blocked from having an enemy move into his square —
@@ -210,13 +280,46 @@ export const UNIT_MOVE_ANIMATION_MS = 1040;
    keep up. Tunable. */
 export const MOVE_MS_PER_SQUARE = 420;
 
+/* Per-kind motion profiles. The point is that a player can tell what HAPPENED
+   from how a unit moved, before reading any log line: an ordered advance, a
+   charge, being shoved, or breaking and running are four different events and
+   should not all look like a slide.
+
+   speed   multiplies the duration (lower is faster)
+   corners rounds the turns; a charge is a straight run with no pivot by
+           definition, so rounding it would contradict the rules
+   settle  a short overshoot past the destination, then back — involuntary
+   jitter  irregular lateral wobble, as a fraction of a square */
+export const MOVE_PROFILES = {
+  march:              { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
+  charge:             { speed: 0.80, corners: false, settle: 0,    jitter: 0     },
+  pushback:           { speed: 0.55, corners: false, settle: 0.07, jitter: 0     },
+  rout:               { speed: 0.77, corners: true,  settle: 0,    jitter: 0.02  },
+  advanceAfterCombat: { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
+};
+
+/* Gait, applied at DRAW time only. The intent is that the arm is readable from
+   the movement alone, before the icon itself is legible: infantry plod, light
+   cavalry skim, guns barely move.
+
+   amplitude is a fraction of tile height, frequency is in Hz. Computed after
+   the depth sort so a bobbing unit cannot z-fight with terrain at a row edge. */
+export const GAIT = {
+  INFANTRY:  { amp: 0.025, hz: 2.2 },
+  GUARD:     { amp: 0.025, hz: 2.2 },
+  LIGHT_CAV: { amp: 0.015, hz: 4.5 },
+  HEAVY_CAV: { amp: 0.020, hz: 3.5 },
+  ARTILLERY: { amp: 0.010, hz: 1.6 },
+  BRIGADIER: { amp: 0.015, hz: 4.5 },
+};
+
 /* How long a given move will take, so the AI's pacing can wait exactly as long
    as the animation runs instead of a fixed guess. */
 export function moveAnimationMs(steps){
   return Math.max(UNIT_MOVE_ANIMATION_MS * 0.55, steps * MOVE_MS_PER_SQUARE);
 }
 
-export function animateUnitTo(u, newX, newY){
+export function animateUnitTo(u, newX, newY, kind){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   const fromX = u.x, fromY = u.y;
   logReplay('move', { unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY} });
@@ -233,9 +336,11 @@ export function animateUnitTo(u, newX, newY){
     console.warn(`[move] ${u.historicalName || u.type}: ${squares}-square move produced a ` +
       `${path.length}-point path (expected ${squares + 1}) — animating on a straight line`, path);
   }
+  const profile = MOVE_PROFILES[kind] || MOVE_PROFILES.march;
   unitAnimations[u.id] = {
-    fromX:start.x, fromY:start.y, toX:newX, toY:newY, path,
-    startTime:Date.now(), duration: moveAnimationMs(Math.max(1, path.length - 1)),
+    fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
+    startTime:Date.now(),
+    duration: moveAnimationMs(Math.max(1, path.length - 1)) * profile.speed,
   };
   ensureAnimationLoopRunning();
 }

@@ -383,7 +383,7 @@ export function springAmbush(ambusher, target, mode, onComplete){
     if(mode==='advance'){
       const stillThere = state.units.some(o=>!o.removed && o.id===target.id && o.x===beforeX && o.y===beforeY);
       if(!stillThere && unitsAt(beforeX,beforeY).length===0 && isAdjacent(ambusher,{x:beforeX,y:beforeY})){
-        animateUnitTo(ambusher, beforeX, beforeY);
+        animateUnitTo(ambusher, beforeX, beforeY, 'advanceAfterCombat');
         log(`${unitLabel(ambusher)} advances into the vacated ground.`, 'combat');
       }
     }
@@ -559,7 +559,7 @@ export function onCellClick(x,y){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
-      animateUnitTo(sel, x, y);
+      animateUnitTo(sel, x, y, 'charge');
       sel.charged = true;
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} charges to engage!`, sel.side);
@@ -571,7 +571,7 @@ export function onCellClick(x,y){
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
       if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
-      animateUnitTo(sel, x, y);
+      animateUnitTo(sel, x, y, 'march');
       if(UNIT_TYPES[sel.type].key==='INFANTRY' || UNIT_TYPES[sel.type].key==='GUARD'){
         AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
       }

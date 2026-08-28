@@ -1148,7 +1148,12 @@ export function aiDecideAndExecuteMove(u){
     const fromX=u.x, fromY=u.y;
     displaceBrigadierIfPresent(best.x, best.y, fromX, fromY);
     if(t.isArtillery && !isHorseArtillery(u) && terrainAt(best.x,best.y).plough) consumePloughEscort(u);
-    animateUnitTo(u, best.x, best.y);
+    // u.charged is set AFTER this call (a few lines below), so it cannot be read
+    // here. The charge is detected from the move itself, using the same test the
+    // engine applies when it sets the flag.
+    const isCharge = t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) &&
+      hasChargeableTargetAt(side, best);
+    animateUnitTo(u, best.x, best.y, isCharge ? 'charge' : 'march');
     if(t.key==='INFANTRY' || t.key==='GUARD'){
       AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
     }

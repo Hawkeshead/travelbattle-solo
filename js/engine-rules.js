@@ -652,14 +652,14 @@ export function pushBack(loser, winner){
     if(blocker){
       const bx = nx+dx, by = ny+dy;
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
-        animateUnitTo(blocker, bx, by);
+        animateUnitTo(blocker, bx, by, 'pushback');   // shoved aside by the unit being pushed into it
         blocker.turnOnly = true;
         log(`${unitLabel(blocker)} is shoved back by the retreat.`, 'combat');
       } else {
         landingClear = false; // nowhere for the blocker to go — loser can't retreat into it either
       }
     }
-    if(landingClear){ animateUnitTo(loser, nx, ny); }
+    if(landingClear){ animateUnitTo(loser, nx, ny, 'pushback'); }
   } else if(!inBounds(nx,ny)){
     /* Back to the board edge with nowhere further to give. The house rule is that
        the unit bolts along its own edge rather than standing still.
@@ -682,7 +682,7 @@ export function pushBack(loser, winner){
     for(const tx of options){
       if(tx < 0 || tx >= COLS) continue;
       if(unitsAt(tx, loser.y).some(o=>o.id!==loser.id)) continue;
-      animateUnitTo(loser, tx, loser.y);
+      animateUnitTo(loser, tx, loser.y, 'pushback');
       log(`${unitLabel(loser)} has nowhere left to give and edges along the board edge.`, 'combat');
       moved = true;
       break;
@@ -701,7 +701,7 @@ export function retreatAndRally(loser, onComplete){
   const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
   const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
   const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
-  animateUnitTo(loser, cell.x, cell.y);
+  animateUnitTo(loser, cell.x, cell.y, 'rout');   // breaking for its own board edge
   loser.turnOnly = true;
   loser.rallying = true;
   const t = UNIT_TYPES[loser.type];

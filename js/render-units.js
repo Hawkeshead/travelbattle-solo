@@ -1,6 +1,6 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
-import { WOODS_OVERSCAN, ctx, getUnitVisualPos, sy, woodsStyleIndex } from './render-board.js';
+import { WOODS_OVERSCAN, ctx, getUnitVisualPos, sy, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
@@ -400,7 +400,10 @@ export function drawBrigadierPortrait(size, u, isSel){
 export function drawUnit(u, off){
   off = off || {dx:0, dy:0, scale:1};
   const vp = getUnitVisualPos(u);
-  const cx = vp.x*CELL+CELL/2 + off.dx*CELL, cy = sy(vp.y)*CELL+CELL/2 + off.dy*CELL;
+  // Gait added here rather than inside getUnitVisualPos, because that value also
+  // feeds the depth sort and a bobbing sort key would flicker against terrain.
+  const cx = vp.x*CELL+CELL/2 + off.dx*CELL,
+        cy = (sy(vp.y) + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
   const col = SIDE_COLOR[u.side];
