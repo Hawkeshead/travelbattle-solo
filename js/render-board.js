@@ -324,7 +324,7 @@ export const UNIT_MOVE_ANIMATION_MS = 1040;
    plan proposed: at 900 a three-square move alone runs 2.7s and an average AI
    turn grows by a third, which works against the battle camera being able to
    keep up. Tunable. */
-export const MOVE_MS_PER_SQUARE = 840;   // doubled from 420 on playtest feedback
+export const MOVE_MS_PER_SQUARE = 1680;  // doubled again on playtest feedback
 
 /* Per-kind motion profiles. The point is that a player can tell what HAPPENED
    from how a unit moved, before reading any log line: an ordered advance, a
@@ -362,7 +362,12 @@ export const GAIT = {
 /* How long a given move will take, so the AI's pacing can wait exactly as long
    as the animation runs instead of a fixed guess. */
 export function moveAnimationMs(steps){
-  return Math.max(UNIT_MOVE_ANIMATION_MS * 0.55, steps * MOVE_MS_PER_SQUARE);
+  /* The floor was 0.55 of the old flat duration, which quietly undid the point
+     of slowing things down: a ONE-square move, which is most of them, came out
+     at 572ms against the original flat 1040ms, so movement got faster overall
+     even as the per-square figure went up. The floor now scales with the
+     per-square setting instead of being pinned to the old constant. */
+  return Math.max(MOVE_MS_PER_SQUARE * 0.7, steps * MOVE_MS_PER_SQUARE);
 }
 
 export function animateUnitTo(u, newX, newY, kind){
