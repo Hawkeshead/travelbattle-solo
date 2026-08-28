@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Command — Audio Lab</title>
+<!--
+  AUDIO LAB
+
+  Built to settle the music slider, which is correct by inspection and wrong in
+  practice. Rather than guess again, this shows the live state: what the mixer
+  computes, what each playing element's volume ACTUALLY is, and which sounds
+  belong to which slider.
+
+  The two readouts either side of the arrow are the whole point. "target" is what
+  the mixer thinks the volume should be; "actual" is what the element is really
+  playing at. If a slider does nothing, those two will disagree, and the one that
+  disagrees is the broken path.
+
+  Standalone on purpose: it imports the real audio-manager.js rather than a copy,
+  so anything proved here is true of the game.
+-->
+<style>
+  :root{
+    --paper:#e8dfc8; --paper-2:#dcd2b6; --ink:#2a2419; --ink-dim:#6b6046;
+    --line:#b3a67f; --brass:#b8963f; --red:#7a2a24; --green:#3f5a38;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; padding:16px 14px 60px; background:#2d3226; color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:14px; line-height:1.5;
+  }
+  h1{ font-family:Georgia,serif; font-size:20px; color:var(--paper); margin:0 0 4px; }
+  .sub{ color:#9aa38c; font-size:12px; margin-bottom:16px; }
+  .panel{
+    background:var(--paper); border:1px solid var(--line); border-radius:6px;
+    padding:12px 14px; margin-bottom:14px;
+  }
+  .panel h2{ font-size:13px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--ink-dim); margin:0 0 10px; font-family:ui-monospace,monospace; }
+  .sliderRow{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .sliderRow label{ width:76px; flex-shrink:0; }
+  .sliderRow input[type=range]{ flex:1; min-width:0; }
+  .sliderRow .val{ width:96px; text-align:right; font-size:12px; color:var(--ink-dim); }
+  table{ width:100%; border-collapse:collapse; font-size:12px; }
+  th{ text-align:left; font-weight:normal; color:var(--ink-dim);
+      border-bottom:1px solid var(--line); padding:4px 6px 6px; }
+  td{ padding:6px; border-bottom:1px solid rgba(179,166,127,.4); vertical-align:middle; }
+  td.file{ word-break:break-all; }
+  select, button{
+    font-family:inherit; font-size:12px; padding:4px 8px;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:4px; color:var(--ink);
+  }
+  button{ cursor:pointer; }
+  button:active{ background:var(--brass); color:var(--paper); }
+  .play{ min-width:44px; }
+  .live{ font-size:12px; }
+  .live .ok{ color:var(--green); }
+  .live .bad{ color:var(--red); font-weight:bold; }
+  .note{ font-size:11px; color:var(--ink-dim); margin-top:8px; }
+  pre{ background:var(--paper-2); border:1px solid var(--line); border-radius:4px;
+       padding:10px; font-size:11px; overflow-x:auto; white-space:pre-wrap; }
+  .missing{ color:var(--red); }
+</style>
+</head>
+<body>
+
+<h1>Audio Lab</h1>
+<div class="sub">Every sound in the game, what it is bound to, and what it is actually playing at.</div>
+
+<div class="panel">
+  <h2>Mixer</h2>
+  <div class="sliderRow">
+    <label>Mute</label>
+    <input type="checkbox" id="mute">
+    <span class="val" id="muteVal"></span>
+  </div>
+  <div id="sliders"></div>
+  <div class="note">
+    Effective volume is <code>curve(master) &times; curve(category)</code>, where
+    <code>curve(v) = v&sup2;</code>. Mute forces every category to zero.
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Live playback state</h2>
+  <div id="live" class="live">nothing playing</div>
+  <div class="note">
+    <b>target</b> is what the mixer says the volume should be. <b>actual</b> is what the
+    element is really playing at. If a slider appears to do nothing, these two will
+    disagree, and that gap is the fault.
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Sounds</h2>
+  <table>
+    <thead>
+      <tr><th>File</th><th>Assigned to</th><th>Used for</th><th></th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="note">
+    Reassigning is for testing by ear: play a sound, move a slider, and see which one
+    moves it. Changes here do not alter the game.
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Assignments</h2>
+  <button id="exportBtn">Show current assignment map</button>
+  <pre id="exportOut" hidden></pre>
+</div>
+
+<script type="module">
+import { AudioManager } from './js/audio-manager.js';
+
+/* The catalogue: every audio file in the repo, its default volume category, and
+   what the game actually plays it for. Priority categories ('movement', 'ui')
+   govern DUCKING, not volume: every effect draws its level from the single
+   'effects' category, which is worth knowing when chasing a slider. */
+const CATALOGUE = [
+  { file:'audio/music/field-of-austerlitz.mp3', cat:'music',    kind:'music',
+    use:'Main score. Starts in the menu, continues into battle.' },
+  { file:'audio/ambience/countryside.mp3',      cat:'ambience', kind:'ambience',
+    use:'Countryside bed. Starts with the board intro, loops all match.' },
+  { file:'audio/effects/infantry-marching.wav', cat:'effects',  kind:'effect', priority:'movement',
+    use:'Infantry and Guard moving. Cut to the length of the walk.' },
+  { file:'audio/effects/cavalry-gallop.wav',    cat:'effects',  kind:'effect', priority:'movement',
+    use:'Cavalry moving. Loops to cover the whole ride.' },
+  { file:'audio/effects/cavalry-select-sword.wav', cat:'effects', kind:'effect', priority:'ui',
+    use:'Sabre draw when a cavalry unit is selected.' },
+  { file:'audio/effects/chess-piece-placed.wav', cat:'effects', kind:'effect', priority:'ui',
+    use:'Selecting any non-cavalry unit.' },
+  { file:'audio/ui/click1.wav',    cat:'effects', kind:'effect', priority:'ui', use:'UI click variant.' },
+  { file:'audio/ui/click4.wav',    cat:'effects', kind:'effect', priority:'ui', use:'UI click variant.' },
+  { file:'audio/ui/switch12.wav',  cat:'effects', kind:'effect', priority:'ui', use:'UI toggle variant.' },
+  { file:'audio/ui/switch14.wav',  cat:'effects', kind:'effect', priority:'ui', use:'UI toggle variant.' },
+];
+
+const CATEGORIES = ['master','music','effects','ambience'];
+const assigned = new Map(CATALOGUE.map(c => [c.file, c.cat]));
+
+// The mixer's own maths, mirrored so the lab can show the target independently
+// of what the elements report. If these two ever disagree, that IS the bug.
+const curve = v => Math.pow(Math.max(0, Math.min(1, v)), 2);
+function expectedVolume(category){
+  const p = AudioManager.getPrefs();
+  if(p.muted) return 0;
+  return curve(p.volumes.master) * curve(p.volumes[category] ?? 1);
+}
+
+/* ---- mixer controls ---- */
+const slidersEl = document.getElementById('sliders');
+for(const cat of CATEGORIES){
+  const row = document.createElement('div');
+  row.className = 'sliderRow';
+  row.innerHTML = `<label>${cat}</label>
+    <input type="range" min="0" max="100" step="5" id="sl-${cat}">
+    <span class="val" id="v-${cat}"></span>`;
+  slidersEl.appendChild(row);
+}
+function syncControls(){
+  const p = AudioManager.getPrefs();
+  document.getElementById('mute').checked = p.muted;
+  document.getElementById('muteVal').textContent = p.muted ? 'MUTED' : '';
+  for(const cat of CATEGORIES){
+    const sl = document.getElementById('sl-' + cat);
+    if(document.activeElement !== sl) sl.value = Math.round((p.volumes[cat] ?? 0) * 100);
+    document.getElementById('v-' + cat).textContent =
+      `${sl.value}% → ${expectedVolume(cat).toFixed(3)}`;
+  }
+}
+for(const cat of CATEGORIES){
+  document.getElementById('sl-' + cat).addEventListener('input', e => {
+    AudioManager.setVolume(cat, e.target.value / 100);
+    syncControls();
+  });
+}
+document.getElementById('mute').addEventListener('change', e => {
+  AudioManager.setMuted(e.target.checked);
+  syncControls();
+});
+
+/* ---- the sound list ---- */
+const rows = document.getElementById('rows');
+for(const item of CATALOGUE){
+  const tr = document.createElement('tr');
+  const opts = CATEGORIES.filter(c => c !== 'master')
+    .map(c => `<option value="${c}"${c===item.cat?' selected':''}>${c}</option>`).join('');
+  tr.innerHTML = `
+    <td class="file">${item.file.replace(/^audio\//,'')}<div class="note" style="margin:2px 0 0">${item.kind}${item.priority ? ' · ducks as ' + item.priority : ''}</div></td>
+    <td><select data-file="${item.file}">${opts}</select></td>
+    <td class="note" style="margin:0">${item.use}</td>
+    <td><button class="play" data-file="${item.file}">▶</button></td>`;
+  rows.appendChild(tr);
+}
+rows.addEventListener('change', e => {
+  if(e.target.tagName !== 'SELECT') return;
+  assigned.set(e.target.dataset.file, e.target.value);
+});
+rows.addEventListener('click', async e => {
+  const btn = e.target.closest('button.play');
+  if(!btn) return;
+  const file = btn.dataset.file;
+  const item = CATALOGUE.find(c => c.file === file);
+  const cat = assigned.get(file);
+  await AudioManager.unlock();
+  if(cat === 'music')          AudioManager.playMusic(file);
+  else if(cat === 'ambience')  AudioManager.playAmbience(file);
+  else                         AudioManager.playEffect('lab:' + file, file, item.priority || 'ui');
+  btn.textContent = '▶';
+});
+
+/* ---- live state, the part that finds the fault ---- */
+const liveEl = document.getElementById('live');
+function renderLive(){
+  const p = AudioManager.getPrefs();
+  const streams = [
+    ['music',    AudioManager.debugMusicElement    ? AudioManager.debugMusicElement()    : null],
+    ['ambience', AudioManager.debugAmbienceElement ? AudioManager.debugAmbienceElement() : null],
+  ];
+  const out = [];
+  for(const [cat, el] of streams){
+    if(!el){ out.push(`<div>${cat.padEnd(9)} <span class="missing">no element</span></div>`); continue; }
+    const target = expectedVolume(cat);
+    const actual = el.volume;
+    const agrees = Math.abs(target - actual) < 0.005;
+    out.push(`<div>${cat.padEnd(9)} target ${target.toFixed(3)} →
+      <span class="${agrees?'ok':'bad'}">actual ${actual.toFixed(3)}</span>
+      ${agrees ? '' : '  ← MISMATCH'}
+      ${el.paused ? ' (paused)' : ''}
+      <span class="note">${(el.currentSrc||'').split('/').pop()}</span></div>`);
+  }
+  out.push(`<div class="note" style="margin-top:6px">effects target ${expectedVolume('effects').toFixed(3)} · master ${p.volumes.master} · muted ${p.muted}</div>`);
+  liveEl.innerHTML = out.join('');
+}
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const out = document.getElementById('exportOut');
+  const lines = [...assigned.entries()].map(([f, c]) => `  ${c.padEnd(9)}  ${f}`);
+  out.textContent = 'category   file\n' + lines.join('\n');
+  out.hidden = false;
+});
+
+syncControls();
+renderLive();
+setInterval(() => { syncControls(); renderLive(); }, 250);
+</script>
+</body>
+</html>

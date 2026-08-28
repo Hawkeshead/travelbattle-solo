@@ -299,5 +299,12 @@ export const AudioManager = (function(){
   return {
     unlock, playEffect, playMusic, stopMusic, playAmbience, stopAmbience,
     setMuted, setVolume, getPrefs, panForBoardX, preloadEffects,
+    /* Read-only handles for audio-lab.html. The lab compares what the mixer
+       THINKS a stream's volume should be against what the element is really
+       playing at; without these it can only see the first half, which is the
+       half that already looks correct. Deliberately getters rather than the
+       elements themselves, so nothing outside can reassign them. */
+    debugMusicElement: ()=> state.musicEl,
+    debugAmbienceElement: ()=> state.ambienceEl,
   };
 })();
