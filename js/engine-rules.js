@@ -783,6 +783,18 @@ export function retreatAndRally(loser, onComplete){
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
+    /* The rally in full. Previously only the outcome was recorded ("Rallied" or
+       "failed rally"), so a poor rally record could not be told apart from
+       Brigadiers being out of position, which is the single thing six matches of
+       analysis kept asking about. */
+    logReplay('rally', {
+      unitId: loser.id, side: loser.side, x: loser.x, y: loser.y,
+      roll: r, threshold: successOn[0], success,
+      brigadier: brig ? (brig.historicalName || 'Brigadier') : null,
+      brigadierInRange: !!brig,
+      leadershipAvailable: !!(brig && !brig.leadershipUsed),
+      note: rallyNote[0] || null,
+    });
     showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
         log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');

@@ -1,5 +1,5 @@
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
-import { inBounds, isRoadLike, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
+import { inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -373,7 +373,24 @@ export function moveAnimationMs(steps){
 export function animateUnitTo(u, newX, newY, kind){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   const fromX = u.x, fromY = u.y;
-  logReplay('move', { unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY} });
+  /* Every move now carries who moved, in what shape, and whether it ended on
+     its Brigadier's chain, FOR BOTH SIDES. Previously only French moves carried
+     any of this, and only in the separate AI log, so British formation was
+     invisible: you could see from a combat bonus that infantry had been caught
+     in line by cavalry, but not what formation any British unit was in at any
+     other moment, which makes a mistake and a mid-manoeuvre cost look identical.
+
+     Connection is read AFTER the position updates, since that is the state the
+     unit ends its move in and the one that matters next turn. */
+  const connectedAfter = movableUnitsForSide(u.side).has(u.id);
+  logReplay('move', {
+    unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY},
+    unitType: UNIT_TYPES[u.type].key,
+    brigadeId: u.brigadeId,
+    formation: u.formation || 'line',
+    status: u.turnOnly ? 'PushedBack' : (u.rallying ? 'Rallied' : 'Active'),
+    connected: connectedAfter,
+  });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
   if(FAST_ANIMATION_MODE){ delete unitAnimations[u.id]; return; } // test/simulation harnesses only — see setFastAnimationMode
 

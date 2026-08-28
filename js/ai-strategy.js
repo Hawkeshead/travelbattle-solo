@@ -2,7 +2,7 @@ import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnem
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
-import { log } from './engine-state.js';
+import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
@@ -813,6 +813,7 @@ export function aiDecideAndExecuteMove(u){
     const strandedInSquare = u.squareNoCavTurns >= SQUARE_BREAK_TURNS;
     if(strandedInSquare || threatPenalty(u, side) < 0.8){
       u.formation = 'line';
+      logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'line', by:'ai' });
       u.squareNoCavTurns = 0;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
@@ -846,6 +847,8 @@ export function aiDecideAndExecuteMove(u){
     if(u.ambushWaited >= AMBUSH_STANDDOWN_TURNS){
       u.hidden = false;
       u.ambushWaited = 0;
+      logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'standDown',
+        reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) breaks cover, the ambush unsprung.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Stand Down',
         reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
@@ -860,6 +863,7 @@ export function aiDecideAndExecuteMove(u){
     if(near>=2 && near<=5){
       u.hidden = true;
       u.ambushWaited = 0;
+      logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'set', by:'ai' });
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Lay Ambush', reason:`nearest enemy ${near} squares away` });
@@ -1131,10 +1135,12 @@ export function aiDecideAndExecuteMove(u){
   if(canSquare && cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
     const origForm = u.formation;
     u.formation = 'square';
+    logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
     const squareScore = evaluateState(side) - 0.15*threatPenalty(u, side);
     u.formation = origForm;
     if(squareScore > bestScore){
       u.formation = 'square';
+      logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
       u.squareNoCavTurns = 0;
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);

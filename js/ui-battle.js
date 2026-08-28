@@ -391,6 +391,12 @@ export function showAmbushChoice(ambusher, target, callback){
 }
 
 export function springAmbush(ambusher, target, mode, onComplete){
+  /* The spring. Together with 'set' and 'standDown' this closes the ambush
+     lifecycle, which is what the log could not previously show: an ambush that
+     was laid and never resolved was indistinguishable from one that was never
+     implemented. */
+  logReplay('ambush', { unitId:ambusher.id, side:ambusher.side, x:ambusher.x, y:ambusher.y,
+    phase:'sprung', mode, targetId:target.id });
   onComplete = onComplete || function(){};
   ambusher.hidden = false;
   ambusher.ambushSpentThisRound = true;
@@ -843,10 +849,12 @@ export function initBattleControls(){
     pushUndoSnapshot();
     if(u.formation==='square'){
       u.formation = 'line';
+      logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'line', by:'player' });
       state.moved.add(u.id);
       log(`${unitLabel(u)} reforms Line.`, u.side);
     } else {
       u.formation = 'square';
+      logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'player' });
       state.moved.add(u.id);
       log(`${unitLabel(u)} forms Square.`, u.side);
     }

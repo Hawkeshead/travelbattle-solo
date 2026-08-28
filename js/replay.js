@@ -391,7 +391,29 @@ export function exportFullMatchLog(){
     if(ev.type==='turnStart'){
       lines.push(`[${SIDE_LABEL[ev.side]}'s turn begins]`);
     } else if(ev.type==='move'){
-      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})`);
+      /* The move line now carries who moved, in what shape, and whether it ended
+         on its Brigadier's chain, for BOTH sides. Older logs lack these fields,
+         so each is printed only when present rather than as empty columns. */
+      const bits = [];
+      if(ev.unitType) bits.push(ev.unitType);
+      if(ev.brigadeId!=null) bits.push(`Bde ${ev.brigadeId}`);
+      if(ev.formation && ev.formation!=='line') bits.push(ev.formation.toUpperCase());
+      if(ev.status && ev.status!=='Active') bits.push(ev.status);
+      const tag = bits.length ? `  [${bits.join(' · ')}]` : '';
+      const disc = (ev.connected===false) ? '  \u26A0 DISCONNECTED' : '';
+      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})${tag}${disc}`);
+    } else if(ev.type==='formation'){
+      lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
+    } else if(ev.type==='rally'){
+      const who = ev.brigadierInRange ? `${ev.brigadier} in range` : 'NO Brigadier in range';
+      const lead = ev.leadershipAvailable ? ', Leadership Roll still available' : ', no Leadership Roll left';
+      lines.push(`RALLY: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) ` +
+        `rolled ${ev.roll}, needs ${ev.threshold}+ -> ${ev.success ? 'RALLIES' : 'FAILS'}`);
+      lines.push(`    ${who}${lead}${ev.note ? '  (' + ev.note + ')' : ''}`);
+    } else if(ev.type==='ambush'){
+      const extra = ev.phase==='sprung' ? ` on ${label(ev.targetId)} (${ev.mode})`
+        : ev.reason ? ` — ${ev.reason}` : '';
+      lines.push(`AMBUSH ${ev.phase}: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y})${extra}`);
     } else if(ev.type==='fight'){
       lines.push(`FIGHT at (${ev.x},${ev.y}): ${label(ev.attackerId)} (${SIDE_LABEL[ev.attackerSide]}) vs ${label(ev.defenderId)} (${SIDE_LABEL[ev.defenderSide]}) — rolls ${ev.aRoll} v ${ev.dRoll} — ${ev.result}`);
       // Diagnostic line: what the PANEL was built from, beside what the engine
