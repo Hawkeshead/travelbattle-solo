@@ -192,15 +192,22 @@ export function exportFullMatchLog(){
       // readable.
       if(ev.diag){
         const d = ev.diag;
-        const interesting = d.aRolls.length>1 || d.dRolls.length>1 || d.aBonus || d.dBonus ||
-          Object.values(d.ties).some(Boolean);
-        if(interesting){
-          const tie = Object.entries(d.ties).filter(([,v])=>v).map(([k])=>k).join(',') || 'none';
-          lines.push(`    panel: A dice[${d.aRolls}] kept ${d.aKept} +${d.aBonus||0} -> ${ev.aRoll}` +
-                     ` | D dice[${d.dRolls}] kept ${d.dKept} +${d.dBonus||0} -> ${ev.dRoll}`);
-          lines.push(`    panel text "${d.panelText}" | engine margin ${d.margin} -> ${ev.result} | tie-break ${tie}`);
-          if(d.aNotes.length) lines.push(`    A notes: ${d.aNotes.join(' / ')}`);
-          if(d.dNotes.length) lines.push(`    D notes: ${d.dNotes.join(' / ')}`);
+        const tie = Object.entries(d.ties||{}).filter(([,v])=>v).map(([k])=>k).join(',') || 'none';
+        // Emitted for every fight now, not only interesting ones: the report is
+        // that outcomes disagree with the dice, and deciding in advance which
+        // fights are worth recording is how the interesting one gets missed.
+        lines.push(`    A: dice[${d.aRolls}] x${d.aDice} kept ${d.aKept} bonus +${d.aBonus||0} -> ${ev.aRoll}`);
+        lines.push(`    D: dice[${d.dRolls}] x${d.dDice} kept ${d.dKept} bonus +${d.dBonus||0} -> ${ev.dRoll}`);
+        // The bonus SOURCES in order. First grants a second die, each later one
+        // grants +1, so a repeated entry here is a doubled bonus.
+        if(d.aSources && d.aSources.length) lines.push(`    A bonuses: ${d.aSources.join(' | ')}`);
+        if(d.dSources && d.dSources.length) lines.push(`    D bonuses: ${d.dSources.join(' | ')}`);
+        lines.push(`    panel "${d.panelText}" (${d.panelA} v ${d.panelD})` +
+                   ` -> settle (${d.settleA} v ${d.settleD}) margin ${d.margin} = ${ev.result}` +
+                   ` | tie-break ${tie}${d.drift ? '   *** VALUES DRIFTED BETWEEN PANEL AND BOARD ***' : ''}`);
+        if(d.build && (!d.build.keptDie || !d.build.sources)){
+          lines.push(`    *** STALE BUILD: running code is missing ` +
+            `${!d.build.keptDie?'keptDie ':''}${!d.build.sources?'bonus-sources ':''}— hard-refresh needed ***`);
         }
       }
     } else if(ev.type==='fire'){

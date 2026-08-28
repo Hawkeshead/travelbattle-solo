@@ -379,7 +379,11 @@ export function combatBonuses(unit, opponent, defending, extraSources){
     if(i===0){ dice = 2; reasons.push(label); }
     else { valueBonus += 1; reasons.push(`${label}: +1 to roll (2nd die already granted)`); }
   });
-  return { dice, valueBonus, reasons };
+  // `sources` is returned so a fight can log every bonus that fired, not only
+  // the totals. The FIRST source grants a second die and every further source
+  // grants +1 to the value instead, so a duplicated entry is invisible in the
+  // totals and obvious in the list.
+  return { dice, valueBonus, reasons, sources };
 }
 
 // Guard Infantry and Heavy Cavalry's own re-roll (the physical rulebook card:
@@ -533,6 +537,14 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
+
+    /* Exactly what the PANEL was built from. fightOutcome below is computed
+       inside the settle roughly 2.9 seconds later and reads the same two
+       variables. If anything moves them in between, the board does one thing
+       while the panel said another, which is the reported symptom. Compared in
+       the log rather than assumed equal. */
+    const panelSnapshot = { a: aRoll.value, d: dRoll.value };
+
     finishDice(()=>{
       // Deferred until the popup has fully faded — nothing on the board moves
       // while there are still dice on screen to read.
@@ -558,10 +570,24 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         diag: {
           aRolls: aRoll.rolls.slice(), aKept: aRoll.keptDie, aBonus: aValueBonus,
           dRolls: dRoll.rolls.slice(), dKept: dRoll.keptDie, dBonus: dValueBonus,
+          aDice: aBonus.dice, dDice: dBonus.dice,
+          // Every bonus that fired, in order. The first grants a second die and
+          // each later one grants +1, so a source appearing twice inflates the
+          // value silently. This is the list to read if a bonus is doubled.
+          aSources: (aBonus.sources||[]).slice(), dSources: (dBonus.sources||[]).slice(),
           panelText: resultText,
+          panelA: panelSnapshot.a, panelD: panelSnapshot.d,
+          settleA: aRoll.value, settleD: dRoll.value,
+          drift: (panelSnapshot.a !== aRoll.value || panelSnapshot.d !== dRoll.value),
           margin: Math.abs(aRoll.value - dRoll.value),
           ties: { genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin },
-          aNotes: aReasons.slice(), dNotes: dReasons.slice()
+          aNotes: aReasons.slice(), dNotes: dReasons.slice(),
+          // Feature probe: is the RUNNING code the current build? Mobile Safari
+          // caches ES modules, so a stale engine-rules.js alongside a fresh
+          // index.html would reproduce every symptom reported. Self-maintaining,
+          // unlike a version constant someone has to remember to bump.
+          build: { keptDie: typeof aRoll.keptDie === 'number',
+                   sources: Array.isArray(aBonus.sources) }
         }
       });
 
