@@ -545,7 +545,24 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         attackerId: attacker.id, defenderId: defender.id,
         attackerSide: attacker.side, defenderSide: defender.side,
         x: defender.x, y: defender.y, result: fightOutcome,
-        aRoll: aRoll.value, dRoll: dRoll.value
+        aRoll: aRoll.value, dRoll: dRoll.value,
+        /* DIAGNOSTIC. Screenshots from a real match showed the panel and the
+           board disagreeing: one frame carried a "Tie-win: Attack Column" note,
+           recorded only when the two values are EQUAL, alongside a headline of
+           "Britain wins by 5". Reading the source did not explain it, so the
+           replay now records everything the panel was built from beside what
+           the engine actually resolved on. Whichever is wrong, the next
+           exported log says so outright instead of leaving it to be inferred
+           from screenshots. Worth keeping: a fight that resolves oddly is
+           exactly what a replay should be able to answer. */
+        diag: {
+          aRolls: aRoll.rolls.slice(), aKept: aRoll.keptDie, aBonus: aValueBonus,
+          dRolls: dRoll.rolls.slice(), dKept: dRoll.keptDie, dBonus: dValueBonus,
+          panelText: resultText,
+          margin: Math.abs(aRoll.value - dRoll.value),
+          ties: { genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin },
+          aNotes: aReasons.slice(), dNotes: dReasons.slice()
+        }
       });
 
       if(genuineDraw){

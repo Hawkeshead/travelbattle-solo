@@ -186,6 +186,23 @@ export function exportFullMatchLog(){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})`);
     } else if(ev.type==='fight'){
       lines.push(`FIGHT at (${ev.x},${ev.y}): ${label(ev.attackerId)} (${SIDE_LABEL[ev.attackerSide]}) vs ${label(ev.defenderId)} (${SIDE_LABEL[ev.defenderSide]}) — rolls ${ev.aRoll} v ${ev.dRoll} — ${ev.result}`);
+      // Diagnostic line: what the PANEL was built from, beside what the engine
+      // resolved on. Only emitted when the two could disagree (a re-roll, a
+      // second die, a value bonus or a tie-break), so ordinary fights stay
+      // readable.
+      if(ev.diag){
+        const d = ev.diag;
+        const interesting = d.aRolls.length>1 || d.dRolls.length>1 || d.aBonus || d.dBonus ||
+          Object.values(d.ties).some(Boolean);
+        if(interesting){
+          const tie = Object.entries(d.ties).filter(([,v])=>v).map(([k])=>k).join(',') || 'none';
+          lines.push(`    panel: A dice[${d.aRolls}] kept ${d.aKept} +${d.aBonus||0} -> ${ev.aRoll}` +
+                     ` | D dice[${d.dRolls}] kept ${d.dKept} +${d.dBonus||0} -> ${ev.dRoll}`);
+          lines.push(`    panel text "${d.panelText}" | engine margin ${d.margin} -> ${ev.result} | tie-break ${tie}`);
+          if(d.aNotes.length) lines.push(`    A notes: ${d.aNotes.join(' / ')}`);
+          if(d.dNotes.length) lines.push(`    D notes: ${d.dNotes.join(' / ')}`);
+        }
+      }
     } else if(ev.type==='fire'){
       lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.roll} — ${ev.effect}`);
     } else if(ev.type==='status'){
