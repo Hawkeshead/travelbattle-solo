@@ -1199,6 +1199,23 @@ export function draw(){
      draw exactly CELL x CELL and stay where they are, above. Only these
      three bleed, so only these three need ordering.
   --------------------------------------------------------------------- */
+  /* Ground-level marks, moved here from below now that units draw with the
+     terrain: both are scars and scuffs ON the ground, so they belong under
+     everything standing on it. Left where they were, they would have painted
+     over the units. */
+  for(const c of state.craters){
+    const cx = c.x*CELL+CELL/2, cy = sy(c.y)*CELL+CELL/2;
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#1a1710';
+    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.20, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = '#3a332a';
+    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.30, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  drawRoadDust();
+
   const raisedFeatures = [];
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
@@ -1208,13 +1225,43 @@ export function draw(){
       }
     }
   }
+
+  /* UNITS SORT WITH TERRAIN. A unit behind a hill or a wood is hidden by it; a
+     unit in front of one stands over it. Previously units were drawn in a single
+     later pass, so they were always in front of every feature regardless of row.
+
+     Sorted on the unit's INTERPOLATED screen row, not its tile row, so a unit
+     crossing a row boundary mid-move passes behind the features above it and in
+     front of those below at the moment it crosses, rather than popping at the
+     start or end of the move. getUnitVisualPos is deliberately the gait-free
+     value: a bobbing sort key would flicker against terrain at a boundary.
+
+     Stacked squares (a doubled Column) are grouped so the pair still draws as a
+     pair, at the row of the first of them. */
+  const stacks = {};
+  for(const u of state.units){
+    if(u.removed) continue;
+    const vp = getUnitVisualPos(u);
+    const key = Math.round(vp.x)+','+Math.round(vp.y);
+    (stacks[key] = stacks[key] || { list: [], sy_: sy(vp.y) }).list.push(u);
+  }
+  for(const k in stacks) raisedFeatures.push({ unitStack: stacks[k].list, sy_: stacks[k].sy_, x: 0 });
   // Lower screen row last, so it lands on top of anything behind it. The x
   // tiebreak only keeps the order deterministic within a row; nothing in a
   // single row can overlap anything else in that row by more than the 15%
   // side bleed, so it has no visual consequence.
   raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.x - b.x);
 
+  const STACK_OFFSETS_D = [{dx:-0.15,dy:-0.15,scale:0.72},{dx:0.15,dy:0.15,scale:0.72}];
   for(const f of raisedFeatures){
+    if(f.unitStack){
+      const list = f.unitStack;
+      if(list.length===1) drawUnit(list[0]);
+      else if(list.length===2 && (list[0].type==='INFANTRY'||list[0].type==='GUARD') &&
+              (list[1].type==='INFANTRY'||list[1].type==='GUARD')) drawColumnUnitPair(list[0], list[1]);
+      else list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS_D[i % STACK_OFFSETS_D.length]));
+      continue;
+    }
     const { x, y, key, sy_ } = f;
 
     if(key === 'HILL'){
@@ -1276,19 +1323,6 @@ export function draw(){
   // been removed. Road cells that don't match one of the 11 tile patterns
   // (an isolated stub or a genuine dead-end from excludedRoadEdges) just
   // show the grass backdrop laid down above, with no stroke over it.
-
-  // craters: every square Artillery has hit this match, above terrain, below units
-  for(const c of state.craters){
-    const cx = c.x*CELL+CELL/2, cy = sy(c.y)*CELL+CELL/2;
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = '#1a1710';
-    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.20, 0, Math.PI*2); ctx.fill();
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = '#3a332a';
-    ctx.beginPath(); ctx.arc(cx, cy, CELL*0.30, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
 
   // grid — always visible during deployment (placing units needs the whole
   // board legible); during battle it stays hidden until a unit is selected,
@@ -1419,32 +1453,8 @@ export function draw(){
     ctx.restore();
   }
 
-  // units — stacked squares (doubled infantry) are offset so both are visible
-  const stackGroups = {};
-  for(const u of state.units){
-    if(u.removed) continue;
-    const key = u.x+','+u.y;
-    (stackGroups[key] = stackGroups[key] || []).push(u);
-  }
-  const STACK_OFFSETS = [{dx:-0.15,dy:-0.15,scale:0.72},{dx:0.15,dy:0.15,scale:0.72}];
-  /* A unit in mid-move is drawn last, above anything it rides through. Its
-     LOGICAL square is already the destination, so without this it would be
-     grouped with whatever stands there and could be drawn underneath a unit it
-     is currently crossing. Held back and drawn after the rest. */
-  // Dust sits above the ground and below the units that kicked it up.
-  drawRoadDust();
-
-  const moving = [];
-  for(const key in stackGroups){
-    const list = stackGroups[key];
-    if(list.length===1 && unitAnimations[list[0].id]){ moving.push(list[0]); continue; }
-    if(list.length===1){ drawUnit(list[0]); }
-    else if(list.length===2 && (list[0].type==='INFANTRY'||list[0].type==='GUARD') && (list[1].type==='INFANTRY'||list[1].type==='GUARD')){
-      drawColumnUnitPair(list[0], list[1]);
-    }
-    else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
-  }
-  for(const u of moving) drawUnit(u);
+  /* Units are no longer drawn here. They are sorted and drawn WITH the raised
+     terrain features, so a unit behind a hill is hidden by it. */
 
   // muzzle smoke: lingers around a gun from the moment it fires until its side's next turn
   for(const u of state.units){
