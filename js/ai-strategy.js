@@ -1167,6 +1167,12 @@ export function aiDecideAndExecuteMove(u){
       AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
         { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))) });
     }
+    if(t.isCavalry){
+      // Loops to cover the whole ride: the clip is 4s and a three-square move
+      // is 5.04s. Same distance measurement as the infantry march above.
+      AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
+        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+    }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);

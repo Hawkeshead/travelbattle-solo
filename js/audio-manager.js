@@ -153,6 +153,12 @@ export const AudioManager = (function(){
           gain.connect(ctx.destination);
         }
         source.onended = release;
+        /* opts.loop repeats the clip rather than letting it run out. Paired with
+           durationMs this covers any length of action from a short sample: the
+           gallop is 4s and a three-square cavalry move is 5.04s, so it wraps once
+           and is cut at the right moment. The alternative, stretching a sample to
+           fit, pitches it down and turns a gallop into a shire horse. */
+        if(opts.loop) source.loop = true;
         if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
         source.start();
 
@@ -166,6 +172,9 @@ export const AudioManager = (function(){
            Faded rather than cut: stopping a waveform mid-cycle is an audible
            click, and at this volume it would be the loudest thing in the mix. */
         if(opts.durationMs > 0){
+          // Required for a looping source: it never reaches its end, so without
+          // an explicit stop it would play until the safety net fired 8 seconds
+          // later, long after the unit had halted.
           const stopAt = ctx.currentTime + opts.durationMs/1000;
           const fade = Math.min(0.18, opts.durationMs/1000 * 0.25);
           gain.gain.setValueAtTime(gain.gain.value, Math.max(ctx.currentTime, stopAt - fade));

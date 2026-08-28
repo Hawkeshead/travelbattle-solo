@@ -438,7 +438,17 @@ export function selectUnit(id){
   state.selectedUnitId = id;
   setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
-  if(u) AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
+  /* Cavalry draw sabres on selection; everything else keeps the piece-placed
+     click. Both armies, light and heavy alike. Plays once, so no duration or
+     loop: it is a moment, not an action of variable length. */
+  if(u){
+    const selT = UNIT_TYPES[u.type];
+    if(selT.isCavalry){
+      AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui');
+    } else {
+      AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
+    }
+  }
   renderUnitInfo(u);
   if(u && u.side===state.turn){
     if(state.phase==='move'){
@@ -608,6 +618,11 @@ export function onCellClick(x,y){
         // Lasts exactly as long as this unit is walking, one square or three.
         AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
           { durationMs: moveAnimationMs(Math.max(1, marchSteps)) });
+      }
+      if(UNIT_TYPES[sel.type].isCavalry){
+        // Loops to cover the whole ride; cut at the end of the animation.
+        AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
+          { durationMs: moveAnimationMs(Math.max(1, marchSteps)), loop: true });
       }
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
