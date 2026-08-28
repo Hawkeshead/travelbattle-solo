@@ -45,6 +45,8 @@ export function startBattle(){
   };
   state._aiCavTargetCache = null;
   state._aiKillCache = null;
+  state._aiContactCache = null;
+  state._aiTempoCache = null;
   state._aiDebugLog = { red:null, blue:null };
   beginMovePhase();
 }

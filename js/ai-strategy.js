@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -77,6 +77,18 @@ export const APPROACH_PULL = 0.16;
 // prosecuting the Brigade's own assigned mission.
 export const KILL_PULL_LAST_UNIT = 0.34;
 export const KILL_PULL_PENULTIMATE = 0.20;
+
+// A doubled Column is two units to one roundshot, and only a gun can take both.
+export const COLUMN_TARGET_BONUS = 3.0;
+
+// A Brigadier whose Brigade is destroyed falls back on the nearest friendly one
+// rather than manoeuvring alone.
+export const ORPHAN_BRIGADIER_PULL = 0.30;
+
+// Pull toward where the two sides are actually in contact. Below APPROACH_PULL
+// (0.16) on purpose: it bends a Brigade's advance toward the fighting rather
+// than overriding the mission it was given.
+export const CONVERGE_PULL = 0.10;
 
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
@@ -760,6 +772,71 @@ function killTarget(side){
   return hit;
 }
 
+/* WHERE THE BATTLE IS.
+
+   Once first contact is made, Brigades should pull toward it rather than
+   continuing on independent axes. Logged matches show the opposite: the French
+   fight three separate small actions while the player concentrates, and loses
+   all three.
+
+   The contact point is the midpoint of every square where the two sides are
+   actually adjacent, so it is the centre of the fighting rather than the centre
+   of the army. Cached per (side, turn), and null before first contact, which is
+   correct: there is nothing to converge on during the approach.
+========================================================= */
+function contactPoint(side){
+  const cache = state._aiContactCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.point;
+  const enemy = otherSide(side);
+  let sx=0, sy=0, n=0;
+  for(const u of state.units){
+    if(u.removed || u.side!==side) continue;
+    for(const o of state.units){
+      if(o.removed || o.side!==enemy) continue;
+      if(!isAdjacent(u,o)) continue;
+      sx += (u.x+o.x)/2; sy += (u.y+o.y)/2; n++;
+      break;
+    }
+  }
+  const point = n ? { x:sx/n, y:sy/n } : null;
+  state._aiContactCache = { side, turn: state.turnNumber, point };
+  return point;
+}
+
+/* PHASED TEMPO: build, hold, commit.
+
+   The player's two decisive breakthroughs across the logs are the same shape: a
+   wide parallel advance, a deliberate pause while the artillery works, then
+   every Brigade forward at once. The AI has no rhythm at all: each Brigade
+   closes when it individually feels like it, so its attacks arrive one at a time
+   and are beaten one at a time.
+
+   BUILD   advance on a wide front, no committed attacks
+   HOLD    a pause: guns work, the enemy is invited forward, position consolidates
+   COMMIT  one general advance, every Brigade together
+
+   HOLD IS HARD-BOUNDED, and that bound is the important part. A pause with a
+   soft exit is indistinguishable from the frozen-Brigade failure that took
+   several matches to diagnose, so it ends at TEMPO_COMMIT_TURN whatever else is
+   true, and ends early if the enemy closes or a Brigade is one break from going.
+   The AI can be made deliberate; it must not be made passive. */
+export const TEMPO_HOLD_FROM = 6;     // no pause before this: the armies are not in touch yet
+export const TEMPO_COMMIT_TURN = 14;  // hard ceiling on the pause
+export const TEMPO_PULL = { BUILD: 1.0, HOLD: 0.4, COMMIT: 1.7 };
+
+function tempoPhase(side){
+  const cache = state._aiTempoCache;
+  if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.phase;
+  let phase;
+  if(state.turnNumber >= TEMPO_COMMIT_TURN) phase = 'COMMIT';
+  else if(state._aiPlan[side] && state._aiPlan[side].type==='FINISHING_BLOW') phase = 'COMMIT';
+  else if(state.turnNumber < TEMPO_HOLD_FROM) phase = 'BUILD';
+  else if(contactPoint(side)) phase = 'COMMIT';   // they came to us; the pause is over
+  else phase = 'HOLD';
+  state._aiTempoCache = { side, turn: state.turnNumber, phase };
+  return phase;
+}
+
 function cavalrySchwerpunkt(side){
   const cache = state._aiCavTargetCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.target;
@@ -946,6 +1023,22 @@ export function aiDecideAndExecuteMove(u){
     // advanced units rather than anchoring the whole Brigade to where it started.
     if(t.key==='BRIGADIER'){
       const brigadeMates = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===u.brigadeId && o.id!==u.id);
+      if(brigadeMates.length === 0){
+        /* His Brigade is gone. With nothing to trail he has no anchor at all, so
+           the trailing rule above cannot help and he drifts wherever the
+           incidental terms take him: logged matches show Soult walking alone
+           into the British deployment zone. He now falls back on the nearest
+           friendly Brigadier instead, which keeps him alive and near the army
+           rather than wandering into the guns. */
+        const otherBrig = state.units.find(o=>!o.removed && o.side===side &&
+          o.type==='BRIGADIER' && o.id!==u.id);
+        if(otherBrig){
+          s -= subScore(parts, 'orphanFallback', chebyshev(c, otherBrig) * ORPHAN_BRIGADIER_PULL);
+        }
+        if(state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o))){
+          s -= subScore(parts, 'brigadierContact', BRIGADIER_CONTACT_PENALTY);
+        }
+      }
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
         s += addScore(parts, 'cohesionGain', connectedCount * 0.5);
@@ -1045,6 +1138,17 @@ export function aiDecideAndExecuteMove(u){
     // converging on the same weak point in one turn is what actually punishes an
     // overextended enemy, rather than each unit independently picking whichever
     // enemy happens to be closest to itself.
+    /* CONVERGE AFTER CONTACT. Once the armies are engaged somewhere, drifting
+       off on an independent axis is how three separate small actions get lost
+       one after another. Deliberately weaker than the mission pull, so it bends
+       a Brigade's line of advance toward the fighting rather than overriding
+       where it was sent. Null before first contact, so the approach is
+       unaffected. */
+    if(seekTactics && !selfPreservation){
+      const contact = contactPoint(side);
+      if(contact) s -= subScore(parts, 'convergeOnContact', chebyshev(c, contact) * CONVERGE_PULL);
+    }
+
     /* Closing on a Brigade that is one or two units from breaking. Applies to
        every fighting type including cavalry, and is deliberately NOT suppressed
        by holdingReserve: a reserve exists precisely for the moment the battle can
@@ -1138,7 +1242,15 @@ export function aiDecideAndExecuteMove(u){
     if(state.scenario) s += addScore(parts, 'scenario', scenarioMoveBonus(u, side, c));
     // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,
     // on top of (not instead of) all the tactical bonuses above.
-    if(mission) s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan));
+    /* The tempo multiplier scales the mission pull, so a Brigade advances hard
+       during COMMIT, normally during BUILD, and only reluctantly during the HOLD
+       pause. Applied to the mission pull ALONE rather than the whole score: a
+       paused Brigade should still take good ground and hold its cohesion, it
+       just should not be closing on its own. */
+    if(mission){
+      const tempoMul = TEMPO_PULL[tempoPhase(side)] ?? 1;
+      s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
+    }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
     // being pulled into contact. Everything else stays 0-ply, same cost as before.
@@ -1288,6 +1400,17 @@ export function aiFireDecision(gun, onComplete){
     const pHit = dist<=1 ? 1 : Math.max(0,(7-dist))/6;
     let score = pHit * AI_UNIT_VALUE[t.type];
     if(state.aiDifficulty!=='easy') score += pHit * brigadeBreakBonus(t);
+    /* A doubled Column is worth two units to one shot, and ONLY to a gun:
+       since the Column rule moved to the artillery path, infantry and cavalry
+       take one unit at a time. That makes a stacked pair the most efficient
+       target on the board for a battery and an ordinary one for everyone else,
+       so the preference belongs here rather than in the general target scoring.
+
+       Weighted by the chance of hitting, like the other terms, so a stacked pair
+       at extreme range does not outrank a certain hit on a lone gun. */
+    if(state.aiDifficulty!=='easy' && stackPartner(t)){
+      score += pHit * COLUMN_TARGET_BONUS;
+    }
     // Manoeuvre #11, Grand Battery (Hard): concentrate onto a target another
     // friendly gun already hit this phase, while still within effective range.
     if(state.aiDifficulty==='hard' && dist<=3 && state.turnGunTargets && state.turnGunTargets.has(t.id)) score += 1.5;
