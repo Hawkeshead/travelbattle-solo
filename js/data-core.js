@@ -396,6 +396,7 @@ export let state = {
   _aiMissions: { red:null, blue:null }, // BrigadeMission[] per side, recomputed each AI turn from the current plan
   _aiDebugLog: { red:null, blue:null }, // last turn's assessment/plan/missions/reasoning, for the AI Debug panel
   _aiFocusTargetId: null,               // enemy the AI is concentrating this fight phase on; see aiDoFightPhase
+  _matchMeta: null,                     // seed, start time, difficulty, deployment snapshot; see exportMatchReport
   _aiCavTargetCache: null,              // per (side, turn) cavalry aiming point; see cavalrySchwerpunkt
   _aiKillCache: null,                   // per (side, turn) nearly-broken enemy Brigade; see killTarget
   _aiMoveHistory: { red:[], blue:[] }, // every AI move for the whole match, any difficulty — see exportAiMoveLog()

@@ -1,4 +1,4 @@
-import { COLS, ROWS, SIDE_LABEL, state } from './data-core.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { removeUnit } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, sy } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -163,6 +163,207 @@ document.getElementById('replayExitBtn').onclick = exitReplay;
 // state.matchLog (the same data the Battle Replay plays back visually). Unlike
 // the AI Move Log, this covers a human player's own moves too, so it's the
 // right export for "what did I actually do differently" style analysis.
+
+/* =========================================================
+   UNIFIED MATCH REPORT
+
+   Replaces the two overlapping exports. Sections 1, 2, 5 and 6 are new;
+   section 3 is the existing turn log, which was already the best part of the
+   old output and is kept intact.
+
+   Sections 5 and 6 are computed at the end from the event stream rather than
+   tracked as the match runs, so nothing new has to be maintained in the hot
+   path and a crash still leaves sections 1 to 3 usable.
+
+   SECTION 4 (full AI decision scores) IS NOT HERE. The scorer accumulates a
+   single running total across 34 mutations and keeps no per-component values,
+   so exposing them is a refactor of the scoring function rather than an export
+   change. Flagged rather than half-built: a decision log that showed only final
+   scores would answer none of the questions it exists to answer.
+========================================================= */
+const TERRAIN_GLYPH = { OPEN:'.', ROAD:'=', HILL:'^', WOODS:'*', BUILDING:'#', PLOUGH:':' };
+
+function sectionMetadata(){
+  const m = state._matchMeta;
+  const out = ['=== SECTION 1: MATCH METADATA ==='];
+  if(!m){ out.push('(not captured: this match began before metadata was recorded)'); return out; }
+  const mins = Math.round((Date.now() - Date.parse(m.startedAt)) / 60000);
+  out.push(`RNG seed        : ${m.seed}    <- reproduces this match's dice exactly`);
+  out.push(`Started         : ${m.startedAt}   (about ${mins} min ago)`);
+  out.push(`Mode            : ${m.mode}${m.difficulty!=='n/a' ? ', difficulty ' + m.difficulty : ''}`);
+  out.push(`Board           : ${m.boardMode}, ${COLS}x${ROWS}`);
+  if(m.aiSide!=null) out.push(`Sides           : player ${SIDE_LABEL[m.playerSide]}, AI ${SIDE_LABEL[m.aiSide]}`);
+  out.push(`Turns played    : ${state.turnNumber}`);
+  out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
+  return out;
+}
+
+function sectionDeployment(){
+  const m = state._matchMeta;
+  const out = ['=== SECTION 2: DEPLOYMENT AND SETUP ==='];
+  if(m && m.deployment){
+    for(const side of [SIDES.RED, SIDES.BLUE]){
+      const list = m.deployment.filter(u=>u.side===side);
+      if(!list.length) continue;
+      out.push(`${SIDE_LABEL[side]} — ${list.length} units`);
+      const byBrigade = {};
+      for(const u of list) (byBrigade[u.brigadeId] = byBrigade[u.brigadeId] || []).push(u);
+      for(const b of Object.keys(byBrigade).sort()){
+        out.push(`  Brigade ${b}`);
+        for(const u of byBrigade[b]){
+          out.push(`    ${String(u.type).padEnd(10)} ${String(u.name).padEnd(34)} (${u.x},${u.y})  ${u.formation}`);
+        }
+      }
+      out.push('');
+    }
+  } else {
+    out.push('(deployment not captured for this match)');
+    out.push('');
+  }
+  /* Terrain map. Terrain was only ever visible when a bonus happened to fire in
+     combat, so there was no way to tell whether a fight was decided by ground,
+     or whether parts of the board were dead space. */
+  out.push('Terrain map (row 0 at top):');
+  out.push('   ' + Array.from({length:COLS}, (_,x)=> String(x%10)).join(''));
+  for(let y=0;y<ROWS;y++){
+    let row = '';
+    for(let x=0;x<COLS;x++) row += (TERRAIN_GLYPH[state.terrain[y][x]] || '?');
+    out.push(String(y).padStart(2) + ' ' + row);
+  }
+  out.push('   legend: . open  = road  ^ hill  * woods  # building  : ploughed');
+  return out;
+}
+
+
+function sectionSummary(log, label){
+  const out = ['=== SECTION 5: MATCH SUMMARY ==='];
+  const fights = log.filter(e=>e.type==='fight');
+  const fires  = log.filter(e=>e.type==='fire');
+  const status = log.filter(e=>e.type==='status');
+
+  // Casualties by cause, taken from the status stream rather than recounted.
+  const lost = {};
+  for(const e of status){
+    if(!e.newStatus || !/destroy|Lost/i.test(e.newStatus)) continue;
+    (lost[e.side] = lost[e.side] || []).push(e);
+  }
+  out.push('Casualties');
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    out.push(`  ${SIDE_LABEL[side]}: ${(lost[side]||[]).length} lost`);
+  }
+  out.push('');
+
+  out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots`);
+  const byResult = {};
+  for(const f of fights) byResult[f.result] = (byResult[f.result]||0)+1;
+  out.push('  outcomes: ' + (Object.entries(byResult).map(([k,v])=>`${k} ${v}`).join(', ') || 'none'));
+
+  /* Every die rolled, per side, so the distribution can be audited. A run of
+     bad luck and a biased generator look identical in a single match and only
+     separate over the whole list. */
+  const dice = { [SIDES.RED]: [], [SIDES.BLUE]: [] };
+  for(const f of fights){
+    if(!f.diag) continue;
+    (dice[f.attackerSide]||[]).push(...(f.diag.aRolls||[]));
+    (dice[f.defenderSide]||[]).push(...(f.diag.dRolls||[]));
+  }
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const d = dice[side]||[];
+    if(!d.length) continue;
+    const c = [0,0,0,0,0,0,0];
+    for(const v of d) c[v]++;
+    out.push(`  ${SIDE_LABEL[side]} dice (${d.length}): ` +
+      c.slice(1).map((n,i)=>`${i+1}:${n}`).join(' ') +
+      `   mean ${(d.reduce((a,b)=>a+b,0)/d.length).toFixed(2)}`);
+  }
+
+  // Which bonus fired how often, per side.
+  const bonus = {};
+  for(const f of fights){
+    if(!f.diag) continue;
+    for(const [side,list] of [[f.attackerSide,f.diag.aSources],[f.defenderSide,f.diag.dSources]]){
+      for(const b of (list||[])){
+        const k = SIDE_LABEL[side]+' | '+b;
+        bonus[k] = (bonus[k]||0)+1;
+      }
+    }
+  }
+  if(Object.keys(bonus).length){
+    out.push('');
+    out.push('Bonuses applied');
+    for(const [k,v] of Object.entries(bonus).sort((a,b)=>b[1]-a[1])) out.push(`  ${String(v).padStart(3)}  ${k}`);
+  }
+
+  // Per-unit record, for the after-action report and unit history later.
+  out.push('');
+  out.push('Per-unit record (fights / wins / losses)');
+  const rec = {};
+  for(const f of fights){
+    for(const [id,won] of [[f.attackerId, f.aRoll>f.dRoll],[f.defenderId, f.dRoll>f.aRoll]]){
+      const r = rec[id] = rec[id] || {n:0,w:0,l:0};
+      r.n++; if(won) r.w++; else if(f.aRoll!==f.dRoll) r.l++;
+    }
+  }
+  for(const [id,r] of Object.entries(rec).sort((a,b)=>b[1].n-a[1].n)){
+    out.push(`  ${label(id).padEnd(36)} ${r.n} fought, ${r.w} won, ${r.l} lost`);
+  }
+  return out;
+}
+
+function sectionFlags(log, label){
+  /* Automatic anomaly detection, so a bug surfaces without anyone having to
+     spot it by eye. Every one of these corresponds to a fault that was actually
+     found in a log by hand, at some cost. */
+  const out = ['=== SECTION 6: DIAGNOSTIC FLAGS ==='];
+  const flags = [];
+  const cheb = (a,b)=>Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y));
+  const ALLOW = { BRIGADIER:2, GUARD:1, INFANTRY:1, LIGHT_CAV:2, HEAVY_CAV:2, ARTILLERY:1 };
+
+  for(const e of log){
+    if(e.type!=='move') continue;
+    const u = state.units.find(o=>o.id===e.unitId);
+    const cap = u ? (ALLOW[UNIT_TYPES[u.type].key] ?? 2) + 1 : 3;   // +1 for a road
+    const d = cheb(e.from, e.to);
+    /* A rout legitimately crosses the board, so long moves to the unit's own
+       edge are exempt. But only if the move actually TRAVELS to that edge: a
+       unit already standing on its edge row and sliding along it is not
+       routing, and that is exactly the shape of the eight-tile pushback bug
+       ((8,0) -> (0,0), both on row 0). Requiring the row to change keeps genuine
+       routs quiet and still catches it. */
+    const edgeRow = u ? (u.side===SIDES.RED ? ROWS-1 : 0) : null;
+    const routingToEdge = u && e.to.y === edgeRow && e.from.y !== e.to.y;
+    if(d > cap && !routingToEdge){
+      flags.push(`T${e.turn}  ${label(e.unitId)}: moved ${d} tiles (allowance ${cap-1} +1 road)`);
+    }
+    if(d === 0){
+      flags.push(`T${e.turn}  ${label(e.unitId)}: move resolved to its own tile (${e.to.x},${e.to.y})`);
+    }
+  }
+
+  // The same pair fighting repeatedly in one turn: the fight-commitment guard.
+  const pair = {};
+  for(const e of log){
+    if(e.type!=='fight') continue;
+    const k = `${e.turn}|${e.attackerId}|${e.defenderId}`;
+    pair[k] = (pair[k]||0)+1;
+  }
+  for(const [k,n] of Object.entries(pair)){
+    if(n <= 2) continue;
+    const [t,a,d] = k.split('|');
+    flags.push(`T${t}  ${label(a)} vs ${label(d)}: fought ${n} times in one turn`);
+  }
+
+  // An ambush that never resolves. The bonus only appears when one springs, so
+  // its absence across a whole match is the signal.
+  const sprung = log.some(e => e.type==='fight' && e.diag &&
+    [...(e.diag.aSources||[]), ...(e.diag.aNotes||[])].some(x=>/ambush/i.test(x)));
+  if(!sprung) flags.push('MATCH  no ambush resolved all match (set but never triggered, or not reachable)');
+
+  if(!flags.length) out.push('No anomalies detected.');
+  else out.push(...flags);
+  return out;
+}
+
 export function exportFullMatchLog(){
   if(!state.matchLog || state.matchLog.length===0) return 'No match log recorded — matchLog is only captured once a battle has actually started.';
   const label = id => {
@@ -170,7 +371,14 @@ export function exportFullMatchLog(){
     return u ? ((u.historicalName) || u.type) : id;
   };
   const lines = [];
-  lines.push('=== FULL MATCH LOG (both sides) ===');
+  /* One sectioned file replacing the two overlapping exports. Sections 1, 2, 5
+     and 6 are assembled around the existing turn log, which was already the
+     most useful part of the old output and is kept unchanged as section 3. */
+  lines.push(...sectionMetadata());
+  lines.push('');
+  lines.push(...sectionDeployment());
+  lines.push('');
+  lines.push('=== SECTION 3: TURN LOG ===');
   lines.push(`Total events: ${state.matchLog.length}`);
   lines.push('');
 
@@ -220,6 +428,17 @@ export function exportFullMatchLog(){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
     }
   }
+  lines.push('');
+  lines.push('=== SECTION 4: AI DECISION LOG ===');
+  lines.push('Not yet available. The AI scorer accumulates a single running total and');
+  lines.push('keeps no per-component values, so full decision scores need a refactor of');
+  lines.push('the scoring function rather than a change to this export. Until then the');
+  lines.push('AI Debug tab carries the per-turn mission and plan state.');
+  lines.push('');
+  lines.push(...sectionSummary(state.matchLog, label));
+  lines.push('');
+  lines.push(...sectionFlags(state.matchLog, label));
+  lines.push('');
   return lines.join('\n');
 }
 

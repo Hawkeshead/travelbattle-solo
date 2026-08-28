@@ -2,7 +2,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -26,6 +26,23 @@ export function startBattle(){
   state._aiPlan = { red:null, blue:null };
   state._aiMissions = { red:null, blue:null };
   state._aiFocusTargetId = null;
+  /* Metadata and the deployment snapshot, captured HERE rather than rebuilt at
+     the end: by the end half the units are dead and their starting tiles and
+     formations are gone. Written as the match begins so a crash mid-battle
+     still leaves a usable file. */
+  state._matchMeta = {
+    seed: currentRngSeed(),
+    startedAt: new Date().toISOString(),
+    difficulty: state.aiDifficulty || 'n/a',
+    mode: state.mode,
+    playerSide: state.mode==='ai' ? (state.aiSide===SIDES.RED ? SIDES.BLUE : SIDES.RED) : null,
+    aiSide: state.mode==='ai' ? state.aiSide : null,
+    boardMode: state.boardMode || 'standard',
+    deployment: state.units.map(u => ({
+      id:u.id, name:u.historicalName || u.type, type:u.type, side:u.side,
+      brigadeId:u.brigadeId, x:u.x, y:u.y, formation:u.formation || 'line',
+    })),
+  };
   state._aiCavTargetCache = null;
   state._aiKillCache = null;
   state._aiDebugLog = { red:null, blue:null };

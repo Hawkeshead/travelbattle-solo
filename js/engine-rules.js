@@ -325,7 +325,34 @@ export function isInActiveFight(u){
 /* =========================================================
    COMBAT
 ========================================================= */
-export function rollD6(){ return 1+Math.floor(Math.random()*6); }
+/* SEEDED DICE, so a match can be reproduced from its log.
+
+   rollD6 called Math.random() directly, which meant no bug found in an export
+   could ever be replayed: the same log could not be regenerated even with
+   identical play. A seed is recorded in the match metadata and every roll comes
+   from it.
+
+   mulberry32: small, fast, and good enough for dice. Not cryptographic, and it
+   does not need to be. The sequence is deterministic given the seed, so a
+   reported log can be reproduced exactly by starting a match with the same one. */
+let rngState = (Date.now() ^ 0x9e3779b9) >>> 0;
+let rngSeed = rngState;
+
+export function seedRng(seed){
+  rngSeed = (seed >>> 0) || 1;
+  rngState = rngSeed;
+}
+export function currentRngSeed(){ return rngSeed; }
+
+function nextRandom(){
+  rngState = (rngState + 0x6D2B79F5) >>> 0;
+  let t = rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+export function rollD6(){ return 1+Math.floor(nextRandom()*6); }
 export function rollBest(n){ /* keptDie is the die that COUNTS, tracked separately from value because value later absorbs bonuses and re-rolls */ let best=0; const all=[]; for(let i=0;i<n;i++){const r=rollD6(); all.push(r); if(r>best) best=r;} return {value:best, rolls:all, keptDie: best }; }
 
 // Two Infantry/Guard units doubled into the same open-terrain square form
