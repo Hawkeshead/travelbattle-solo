@@ -155,6 +155,23 @@ export const AudioManager = (function(){
         source.onended = release;
         if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
         source.start();
+
+        /* opts.durationMs stops the sound early, with a short fade so it does
+           not click. Marching is the case this exists for: the clip is a
+           continuous seven seconds of a column on the move, and it should last
+           exactly as long as the unit is walking, whether that is one square or
+           three. Playing the whole file would have the sound continuing after
+           the unit had stopped.
+
+           Faded rather than cut: stopping a waveform mid-cycle is an audible
+           click, and at this volume it would be the loudest thing in the mix. */
+        if(opts.durationMs > 0){
+          const stopAt = ctx.currentTime + opts.durationMs/1000;
+          const fade = Math.min(0.18, opts.durationMs/1000 * 0.25);
+          gain.gain.setValueAtTime(gain.gain.value, Math.max(ctx.currentTime, stopAt - fade));
+          gain.gain.linearRampToValueAtTime(0.0001, stopAt);
+          source.stop(stopAt + 0.02);
+        }
       } catch(_e) { release(); }
     }).catch(release);
     // Safety net: if decode stalls or onended never fires for some reason,

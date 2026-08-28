@@ -1161,7 +1161,11 @@ export function aiDecideAndExecuteMove(u){
       hasChargeableTargetAt(side, best);
     animateUnitTo(u, best.x, best.y, isCharge ? 'charge' : 'march');
     if(t.key==='INFANTRY' || t.key==='GUARD'){
-      AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
+      // Lasts exactly as long as this unit is walking, one square or three.
+        // Measured from fromX/fromY: animateUnitTo has already moved the unit's
+        // logical position to the destination by this point.
+      AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
+        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))) });
     }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;

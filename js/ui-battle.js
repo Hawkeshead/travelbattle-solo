@@ -4,7 +4,7 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, moveAnimationMs, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -600,9 +600,14 @@ export function onCellClick(x,y){
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
       if(UNIT_TYPES[sel.type].isArtillery && !isHorseArtillery(sel) && terrainAt(x,y).plough) consumePloughEscort(sel);
+      // Captured BEFORE animateUnitTo, which updates sel.x/sel.y immediately;
+      // reading them afterwards would always give a distance of zero.
+      const marchSteps = Math.max(Math.abs(x-sel.x), Math.abs(y-sel.y));
       animateUnitTo(sel, x, y, 'march');
       if(UNIT_TYPES[sel.type].key==='INFANTRY' || UNIT_TYPES[sel.type].key==='GUARD'){
-        AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement');
+        // Lasts exactly as long as this unit is walking, one square or three.
+        AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
+          { durationMs: moveAnimationMs(Math.max(1, marchSteps)) });
       }
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
