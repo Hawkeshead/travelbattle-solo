@@ -1,4 +1,5 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { formatAiDecision } from './ai-strategy.js';
 import { removeUnit } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, sy } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -452,10 +453,22 @@ export function exportFullMatchLog(){
   }
   lines.push('');
   lines.push('=== SECTION 4: AI DECISION LOG ===');
-  lines.push('Not yet available. The AI scorer accumulates a single running total and');
-  lines.push('keeps no per-component values, so full decision scores need a refactor of');
-  lines.push('the scoring function rather than a change to this export. Until then the');
-  lines.push('AI Debug tab carries the per-turn mission and plan state.');
+  lines.push('Every AI decision with its score broken down by contribution, and the next');
+  lines.push('best alternatives it beat. Movement itself is in section 3; this is why.');
+  lines.push('');
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const hist = (state._aiMoveHistory && state._aiMoveHistory[side]) || [];
+    if(!hist.length) continue;
+    lines.push(`--- ${SIDE_LABEL[side]} ---`);
+    let lastTurn = null;
+    for(const h of hist){
+      if(h.turn !== lastTurn){ lines.push(``); lines.push(`Turn ${h.turn}`); lastTurn = h.turn; }
+      const to = h.to ? ` -> (${h.to.x},${h.to.y})` : '';
+      lines.push(`  ${h.unit} [${h.type}] Bde ${h.brigadeId} · ${h.mission || 'no mission'} · ${h.action}${to}`);
+      lines.push(...formatAiDecision(h, '      '));
+    }
+    lines.push('');
+  }
   lines.push('');
   lines.push(...sectionSummary(state.matchLog, label));
   lines.push('');

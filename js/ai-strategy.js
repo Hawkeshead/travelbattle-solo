@@ -780,17 +780,40 @@ function cavalrySchwerpunkt(side){
   return target;
 }
 
+/* SCORE RECORDERS.
+
+   The move scorer used to accumulate a single running total, so a log could say
+   which square a unit chose but never why. Six matches of analysis produced
+   repeated conclusions of the form "the Brigade did nothing for twenty turns"
+   with no way to tell whether Hold genuinely scored highest, whether the
+   alternatives were filtered out before scoring, or whether the mission pull was
+   simply zero.
+
+   Each contribution now names itself on the way past. These return the value
+   unchanged, so the arithmetic is exactly what it was: the total cannot drift
+   from the components because the components ARE the total.
+
+   Zero contributions are skipped, or every candidate would carry two dozen
+   empty entries and the interesting ones would be lost in them. */
+function addScore(parts, key, v){ if(v) parts[key] = (parts[key]||0) + v; return v; }
+function subScore(parts, key, v){ if(v) parts[key] = (parts[key]||0) - v; return v; }
+
 export function aiDecideAndExecuteMove(u){
   if(u.removed || u.turnOnly) return;
   const side = u.side;
   const t = UNIT_TYPES[u.type];
   const connectedBefore = movableUnitsForSide(side).has(u.id);
   const startX = u.x, startY = u.y;
+  /* Filled in by the candidate loop below, and null for actions that never
+     scored candidates (Form Square, Lay Ambush, Stand Down). That is correct:
+     there is nothing to break down. */
+  let decisionForLog = null;
   function recordMove(action, to){
     state._aiMoveHistory[side].push({
       turn: state.turnNumber, unit: unitLabel(u), type: u.type, brigadeId: u.brigadeId,
       mission: missionFor(u), action, from: {x:startX, y:startY}, to: to || null,
-      connectedBefore, connectedAfter: movableUnitsForSide(side).has(u.id)
+      connectedBefore, connectedAfter: movableUnitsForSide(side).has(u.id),
+      decision: decisionForLog,
     });
   }
 
@@ -885,10 +908,15 @@ export function aiDecideAndExecuteMove(u){
   const wasConnected = connectedBefore; // captured before any candidate is tried, at the unit's real starting position
   const currentlyThreatened = threatPenalty(u, side) >= 1.2; // at the unit's real starting position, before any candidate is tried
   const selfPreservation = seekTactics && isIsolatedAndThreatened(u, side); // also at the real starting position
+  // Every candidate's breakdown, kept so the chosen move and its rivals can
+  // be compared. Per unit, not per match: only the current decision matters
+  // and holding them all would grow without bound.
+  const scored = [];
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
-    let s = evaluateState(side) - 0.5*threatPenalty(u, side);
+    const parts = {};
+    let s = addScore(parts, 'baseState', evaluateState(side) - 0.5*threatPenalty(u, side));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
@@ -905,7 +933,7 @@ export function aiDecideAndExecuteMove(u){
     // staying in a great spot was scoring as a fresh self-inflicted
     // disconnection every single turn, pushing the AI to keep dragging its guns
     // forward to keep pace instead of letting them settle and fire.
-    if(wasConnected && !connNow.has(u.id) && !t.isArtillery) s -= 2.4;
+    if(wasConnected && !connNow.has(u.id) && !t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
     // A Brigadier is always "connected" to itself by definition (see
     // movableUnitsForSide — the chain starts FROM the Brigadier), so the penalty
     // above can never fire for a Brigadier choosing to hold still. That's exactly
@@ -920,7 +948,7 @@ export function aiDecideAndExecuteMove(u){
       const brigadeMates = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===u.brigadeId && o.id!==u.id);
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
-        s += connectedCount * 0.5;
+        s += addScore(parts, 'cohesionGain', connectedCount * 0.5);
 
         /* TRAIL THE LINE. A Brigadier is a chain-of-command marker, not a
            fighting man: he cannot attack, cannot be attacked, and carries his
@@ -937,13 +965,13 @@ export function aiDecideAndExecuteMove(u){
         const gap = chebyshev(c, forwardMost);
         const off = gap < BRIGADIER_TRAIL_MIN ? (BRIGADIER_TRAIL_MIN - gap)
                   : gap > BRIGADIER_TRAIL_MAX ? (gap - BRIGADIER_TRAIL_MAX) : 0;
-        s -= off * BRIGADIER_TRAIL_WEIGHT;
+        s -= subScore(parts, 'brigadierTrail', off * BRIGADIER_TRAIL_WEIGHT);
 
         // Never in contact. He cannot be attacked, but standing in the enemy's
         // face puts the Brigade's only Leadership Roll where the line will move
         // through it, and blocks a square his own units may need.
         if(state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o))){
-          s -= BRIGADIER_CONTACT_PENALTY;
+          s -= subScore(parts, 'brigadierContact', BRIGADIER_CONTACT_PENALTY);
         }
       }
     }
@@ -960,7 +988,7 @@ export function aiDecideAndExecuteMove(u){
     if(!holdingReserve && !selfPreservation && t.key!=='BRIGADIER'){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
-        s -= Math.abs(d-4) * 0.06;
+        s -= subScore(parts, 'gunStandoff', Math.abs(d-4) * 0.06);
         // Manoeuvre: a gun already well-placed — decent ground, not under real
         // threat, the enemy already within (or close to) firing range — should
         // settle there and keep firing, not repeatedly reposition just to keep
@@ -971,7 +999,7 @@ export function aiDecideAndExecuteMove(u){
           const terr = terrainAt(c.x, c.y);
           const goodGround = terr.elevation>0 || terr.defenseBonus;
           const safeEnough = threatPenalty(u, side) < 1.4;
-          if(goodGround && safeEnough && d<=6) s += 1.6;
+          if(goodGround && safeEnough && d<=6) s += addScore(parts, 'gunGoodGround', 1.6);
 
           /* A gun may MOVE OR FIRE, never both in the same turn. So if it has a
              shot from where it stands, repositioning does not merely delay the
@@ -989,18 +1017,18 @@ export function aiDecideAndExecuteMove(u){
              threat: a battery about to be overrun should still run. */
           if(safeEnough){
             const shots = artilleryTargets(u).length;
-            if(shots > 0) s += GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2;
+            if(shots > 0) s += addScore(parts, 'gunHasShot', GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2);
           }
         }
       } else {
-        s -= nearestEnemyDist(c, side) * 0.12;
+        s -= subScore(parts, 'advancePull', nearestEnemyDist(c, side) * 0.12);
         // Core Tactic: prefer the road network while actually closing distance
         // — the real +1 movement bonus for starting and ending on road, and
         // the same reason a human player uses roads to move quickly into the
         // enemy's lines rather than cutting cross-country. Only while
         // genuinely advancing — holding/withdrawing have their own separate
         // pulls above, and this one shouldn't compete with them.
-        if(seekTactics) s += roadSeekBonus(c.x, c.y);
+        if(seekTactics) s += addScore(parts, 'roadSeek', roadSeekBonus(c.x, c.y));
       }
     }
 
@@ -1009,7 +1037,7 @@ export function aiDecideAndExecuteMove(u){
     // AI continuing to press it forward alone — exactly the exposure the AI is
     // now taught to actively punish an enemy unit for standing in.
     if(selfPreservation){
-      s += retreatToSupportBonus(c, side, u);
+      s += addScore(parts, 'retreatToSupport', retreatToSupportBonus(c, side, u));
     }
 
     // Concentrate on a vulnerable (isolated/unsupported) enemy unit specifically,
@@ -1024,7 +1052,7 @@ export function aiDecideAndExecuteMove(u){
        reserve doctrine misfiring. */
     if(seekTactics && !selfPreservation && !t.isArtillery){
       const kill = killTarget(side);
-      if(kill) s -= chebyshev(c, kill.unit) * kill.worth;
+      if(kill) s -= subScore(parts, 'killPull', chebyshev(c, kill.unit) * kill.worth);
     }
 
     if(seekTactics && !holdingReserve && !selfPreservation && !t.isArtillery){
@@ -1032,10 +1060,10 @@ export function aiDecideAndExecuteMove(u){
         // Cavalry aims at the side's single chosen point rather than each
         // squadron at its own nearest weak enemy, so the horse arrives together.
         const point = cavalrySchwerpunkt(side);
-        if(point) s -= chebyshev(c, point) * CAVALRY_CONCENTRATION_PULL;
-        else s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
+        if(point) s -= subScore(parts, 'cavalryConcentration', chebyshev(c, point) * CAVALRY_CONCENTRATION_PULL);
+        else s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
       } else {
-        s += vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side));
+        s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
       }
     }
 
@@ -1067,7 +1095,7 @@ export function aiDecideAndExecuteMove(u){
         for(const target of wouldContact){
           if(target.turnOnly || target.rallying) continue;   // wounded: finish it
           // Would anyone else be able to join this fight this turn?
-          if(supportCountFor(target, side, u.id) === 0) s -= SOLO_ATTACK_PENALTY;
+          if(supportCountFor(target, side, u.id) === 0) s -= subScore(parts, 'soloAttackPenalty', SOLO_ATTACK_PENALTY);
         }
       }
     }
@@ -1082,15 +1110,15 @@ export function aiDecideAndExecuteMove(u){
         o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(c.x,c.y).elevation);
       if(chargeableTarget){
         isChargeMove = true;
-        s += 2.2;
-        if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += 1.0;
+        s += addScore(parts, 'chargeBonus', 2.2);
+        if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += addScore(parts, 'comboTarget', 1.0);
       }
     }
     // Medium+: deliberately form an Attack Column ahead of a fight it can already see coming,
     // instead of doubling up only as an accidental byproduct of two units picking the same square.
     if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD') && !c.stay){
       const occ = unitsAt(c.x,c.y).filter(o=>!o.removed && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
-      if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += 1.4;
+      if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += addScore(parts, 'formColumn', 1.4);
     }
     // Core Tactic #5, Ground Worth Bleeding For: value good terrain when otherwise similar —
     // weighted much more heavily when the unit isn't actively closing for an attack (holding,
@@ -1100,30 +1128,39 @@ export function aiDecideAndExecuteMove(u){
     if(seekTactics){
       const defensivePosture = holdingReserve || currentlyThreatened ||
         mission==='HOLD' || mission==='FIX' || mission==='SCREEN' || mission==='WITHDRAW';
-      s += terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1);
+      s += addScore(parts, 'terrainSeek', terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1));
     }
     // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
-    if(seekTactics) s += screensGunBonus(u, side, c);
+    if(seekTactics) s += addScore(parts, 'screensGun', screensGunBonus(u, side, c));
     // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
-    if(boggedTarget) s -= chebyshev(c, boggedTarget) * 0.15;
+    if(boggedTarget) s -= subScore(parts, 'boggedGun', chebyshev(c, boggedTarget) * 0.15);
     // Operations: pull toward whatever the active scenario's objective actually rewards.
-    if(state.scenario) s += scenarioMoveBonus(u, side, c);
+    if(state.scenario) s += addScore(parts, 'scenario', scenarioMoveBonus(u, side, c));
     // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,
     // on top of (not instead of) all the tactical bonuses above.
-    if(mission) s += missionMoveBonus(u, side, c, mission, plan);
+    if(mission) s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan));
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
     // being pulled into contact. Everything else stays 0-ply, same cost as before.
     if(mission){
       const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o));
       const committingReserve = (mission==='RESERVE' || mission==='FIX') && !c.stay && nearestEnemyDist(c,side) <= unitBaseMove(u)+1;
-      if(isChargeMove || setsUpFight || committingReserve) s -= lookaheadMovePenalty(u, side) * 0.4;
+      if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
     }
 
-    s += Math.random() * 0.03; // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
+    s += addScore(parts, 'jitter', Math.random() * 0.03); // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
+    scored.push({ x:c.x, y:c.y, stay:!!c.stay, total:s, parts });
     if(s>bestScore){ bestScore=s; best=c; }
   }
+
+  /* Keep the chosen square and its nearest rivals. All of them would be a wall
+     of text for a unit with twenty legal moves; the top few answer the question
+     that matters, which is whether the chosen action won on merit or whether
+     everything else was worse for a reason worth seeing. */
+  scored.sort((a,b)=>b.total-a.total);
+  const decision = { chosen: scored[0] || null, alternatives: scored.slice(1,4), considered: scored.length };
+  decisionForLog = decision;
 
   const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1;
   // Square is gated on an actual cavalry unit able to reach this square, not on
@@ -1189,7 +1226,13 @@ export function aiDecideAndExecuteMove(u){
     state.moved.add(u.id);
   }
   if(mission){
-    logAiDebugMove(side, { unit: unitLabel(u), mission, action: (best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', to: best?`(${best.x},${best.y})`:null, score: bestScore.toFixed(2) });
+    /* The full decision, not just its outcome. `decision` carries the chosen
+       square's score broken down by contribution, plus the next best rivals, so
+       a unit that held can be checked: did Hold win on merit, or was every
+       alternative dragged down by one term? */
+    logAiDebugMove(side, { unit: unitLabel(u), mission,
+      action: (best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold',
+      to: best?`(${best.x},${best.y})`:null, score: bestScore.toFixed(2), decision });
   }
   recordMove((best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', best && !best.stay ? {x:best.x, y:best.y} : null);
 }
@@ -1456,6 +1499,38 @@ export function aiDoFightPhase(){
 // from the Brigadier, since that's the specific weakness under investigation.
 // Difficulty-agnostic (mission/score columns are simply blank on Easy/Medium,
 // where no mission exists).
+/* Section 4 of the match export: the AI's decision, not just its outcome.
+
+   Prints the chosen square's score broken down by contribution, and the next
+   best rivals with theirs. That is the whole point: "the Brigade did nothing for
+   twenty turns" becomes answerable, because Hold's score sits next to the moves
+   it beat and the terms that produced each are named.
+
+   Only printed where a breakdown exists. Form Square, Lay Ambush and Stand Down
+   never score candidates, so there is nothing to show and an empty block would
+   only be noise. */
+function formatParts(parts){
+  return Object.entries(parts)
+    .filter(([,v]) => Math.abs(v) >= 0.005)
+    .sort((a,b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .map(([k,v]) => `${k} ${v>=0?'+':''}${v.toFixed(2)}`)
+    .join('  ');
+}
+
+export function formatAiDecision(entry, indent){
+  const d = entry.decision;
+  if(!d || !d.chosen) return [];
+  const pad = indent || '    ';
+  const out = [];
+  const c = d.chosen;
+  out.push(`${pad}chose (${c.x},${c.y})${c.stay?' [HOLD]':''} total ${c.total.toFixed(2)}  of ${d.considered} options`);
+  out.push(`${pad}  ${formatParts(c.parts) || '(nothing scored)'}`);
+  for(const a of (d.alternatives||[])){
+    out.push(`${pad}  vs (${a.x},${a.y})${a.stay?' [HOLD]':''} ${a.total.toFixed(2)}: ${formatParts(a.parts)}`);
+  }
+  return out;
+}
+
 export function exportAiMoveLog(){
   const side = state.aiSide;
   if(!side) return 'No AI opponent in this match — nothing to export.';
