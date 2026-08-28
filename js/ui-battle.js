@@ -597,8 +597,21 @@ export function onCellClick(x,y){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
       selectUnit(null);
+      /* Mark the attacker as HAVING FOUGHT before the fight resolves, not after.
+
+         It used to be recorded in the completion callback, which fires at the
+         dice settle roughly 2.9 seconds later. Until then canInitiateFight still
+         returned true for that unit, so the same attacker could be re-selected
+         and thrown at the same defender again inside the window. A logged match
+         shows the Royal Horse Guards fighting 1er Grenadiers FIVE times in one
+         turn: four stalemates and then a pushback, because a drawn fight leaves
+         both units in contact and the player simply attacked again.
+
+         A drawn fight is supposed to lock both units and continue next turn. The
+         commitment happens when the attack is declared, so that is where it is
+         recorded. */
+      state.fought.add(sel.id);
       resolveFight(sel, target, undefined, ()=>{
-        state.fought.add(sel.id);
         if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
       });
       return;

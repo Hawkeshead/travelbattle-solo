@@ -1408,8 +1408,11 @@ export function aiDoFightPhase(){
       // Remember what we are working on, so the next attacker in this phase
       // piles onto the same unit. Cleared when the fight phase ends.
       state._aiFocusTargetId = bestT.id;
+      // Committed at declaration, matching the human path: the attacker has
+      // thrown itself in, whatever the dice then say. Recording it at the settle
+      // instead left a window in which the same unit could fight again.
+      state.fought.add(bestA.id);
       resolveFight(bestA, bestT, undefined, ()=>{
-        state.fought.add(bestA.id);
         // A destroyed or routed target is finished business; let the next
         // attacker choose freshly rather than chasing a unit that has gone.
         if(bestT.removed || bestT.rallying) state._aiFocusTargetId = null;

@@ -497,8 +497,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   }
 
   presentRollTrigger([
-    {label:aName, diceCount:aDice, notes:aReasons},
-    {label:dName, diceCount:dDice, notes:dReasons}
+    {label:aName, diceCount:aDice, notes:aReasons,
+     portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+    {label:dName, diceCount:dDice, notes:dReasons,
+     portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
   ], attacker.side, ()=>{
     const aRoll = rollBest(aDice);
     const dRoll = rollBest(dDice);
