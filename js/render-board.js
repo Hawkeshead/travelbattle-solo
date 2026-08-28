@@ -1,5 +1,5 @@
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
-import { inBounds, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
+import { inBounds, isRoadLike, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -197,6 +197,51 @@ function pointAlongPolyline(path, fraction, corners){
    and a unit whose sort key bobbed would flicker in front of and behind terrain
    at a row boundary. Callers that need to sort ask for the position; callers
    that draw add this on top. */
+/* ROAD DUST.
+
+   Emitted only while the segment being crossed is a road square: that is where
+   the extra square of movement came from, so the route should show it. One puff
+   per square centre crossed rather than a continuous trail, which would read as
+   a smoke plume instead of hooves on a dry road.
+
+   Shares the look of the board intro's dust (same colour and ellipse) at lower
+   opacity and a shorter life, so the two read as the same material. Kept here
+   rather than extracted into a shared emitter: the intro's version is welded
+   into its own rAF loop and pulling it out would touch the intro for no gain.
+========================================================= */
+export const ROAD_DUST = { alpha: 0.22, ms: 420, radius: 0.13 };
+const roadDust = [];   // {x, y, startTime} in board coordinates
+
+function emitRoadDustIfCrossing(u, anim, pos){
+  if(!anim.path || anim.path.length < 2) return;
+  // Which waypoint have we just passed? Only the moment of crossing emits.
+  const idx = Math.round(pos.x) === pos.x && Math.round(pos.y) === pos.y ? -1 : Math.floor(
+    (anim.path.length - 1) * Math.min(1, (Date.now() - anim.startTime) / anim.duration));
+  if(idx < 0 || idx >= anim.path.length) return;
+  const sq = anim.path[idx];
+  if(!sq || anim.dustAt === idx) return;
+  anim.dustAt = idx;
+  if(!isRoadLike(terrainAt(sq.x, sq.y))) return;
+  roadDust.push({ x: sq.x*CELL + CELL/2, y: (sy(sq.y)+1)*CELL, startTime: Date.now() });
+}
+
+export function drawRoadDust(){
+  const now = Date.now();
+  for(let i=roadDust.length-1; i>=0; i--){
+    const p = roadDust[i];
+    const age = now - p.startTime;
+    if(age > ROAD_DUST.ms){ roadDust.splice(i,1); continue; }
+    const t = age/ROAD_DUST.ms;
+    ctx.save();
+    ctx.globalAlpha = ROAD_DUST.alpha*(1-t);
+    ctx.fillStyle = '#c9b98a';
+    const r = CELL*ROAD_DUST.radius*(0.4+0.6*t);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r*0.45, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  return roadDust.length > 0;
+}
+
 export function unitGaitOffset(u){
   const anim = unitAnimations[u.id];
   if(!anim) return 0;
@@ -244,6 +289,7 @@ export function getUnitVisualPos(u){
     const n = (Math.sin(t*37.1 + u.id*11.3) + Math.sin(t*61.7 + u.id*5.9)) * 0.5;
     pos = { x: pos.x + n * prof.jitter * fade, y: pos.y + n * prof.jitter * fade * 0.6 };
   }
+  emitRoadDustIfCrossing(u, anim, pos);
   return pos;
 }
 
@@ -366,7 +412,9 @@ export function ensureAnimationLoopRunning(){
   if(animFrameHandle) return;
   function tick(){
     draw();
-    const stillAnimating = Object.keys(unitAnimations).length>0;
+    // Road dust outlives the move that kicked it up, so the loop keeps running
+    // until the last puff has faded or it would freeze in mid-air.
+    const stillAnimating = Object.keys(unitAnimations).length>0 || roadDust.length>0;
     const lineActive = activeActionLine && Date.now() < activeActionLine.expiresAt;
     if(!lineActive) activeActionLine = null;
     const now = Date.now();
@@ -1383,6 +1431,9 @@ export function draw(){
      LOGICAL square is already the destination, so without this it would be
      grouped with whatever stands there and could be drawn underneath a unit it
      is currently crossing. Held back and drawn after the rest. */
+  // Dust sits above the ground and below the units that kicked it up.
+  drawRoadDust();
+
   const moving = [];
   for(const key in stackGroups){
     const list = stackGroups[key];
