@@ -372,9 +372,16 @@ function sectionFlags(log, label){
 
   // An ambush that never resolves. The bonus only appears when one springs, so
   // its absence across a whole match is the signal.
-  const sprung = log.some(e => e.type==='fight' && e.diag &&
-    [...(e.diag.aSources||[]), ...(e.diag.aNotes||[])].some(x=>/ambush/i.test(x)));
-  if(!sprung) flags.push('MATCH  no ambush resolved all match (set but never triggered, or not reachable)');
+  /* Only meaningful if an ambush was actually LAID. The flag fired on a match
+     where none was set at all, and reported it as "set but never triggered",
+     which is a false alarm that costs the flag its credibility. */
+  const anySet = log.some(e => e.type==='ambush' && e.phase==='set');
+  const sprung = log.some(e => (e.type==='ambush' && e.phase==='sprung')) ||
+    log.some(e => e.type==='fight' && e.diag &&
+      [...(e.diag.aSources||[]), ...(e.diag.aNotes||[])].some(x=>/ambush/i.test(x)));
+  if(anySet && !sprung){
+    flags.push('MATCH  ambushes were laid but none ever resolved');
+  }
 
   if(!flags.length) out.push('No anomalies detected.');
   else out.push(...flags);

@@ -96,6 +96,10 @@ export const CONVERGE_PULL = 0.10;
    chargeBonus (2.2) once a decent fight is on offer, rather than below the
    incidental terrain and cohesion terms that were drowning the old pulls. */
 export const ENGAGE_WEIGHT = 0.9;
+// Hard ceiling on the fight estimate before weighting. Belt and braces: the
+// estimator is already bounded, and this makes sure engage cannot dominate the
+// scorer even if that stops being true.
+export const ENGAGE_CLAMP = 3.0;
 
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
@@ -1359,7 +1363,22 @@ export function aiDecideAndExecuteMove(u){
       if(reachable.length){
         // The BEST fight from this square, not the sum: a unit fights once, so
         // standing next to three enemies is not three times as good.
-        const best = Math.max(...reachable.map(o=>aiEstimateFightValue(u, o, side)));
+        /* estimateFightValue, NOT aiEstimateFightValue.
+        
+           On Hard, aiEstimateFightValue returns simulateFightAftermathScore, which
+           is a whole-board evaluation, so engage inherited exactly the unbounded
+           scale that baseState had. In one logged match it produced values from
+           -27.03 to +8.79 against an intended range of -1.8 to +2.3, and it grew as
+           the match went on. That sent units into fights at almost any cost and
+           dragged them off their Brigadier's chain to do it: France lost 12 to 4 and
+           disconnections doubled to 42.
+        
+           estimateFightValue is the bounded one: a dice-count edge plus unit values,
+           which stays in roughly -2.5 to +4.5 whatever the board looks like. Clamped
+           as well, because a term that decides moves should not be able to run away
+           again for a reason nobody predicted. */
+        const raw = Math.max(...reachable.map(o=>estimateFightValue(u, o)));
+        const best = Math.max(-ENGAGE_CLAMP, Math.min(ENGAGE_CLAMP, raw));
         s += addScore(parts, 'engage', best * ENGAGE_WEIGHT);
       }
     }
