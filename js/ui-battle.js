@@ -656,7 +656,19 @@ export function onCellClick(x,y){
     if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
     selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fight'){
-    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
+    /* canInitiateFight is re-checked HERE, not only at selection time.
+    
+       The guard below records the attacker the moment an attack is declared,
+       which is right. But the selection fallthrough at the end of this block
+       selects any friendly unit whether or not it may still fight, and this
+       branch only tested that the clicked cell was a highlighted target. So a
+       unit that had already fought could be re-selected and thrown in again.
+    
+       A logged match shows the 10th Hussars attacking FOUR times in turn 31:
+       it pushed a battery back, killed it, killed the second battery, then
+       fought the 7e Hussards. One unit, four fights, one turn. */
+    if(sel && sel.side===state.turn && canInitiateFight(sel) &&
+       highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
       selectUnit(null);

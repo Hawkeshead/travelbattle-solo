@@ -354,6 +354,22 @@ function sectionFlags(log, label){
     flags.push(`T${t}  ${label(a)} vs ${label(d)}: fought ${n} times in one turn`);
   }
 
+  /* One ATTACKER fighting repeatedly, against anyone. The pair check above missed
+     the 10th Hussars attacking four different units in turn 31, because no single
+     pairing repeated more than twice. Defending is mandatory and can legitimately
+     happen several times a turn, so only the attacking side is counted. */
+  const aggressor = {};
+  for(const e of log){
+    if(e.type!=='fight') continue;
+    const k = `${e.turn}|${e.attackerId}`;
+    aggressor[k] = (aggressor[k]||0)+1;
+  }
+  for(const [k,n] of Object.entries(aggressor)){
+    if(n <= 2) continue;
+    const [t,a] = k.split('|');
+    flags.push(`T${t}  ${label(a)}: initiated ${n} fights in one turn (a unit may fight once)`);
+  }
+
   // An ambush that never resolves. The bonus only appears when one springs, so
   // its absence across a whole match is the signal.
   const sprung = log.some(e => e.type==='fight' && e.diag &&

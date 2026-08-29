@@ -1397,7 +1397,10 @@ export function aiDecideAndExecuteMove(u){
   if(canSquare && cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
     const origForm = u.formation;
     u.formation = 'square';
-    logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
+    /* NOT logged here. This square is hypothetical: it is set only to score the
+       option and is reverted two lines down. Logging it recorded a formation
+       change that never happened, which is why the export shows every AI square
+       twice. The real change is logged below, inside the branch that keeps it. */
     const squareScore = evaluateState(side) - 0.15*threatPenalty(u, side);
     u.formation = origForm;
     if(squareScore > bestScore){
