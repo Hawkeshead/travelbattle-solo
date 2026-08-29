@@ -90,6 +90,13 @@ export const ORPHAN_BRIGADIER_PULL = 0.30;
 // than overriding the mission it was given.
 export const CONVERGE_PULL = 0.10;
 
+/* How hard a unit is drawn into a fight it would win. Multiplies the estimated
+   value of the fight the move creates, so it is self-limiting: a bad matchup
+   produces a negative number and pushes the unit away. Sized to sit alongside
+   chargeBonus (2.2) once a decent fight is on offer, rather than below the
+   incidental terrain and cohesion terms that were drowning the old pulls. */
+export const ENGAGE_WEIGHT = 0.9;
+
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
 export const RESERVE_COMMIT_TURN = 12;        // holding back past this is not a plan
@@ -1331,6 +1338,32 @@ export function aiDecideAndExecuteMove(u){
         if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += addScore(parts, 'comboTarget', 1.0);
       }
     }
+    /* ENGAGE: a reason to take the LAST step into contact.
+    
+       Only cavalry were ever paid for closing, via chargeBonus. Infantry had
+       nothing: they are pulled toward the enemy by distance gradients that go
+       quiet at range 1, so they walked up to the enemy and stopped. The result
+       is that the player declares nearly every fight and therefore picks every
+       matchup. In the last match Britain initiated 22 of 33.
+    
+       Scaled by the fight the move would actually create, using the same
+       estimator the fight phase uses to choose targets. So this is not blanket
+       aggression: a good matchup pulls the unit in, a bad one produces a
+       negative number and pushes it away.
+    
+       Skipped when the move is already a charge, or the two would stack and send
+       cavalry in on anything. */
+    if(seekTactics && !c.stay && !isChargeMove && canInitiateFight(u)){
+      const reachable = state.units.filter(o=>!o.removed && o.side!==side &&
+        isAdjacent(c,o) && canAttackTarget(u,o));
+      if(reachable.length){
+        // The BEST fight from this square, not the sum: a unit fights once, so
+        // standing next to three enemies is not three times as good.
+        const best = Math.max(...reachable.map(o=>aiEstimateFightValue(u, o, side)));
+        s += addScore(parts, 'engage', best * ENGAGE_WEIGHT);
+      }
+    }
+
     // Medium+: deliberately form an Attack Column ahead of a fight it can already see coming,
     // instead of doubling up only as an accidental byproduct of two units picking the same square.
     if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD') && !c.stay){
