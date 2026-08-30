@@ -1496,6 +1496,11 @@ export function aiDecideAndExecuteMove(u){
       AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement',
         { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
     }
+    // Gun carriage on the move: wheels on a dirt road.
+    if(t.isArtillery){
+      AudioManager.playEffect('artillery-move', 'audio/effects/artillery-move.wav', 'movement',
+        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+    }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);

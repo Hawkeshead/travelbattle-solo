@@ -465,6 +465,8 @@ export function selectUnit(id){
        depending on that flag staying false. */
     if(selT.key === 'BRIGADIER'){
       AudioManager.playEffect('brigadier-select', 'audio/effects/brigadier-select-attention.wav', 'ui');
+    } else if(selT.isArtillery){
+      AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui');
     } else if(selT.isCavalry){
       AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui');
     } else {
@@ -654,6 +656,14 @@ export function onCellClick(x,y){
         AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement',
           { durationMs: moveAnimationMs(Math.max(1, marchSteps)), loop: true });
       }
+      /* Gun carriage on the move: wheels on a dirt road. Same loop-and-cut as the
+         other movement sounds. A gun covers one square, or two on a road, so it
+         never needs the 4s clip to wrap, but looping costs nothing and keeps it
+         correct if the movement rules ever change. */
+      if(UNIT_TYPES[sel.type].isArtillery){
+        AudioManager.playEffect('artillery-move', 'audio/effects/artillery-move.wav', 'movement',
+          { durationMs: moveAnimationMs(Math.max(1, marchSteps)), loop: true });
+      }
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
@@ -730,6 +740,12 @@ export function fireArtillery(gun, target, onComplete){
   presentRollTrigger([{label:'To Hit', diceCount:1, notes:hitNotes}], gun.side, ()=>{
     const roll = rollD6();
     const hit = roll >= needed;
+    /* The report of the gun, on every shot. Sounded on the TO-HIT roll rather
+       than the effect roll, because that is the moment the piece is fired: a
+       miss makes exactly as much noise as a hit. Panned to the GUN, not the
+       target, for the same reason. */
+    AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
+      { pan: AudioManager.panForBoardX(gun.x) });
     showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
       log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}.`, 'combat');
       if(!hit){
@@ -794,6 +810,17 @@ export function applyArtilleryEffect(u, roll, onComplete){
   onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
   logReplay('fire', { targetId:u.id, side:u.side, x:u.x, y:u.y, roll, effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy' });
+  /* The shot landing, on any roll that DOES something: 4 shakes, 5 routs,
+     6 destroys. A 1-3 is a shot that lands without effect and stays silent,
+     so the sound tells you the shell told before the log line does.
+  
+     Panned to the TARGET rather than the gun, since this is the far end of
+     the shot. On a 6 it layers under the death cry deliberately: the shell
+     lands, then the men. */
+  if(roll >= 4){
+    AudioManager.playEffect('artillery-impact', 'audio/effects/artillery-impact.wav', 'majorCombat',
+      { pan: AudioManager.panForBoardX(u.x) });
+  }
   if(roll<=3){
     log(`${unitLabel(u)} carries on regardless.`, 'combat'); logNarration('artillery_no_effect');
     onComplete();
