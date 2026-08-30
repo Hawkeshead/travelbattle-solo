@@ -1,6 +1,6 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './data-core.js';
-import { FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
+import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
 import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
@@ -575,6 +575,11 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     return { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin };
   }
 
+  /* Arm the battle bed for THIS panel only. Artillery uses the same dice
+     overlay and must stay silent under it, so nothing else calls this. The
+     observer in dice.js disarms itself when the panel closes, so a fight that
+     ends without reaching here cannot leave it armed for the next one. */
+  armBattleBed();
   presentRollTrigger([
     {label:aName, diceCount:aDice, notes:aReasons,
      portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},

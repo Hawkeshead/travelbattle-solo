@@ -287,6 +287,45 @@ export const AudioManager = (function(){
 
   function setMuted(m){ state.muted = m; applyVolumes(); savePrefs(); }
   function setVolume(category, v){ state.volumes[category] = Math.max(0, Math.min(1, v)); applyVolumes(); savePrefs(); }
+  /* NAMED LOOPS: a sound with a start and a stop rather than a fixed length.
+
+     playEffect can loop, but only for a duration decided up front. The battle
+     bed has to last exactly as long as a dice panel is open, which nobody can
+     know in advance: a re-roll keeps it open longer, and the panel can be closed
+     from three different places. So this is keyed and stopped explicitly.
+
+     Stopping fades over a few tens of milliseconds rather than cutting, because
+     a hard stop on a busy loop is an audible click. */
+  const namedLoops = new Map();
+
+  function startLoop(key, src, category){
+    if(namedLoops.has(key)) return;   // already running; starting again would layer it
+    try {
+      const audio = new Audio(src);
+      audio.loop = true;
+      audio.volume = effectiveVolume(category);
+      namedLoops.set(key, { el: audio, category });
+      if(state.unlocked) audio.play().catch(()=>{});
+    } catch(_e) { /* silent failure, as elsewhere */ }
+  }
+
+  function stopLoop(key, fadeMs){
+    const entry = namedLoops.get(key);
+    if(!entry) return;
+    namedLoops.delete(key);
+    const el = entry.el;
+    const steps = 6, ms = Math.max(0, fadeMs ?? 180) / steps;
+    let n = steps;
+    const from = el.volume;
+    const tick = ()=>{
+      n -= 1;
+      if(n <= 0){ try{ el.pause(); el.removeAttribute('src'); el.load(); }catch(_e){} return; }
+      try { el.volume = from * (n/steps); } catch(_e) { /* detached */ }
+      setTimeout(tick, ms);
+    };
+    setTimeout(tick, ms);
+  }
+
   function applyVolumes(){
     if(state.musicEl) state.musicEl.volume = effectiveVolume('music');
     if(state.ambienceEl) state.ambienceEl.volume = effectiveVolume('ambience');
@@ -295,6 +334,8 @@ export const AudioManager = (function(){
        effects slider (or muting) left anything already playing at its old
        level, which for a looping five-second gallop is long enough to look
        broken. Live gains are tracked so they can be updated in place. */
+    // Named loops track their category too, so a slider move reaches them.
+    for(const [, entry] of namedLoops) { try { entry.el.volume = effectiveVolume(entry.category); } catch(_e) { /* detached */ } }
     for(const g of state.liveEffectGains){
       try { g.node.gain.value = effectiveVolume('effects') * g.scale; } catch(_e) { /* node already gone */ }
     }
@@ -306,6 +347,7 @@ export const AudioManager = (function(){
   return {
     unlock, playEffect, playMusic, stopMusic, playAmbience, stopAmbience,
     setMuted, setVolume, getPrefs, panForBoardX, preloadEffects,
+    startLoop, stopLoop,
     /* Read-only handles for audio-lab.html. The lab compares what the mixer
        THINKS a stream's volume should be against what the element is really
        playing at; without these it can only see the first half, which is the

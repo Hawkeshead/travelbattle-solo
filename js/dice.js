@@ -1,3 +1,4 @@
+import { AudioManager } from './audio-manager.js';
 import { state } from './data-core.js';
 
 export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
@@ -53,6 +54,41 @@ export function flushPendingSettle(){
   const cb = pendingSettle;
   pendingSettle = null;
   if(cb) cb();
+}
+
+/* BATTLE BED: sound under the dice while a fight is being resolved.
+
+   Driven by a MutationObserver on the overlay's class rather than by the
+   callers. The panel is closed from three separate places (showDice when it is
+   not held open, finishDice's timer, and the fast-dice path), and a re-roll
+   keeps it open for an unknown extra span. Asking every one of those to remember
+   to stop the sound is exactly the arrangement that failed for the desk folio,
+   where a shared box was left in the wrong state because one caller forgot.
+   Watching the thing itself cannot fall out of step.
+
+   ARMED ONLY FOR MELEE. Artillery uses the same panel and must stay silent under
+   it: the gun has its own report and its own shell. resolveFight arms this before
+   it opens the panel; nothing else does, so artillery never triggers it. */
+let battleBedArmed = false;
+let battleBedObserver = null;
+
+export function armBattleBed(){ battleBedArmed = true; ensureBattleBedObserver(); }
+
+function ensureBattleBedObserver(){
+  if(battleBedObserver) return;
+  const overlay = document.getElementById('diceOverlay');
+  if(!overlay) return;
+  battleBedObserver = new MutationObserver(()=>{
+    const open = overlay.classList.contains('show');
+    if(open && battleBedArmed){
+      AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');
+    } else if(!open){
+      // Sharp rather than gentle: the dice are gone, so should the noise be.
+      AudioManager.stopLoop('battle-resolve', 140);
+      battleBedArmed = false;
+    }
+  });
+  battleBedObserver.observe(overlay, { attributes:true, attributeFilter:['class'] });
 }
 
 export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
