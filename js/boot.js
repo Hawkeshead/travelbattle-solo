@@ -31,6 +31,16 @@ export function start(){
   // unlocking — see AudioManager.playEffect's buffer cache.
   document.addEventListener('pointerdown', ()=>{
     AudioManager.unlock();
+    /* The menu theme starts on the SAME first gesture that unlocks audio, and
+       not before. A browser blocks playback until the player has touched
+       something, so showModeSelect below cannot start it on the very first load:
+       the call would fail silently and leave the menus quiet all session. This is
+       the first-load half; showModeSelect covers every return after that.
+    
+       Calling it in both places is safe: playMusic replaces the element only when
+       the source changes, so the second call re-levels the same track rather than
+       restarting or layering it. */
+    AudioManager.playMusic('audio/music/menu-musket-tango.mp3');
     AudioManager.preloadEffects(['audio/effects/chess-piece-placed.wav', 'audio/effects/infantry-marching.wav']);
   }, { once:true });
 
