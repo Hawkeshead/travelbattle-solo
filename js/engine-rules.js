@@ -384,7 +384,18 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   const ambushSuppressed = terr.key==='WOODS' && unit.ambushSpentThisRound;
   if(defending && terr.defenseBonus && eligibleDefender && !ambushSuppressed){
     const coverLabel = terr.key==='WOODS' ? 'Defending in woods' : 'Defending in a building';
-    if(t.isArtillery){
+    /* WOODS IS +1 FOR EVERYONE, never a second die.
+    
+       Trees break up a formation as much as they shelter it: a unit in woods is
+       harder to come at but cannot bring more muskets to bear, which is what a
+       second die represents. A building is different and keeps the die for
+       infantry, who can line every window and fire together.
+    
+       The second die in woods now belongs to the AMBUSH alone, which is the one
+       case where being among the trees multiplies what a unit can do rather than
+       merely protecting it. Granting the die for ordinary woods defence as well
+       made the ambush's own bonus nearly worthless by comparison. */
+    if(t.isArtillery || terr.key==='WOODS'){
       /* A gun in cover gets +1 to its result, never a second die. Crews
          sheltering in a building fight better than in the open, but the cover
          does not put more of them in the firing line the way it does for
@@ -477,14 +488,27 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
 
 export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   const newVal = rollD6();
+  const previous = roll.rolls.slice();   // everything thrown before this re-roll
   roll.rolls.push(newVal);
-  // A re-roll REPLACES the result, it is not keep-best across every die thrown.
-  // keptDie has to move with it or the panel highlights the discarded die and
-  // shows a nonsense adjustment (a Guard rolling 5, re-rolling to 2 and fighting
-  // on 2 was displaying "5 -3 = 2" with the 5 marked as kept).
-  roll.keptDie = newVal;
-  roll.value = Math.min(6, newVal + valueBonus);
-  reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}`);
+
+  /* THE RE-ROLL REPLACES THE LOWEST DIE, and can never leave the unit worse off.
+
+     With two dice, the lower one is thrown again and the best of what stands is
+     kept. With one die, the new roll competes with the old rather than replacing
+     it outright. Both cases come to the same thing: keep the best of everything
+     thrown. This is a privilege of Guard and Heavy Cavalry and should be a
+     reliable improvement in the odds, not a gamble that can cost them the fight.
+
+     THIS REVERSES AN EARLIER CHANGE, deliberately. That change made the re-roll
+     replace the kept die outright, and it was made to fix the PANEL showing a
+     discarded die as kept (a Guard rolling 5, re-rolling to 2, and fighting on 2
+     while the display highlighted the 5). The real fault there was that keptDie
+     was not being tracked, and that fix stays: keptDie is still set explicitly
+     here, so the panel highlights whatever the unit actually fights on. Only the
+     choice of which die to keep has changed back. */
+  roll.keptDie = Math.max(...previous, newVal);
+  roll.value = Math.min(6, roll.keptDie + valueBonus);
+  reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}, fights on ${roll.keptDie}`);
   log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav) — new roll: ${newVal}.`, 'combat');
   next();
 }
