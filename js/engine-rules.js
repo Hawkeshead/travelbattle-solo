@@ -3,7 +3,7 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './dat
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
-import { addDeathEffect, animateUnitTo, showActionLine } from './render-board.js';
+import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
 import { renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
@@ -795,6 +795,7 @@ export function retreatAndRally(loser, onComplete){
   const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
   const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
   const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
+  const routSteps = Math.max(Math.abs(cell.x-loser.x), Math.abs(cell.y-loser.y));
   animateUnitTo(loser, cell.x, cell.y, 'rout');   // breaking for its own board edge
   loser.turnOnly = true;
   loser.rallying = true;
@@ -809,6 +810,22 @@ export function retreatAndRally(loser, onComplete){
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
+  /* THE RETREAT HAS TO BE SEEN BEFORE THE DICE COVER IT.
+  
+     The unit was already being animated to the edge, but the rally panel opened
+     in the same breath and the dice overlay sits on top of the board. So the
+     whole retreat played out behind the panel and the unit appeared to vanish
+     from where it fought and reappear at the edge only if it rallied.
+  
+     Waiting for the animation means the player watches it break and run, and
+     only then rolls to see whether it stops. A skipped animation (the test
+     harness) reports zero, so this adds nothing there. */
+  // Capped as well as quick: a retreat right across the board should not hold the
+  // rally roll hostage. Beyond the cap the last of the run finishes under the
+  // panel, which is a fair trade at that distance.
+  const routMs = FAST_ANIMATION_MODE ? 0 : Math.min(4500,
+    moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed + 120);
+  setTimeout(()=>{
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
@@ -843,6 +860,7 @@ export function retreatAndRally(loser, onComplete){
       }
     });
   });
+  }, routMs);
 }
 
 // Leadership Roll is one guaranteed save per Brigade for the whole match, so

@@ -31,7 +31,20 @@ export function start(){
   // unlocking — see AudioManager.playEffect's buffer cache.
   document.addEventListener('pointerdown', ()=>{
     AudioManager.unlock();
-    AudioManager.preloadEffects(['audio/effects/chess-piece-placed.wav', 'audio/effects/infantry-marching.wav']);
+    /* EVERY effect, not just two. Only the click and the march were preloaded,
+       so each of the other eight paid a one-time fetch and decode the first time
+       it was needed. That is why a unit had to be selected two or three times
+       before its sound arrived: the first tap was fetching the file, not failing.
+       They total well under a megabyte and this runs on the first gesture, when
+       the player is still on the menus. */
+    AudioManager.preloadEffects([
+      'audio/effects/chess-piece-placed.wav', 'audio/effects/infantry-marching.wav',
+      'audio/effects/cavalry-select-sword.wav', 'audio/effects/cavalry-gallop.wav',
+      'audio/effects/brigadier-select-attention.wav', 'audio/effects/brigadier-gallop.wav',
+      'audio/effects/artillery-select.wav', 'audio/effects/artillery-move.wav',
+      'audio/effects/artillery-fire.wav', 'audio/effects/artillery-impact.wav',
+      'audio/effects/unit-destroyed.wav',
+    ]);
   }, { once:true });
 
   // Then either resume the campaign in progress or show the title screen.

@@ -72,7 +72,23 @@ export function flushPendingSettle(){
 let battleBedArmed = false;
 let battleBedObserver = null;
 
-export function armBattleBed(){ battleBedArmed = true; ensureBattleBedObserver(); }
+export function armBattleBed(){
+  battleBedArmed = true;
+  ensureBattleBedObserver();
+  /* START HERE rather than waiting for the observer to see the panel open.
+
+     The caller arms this immediately before opening the panel, so the sound can
+     begin now. Relying on the open-mutation was fragile: when panels chain back
+     to back, as they do all through an AI turn, classList.add('show') on an
+     overlay that is already showing changes nothing and fires no mutation, so
+     the bed never started for AI-initiated fights.
+
+     The observer still owns the STOP, which is the half that has to be reliable:
+     the panel closes from three different places and none of them can be trusted
+     to remember. Starting explicitly and stopping by observation gives each job
+     to whichever is actually dependable at it. */
+  AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');
+}
 
 function ensureBattleBedObserver(){
   if(battleBedObserver) return;
@@ -81,7 +97,7 @@ function ensureBattleBedObserver(){
   battleBedObserver = new MutationObserver(()=>{
     const open = overlay.classList.contains('show');
     if(open && battleBedArmed){
-      AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');
+      AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');  // no-op if already running
     } else if(!open){
       // Sharp rather than gentle: the dice are gone, so should the noise be.
       AudioManager.stopLoop('battle-resolve', 140);

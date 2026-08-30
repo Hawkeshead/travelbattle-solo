@@ -354,11 +354,16 @@ export const MOVE_MS_PER_SQUARE = 1680;  // doubled again on playtest feedback
            definition, so rounding it would contradict the rules
    settle  a short overshoot past the destination, then back — involuntary
    jitter  irregular lateral wobble, as a fraction of a square */
+/* Rout is the quickest profile of the four, and deliberately so. A unit that
+   breaks does not withdraw in order, it runs, and the retreat can cross most of
+   the board: at the march rate an eight-square rout took over ten seconds, which
+   is a long time to watch and a long time to wait for the rally roll that follows
+   it. */
 export const MOVE_PROFILES = {
   march:              { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
   charge:             { speed: 0.80, corners: false, settle: 0,    jitter: 0     },
   pushback:           { speed: 0.55, corners: false, settle: 0.07, jitter: 0     },
-  rout:               { speed: 0.77, corners: true,  settle: 0,    jitter: 0.02  },
+  rout:               { speed: 0.45, corners: true,  settle: 0,    jitter: 0.02  },
   advanceAfterCombat: { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
 };
 
