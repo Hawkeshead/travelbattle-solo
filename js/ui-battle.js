@@ -457,7 +457,15 @@ export function selectUnit(id){
      loop: it is a moment, not an action of variable length. */
   if(u){
     const selT = UNIT_TYPES[u.type];
-    if(selT.isCavalry){
+    /* A Brigadier calls for attention; cavalry draw sabres; everything else
+       keeps the piece-placed click. Checked BEFORE isCavalry, though it happens
+       not to matter today: Brigadiers are mounted but are not flagged as cavalry
+       in unit-types.json, so they would otherwise have fallen through to the
+       click. Ordering it this way means the sound follows the rank rather than
+       depending on that flag staying false. */
+    if(selT.key === 'BRIGADIER'){
+      AudioManager.playEffect('brigadier-select', 'audio/effects/brigadier-select-attention.wav', 'ui');
+    } else if(selT.isCavalry){
       AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui');
     } else {
       AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
@@ -636,6 +644,14 @@ export function onCellClick(x,y){
       if(UNIT_TYPES[sel.type].isCavalry){
         // Loops to cover the whole ride; cut at the end of the animation.
         AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
+          { durationMs: moveAnimationMs(Math.max(1, marchSteps)), loop: true });
+      }
+      /* A Brigadier is one rider, so he gets a single horse rather than the
+         squadron. Same loop-and-cut treatment: the clip is 4s and he covers two
+         squares (3.36s), or three on a road (5.04s), so it wraps when it needs to.
+         Keyed on the type rather than isCavalry, which is false for Brigadiers. */
+      if(UNIT_TYPES[sel.type].key === 'BRIGADIER'){
+        AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement',
           { durationMs: moveAnimationMs(Math.max(1, marchSteps)), loop: true });
       }
       state.moved.add(sel.id);

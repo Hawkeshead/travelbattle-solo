@@ -1490,6 +1490,12 @@ export function aiDecideAndExecuteMove(u){
       AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
         { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
     }
+    // A Brigadier is one rider, so a single horse rather than the squadron.
+    // Keyed on the type: isCavalry is false for Brigadiers.
+    if(t.key === 'BRIGADIER'){
+      AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement',
+        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+    }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);
