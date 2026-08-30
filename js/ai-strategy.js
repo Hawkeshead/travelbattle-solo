@@ -1819,6 +1819,76 @@ function formatParts(parts){
     .join('  ');
 }
 
+/* WHICH TERM ACTUALLY DECIDED EACH MOVE.
+
+   This is the analysis I have run by hand on every export so far, moved into the
+   tool. For each decision it measures how far each contribution SPREADS between
+   the chosen square and its rivals: a term that is large but identical
+   everywhere decides nothing, while a small term that differs decides
+   everything. The term with the widest spread is the one that actually made the
+   choice.
+
+   It found the two faults that mattered. baseState was deciding 7 of 15 sampled
+   moves with a spread of 0.79 while every intent term sat near 0.15, which is
+   why three successive additions changed nothing. And engage, once added,
+   swung from -27 to +8.79 against an intended -1.8 to +2.3.
+
+   Printing this instead of every breakdown takes section 4 from roughly 3600
+   lines to about 25, which is the difference between an export that can be
+   shared and one that cannot. */
+export function summariseAiDecisions(side){
+  const hist = (state._aiMoveHistory && state._aiMoveHistory[side]) || [];
+  const decided = {}, spreads = {}, ranges = {};
+  let withBreakdown = 0, holds = 0;
+  for(const h of hist){
+    const d = h.decision;
+    if(!d || !d.chosen) continue;
+    withBreakdown++;
+    if(h.action === 'Hold' || d.chosen.stay) holds++;
+    const alts = d.alternatives || [];
+    if(!alts.length) continue;
+    const keys = new Set([...Object.keys(d.chosen.parts), ...alts.flatMap(a=>Object.keys(a.parts))]);
+    let top = null, topSpread = 0;
+    for(const k of keys){
+      const vals = [d.chosen.parts[k] || 0, ...alts.map(a=>a.parts[k] || 0)];
+      const sp = Math.max(...vals) - Math.min(...vals);
+      (spreads[k] = spreads[k] || []).push(sp);
+      const r = ranges[k] = ranges[k] || { lo: Infinity, hi: -Infinity };
+      for(const v of vals){ if(v < r.lo) r.lo = v; if(v > r.hi) r.hi = v; }
+      if(sp > topSpread){ topSpread = sp; top = k; }
+    }
+    if(top) decided[top] = (decided[top] || 0) + 1;
+  }
+  return { total: withBreakdown, holds, decided, spreads, ranges };
+}
+
+export function formatAiDecisionSummary(side, label){
+  const a = summariseAiDecisions(side);
+  const out = [];
+  if(!a.total){ out.push(`${label}: no scored decisions`); return out; }
+  out.push(`${label}: ${a.total} scored decisions, ${a.holds} were Hold ` +
+           `(${Math.round(a.holds/a.total*100)}%)`);
+  out.push('');
+  out.push('  WHICH TERM DECIDED THE MOVE (widest spread between the chosen square and its rivals)');
+  const byCount = Object.entries(a.decided).sort((x,y)=>y[1]-x[1]);
+  if(!byCount.length) out.push('    (no alternatives were recorded)');
+  for(const [k,n] of byCount.slice(0,10)){
+    const sp = a.spreads[k] || [0];
+    const avg = sp.reduce((p,c)=>p+c,0)/sp.length;
+    out.push(`    ${k.padEnd(24)} decided ${String(n).padStart(4)}   avg spread ${avg.toFixed(2)}`);
+  }
+  out.push('');
+  out.push('  EVERY TERM: how much room it has to influence anything, and its observed range');
+  const byInfluence = Object.entries(a.spreads)
+    .map(([k,v]) => [k, v.reduce((p,c)=>p+c,0)/v.length])
+    .sort((x,y)=>y[1]-x[1]);
+  for(const [k,avg] of byInfluence){
+    const r = a.ranges[k];
+    out.push(`    ${k.padEnd(24)} spread ${avg.toFixed(2)}   range ${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}`);
+  }
+  return out;
+}
+
 export function formatAiDecision(entry, indent){
   const d = entry.decision;
   if(!d || !d.chosen) return [];

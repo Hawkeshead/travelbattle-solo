@@ -1,5 +1,5 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
-import { formatAiDecision } from './ai-strategy.js';
+import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, sy } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -182,6 +182,10 @@ document.getElementById('replayExitBtn').onclick = exitReplay;
    change. Flagged rather than half-built: a decision log that showed only final
    scores would answer none of the questions it exists to answer.
 ========================================================= */
+// How many full decision breakdowns to print per side. The summary carries the
+// analysis; these are for reading the arithmetic on the marginal calls.
+const AI_DECISION_SAMPLE = 12;
+
 const TERRAIN_GLYPH = { OPEN:'.', ROAD:'=', HILL:'^', WOODS:'*', BUILDING:'#', PLOUGH:':' };
 
 function sectionMetadata(){
@@ -404,11 +408,17 @@ export function exportFullMatchLog(){
   lines.push('');
   lines.push('=== SECTION 3: TURN LOG ===');
   lines.push(`Total events: ${state.matchLog.length}`);
+  let quietMoves = {};
   lines.push('');
 
   let lastTurn = null;
   for(const ev of state.matchLog){
     if(ev.turn !== lastTurn){
+      // Flush the previous turn's ordinary moves as a single line.
+      for(const sd of Object.keys(quietMoves)){
+        if(quietMoves[sd]) lines.push(`  (${quietMoves[sd]} routine ${SIDE_LABEL[sd]} moves)`);
+      }
+      quietMoves = {};
       lines.push(`--- Turn ${ev.turn} ---`);
       lastTurn = ev.turn;
     }
@@ -425,7 +435,17 @@ export function exportFullMatchLog(){
       if(ev.status && ev.status!=='Active') bits.push(ev.status);
       const tag = bits.length ? `  [${bits.join(' · ')}]` : '';
       const disc = (ev.connected===false) ? '  \u26A0 DISCONNECTED' : '';
-      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})${tag}${disc}`);
+      /* Notable means: off the Brigadier's chain, not in line, or not Active.
+         Everything else is an ordinary move in good order, and reading fifty of
+         those tells you nothing, so they are counted rather than printed. */
+      const notable = ev.connected===false ||
+        (ev.formation && ev.formation!=='line') ||
+        (ev.status && ev.status!=='Active');
+      if(notable){
+        lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}): (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})${tag}${disc}`);
+      } else {
+        quietMoves[ev.side] = (quietMoves[ev.side] || 0) + 1;
+      }
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){
@@ -447,9 +467,17 @@ export function exportFullMatchLog(){
       if(ev.diag){
         const d = ev.diag;
         const tie = Object.entries(d.ties||{}).filter(([,v])=>v).map(([k])=>k).join(',') || 'none';
-        // Emitted for every fight now, not only interesting ones: the report is
-        // that outcomes disagree with the dice, and deciding in advance which
-        // fights are worth recording is how the interesting one gets missed.
+        /* Full arithmetic only where something happened to it. Every fight used to
+           print five lines, which was right while the dice were under suspicion: it
+           proved across 33 fights that margins and outcomes always agreed. That
+           question is settled, so the detail is now reserved for fights with a
+           re-roll, a bonus, a tie-break or a panel/board disagreement. A plain
+           4-versus-2 explains itself in the line above.
+        
+           Anything anomalous still prints in full, and section 6 flags it besides. */
+        const plain = d.aRolls.length===1 && d.dRolls.length===1 &&
+          !d.aBonus && !d.dBonus && tie==='none' && !d.drift;
+        if(!plain){
         lines.push(`    A: dice[${d.aRolls}] x${d.aDice} kept ${d.aKept} bonus +${d.aBonus||0} -> ${ev.aRoll}`);
         lines.push(`    D: dice[${d.dRolls}] x${d.dDice} kept ${d.dKept} bonus +${d.dBonus||0} -> ${ev.dRoll}`);
         // The bonus SOURCES in order. First grants a second die, each later one
@@ -463,6 +491,7 @@ export function exportFullMatchLog(){
         // unaccounted for when someone is checking the arithmetic by hand.
         if(d.aNotes && d.aNotes.length) lines.push(`    A notes: ${d.aNotes.join(' / ')}`);
         if(d.dNotes && d.dNotes.length) lines.push(`    D notes: ${d.dNotes.join(' / ')}`);
+        }
         if(d.build && (!d.build.keptDie || !d.build.sources)){
           lines.push(`    *** STALE BUILD: running code is missing ` +
             `${!d.build.keptDie?'keptDie ':''}${!d.build.sources?'bonus-sources ':''}— hard-refresh needed ***`);
@@ -483,12 +512,31 @@ export function exportFullMatchLog(){
     const hist = (state._aiMoveHistory && state._aiMoveHistory[side]) || [];
     if(!hist.length) continue;
     lines.push(`--- ${SIDE_LABEL[side]} ---`);
-    let lastTurn = null;
-    for(const h of hist){
-      if(h.turn !== lastTurn){ lines.push(``); lines.push(`Turn ${h.turn}`); lastTurn = h.turn; }
-      const to = h.to ? ` -> (${h.to.x},${h.to.y})` : '';
-      lines.push(`  ${h.unit} [${h.type}] Bde ${h.brigadeId} · ${h.mission || 'no mission'} · ${h.action}${to}`);
-      lines.push(...formatAiDecision(h, '      '));
+    lines.push(...formatAiDecisionSummary(side, SIDE_LABEL[side]));
+    lines.push('');
+
+    /* A SAMPLE of full breakdowns, not all of them.
+
+       Printing every decision ran to roughly 3600 lines for a 60-turn match,
+       three quarters of the whole export and more than can be pasted anywhere.
+       The summary above is what that detail was always reduced to by hand.
+
+       The sample keeps the decisions where the choice was CLOSE, since those are
+       the ones where a term tipped it and where the totals are worth reading. A
+       move that won by three points explains itself. */
+    const withAlts = hist.filter(h => h.decision && h.decision.chosen &&
+      (h.decision.alternatives || []).length);
+    const closest = withAlts
+      .map(h => ({ h, gap: h.decision.chosen.total - h.decision.alternatives[0].total }))
+      .sort((a,b)=>a.gap-b.gap)
+      .slice(0, AI_DECISION_SAMPLE);
+    if(closest.length){
+      lines.push(`  CLOSEST ${closest.length} DECISIONS (where one term tipped it)`);
+      for(const {h, gap} of closest){
+        const to = h.to ? ` -> (${h.to.x},${h.to.y})` : '';
+        lines.push(`  T${h.turn} ${h.unit} [${h.type}] Bde ${h.brigadeId} · ${h.mission || 'no mission'} · ${h.action}${to}  (won by ${gap.toFixed(2)})`);
+        lines.push(...formatAiDecision(h, '      '));
+      }
     }
     lines.push('');
   }
