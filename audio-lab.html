@@ -3,22 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Field Command — Audio Lab</title>
+<title>Field Command — Audio Balance Lab</title>
 <!--
-  AUDIO LAB
+  AUDIO BALANCE LAB
 
-  Built to settle the music slider, which is correct by inspection and wrong in
-  practice. Rather than guess again, this shows the live state: what the mixer
-  computes, what each playing element's volume ACTUALLY is, and which sounds
-  belong to which slider.
+  Rebuilt for LAYERING. The previous version played one sound at a time, which
+  is fine for identifying a file and useless for judging a mix: balance is a
+  relationship between sounds, so you have to hear them together.
 
-  The two readouts either side of the arrow are the whole point. "target" is what
-  the mixer thinks the volume should be; "actual" is what the element is really
-  playing at. If a slider does nothing, those two will disagree, and the one that
-  disagrees is the broken path.
+  Every play button is now a toggle that loops. Stack the score, the ambience,
+  marching, a gallop and the battle bed, then move things until it sits right.
 
-  Standalone on purpose: it imports the real audio-manager.js rather than a copy,
-  so anything proved here is true of the game.
+  Two levels to work with. The CATEGORY sliders are what the player gets in the
+  game's settings. The per-file TRIM is a fixed multiplier baked into the file
+  itself, which is how you fix one sound being too loud relative to its
+  neighbours without making the player compensate with a slider.
+
+  The mixer maths is a faithful copy of js/audio-manager.js.
 -->
 <style>
   :root{
@@ -26,226 +27,282 @@
     --line:#b3a67f; --brass:#b8963f; --red:#7a2a24; --green:#3f5a38;
   }
   *{ box-sizing:border-box; }
-  body{
-    margin:0; padding:16px 14px 60px; background:#2d3226; color:var(--ink);
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:14px; line-height:1.5;
-  }
-  h1{ font-family:Georgia,serif; font-size:20px; color:var(--paper); margin:0 0 4px; }
-  .sub{ color:#9aa38c; font-size:12px; margin-bottom:16px; }
-  .panel{
-    background:var(--paper); border:1px solid var(--line); border-radius:6px;
-    padding:12px 14px; margin-bottom:14px;
-  }
-  .panel h2{ font-size:13px; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--ink-dim); margin:0 0 10px; font-family:ui-monospace,monospace; }
-  .sliderRow{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-  .sliderRow label{ width:76px; flex-shrink:0; }
-  .sliderRow input[type=range]{ flex:1; min-width:0; }
-  .sliderRow .val{ width:96px; text-align:right; font-size:12px; color:var(--ink-dim); }
-  table{ width:100%; border-collapse:collapse; font-size:12px; }
-  th{ text-align:left; font-weight:normal; color:var(--ink-dim);
-      border-bottom:1px solid var(--line); padding:4px 6px 6px; }
-  td{ padding:6px; border-bottom:1px solid rgba(179,166,127,.4); vertical-align:middle; }
-  td.file{ word-break:break-all; }
-  select, button{
-    font-family:inherit; font-size:12px; padding:4px 8px;
-    background:var(--paper-2); border:1px solid var(--line); border-radius:4px; color:var(--ink);
-  }
-  button{ cursor:pointer; }
-  button:active{ background:var(--brass); color:var(--paper); }
-  .play{ min-width:44px; }
-  .live{ font-size:12px; }
-  .live .ok{ color:var(--green); }
-  .live .bad{ color:var(--red); font-weight:bold; }
+  body{ margin:0; padding:14px 12px 44px; background:#2d3226; color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; line-height:1.45; }
+  h1{ font-family:Georgia,serif; font-size:19px; color:var(--paper); margin:0 0 2px; }
+  .sub{ color:#9aa38c; font-size:11px; margin-bottom:12px; }
+  .panel{ background:var(--paper); border:1px solid var(--line); border-radius:6px;
+    padding:11px 13px; margin-bottom:12px; }
+  .panel h2{ font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--ink-dim); margin:0 0 9px; }
+  .row{ display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+  .row label{ width:76px; flex-shrink:0; font-size:12px; }
+  .row input[type=range]{ flex:1; min-width:0; height:32px; }
+  .row .v{ width:100px; text-align:right; font-size:11px; color:var(--ink-dim); }
+  input[type=range]{ -webkit-appearance:none; appearance:none; background:transparent; }
+  input[type=range]::-webkit-slider-runnable-track{ height:5px; background:var(--line); border-radius:3px; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none;
+    width:24px; height:24px; margin-top:-10px; border-radius:50%;
+    background:var(--brass); border:2px solid var(--paper); }
+  input[type=range]::-moz-range-track{ height:5px; background:var(--line); border-radius:3px; }
+  input[type=range]::-moz-range-thumb{ width:24px; height:24px; border-radius:50%;
+    background:var(--brass); border:2px solid var(--paper); }
+  .snd{ border-bottom:1px solid rgba(179,166,127,.45); padding:7px 0; }
+  .snd:last-child{ border-bottom:0; }
+  .sndTop{ display:flex; align-items:center; gap:8px; }
+  .sndTop .name{ flex:1; min-width:0; font-size:12px; }
+  .sndTop .name .tiny{ font-size:10px; color:var(--ink-dim); }
+  .sndTrim{ display:flex; align-items:center; gap:8px; margin-top:2px; }
+  .sndTrim input[type=range]{ flex:1; min-width:0; height:26px; }
+  .sndTrim .tv{ width:52px; text-align:right; font-size:10px; color:var(--ink-dim); }
+  .grp{ font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+        color:var(--ink-dim); background:var(--paper-2); padding:4px 6px;
+        margin:8px -13px 2px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  button{ font-family:inherit; font-size:12px; padding:5px 8px; min-height:34px; cursor:pointer;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:4px; color:var(--ink); }
+  button.on{ background:var(--brass); color:var(--paper); border-color:var(--brass); }
+  button.play{ min-width:46px; }
+  .bar{ display:flex; gap:6px; flex-wrap:wrap; }
   .note{ font-size:11px; color:var(--ink-dim); margin-top:8px; }
   pre{ background:var(--paper-2); border:1px solid var(--line); border-radius:4px;
-       padding:10px; font-size:11px; overflow-x:auto; white-space:pre-wrap; }
-  .missing{ color:var(--red); }
+    padding:9px; font-size:11px; overflow-x:auto; white-space:pre; margin:8px 0 0; }
+  .bad{ color:var(--red); font-weight:bold; }
+  #playing{ font-size:12px; }
 </style>
 </head>
 <body>
 
-<h1>Audio Lab</h1>
-<div class="sub">Every sound in the game, what it is bound to, and what it is actually playing at.</div>
+<h1>Audio Balance Lab</h1>
+<div class="sub">Layer sounds, find the mix, copy the numbers out.</div>
+<div class="sub" style="color:#c9b98a">Served from the game, so the real audio files load directly.</div>
 
 <div class="panel">
-  <h2>Mixer</h2>
-  <div class="sliderRow">
-    <label>Mute</label>
-    <input type="checkbox" id="mute">
-    <span class="val" id="muteVal"></span>
+  <h2>Now sounding</h2>
+  <div id="playing">nothing playing</div>
+  <div class="bar" style="margin-top:9px">
+    <button id="stopAll">Stop all</button>
+    <button id="scene1">Scene: quiet march</button>
+    <button id="scene2">Scene: cavalry action</button>
+    <button id="scene3">Scene: full battle</button>
   </div>
+  <div class="note">Scenes stack a realistic combination in one tap, which is a fairer test than one sound at a time.</div>
+</div>
+
+<div class="panel">
+  <h2>Category sliders (what the player gets)</h2>
+  <div class="row"><label>Mute</label><input type="checkbox" id="mute"><span class="v" id="muteVal"></span></div>
   <div id="sliders"></div>
-  <div class="note">
-    Effective volume is <code>curve(master) &times; curve(category)</code>, where
-    <code>curve(v) = v&sup2;</code>. Mute forces every category to zero.
-  </div>
+  <div class="note">effective = curve(master) &times; curve(category) &times; file trim, curve(v) = v&sup2;</div>
 </div>
 
 <div class="panel">
-  <h2>Live playback state</h2>
-  <div id="live" class="live">nothing playing</div>
-  <div class="note">
-    <b>target</b> is what the mixer says the volume should be. <b>actual</b> is what the
-    element is really playing at. If a slider appears to do nothing, these two will
-    disagree, and that gap is the fault.
-  </div>
+  <h2>Sounds — tap ▶ to loop, drag to trim</h2>
+  <div id="rows"></div>
 </div>
 
 <div class="panel">
-  <h2>Sounds</h2>
-  <table>
-    <thead>
-      <tr><th>File</th><th>Assigned to</th><th>Used for</th><th></th></tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div class="note">
-    Reassigning is for testing by ear: play a sound, move a slider, and see which one
-    moves it. Changes here do not alter the game.
-  </div>
+  <h2>Copy the balance out</h2>
+  <button id="snap">Print settings</button>
+  <pre id="snapOut" hidden></pre>
 </div>
 
-<div class="panel">
-  <h2>Assignments</h2>
-  <button id="exportBtn">Show current assignment map</button>
-  <pre id="exportOut" hidden></pre>
-</div>
-
-<script type="module">
-import { AudioManager } from './js/audio-manager.js';
-
-/* The catalogue: every audio file in the repo, its default volume category, and
-   what the game actually plays it for. Priority categories ('movement', 'ui')
-   govern DUCKING, not volume: every effect draws its level from the single
-   'effects' category, which is worth knowing when chasing a slider. */
-const CATALOGUE = [
-  { file:'audio/music/field-of-austerlitz.mp3', cat:'music',    kind:'music',
-    use:'Main score. Starts in the menu, continues into battle.' },
-  { file:'audio/ambience/countryside.mp3',      cat:'ambience', kind:'ambience',
-    use:'Countryside bed. Starts with the board intro, loops all match.' },
-  { file:'audio/effects/infantry-marching.wav', cat:'effects',  kind:'effect', priority:'movement',
-    use:'Infantry and Guard moving. Cut to the length of the walk.' },
-  { file:'audio/effects/cavalry-gallop.wav',    cat:'effects',  kind:'effect', priority:'movement',
-    use:'Cavalry moving. Loops to cover the whole ride.' },
-  { file:'audio/effects/cavalry-select-sword.wav', cat:'effects', kind:'effect', priority:'ui',
-    use:'Sabre draw when a cavalry unit is selected.' },
-  { file:'audio/effects/chess-piece-placed.wav', cat:'effects', kind:'effect', priority:'ui',
-    use:'Selecting any non-cavalry unit.' },
-  { file:'audio/ui/click1.wav',    cat:'effects', kind:'effect', priority:'ui', use:'UI click variant.' },
-  { file:'audio/ui/click4.wav',    cat:'effects', kind:'effect', priority:'ui', use:'UI click variant.' },
-  { file:'audio/ui/switch12.wav',  cat:'effects', kind:'effect', priority:'ui', use:'UI toggle variant.' },
-  { file:'audio/ui/switch14.wav',  cat:'effects', kind:'effect', priority:'ui', use:'UI toggle variant.' },
-];
-
+<script>
+/* ---------- faithful copy of js/audio-manager.js ---------- */
+/* Relative, because this file is served from the game's own origin. The earlier
+   standalone version pointed at the absolute deployed URL so it could run from a
+   chat preview, and that is exactly what stopped it working: a preview sandbox
+   blocks cross-origin media, so every play() was rejected and nothing sounded.
+   Same-origin removes the problem rather than working around it. */
+const BASE = '';
 const CATEGORIES = ['master','music','effects','ambience'];
-const assigned = new Map(CATALOGUE.map(c => [c.file, c.cat]));
-
-// The mixer's own maths, mirrored so the lab can show the target independently
-// of what the elements report. If these two ever disagree, that IS the bug.
+const volumes = { master:1.0, music:0.55, effects:1.0, ambience:0.75 };
+let muted = false;
 const curve = v => Math.pow(Math.max(0, Math.min(1, v)), 2);
-function expectedVolume(category){
-  const p = AudioManager.getPrefs();
-  if(p.muted) return 0;
-  return curve(p.volumes.master) * curve(p.volumes[category] ?? 1);
+function categoryVolume(cat){ return muted ? 0 : curve(volumes.master) * curve(volumes[cat] ?? 1); }
+
+/* ---------- catalogue ---------- */
+const CATALOGUE = [
+  ['MUSIC', [
+    ['audio/music/menu-musket-tango.mp3',   'music',   'Menu theme'],
+    ['audio/music/field-of-austerlitz.mp3', 'music',   'Battle score'],
+  ]],
+  ['AMBIENCE', [
+    ['audio/ambience/countryside.mp3',      'ambience','Countryside bed'],
+  ]],
+  ['UNIT SELECTION', [
+    ['audio/effects/brigadier-select-attention.wav','effects','Brigadier'],
+    ['audio/effects/cavalry-select-sword.wav',      'effects','Cavalry sabre'],
+    ['audio/effects/artillery-select.wav',          'effects','Artillery'],
+    ['audio/effects/chess-piece-placed.wav',        'effects','Infantry / Guard'],
+  ]],
+  ['UNIT MOVEMENT', [
+    ['audio/effects/infantry-marching.wav', 'effects','Infantry marching'],
+    ['audio/effects/cavalry-gallop.wav',    'effects','Cavalry squadron'],
+    ['audio/effects/brigadier-gallop.wav',  'effects','Brigadier, one horse'],
+    ['audio/effects/artillery-move.wav',    'effects','Gun carriage'],
+  ]],
+  ['BATTLE', [
+    ['audio/effects/battle-resolve.wav',    'effects','Bed under the dice'],
+    ['audio/effects/artillery-fire.wav',    'effects','Gun fires'],
+    ['audio/effects/artillery-impact.wav',  'effects','Shell lands'],
+    ['audio/effects/unit-destroyed.wav',    'effects','Death cry'],
+  ]],
+  ['INTERFACE', [
+    ['audio/ui/click1.wav',   'effects','UI click'],
+    ['audio/ui/click4.wav',   'effects','UI click'],
+    ['audio/ui/switch12.wav', 'effects','UI toggle'],
+    ['audio/ui/switch14.wav', 'effects','UI toggle'],
+  ]],
+];
+const FLAT = CATALOGUE.flatMap(([,i]) => i);
+const trim = new Map(FLAT.map(([f]) => [f, 1.0]));   // per-file multiplier
+const live = new Map();                              // file -> Audio, while looping
+let notice = '';
+
+const el = id => document.getElementById(id);
+const catOf = f => (FLAT.find(x=>x[0]===f) || [,'effects'])[1];
+const gainFor = f => categoryVolume(catOf(f)) * (trim.get(f) ?? 1);
+
+/* Everything loops while it is on, including one-shots like the sabre draw and
+   the death cry. A balance is a relationship between sounds, so they have to be
+   sounding at the same time to be compared; a sound that fires once and stops
+   cannot be set against a continuous bed. */
+function toggle(file, btn){
+  notice = '';
+  if(live.has(file)){
+    const a = live.get(file);
+    live.delete(file);
+    try { a.pause(); a.removeAttribute('src'); a.load(); } catch(_e) {}
+    btn.classList.remove('on'); btn.textContent = '▶';
+    paint(); return;
+  }
+  const a = new Audio(BASE + file);
+  a.loop = true;
+  a.volume = gainFor(file);
+  live.set(file, a);
+  btn.classList.add('on'); btn.textContent = '■';
+  a.play().catch(e => { notice = `${file.split('/').pop()}: ${e.name} — ${e.message||'blocked'}`; paint(); });
+  a.addEventListener('error', ()=>{
+    const codes = {1:'aborted', 2:'network', 3:'decode failed', 4:'format not supported or missing'};
+    notice = `${file.split('/').pop()}: ${codes[a.error && a.error.code] || 'load failed'}`;
+    live.delete(file); btn.classList.remove('on'); btn.textContent = '▶'; paint();
+  });
+  paint();
 }
 
-/* ---- mixer controls ---- */
-const slidersEl = document.getElementById('sliders');
+function applyAll(){
+  for(const [f,a] of live){ try { a.volume = gainFor(f); } catch(_e) {} }
+}
+
+function stopAll(){
+  for(const [,a] of live){ try { a.pause(); a.removeAttribute('src'); a.load(); } catch(_e) {} }
+  live.clear();
+  document.querySelectorAll('button.play').forEach(b => { b.classList.remove('on'); b.textContent = '▶'; });
+  paint();
+}
+
+/* ---------- build the UI ---------- */
 for(const cat of CATEGORIES){
   const row = document.createElement('div');
-  row.className = 'sliderRow';
+  row.className = 'row';
   row.innerHTML = `<label>${cat}</label>
-    <input type="range" min="0" max="100" step="5" id="sl-${cat}">
-    <span class="val" id="v-${cat}"></span>`;
-  slidersEl.appendChild(row);
-}
-function syncControls(){
-  const p = AudioManager.getPrefs();
-  document.getElementById('mute').checked = p.muted;
-  document.getElementById('muteVal').textContent = p.muted ? 'MUTED' : '';
-  for(const cat of CATEGORIES){
-    const sl = document.getElementById('sl-' + cat);
-    if(document.activeElement !== sl) sl.value = Math.round((p.volumes[cat] ?? 0) * 100);
-    document.getElementById('v-' + cat).textContent =
-      `${sl.value}% → ${expectedVolume(cat).toFixed(3)}`;
-  }
+    <input type="range" min="0" max="100" step="5" id="sl-${cat}" value="${Math.round(volumes[cat]*100)}">
+    <span class="v" id="v-${cat}"></span>`;
+  el('sliders').appendChild(row);
 }
 for(const cat of CATEGORIES){
-  document.getElementById('sl-' + cat).addEventListener('input', e => {
-    AudioManager.setVolume(cat, e.target.value / 100);
-    syncControls();
-  });
+  el('sl-'+cat).addEventListener('input', e => { volumes[cat] = e.target.value/100; applyAll(); paint(); });
 }
-document.getElementById('mute').addEventListener('change', e => {
-  AudioManager.setMuted(e.target.checked);
-  syncControls();
-});
+el('mute').addEventListener('change', e => { muted = e.target.checked; applyAll(); paint(); });
 
-/* ---- the sound list ---- */
-const rows = document.getElementById('rows');
-for(const item of CATALOGUE){
-  const tr = document.createElement('tr');
-  const opts = CATEGORIES.filter(c => c !== 'master')
-    .map(c => `<option value="${c}"${c===item.cat?' selected':''}>${c}</option>`).join('');
-  tr.innerHTML = `
-    <td class="file">${item.file.replace(/^audio\//,'')}<div class="note" style="margin:2px 0 0">${item.kind}${item.priority ? ' · ducks as ' + item.priority : ''}</div></td>
-    <td><select data-file="${item.file}">${opts}</select></td>
-    <td class="note" style="margin:0">${item.use}</td>
-    <td><button class="play" data-file="${item.file}">▶</button></td>`;
-  rows.appendChild(tr);
-}
-rows.addEventListener('change', e => {
-  if(e.target.tagName !== 'SELECT') return;
-  assigned.set(e.target.dataset.file, e.target.value);
-});
-rows.addEventListener('click', async e => {
-  const btn = e.target.closest('button.play');
-  if(!btn) return;
-  const file = btn.dataset.file;
-  const item = CATALOGUE.find(c => c.file === file);
-  const cat = assigned.get(file);
-  await AudioManager.unlock();
-  if(cat === 'music')          AudioManager.playMusic(file);
-  else if(cat === 'ambience')  AudioManager.playAmbience(file);
-  else                         AudioManager.playEffect('lab:' + file, file, item.priority || 'ui');
-  btn.textContent = '▶';
-});
-
-/* ---- live state, the part that finds the fault ---- */
-const liveEl = document.getElementById('live');
-function renderLive(){
-  const p = AudioManager.getPrefs();
-  const streams = [
-    ['music',    AudioManager.debugMusicElement    ? AudioManager.debugMusicElement()    : null],
-    ['ambience', AudioManager.debugAmbienceElement ? AudioManager.debugAmbienceElement() : null],
-  ];
-  const out = [];
-  for(const [cat, el] of streams){
-    if(!el){ out.push(`<div>${cat.padEnd(9)} <span class="missing">no element</span></div>`); continue; }
-    const target = expectedVolume(cat);
-    const actual = el.volume;
-    const agrees = Math.abs(target - actual) < 0.005;
-    out.push(`<div>${cat.padEnd(9)} target ${target.toFixed(3)} →
-      <span class="${agrees?'ok':'bad'}">actual ${actual.toFixed(3)}</span>
-      ${agrees ? '' : '  ← MISMATCH'}
-      ${el.paused ? ' (paused)' : ''}
-      <span class="note">${(el.currentSrc||'').split('/').pop()}</span></div>`);
+for(const [group, items] of CATALOGUE){
+  const g = document.createElement('div');
+  g.className = 'grp'; g.textContent = group;
+  el('rows').appendChild(g);
+  for(const [file,, use] of items){
+    const d = document.createElement('div');
+    d.className = 'snd';
+    d.innerHTML = `
+      <div class="sndTop">
+        <button class="play" data-file="${file}">▶</button>
+        <div class="name">${use}<div class="tiny">${file.split('/').pop()}</div></div>
+      </div>
+      <div class="sndTrim">
+        <input type="range" min="0" max="150" step="5" value="100" data-trim="${file}">
+        <span class="tv" data-tv="${file}">×1.00</span>
+      </div>`;
+    el('rows').appendChild(d);
   }
-  out.push(`<div class="note" style="margin-top:6px">effects target ${expectedVolume('effects').toFixed(3)} · master ${p.volumes.master} · muted ${p.muted}</div>`);
-  liveEl.innerHTML = out.join('');
 }
-
-document.getElementById('exportBtn').addEventListener('click', () => {
-  const out = document.getElementById('exportOut');
-  const lines = [...assigned.entries()].map(([f, c]) => `  ${c.padEnd(9)}  ${f}`);
-  out.textContent = 'category   file\n' + lines.join('\n');
-  out.hidden = false;
+el('rows').addEventListener('click', e => {
+  const b = e.target.closest('button.play');
+  if(b) toggle(b.dataset.file, b);
+});
+el('rows').addEventListener('input', e => {
+  const t = e.target.dataset.trim;
+  if(!t) return;
+  trim.set(t, e.target.value/100);
+  document.querySelector(`[data-tv="${t}"]`).textContent = '×' + (e.target.value/100).toFixed(2);
+  applyAll(); paint();
 });
 
-syncControls();
-renderLive();
-setInterval(() => { syncControls(); renderLive(); }, 250);
+el('stopAll').addEventListener('click', stopAll);
+function scene(files){
+  stopAll();
+  for(const f of files){
+    const b = document.querySelector(`button.play[data-file="${f}"]`);
+    if(b) toggle(f, b);
+  }
+}
+el('scene1').addEventListener('click', ()=> scene([
+  'audio/music/field-of-austerlitz.mp3','audio/ambience/countryside.mp3',
+  'audio/effects/infantry-marching.wav']));
+el('scene2').addEventListener('click', ()=> scene([
+  'audio/music/field-of-austerlitz.mp3','audio/ambience/countryside.mp3',
+  'audio/effects/cavalry-gallop.wav','audio/effects/cavalry-select-sword.wav']));
+el('scene3').addEventListener('click', ()=> scene([
+  'audio/music/field-of-austerlitz.mp3','audio/ambience/countryside.mp3',
+  'audio/effects/battle-resolve.wav','audio/effects/artillery-fire.wav',
+  'audio/effects/artillery-impact.wav','audio/effects/unit-destroyed.wav']));
+
+function paint(){
+  el('muteVal').textContent = muted ? 'MUTED' : '';
+  for(const cat of CATEGORIES){
+    el('v-'+cat).textContent = `${el('sl-'+cat).value}% → ${categoryVolume(cat).toFixed(3)}`;
+  }
+  if(!live.size){
+    el('playing').innerHTML = notice ? `<span class="bad">${notice}</span>` : 'nothing playing';
+    return;
+  }
+  const rows = [...live.keys()].map(f =>
+    `${f.split('/').pop().replace(/\.(wav|mp3)$/,'').padEnd(28)} ${gainFor(f).toFixed(3)}`);
+  el('playing').innerHTML = `${live.size} sounding<br><pre style="margin-top:6px">${rows.join('\n')}</pre>` +
+    (notice ? `<span class="bad">${notice}</span>` : '');
+}
+
+el('snap').addEventListener('click', ()=>{
+  const o = el('snapOut');
+  const changed = [...trim.entries()].filter(([,v]) => Math.abs(v-1) > 0.001);
+  o.textContent = [
+    'CATEGORY DEFAULTS  (js/audio-manager.js, state.volumes)',
+    `  volumes: { master: ${volumes.master.toFixed(2)}, music: ${volumes.music.toFixed(2)}, ` +
+      `effects: ${volumes.effects.toFixed(2)}, ambience: ${volumes.ambience.toFixed(2)} },`,
+    '',
+    'RESULTING GAINS',
+    ...CATEGORIES.map(c => `  ${c.padEnd(9)} ${categoryVolume(c).toFixed(3)}`),
+    '',
+    'PER-FILE TRIM  (bake into the file, or apply as volumeScale)',
+    ...(changed.length
+      ? changed.map(([f,v]) => `  ${f.split('/').pop().padEnd(32)} ×${v.toFixed(2)}`)
+      : ['  (none changed)']),
+    '',
+    `SOUNDING WHEN CAPTURED: ${live.size}`,
+    ...[...live.keys()].map(f => `  ${f.split('/').pop()}`),
+  ].join('\n');
+  o.hidden = false;
+});
+
+paint();
 </script>
 </body>
 </html>
