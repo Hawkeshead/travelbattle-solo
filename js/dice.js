@@ -75,6 +75,9 @@ let battleBedObserver = null;
 export function armBattleBed(){
   battleBedArmed = true;
   ensureBattleBedObserver();
+  /* The bed is also started from presentRollTrigger, which is the single place
+     the panel is opened for a fight. Starting here as well covers the ordinary
+     case and costs nothing, since startLoop is a no-op when already running. */
   /* START HERE rather than waiting for the observer to see the panel open.
 
      The caller arms this immediately before opening the panel, so the sound can
@@ -120,6 +123,21 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   clearInterval(showDice._rollT);
   clearTimeout(presentRollTrigger._aiT);
 
+  /* THE BED STARTS HERE, in the one function that opens the panel for a fight.
+
+     armBattleBed starts it too, and that is enough for a straightforward melee.
+     But that depends on the arm and the open happening together, and they do
+     not always: a cavalry charge and an ambush both reach resolveFight through
+     extra steps, and the observer cannot cover the gap because classList.add on
+     an overlay that is already showing fires no mutation.
+
+     presentRollTrigger runs for EVERY fight without exception, so starting from
+     here cannot be missed. Guarded by the armed flag, so artillery keeps the
+     same panel and stays silent under it (it has its own report and shell), and
+     so does the rally roll. */
+  if(battleBedArmed){
+    AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');
+  }
   overlay.classList.add('show');
   resultEl.textContent = '';
   resultEl.className = 'dice-result';
