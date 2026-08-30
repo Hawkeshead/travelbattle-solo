@@ -1,3 +1,4 @@
+import { AudioManager } from './audio-manager.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
 import { inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
@@ -49,6 +50,23 @@ export function clearTransientRenderState(){
 export const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
 export function addDeathEffect(x, y){
   deathEffects.push({x, y, startTime: Date.now()});
+  /* The death cry belongs WITH the skull, not beside it.
+
+     Sounding it here rather than in removeUnit means the two halves of the same
+     effect can never come apart: anything that raises a skull makes the noise,
+     and anything that does not, does not. That distinction already matters. A
+     Brigadier whose Brigade breaks is removed but withdraws rather than dying,
+     and removeUnit deliberately skips the death effect for him. He should not
+     scream either.
+
+     This does put an audio call in the renderer, which I avoided for the board
+     ambience on the grounds that the renderer has no business knowing about
+     sound. The difference is that addDeathEffect IS the effect rather than the
+     board: skull, smoke and cry are one thing presented three ways. */
+  // Panned to where the unit fell. panForBoardX is the coarse three-zone helper
+  // the other positional effects use.
+  AudioManager.playEffect('unit-destroyed', 'audio/effects/unit-destroyed.wav', 'majorCombat',
+    { pan: AudioManager.panForBoardX(x) });
   ensureAnimationLoopRunning();
 }
 export function addCrater(x, y){

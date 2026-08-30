@@ -15,7 +15,14 @@ import { COLS } from './data-core.js';
 
 export const AudioManager = (function(){
   const PRIORITY = { cannon:1, majorCombat:2, cavalryCharge:3, musketVolley:4, movement:5, ui:6, ambient:7 };
-  const MAX_CONCURRENT = { default: 4 }; // cap on simultaneous copies of the same effect, so a busy turn doesn't turn into noise
+  const MAX_CONCURRENT = {
+    default: 4,   // cap on simultaneous copies of the same effect, so a busy turn doesn't turn into noise
+    /* The death cry is 3.5s and carries. A single fight can destroy two units,
+       and a Column break takes both halves at once, so four of these overlapping
+       would be a wall of screaming rather than a battle. Two reads as a volley's
+       worth of casualties, which is the intent. */
+    'unit-destroyed': 2,
+  };
 
   const state = {
     unlocked: false,
