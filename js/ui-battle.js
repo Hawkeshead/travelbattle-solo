@@ -4,7 +4,7 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -449,13 +449,28 @@ export function endFightPhase(){
    SELECTION & INTERACTION
 ========================================================= */
 export function selectUnit(id){
+  /* Only SOUND a selection that actually changes which unit is selected.
+  
+     selectUnit is called again at the end of a move, to keep the unit selected
+     after it has walked. That was replaying the selection sound on top of the
+     movement sound every single time: cavalry drew sabres as they set off, and
+     Brigadiers called for attention mid-ride.
+  
+     Artillery showed it worst. The heavy cannon is short and percussive while
+     the gun carriage is a low rumble, so the selection sound simply masked the
+     movement one and it sounded as though the carriage had never been wired up
+     at all.
+  
+     Re-selecting the same unit is a no-op to the player, so it should be silent.
+     Comparing before the assignment below, since that is what makes it stale. */
+  const selectionChanged = state.selectedUnitId !== id;
   state.selectedUnitId = id;
   setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
   /* Cavalry draw sabres on selection; everything else keeps the piece-placed
      click. Both armies, light and heavy alike. Plays once, so no duration or
      loop: it is a moment, not an action of variable length. */
-  if(u){
+  if(u && selectionChanged){
     const selT = UNIT_TYPES[u.type];
     /* A Brigadier calls for attention; cavalry draw sabres; everything else
        keeps the piece-placed click. Checked BEFORE isCavalry, though it happens
@@ -622,6 +637,13 @@ export function onCellClick(x,y){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
+      /* The charge had NO movement sound at all. It is a separate branch from the
+         ordinary move and only that one was wired, so the loudest thing a cavalry
+         unit does was the quietest. Same loop-and-cut as a normal ride; the charge
+         profile makes it quicker, so the audio is cut shorter to match. */
+      const chargeSteps = Math.max(Math.abs(x-sel.x), Math.abs(y-sel.y));
+      AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
+        { durationMs: moveAnimationMs(Math.max(1, chargeSteps)) * MOVE_PROFILES.charge.speed, loop: true });
       animateUnitTo(sel, x, y, 'charge');
       sel.charged = true;
       state.moved.add(sel.id);
