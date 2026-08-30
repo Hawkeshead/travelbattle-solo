@@ -89,6 +89,15 @@ export const OPERATIONS_ENABLED = false;
 export const GRAND_STRATEGY_ENABLED = false;
 
 export function showModeSelect(isSplash){
+  /* The menu theme, every time the mode select is shown. That covers the first
+     load AND returning here after a battle, when the field score would
+     otherwise still be playing over the menus. Putting it on the screen itself
+     rather than on each of the routes into it means a new route cannot forget.
+  
+     Harmless when it is already playing: playMusic only replaces the element if
+     the source has changed, so moving between the mode, side and difficulty
+     screens never interrupts the track. */
+  AudioManager.playMusic('audio/music/menu-musket-tango.mp3');
   const box = document.querySelector('#overlay .box');
   // The folio backing is start-screen only. Every other overlay reuses this
   // same .box, so the class has to be removed by whoever leaves — done in

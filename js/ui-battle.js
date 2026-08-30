@@ -753,7 +753,11 @@ export function fireArtillery(gun, target, onComplete){
   }
   gun.smokeActive = true;
   ensureAnimationLoopRunning();
-  showActionLine(gun, target, '#a33330', 3800, true);
+  /* Brighter and longer than the melee line. #a33330 is a muted brick that sits
+     too close to the board's browns and reds to read at a glance; #ff2a20 is a
+     signal red that nothing else on the map uses. Held for 5800ms rather than
+     3800 so there is time to trace it from gun to target before it goes. */
+  showActionLine(gun, target, '#ff2a20', 5800, true);
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher — pure range, no formation modifier
   const hitNotes = [];
   const minRoll = Math.max(1, Math.min(6, needed));

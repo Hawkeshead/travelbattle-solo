@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Command — Movement Lab</title>
+<!--
+  MOVEMENT TUNING LAB
+
+  Every constant behind the movement animation, on sliders, over a board you can
+  actually watch. The point is that these numbers were all chosen by reasoning
+  about them rather than by looking, and several turned out wrong that way: the
+  march ran at 420ms per square for a while, then 840, and is now 1680, each
+  change made blind and each needing another playtest to judge.
+
+  The maths here is transcribed from render-board.js rather than imported, so
+  the lab runs from any origin including a chat preview. That means it can drift
+  from the game, so the numbers are printed at the bottom in the exact form they
+  appear in the source, to be copied across rather than re-typed.
+-->
+<style>
+  :root{
+    --paper:#e8dfc8; --paper-2:#dcd2b6; --ink:#2a2419; --ink-dim:#6b6046;
+    --line:#b3a67f; --brass:#b8963f; --grass:#7d8c3f; --road:#c9a882;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; padding:14px 12px 40px; background:#2d3226; color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
+  h1{ font-family:Georgia,serif; font-size:19px; color:var(--paper); margin:0 0 2px; }
+  .sub{ color:#9aa38c; font-size:11px; margin-bottom:12px; }
+  .panel{ background:var(--paper); border:1px solid var(--line); border-radius:6px;
+    padding:10px 12px; margin-bottom:12px; }
+  .panel h2{ font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--ink-dim); margin:0 0 8px; }
+  canvas{ width:100%; display:block; border:1px solid var(--line); border-radius:4px; background:var(--grass); }
+  .row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .row label{ width:104px; flex-shrink:0; font-size:12px; }
+  .row input[type=range]{ flex:1; min-width:0; }
+  .row .v{ width:62px; text-align:right; font-size:11px; color:var(--ink-dim); }
+  .btns{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  button{ font-family:inherit; font-size:12px; padding:6px 10px; cursor:pointer;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:4px; color:var(--ink); }
+  button.on{ background:var(--brass); color:var(--paper); }
+  select{ font-family:inherit; font-size:12px; padding:4px 7px;
+    background:var(--paper-2); border:1px solid var(--line); border-radius:4px; }
+  pre{ background:var(--paper-2); border:1px solid var(--line); border-radius:4px;
+    padding:9px; font-size:11px; overflow-x:auto; white-space:pre; margin:8px 0 0; }
+  .note{ font-size:11px; color:var(--ink-dim); margin-top:7px; }
+</style>
+</head>
+<body>
+
+<h1>Movement Lab</h1>
+<div class="sub">Tune the animation while watching it, then copy the numbers across.</div>
+
+<div class="panel">
+  <canvas id="board" width="720" height="300"></canvas>
+  <div class="btns">
+    <button data-kind="march" class="on">March</button>
+    <button data-kind="charge">Charge</button>
+    <button data-kind="pushback">Pushback</button>
+    <button data-kind="rout">Rout</button>
+    <button id="replay">Replay ▶</button>
+    <button id="loop">Loop: off</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>Arm</label>
+    <select id="arm">
+      <option value="INFANTRY">Infantry</option>
+      <option value="GUARD">Guard</option>
+      <option value="LIGHT_CAV">Light Cavalry</option>
+      <option value="HEAVY_CAV">Heavy Cavalry</option>
+      <option value="ARTILLERY">Artillery</option>
+      <option value="BRIGADIER">Brigadier</option>
+    </select>
+    <label style="width:auto">Route</label>
+    <select id="route">
+      <option value="straight">3 straight</option>
+      <option value="bend">3 with a bend</option>
+      <option value="long">6, road</option>
+      <option value="one">1 square</option>
+    </select>
+  </div>
+  <div class="note" id="timing"></div>
+</div>
+
+<div class="panel">
+  <h2>Speed</h2>
+  <div class="row"><label>ms per square</label><input type="range" id="ms" min="200" max="2600" step="20" value="1680"><span class="v" id="v-ms"></span></div>
+  <div class="row"><label>profile speed</label><input type="range" id="speed" min="20" max="200" step="5" value="100"><span class="v" id="v-speed"></span></div>
+  <div class="note">Profile speed multiplies the base. A charge is quicker than a march; a rout quicker still.</div>
+</div>
+
+<div class="panel">
+  <h2>Shape of the movement</h2>
+  <div class="row"><label>corner rounding</label><input type="range" id="corner" min="0" max="50" step="1" value="30"><span class="v" id="v-corner"></span></div>
+  <div class="row"><label>overshoot</label><input type="range" id="settle" min="0" max="25" step="1" value="0"><span class="v" id="v-settle"></span></div>
+  <div class="row"><label>wobble</label><input type="range" id="jitter" min="0" max="10" step="1" value="0"><span class="v" id="v-jitter"></span></div>
+  <div class="note">Overshoot is the stagger past the destination on a pushback. Wobble is the irregular run of a rout.</div>
+</div>
+
+<div class="panel">
+  <h2>Gait</h2>
+  <div class="row"><label>bob height</label><input type="range" id="amp" min="0" max="80" step="1" value="25"><span class="v" id="v-amp"></span></div>
+  <div class="row"><label>bob rate</label><input type="range" id="hz" min="5" max="90" step="1" value="22"><span class="v" id="v-hz"></span></div>
+  <div class="note">Per arm. Infantry plod, light cavalry skim, guns barely move.</div>
+</div>
+
+<div class="panel">
+  <h2>Copy these into render-board.js</h2>
+  <button id="dump">Print current values</button>
+  <pre id="out" hidden></pre>
+</div>
+
+<script>
+/* ---------- transcribed from render-board.js ---------- */
+const PROFILES = {
+  march:    { speed:1.00, corners:true,  settle:0,    jitter:0    },
+  charge:   { speed:0.80, corners:false, settle:0,    jitter:0    },
+  pushback: { speed:0.55, corners:false, settle:0.07, jitter:0    },
+  rout:     { speed:0.45, corners:true,  settle:0,    jitter:0.02 },
+};
+const GAIT = {
+  INFANTRY:{amp:0.025,hz:2.2}, GUARD:{amp:0.025,hz:2.2},
+  LIGHT_CAV:{amp:0.015,hz:4.5}, HEAVY_CAV:{amp:0.020,hz:3.5},
+  ARTILLERY:{amp:0.010,hz:1.6}, BRIGADIER:{amp:0.015,hz:4.5},
+};
+const ROUTES = {
+  straight:[{x:1,y:2},{x:2,y:2},{x:3,y:2},{x:4,y:2}],
+  bend:    [{x:1,y:1},{x:2,y:1},{x:3,y:2},{x:4,y:2}],
+  long:    [{x:0,y:2},{x:1,y:2},{x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:6,y:2}],
+  one:     [{x:2,y:2},{x:3,y:2}],
+};
+const CORNER_R_BASE = 0.30;
+
+function polyLen(p){ let t=0; for(let i=1;i<p.length;i++) t+=Math.hypot(p[i].x-p[i-1].x,p[i].y-p[i-1].y); return t; }
+
+function roundCorner(path,i,local,cr){
+  const prev=path[i-1], here=path[i], next=path[i+1];
+  if(!next) return null;
+  const inD={x:here.x-prev.x,y:here.y-prev.y}, outD={x:next.x-here.x,y:next.y-here.y};
+  if(inD.x===outD.x && inD.y===outD.y) return null;
+  const d=1-local;
+  if(d>cr) return null;
+  const b=(1-d/cr)*0.5+0.5, mt=1-b;
+  const p0={x:here.x-inD.x*cr,y:here.y-inD.y*cr}, p2={x:here.x+outD.x*cr,y:here.y+outD.y*cr};
+  return { x: mt*mt*p0.x + 2*mt*b*here.x + b*b*p2.x,
+           y: mt*mt*p0.y + 2*mt*b*here.y + b*b*p2.y };
+}
+
+function pointAlong(path,f,corners,cr){
+  if(path.length===1) return {...path[0]};
+  const target=polyLen(path)*f; let walked=0;
+  for(let i=1;i<path.length;i++){
+    const seg=Math.hypot(path[i].x-path[i-1].x,path[i].y-path[i-1].y);
+    if(walked+seg>=target || i===path.length-1){
+      const local=seg===0?0:Math.min(1,(target-walked)/seg);
+      if(corners){ const c=roundCorner(path,i,local,cr); if(c) return c; }
+      return { x:path[i-1].x+(path[i].x-path[i-1].x)*local,
+               y:path[i-1].y+(path[i].y-path[i-1].y)*local };
+    }
+    walked+=seg;
+  }
+  return {...path[path.length-1]};
+}
+
+/* ---------- live values ---------- */
+const S = { kind:'march', arm:'INFANTRY', route:'straight',
+  ms:1680, speed:1.00, corner:0.30, settle:0, jitter:0, amp:0.025, hz:2.2 };
+
+const el = id => document.getElementById(id);
+const canvas = el('board'), ctx = canvas.getContext('2d');
+const COLS=8, ROWS=5;
+let anim = null, looping = false;
+
+function setFromProfile(kind){
+  const p = PROFILES[kind];
+  S.kind = kind;
+  S.speed = p.speed; el('speed').value = Math.round(p.speed*100);
+  S.corner = p.corners ? CORNER_R_BASE : 0; el('corner').value = Math.round(S.corner*100);
+  S.settle = p.settle; el('settle').value = Math.round(p.settle*100);
+  S.jitter = p.jitter; el('jitter').value = Math.round(p.jitter*500);
+}
+function setFromArm(arm){
+  const g = GAIT[arm];
+  S.arm = arm; S.amp = g.amp; S.hz = g.hz;
+  el('amp').value = Math.round(g.amp*1000); el('hz').value = Math.round(g.hz*10);
+}
+
+function duration(){
+  const path = ROUTES[S.route];
+  const steps = Math.max(1, path.length-1);
+  return Math.max(S.ms*0.7, steps*S.ms) * S.speed;
+}
+
+function start(){
+  anim = { startTime: performance.now(), duration: duration() };
+}
+
+function draw(now){
+  const cw = canvas.width, ch = canvas.height;
+  const cell = Math.min(cw/COLS, ch/ROWS);
+  ctx.clearRect(0,0,cw,ch);
+  // ground
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+    ctx.fillStyle = ((x+y)%2) ? '#7d8c3f' : '#87963f';
+    ctx.fillRect(x*cell,y*cell,cell-1,cell-1);
+  }
+  const path = ROUTES[S.route];
+  // the route itself
+  ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+  ctx.beginPath();
+  path.forEach((p,i)=>{ const X=p.x*cell+cell/2, Y=p.y*cell+cell/2; i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); });
+  ctx.stroke(); ctx.setLineDash([]);
+  for(const p of path){
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(p.x*cell+cell/2,p.y*cell+cell/2,3,0,Math.PI*2); ctx.fill();
+  }
+
+  if(anim){
+    let t = Math.min(1,(now-anim.startTime)/anim.duration);
+    const eased = 1-Math.pow(1-t,2);
+    let travel = eased;
+    if(S.settle){
+      const OU=0.82;
+      travel = t<OU ? eased*(1+S.settle)
+        : (1+S.settle) + (1-(1+S.settle))*((t-OU)/(1-OU));
+    }
+    let pos = pointAlong(path, Math.min(1,Math.max(0,travel)), S.corner>0, S.corner||0.001);
+    if(S.jitter){
+      const fade=Math.sin(Math.PI*t);
+      const n=(Math.sin(t*37.1+3)+Math.sin(t*61.7+7))*0.5;
+      pos={x:pos.x+n*S.jitter*fade, y:pos.y+n*S.jitter*fade*0.6};
+    }
+    const bob = -Math.abs(Math.sin(((now-anim.startTime)/1000)*Math.PI*S.hz))*S.amp*Math.sin(Math.PI*t);
+    const X = pos.x*cell+cell/2, Y = (pos.y+bob)*cell+cell/2;
+    // marker
+    ctx.fillStyle='#8c2f28'; ctx.strokeStyle='#f0e6cc'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(X,Y,cell*0.22,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    if(t>=1){ anim = looping ? { startTime: now, duration: duration() } : null; }
+  }
+  requestAnimationFrame(draw);
+}
+
+function sync(){
+  el('v-ms').textContent = S.ms+'ms';
+  el('v-speed').textContent = '×'+S.speed.toFixed(2);
+  el('v-corner').textContent = S.corner.toFixed(2);
+  el('v-settle').textContent = S.settle.toFixed(2);
+  el('v-jitter').textContent = S.jitter.toFixed(3);
+  el('v-amp').textContent = S.amp.toFixed(3);
+  el('v-hz').textContent = S.hz.toFixed(1)+'Hz';
+  const steps = ROUTES[S.route].length-1;
+  el('timing').textContent =
+    `${S.kind} · ${steps} square${steps>1?'s':''} · ${(duration()/1000).toFixed(2)}s`;
+}
+
+for(const [id,key,scale] of [['ms','ms',1],['speed','speed',0.01],['corner','corner',0.01],
+                             ['settle','settle',0.01],['jitter','jitter',0.002],
+                             ['amp','amp',0.001],['hz','hz',0.1]]){
+  el(id).addEventListener('input', e => { S[key] = e.target.value*scale; sync(); });
+}
+document.querySelectorAll('button[data-kind]').forEach(b => b.addEventListener('click', ()=>{
+  document.querySelectorAll('button[data-kind]').forEach(o=>o.classList.remove('on'));
+  b.classList.add('on');
+  setFromProfile(b.dataset.kind); sync(); start();
+}));
+el('arm').addEventListener('change', e => { setFromArm(e.target.value); sync(); start(); });
+el('route').addEventListener('change', e => { S.route = e.target.value; sync(); start(); });
+el('replay').addEventListener('click', start);
+el('loop').addEventListener('click', e => {
+  looping = !looping; e.target.textContent = 'Loop: ' + (looping?'on':'off');
+  e.target.classList.toggle('on', looping);
+  if(looping && !anim) start();
+});
+
+el('dump').addEventListener('click', ()=>{
+  const o = el('out');
+  o.textContent =
+`export const MOVE_MS_PER_SQUARE = ${Math.round(S.ms)};
+
+// in MOVE_PROFILES:
+  ${S.kind}: { speed: ${S.speed.toFixed(2)}, corners: ${S.corner>0}, settle: ${S.settle.toFixed(2)}, jitter: ${S.jitter.toFixed(3)} },
+
+// in GAIT:
+  ${S.arm}: { amp: ${S.amp.toFixed(3)}, hz: ${S.hz.toFixed(1)} },
+
+const CORNER_R = ${(S.corner||CORNER_R_BASE).toFixed(2)};`;
+  o.hidden = false;
+});
+
+setFromProfile('march'); setFromArm('INFANTRY'); sync(); start();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

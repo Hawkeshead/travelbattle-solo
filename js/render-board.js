@@ -449,7 +449,8 @@ if(typeof window !== 'undefined'){
 }
 
 export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
-  activeActionLine = { fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, expiresAt: Date.now()+(durationMs||1800) };
+  const lineMs = durationMs || 1800;
+  activeActionLine = { fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs, expiresAt: Date.now()+lineMs };
   ensureAnimationLoopRunning();
 }
 
@@ -1470,7 +1471,11 @@ export function draw(){
     const ln = activeActionLine;
     const fx = ln.fromX*CELL+CELL/2, fy = sy(ln.fromY)*CELL+CELL/2;
     const tx = ln.toX*CELL+CELL/2, ty = sy(ln.toY)*CELL+CELL/2;
-    const remaining = (ln.expiresAt - Date.now()) / 3800;
+    /* Fade measured against the line's OWN duration, not a hardcoded 3800. With
+       the artillery line extended to 5800 that constant would have held it at
+       full opacity for most of its life and then snapped off, instead of holding
+       and fading. */
+    const remaining = (ln.expiresAt - Date.now()) / (ln.durationMs || 3800);
     const alpha = Math.max(0, Math.min(1, remaining*2.2)); // hold steady, then fade in the last stretch
     ctx.save();
     ctx.strokeStyle = ln.color;
@@ -1480,11 +1485,16 @@ export function draw(){
       // line so it reads clearly across the board, not just up close.
       ctx.lineWidth = Math.max(5, CELL*0.16);
       ctx.setLineDash([CELL*0.18, CELL*0.09]);
+      // A dark outer glow, so the red separates from pale plough and parched
+      // grass as well as it already does from woods.
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = Math.max(4, CELL*0.10);
     } else {
       ctx.lineWidth = Math.max(2, CELL*0.06);
     }
     ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
     ctx.setLineDash([]);
+    ctx.shadowBlur = 0;   // cleared before the arrowhead, or the glow doubles on it
     // arrowhead at the target end
     const ang = Math.atan2(ty-fy, tx-fx);
     const ah = CELL*0.16;
