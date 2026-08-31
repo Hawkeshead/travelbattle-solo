@@ -91,7 +91,16 @@ export function addCrater(x, y){
    Terrain restrictions ARE respected, so cavalry never animates through a
    building it could not enter. Occupancy is the only thing ignored.
 ========================================================= */
-const DISPLAY_PATH_MAX = 8;   // no legal move is longer; a guard against a runaway search
+/* Long enough for a ROUT, not just a move. The old value was 8 with the note
+   "no legal move is longer", which is true and beside the point: a rout is not a
+   legal move, it is a retreat to the unit's own board edge and can cross almost
+   the whole board. Beyond the limit the search gave up and returned a two-point
+   fallback, and the duration is derived from the path length, so a nine-tile
+   retreat was timed as a one-tile step and crossed the board in 0.76s. That is
+   what "the unit vanishes and reappears at the edge" actually was.
+
+   COLS+ROWS is comfortably beyond any possible retreat on this board. */
+const DISPLAY_PATH_MAX = COLS + ROWS;
 
 export function displayPath(u, fromX, fromY, toX, toY){
   if(fromX===toX && fromY===toY) return [{x:fromX, y:fromY}];
@@ -370,7 +379,11 @@ export const MOVE_PROFILES = {
   march:              { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
   charge:             { speed: 0.80, corners: false, settle: 0,    jitter: 0     },
   pushback:           { speed: 0.55, corners: false, settle: 0.07, jitter: 0     },
-  rout:               { speed: 0.45, corners: true,  settle: 0,    jitter: 0.02  },
+  /* maxMs caps the WHOLE journey, which only a rout needs: it is the one move
+     that can cross the board, and at the per-square rate a twelve-tile retreat
+     ran to nine seconds. A unit that breaks is running, so a long retreat should
+     be quicker per tile than a short one, not proportionally longer. */
+  rout:               { speed: 0.45, corners: true,  settle: 0,    jitter: 0.02, maxMs: 3000 },
   advanceAfterCombat: { speed: 1.00, corners: true,  settle: 0,    jitter: 0     },
 };
 
@@ -434,15 +447,25 @@ export function animateUnitTo(u, newX, newY, kind){
      silently sliding in a straight line, which is exactly the failure that is
      invisible until someone watches closely and wonders why a three-square move
      looks like a one-square one. */
-  if(squares > 1 && path.length !== squares + 1){
+  /* Not warned for a rout. The check exists to catch a MOVE silently sliding in
+     a straight line, but a retreat legitimately runs the length of the board and
+     may route around units and terrain, so N+1 is not the expectation there. A
+     warning on every rout would train the eye to ignore it. */
+  if(kind !== 'rout' && squares > 1 && path.length !== squares + 1){
     console.warn(`[move] ${u.historicalName || u.type}: ${squares}-square move produced a ` +
       `${path.length}-point path (expected ${squares + 1}) — animating on a straight line`, path);
   }
   const profile = MOVE_PROFILES[kind] || MOVE_PROFILES.march;
+  /* Timed on the distance ACTUALLY travelled, not the length of the path found.
+     Those differ whenever the search falls back to two points, and the fallback
+     is exactly the case where the unit has furthest to go. Taking the greater of
+     the two means a fallback can no longer make a long journey instant. */
+  const travelled = Math.max(squares, path.length - 1);
+  let duration = moveAnimationMs(Math.max(1, travelled)) * profile.speed;
+  if(profile.maxMs) duration = Math.min(duration, profile.maxMs);
   unitAnimations[u.id] = {
     fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
-    startTime:Date.now(),
-    duration: moveAnimationMs(Math.max(1, path.length - 1)) * profile.speed,
+    startTime:Date.now(), duration,
   };
   ensureAnimationLoopRunning();
 }

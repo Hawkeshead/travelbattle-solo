@@ -908,8 +908,14 @@ export function retreatAndRally(loser, onComplete){
   // Capped as well as quick: a retreat right across the board should not hold the
   // rally roll hostage. Beyond the cap the last of the run finishes under the
   // panel, which is a fair trade at that distance.
-  const routMs = FAST_ANIMATION_MODE ? 0 : Math.min(4500,
-    moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed + 120);
+  /* Matched to the animation's own cap rather than a separate guess. The two
+     were tuned independently and drifted apart the moment the rout profile
+     changed: the wait was 4.5s while a long retreat ran to 9s, so the panel
+     opened over the tail of it. Reading maxMs means they cannot diverge again. */
+  const routAnim = Math.min(
+    MOVE_PROFILES.rout.maxMs || Infinity,
+    moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed);
+  const routMs = FAST_ANIMATION_MODE ? 0 : routAnim + 120;
   setTimeout(()=>{
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
