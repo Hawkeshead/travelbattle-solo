@@ -650,16 +650,33 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     ], interim.resultText, interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
-    const final = computeFightResult(aRoll.value, dRoll.value);
+    /* FROZEN AT THE MOMENT THE PANEL IS BUILT.
+    
+       A logged fight showed the panel reading "Britain wins by 3" while the
+       board did a pushback. A pushback is exactly what a 6-against-6 charge tie
+       produces, so the BOARD was right: the panel was describing 6 against 3,
+       the PRE-re-roll values. The defender's own note on that panel read
+       "re-rolled to 6, fights on 6", contradicting the headline above it.
+    
+       Rather than keep hunting for where the two readings diverge, they can no
+       longer diverge. The values are captured once, here, after every re-roll is
+       settled, and the headline, the kept-die highlight, the outcome and the
+       replay entry all derive from THESE rather than from a fresh read of
+       aRoll/dRoll. The panel and the board cannot tell different stories because
+       there is now only one story. */
+    const finalA = aRoll.value, finalD = dRoll.value;
+    const final = computeFightResult(finalA, finalD);
     const { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin } = final;
     if(defenderHillTieWin) dReasons.push('Tie-win: Hill defence');
     else if(attackerChargeTieWin) aReasons.push('Tie-win: Charge');
     else if(attackerColumnTieWin) aReasons.push('Tie-win: Attack Column');
 
     refreshDiceFrame([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+      // finalValue from the frozen pair, so the headline, the highlighted die and
+      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:finalA, notes:aReasons,
        portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+      // the adjustment beneath it all describe the same fight.
+      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:finalD, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
 
@@ -668,21 +685,22 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
        variables. If anything moves them in between, the board does one thing
        while the panel said another, which is the reported symptom. Compared in
        the log rather than assumed equal. */
-    const panelSnapshot = { a: aRoll.value, d: dRoll.value };
+    const panelSnapshot = { a: finalA, d: finalD };
 
     finishDice(()=>{
       // Deferred until the popup has fully faded — nothing on the board moves
       // while there are still dice on screen to read.
       attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
 
+      // Derived from the FROZEN values, not a fresh read. See the note above.
       const fightOutcome = genuineDraw ? 'stalemate'
         : (defenderHillTieWin || attackerChargeTieWin || attackerColumnTieWin) ? 'pushback'
-        : (Math.abs(aRoll.value-dRoll.value)>=3 ? 'destroy' : Math.abs(aRoll.value-dRoll.value)===2 ? 'rout' : 'pushback');
+        : (Math.abs(finalA-finalD)>=3 ? 'destroy' : Math.abs(finalA-finalD)===2 ? 'rout' : 'pushback');
       logReplay('fight', {
         attackerId: attacker.id, defenderId: defender.id,
         attackerSide: attacker.side, defenderSide: defender.side,
         x: defender.x, y: defender.y, result: fightOutcome,
-        aRoll: aRoll.value, dRoll: dRoll.value,
+        aRoll: finalA, dRoll: finalD,
         /* DIAGNOSTIC. Screenshots from a real match showed the panel and the
            board disagreeing: one frame carried a "Tie-win: Attack Column" note,
            recorded only when the two values are EQUAL, alongside a headline of
@@ -706,9 +724,13 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
           dSources: (dBonus.sources||[]).slice(),
           panelText: resultText,
           panelA: panelSnapshot.a, panelD: panelSnapshot.d,
-          settleA: aRoll.value, settleD: dRoll.value,
+          settleA: finalA, settleD: finalD,
+          /* Kept as a LIVE read on purpose. The panel and the outcome now share
+             one frozen pair, so this can no longer catch a divergence between
+             them; what it still catches is anything mutating aRoll/dRoll AFTER
+             the freeze, which would be a new fault worth knowing about. */
           drift: (panelSnapshot.a !== aRoll.value || panelSnapshot.d !== dRoll.value),
-          margin: Math.abs(aRoll.value - dRoll.value),
+          margin: Math.abs(finalA - finalD),
           ties: { genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin },
           aNotes: aReasons.slice(), dNotes: dReasons.slice(),
           // Feature probe: is the RUNNING code the current build? Mobile Safari
@@ -721,13 +743,13 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       });
 
       if(genuineDraw){
-        log(`${aType.label} vs ${dType.label}: ${aRoll.value}-${dRoll.value}, drawn — fight continues next turn.`, 'combat');
+        log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn — fight continues next turn.`, 'combat');
         logNarration('melee_stalemate');
         onComplete();
         return;
       }
       if(defenderHillTieWin){
-        log(`${dType.label} holds the high ground against ${aType.label}: ${aRoll.value}-${dRoll.value} tie goes to the defender.`, 'combat');
+        log(`${dType.label} holds the high ground against ${aType.label}: ${finalA}-${finalD} tie goes to the defender.`, 'combat');
         logNarration('melee_pushback', 'loss');
         pushBack(attacker, defender);
         onComplete();
@@ -735,17 +757,18 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       }
       if(attackerChargeTieWin || attackerColumnTieWin){
         const reason = attackerChargeTieWin ? 'a clean charge' : 'a Column formation';
-        log(`${aType.label}'s ${reason} carries the ${aRoll.value}-${dRoll.value} tie against ${dType.label}.`, 'combat');
+        log(`${aType.label}'s ${reason} carries the ${finalA}-${finalD} tie against ${dType.label}.`, 'combat');
         logNarration('melee_pushback', 'win');
         pushBack(defender, attacker);
         onComplete();
         return;
       }
-      const winnerIsAttacker = aRoll.value > dRoll.value;
+      // Frozen throughout: who won, and by how much, cannot drift from the panel.
+      const winnerIsAttacker = finalA > finalD;
       const winner = winnerIsAttacker ? attacker : defender;
       const loser = winnerIsAttacker ? defender : attacker;
-      const diff = Math.abs(aRoll.value - dRoll.value);
-      log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${aRoll.value}-${dRoll.value}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
+      const diff = Math.abs(finalA - finalD);
+      log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
       const columnPartner = stackPartner(loser); // a broken Column takes both units with it
       const attackerSucceeded = winnerIsAttacker;
