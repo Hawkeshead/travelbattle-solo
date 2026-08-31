@@ -1,6 +1,6 @@
 import { AudioManager } from './audio-manager.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
-import { inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
+import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -405,6 +405,10 @@ export function animateUnitTo(u, newX, newY, kind){
 
      Connection is read AFTER the position updates, since that is the state the
      unit ends its move in and the one that matters next turn. */
+  /* An ambush cannot survive the unit walking out of the trees. Checked here
+     because this is the one place every move passes through, so no caller can
+     forget it. */
+  clearAmbushIfOutOfWoods(u);
   const connectedAfter = movableUnitsForSide(u.side).has(u.id);
   logReplay('move', {
     unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY},

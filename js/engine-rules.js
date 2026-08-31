@@ -57,8 +57,30 @@ export function isConcealedFromEnemy(unit){
 // a defensive invariant, checked at the start of every turn.
 export function enforceAmbushWoodsInvariant(){
   for(const u of state.units){
-    if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS') u.hidden = false;
+    if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS') clearAmbushIfOutOfWoods(u);
   }
+}
+
+/* AN AMBUSH ENDS THE MOMENT THE UNIT LEAVES THE TREES.
+
+   The sweep above only ran at the start of a turn, so a unit that laid an ambush
+   in woods and then marched out stayed flagged as hidden for the rest of that
+   turn. It could stand on a road, in the open, still "IN AMBUSH", and still
+   spring one, which is not a thing an ambush is.
+
+   It was also visible: a Column formed by two such units drew as a woods tile,
+   because a hidden unit reads as concealed wherever it stands.
+
+   Called on every move now, so the flag cannot outlive the cover that justified
+   it. The turn-start sweep is kept as a backstop for any path that repositions a
+   unit without going through a move. */
+export function clearAmbushIfOutOfWoods(u){
+  if(!u.hidden) return;
+  if(terrainAt(u.x, u.y).key === 'WOODS') return;
+  u.hidden = false;
+  u.ambushWaited = 0;
+  logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y,
+    phase:'standDown', reason:'left the woods' });
 }
 export function neighbors8(x,y){
   const out=[];

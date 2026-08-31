@@ -518,28 +518,33 @@ export function drawColumnUnitPair(u1, u2){
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
   const side = u1.side;
   const size = CELL*0.62;
-  const concealed = isConcealedFromEnemy(u1) || isConcealedFromEnemy(u2);
-  // Woods doesn't allow two units sharing a square (allowDouble: false), so
-  // this is unreachable in practice — handled anyway for safety, matching
-  // the single-unit swap in drawUnit.
+  /* NO CONCEALMENT BRANCH HERE, and the comment that used to justify one was
+     wrong in a way worth recording.
+
+     It read: "Woods doesn't allow two units sharing a square (allowDouble:
+     false), so this is unreachable in practice". That is true of the TERRAIN
+     half of isConcealedFromEnemy, but the function also returns true for
+     unit.hidden, and a hidden unit can stand on a road, where doubling is
+     perfectly legal. So the branch was reachable, and a Column formed by units
+     that had just left an ambush drew as a woods tile instead of infantry.
+
+     Concealment for the single-unit path was already reduced to all-or-nothing
+     (own units draw as themselves, concealed enemies are not drawn at all); this
+     brings the pair into line. Enemy concealment is handled by the caller, which
+     does not group units it is not drawing. */
 
   ctx.save();
   ctx.translate(cx,cy);
   ctx.globalAlpha = 1;
 
-  if(concealed){
-    if(!drawWoodsHiddenImage(CELL, side, u1.x, u1.y)) drawInfantryDots(size);
-  } else {
-    // Same layered depth-of-rank effect as before, now with the animated
-    // sprite: a slightly larger copy set back and to the right, then the
-    // front rank drawn over it.
-    ctx.save();
-    ctx.translate(size*0.15, -size*0.15);
-    if(!drawLineInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
-    ctx.restore();
+  // Layered depth of rank: a slightly larger copy set back and to the right for
+  // the rear rank, then the front rank drawn over it.
+  ctx.save();
+  ctx.translate(size*0.15, -size*0.15);
+  if(!drawLineInfantryImage(size*1.15, side)) drawInfantryDots(size*1.15);
+  ctx.restore();
 
-    if(!drawLineInfantryImage(size, side)) drawInfantryDots(size);
-  }
+  if(!drawLineInfantryImage(size, side)) drawInfantryDots(size);
 
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
