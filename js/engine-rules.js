@@ -610,13 +610,30 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const attackerColumnTieWin = isTie && !defenderHillTieWin && !attackerChargeTieWin &&
       (aType.key==='INFANTRY'||aType.key==='GUARD') && isInColumn(attacker);
     const genuineDraw = isTie && !defenderHillTieWin && !attackerChargeTieWin && !attackerColumnTieWin;
+    /* THE MESSAGE NAMES THE EFFECT, not just the margin.
+    
+       It reported the arithmetic and left the player to map it onto an outcome
+       from the reference line: "Britain wins by 3" never actually said the unit
+       dies, and a tie-win said nothing about what happened at all while the board
+       quietly pushed somebody back. Two descriptions of one event, which is how a
+       correct outcome comes to look like a bug.
+    
+       Derived from the SAME margin the board uses, so the sentence and the effect
+       cannot describe different things. */
+    const margin = Math.abs(aVal - dVal);
+    const effectOf = m => m >= 3 ? 'destroyed' : m === 2 ? 'routed' : 'pushed back';
+    
     let resultText, resultCls;
     if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
-    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground`; resultCls = 'win'; }
-    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie`; resultCls = 'win'; }
-    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie`; resultCls = 'win'; }
-    else if(aVal > dVal){ resultText = `${aName} wins by ${aVal-dVal}`; resultCls = 'win'; }
-    else { resultText = `${dName} wins by ${dVal-aVal}`; resultCls = 'win'; }
+    // A tie-win is always a pushback: the margin is zero by definition.
+    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground — ${aName} pushed back`; resultCls = 'win'; }
+    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie — ${dName} pushed back`; resultCls = 'win'; }
+    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie — ${dName} pushed back`; resultCls = 'win'; }
+    else {
+      const winner = aVal > dVal ? aName : dName, loser = aVal > dVal ? dName : aName;
+      resultText = `${winner} wins by ${margin} — ${loser} ${effectOf(margin)}`;
+      resultCls = 'win';
+    }
     return { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin };
   }
 
