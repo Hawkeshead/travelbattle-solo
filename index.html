@@ -277,6 +277,20 @@
   }
   #aiLogExportBox h3{ font-family:'Cinzel',serif;color:var(--brass-bright);text-transform:uppercase;font-size:15px;margin:0 0 6px; }
   .ai-log-export-hint{ font-size:12px;color:var(--ink-dim);margin:0 0 10px; }
+  /* Log navigation. Small and dense on purpose: it sits above a textarea that
+     needs the height more than these do. */
+  #logJump, #logFilterRow{ display:flex; gap:5px; flex-wrap:wrap; margin:0 0 7px; }
+  #logJump button, #logFilterRow button{
+    font-family:ui-monospace,monospace; font-size:11px; padding:6px 9px; cursor:pointer;
+    background:var(--paper-2,#dcd2b6); border:1px solid var(--line,#b3a67f);
+    border-radius:4px; color:var(--ink,#2a2419);
+  }
+  #logJump button:active, #logFilterRow button:active{ background:#b8963f; color:#f0e6cc; }
+  #logFilter{
+    flex:1; min-width:140px; font-family:ui-monospace,monospace; font-size:12px;
+    padding:7px 8px; border:1px solid var(--line,#b3a67f); border-radius:4px;
+    background:#f2ead4; color:var(--ink,#2a2419);
+  }
   #aiLogExportText{
     width:100%;height:min(50vh,320px);font-family:monospace;font-size:11px;line-height:1.4;
     background:var(--paper-2);border:1px solid var(--line);border-radius:3px;padding:8px;
@@ -980,6 +994,23 @@
   <div id="aiLogExportBox">
     <h3 id="aiLogExportTitle">AI Move Log</h3>
     <p class="ai-log-export-hint">Select all and copy, then paste wherever you need it.</p>
+    <!-- Jump and filter. Finding one line in a 1,100-line export by scrolling is
+         the whole reason interesting fights go unreported. -->
+    <div id="logJump">
+      <button data-jump="=== SECTION 1">1 Meta</button>
+      <button data-jump="=== SECTION 2">2 Setup</button>
+      <button data-jump="=== SECTION 3">3 Turns</button>
+      <button data-jump="=== SECTION 4">4 AI</button>
+      <button data-jump="=== SECTION 5">5 Summary</button>
+      <button data-jump="=== SECTION 6">6 Flags</button>
+    </div>
+    <div id="logFilterRow">
+      <input id="logFilter" type="text" placeholder="Filter lines: AMBUSH, RALLY…" autocomplete="off">
+      <button data-filter="AMBUSH">Ambush</button>
+      <button data-filter="RALLY">Rally</button>
+      <button data-filter="DISCONNECTED">Cut off</button>
+      <button data-filter="">Clear</button>
+    </div>
     <textarea id="aiLogExportText" readonly></textarea>
     <div class="ai-log-export-actions">
       <button id="aiLogExportCopyBtn" class="primary">Copy to Clipboard</button>

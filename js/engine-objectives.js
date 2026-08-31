@@ -150,6 +150,8 @@ export function endGame(winner){
     exportBtn.onclick = ()=>{
       document.getElementById('aiLogExportTitle').textContent = 'AI Move Log';
       document.getElementById('aiLogExportText').value = exportAiMoveLog();
+      // Tells the dialog to snapshot the untouched text before any filtering.
+      document.dispatchEvent(new CustomEvent('tb:logShown'));
       document.getElementById('aiLogExportPanel').classList.remove('hidden');
     };
     endScreenButtons.push(exportBtn);
@@ -160,6 +162,8 @@ export function endGame(winner){
     fullExportBtn.onclick = ()=>{
       document.getElementById('aiLogExportTitle').textContent = 'Full Match Log';
       document.getElementById('aiLogExportText').value = exportFullMatchLog();
+      // Tells the dialog to snapshot the untouched text before any filtering.
+      document.dispatchEvent(new CustomEvent('tb:logShown'));
       document.getElementById('aiLogExportPanel').classList.remove('hidden');
     };
     endScreenButtons.push(fullExportBtn);

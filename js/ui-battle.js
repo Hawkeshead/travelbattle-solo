@@ -894,11 +894,72 @@ export function initBattleControls(){
   document.getElementById('aiLogExportCloseBtn').onclick = ()=> exportPanel.classList.add('hidden');
   document.getElementById('aiLogExportBackdrop').onclick = ()=> exportPanel.classList.add('hidden');
   document.getElementById('aiLogExportCopyBtn').onclick = ()=>{
+    // Always copies the FULL log, never the filtered view. Filtering is for
+    // reading; a partial export pasted somewhere would be worse than useless
+    // because it would look complete.
     exportText.select();
-    navigator.clipboard?.writeText(exportText.value).catch(()=>{
+    navigator.clipboard?.writeText(fullLogText || exportText.value).catch(()=>{
       document.execCommand('copy'); // older-browser fallback — clipboard API isn't universal on mobile Safari yet
     });
   };
+
+  /* JUMPING AND FILTERING.
+
+     The export runs to about 1,100 lines and the one line worth seeing is
+     somewhere in the middle of it. Scrolling for it is how interesting fights go
+     unreported, which has already happened more than once.
+
+     The untouched text is held in fullLogText, so filtering never destroys it
+     and Copy always yields the whole thing. */
+  let fullLogText = '';
+
+  function captureFullLog(){ fullLogText = exportText.value; }
+  document.addEventListener('tb:logShown', captureFullLog);
+
+  function applyFilter(term){
+    if(!fullLogText) captureFullLog();
+    const t = (term||'').trim().toUpperCase();
+    if(!t){ exportText.value = fullLogText; exportText.scrollTop = 0; return; }
+    /* Context matters more than the matching line. A fight's arithmetic sits on
+       the lines BELOW its heading, so a bare grep would show the heading and
+       hide the numbers. Three following lines is enough for a fight, a rally or
+       an ambush. */
+    const lines = fullLogText.split('\n');
+    const keep = new Set();
+    for(let i=0;i<lines.length;i++){
+      if(lines[i].toUpperCase().includes(t)){
+        for(let j=i; j<Math.min(lines.length, i+4); j++) keep.add(j);
+      }
+    }
+    const out = [...keep].sort((a,b)=>a-b).map(i=>lines[i]);
+    exportText.value = out.length
+      ? `[filtered: ${t} — ${out.length} lines. Copy still gives the full log]\n\n` + out.join('\n')
+      : `[no lines matching ${t}]`;
+    exportText.scrollTop = 0;
+  }
+
+  const filterInput = document.getElementById('logFilter');
+  if(filterInput) filterInput.addEventListener('input', e => applyFilter(e.target.value));
+  const filterRow = document.getElementById('logFilterRow');
+  if(filterRow) filterRow.addEventListener('click', e => {
+    const b = e.target.closest('button[data-filter]');
+    if(!b) return;
+    filterInput.value = b.dataset.filter;
+    applyFilter(b.dataset.filter);
+  });
+
+  const jumpRow = document.getElementById('logJump');
+  if(jumpRow) jumpRow.addEventListener('click', e => {
+    const b = e.target.closest('button[data-jump]');
+    if(!b) return;
+    if(filterInput.value){ filterInput.value = ''; applyFilter(''); }
+    const idx = exportText.value.indexOf(b.dataset.jump);
+    if(idx < 0) return;
+    // Scroll by counting lines to the match: textareas have no anchor to jump to.
+    const line = exportText.value.slice(0, idx).split('\n').length;
+    const lineHeight = parseFloat(getComputedStyle(exportText).lineHeight) || 16;
+    exportText.scrollTop = Math.max(0, (line - 1) * lineHeight);
+  });
 
   document.getElementById('logIconBtn').onclick = ()=>{
     const overlay = document.getElementById('logOverlay');
