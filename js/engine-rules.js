@@ -430,7 +430,22 @@ export function combatBonuses(unit, opponent, defending, extraSources){
       sources.push(coverLabel);
     }
   }
-  if(oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
+  /* SQUARE ONLY HELPS A UNIT THAT IS RECEIVING, not one that attacks.
+  
+     The `defending` gate was missing, so infantry in square drew its second die
+     when it marched out and attacked cavalry. A logged fight shows 9e Legere
+     attacking the Scots Greys and rolling two dice for 'Square vs Cavalry'.
+  
+     A square is formed to stand and receive a charge; a unit that leaves to
+     attack is not doing that, and every other cover and formation bonus here is
+     already gated on defending.
+  
+     FLAGGED AS A JUDGEMENT, not a citation: the ruleset PDF in the project is
+     not readable (it carries a ZIP header, so the file is something else under
+     a .pdf name). The cavalry bonus immediately below WAS checked against the
+     printed rules and is deliberately not gated, so the two differ on purpose
+     rather than by oversight. Worth confirming against the book. */
+  if(defending && oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
     sources.push('Square vs Cavalry');
   }
   // Cavalry fighting Infantry/Guard not in Square rolls a second die, regardless of
