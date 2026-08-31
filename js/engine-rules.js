@@ -882,33 +882,25 @@ export function retreatAndRally(loser, onComplete){
   const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
   const routSteps = Math.max(Math.abs(cell.x-loser.x), Math.abs(cell.y-loser.y));
 
-  /* A UNIT WITH NOWHERE TO GO STAYS PUT, and is still turned around.
+  /* THE RALLY IS ROLLED WHERE THE UNIT STANDS, and only a unit that rallies
+     retreats.
 
-     findNearestFreeEdgeCell can return the unit's own square: it is already on
-     its board edge, or the edge is full and the fallback overlaps. Previously
-     that produced a "move" of zero squares, which the export flagged as an
-     anomaly (T12 Battery A, "move resolved to its own tile") because it looked
-     like a fault rather than a rule.
+     It used to retreat first and roll afterwards, so a unit that failed died at
+     the board edge, several squares from the fight that broke it, with the skull
+     and the death cry landing somewhere the player was not looking. Rolling on
+     the spot puts the consequence where the fight was.
 
-     It is a rule: there is no ground left to give, so the unit holds the square
-     and takes the consequences anyway. turnOnly is what actually matters and is
-     applied either way, so the unit cannot move or act next turn whether it
-     retreated across the board or had nowhere to retreat to.
+     It also removes the vanishing-retreat problem by construction rather than by
+     timing. The retreat now runs AFTER the dice panel has closed, so there is no
+     window in which it plays out behind an overlay. Two previous attempts tried
+     to schedule around that overlap; this removes the overlap.
 
-     Skipping the animation in that case is deliberate. Animating a move to the
-     square a unit is already on is a no-op that still occupies the rally delay,
-     and it is what put a spurious flag in the log. */
+     A unit with nowhere to go (already on its edge, or the edge full) holds its
+     square either way, and is turned about either way. */
   const nowhereToGo = (cell.x === loser.x && cell.y === loser.y);
-  if(nowhereToGo){
-    log(`${unitLabel(loser)} (${SIDE_LABEL[loser.side]}) is driven back against the board edge ` +
-        `with nowhere to go — it holds the square, turned about.`, 'combat');
-    logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y,
-      newStatus:'HeldAtEdge', reason:'routed with nowhere to retreat to' });
-  } else {
-    animateUnitTo(loser, cell.x, cell.y, 'rout');   // breaking for its own board edge
-  }
   loser.turnOnly = true;
   loser.rallying = true;
+
   const t = UNIT_TYPES[loser.type];
   // House rule: Heavy Cavalry rallies on 3+ alongside Guard Infantry. The printed
   // ruleset (p.7) grants the easier rally to Guard Infantry only, but Heavy Cavalry
@@ -920,36 +912,13 @@ export function retreatAndRally(loser, onComplete){
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
-  /* THE RETREAT HAS TO BE SEEN BEFORE THE DICE COVER IT.
-  
-     The unit was already being animated to the edge, but the rally panel opened
-     in the same breath and the dice overlay sits on top of the board. So the
-     whole retreat played out behind the panel and the unit appeared to vanish
-     from where it fought and reappear at the edge only if it rallied.
-  
-     Waiting for the animation means the player watches it break and run, and
-     only then rolls to see whether it stops. A skipped animation (the test
-     harness) reports zero, so this adds nothing there. */
-  // Capped as well as quick: a retreat right across the board should not hold the
-  // rally roll hostage. Beyond the cap the last of the run finishes under the
-  // panel, which is a fair trade at that distance.
-  /* Matched to the animation's own cap rather than a separate guess. The two
-     were tuned independently and drifted apart the moment the rout profile
-     changed: the wait was 4.5s while a long retreat ran to 9s, so the panel
-     opened over the tail of it. Reading maxMs means they cannot diverge again. */
-  const routAnim = Math.min(
-    MOVE_PROFILES.rout.maxMs || Infinity,
-    moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed);
-  // No wait when nothing moved: the pause exists to let the retreat be seen.
-  const routMs = (FAST_ANIMATION_MODE || nowhereToGo) ? 0 : routAnim + 120;
-  setTimeout(()=>{
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
-    /* The rally in full. Previously only the outcome was recorded ("Rallied" or
-       "failed rally"), so a poor rally record could not be told apart from
-       Brigadiers being out of position, which is the single thing six matches of
-       analysis kept asking about. */
+    /* The rally in full: the roll, the threshold and its reason, whether a
+       Brigadier was in range and which one, and whether the Leadership Roll was
+       still available. Only the outcome used to be recorded, so a poor rally
+       record could not be told apart from Brigadiers being out of position. */
     logReplay('rally', {
       unitId: loser.id, side: loser.side, x: loser.x, y: loser.y,
       roll: r, threshold: successOn[0], success,
@@ -960,13 +929,32 @@ export function retreatAndRally(loser, onComplete){
     });
     showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
-        log(`${unitLabel(loser)} falls back to the board edge and RALLIES (rolled ${r}).`, 'combat');
         logNarration('rally_success');
-        logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, newStatus:'Rallied' });
-        onComplete();
+        if(nowhereToGo){
+          log(`${unitLabel(loser)} is driven against the board edge with nowhere to go — ` +
+              `it holds the square, turned about, and RALLIES (rolled ${r}).`, 'combat');
+          logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y,
+            newStatus:'HeldAtEdge', reason:'rallied with nowhere to retreat to' });
+          onComplete();
+          return;
+        }
+        /* ONLY NOW does it retreat, with the panel gone and nothing over the
+           board: through square centres, above the map, below the ambient clouds
+           and birds, in the same style as any other move. */
+        log(`${unitLabel(loser)} RALLIES (rolled ${r}) and falls back to the board edge.`, 'combat');
+        animateUnitTo(loser, cell.x, cell.y, 'rout');
+        logReplay('status', { unitId:loser.id, side:loser.side, x:cell.x, y:cell.y, newStatus:'Rallied' });
+        // Hand back only once the run has finished, so the next fight cannot open
+        // a panel over a unit that is still moving.
+        const runMs = FAST_ANIMATION_MODE ? 0 : Math.min(
+          MOVE_PROFILES.rout.maxMs || Infinity,
+          moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed) + 120;
+        setTimeout(onComplete, runMs);
         return;
       }
-      log(`${unitLabel(loser)} fails to rally (rolled ${r}).`, 'combat');
+      // Fails where it fought, not at the edge: the skull and the death cry land
+      // on the square the player was already watching.
+      log(`${unitLabel(loser)} fails to rally (rolled ${r}) and is lost where it stood.`, 'combat');
       if(brig && !brig.leadershipUsed){
         offerLeadershipRoll(loser, brig, onComplete);
       } else {
@@ -977,7 +965,6 @@ export function retreatAndRally(loser, onComplete){
       }
     });
   });
-  }, routMs);
 }
 
 // Leadership Roll is one guaranteed save per Brigade for the whole match, so
