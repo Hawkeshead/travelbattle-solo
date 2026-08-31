@@ -340,6 +340,8 @@ function sectionFlags(log, label){
     if(d > cap && !routingToEdge){
       flags.push(`T${e.turn}  ${label(e.unitId)}: moved ${d} tiles (allowance ${cap-1} +1 road)`);
     }
+    /* A rout with nowhere to go no longer produces a zero-square move at all,
+       so this stays as a flag for a genuine fault rather than a rule. */
     if(d === 0){
       flags.push(`T${e.turn}  ${label(e.unitId)}: move resolved to its own tile (${e.to.x},${e.to.y})`);
     }
@@ -446,6 +448,14 @@ export function exportFullMatchLog(){
       } else {
         quietMoves[ev.side] = (quietMoves[ev.side] || 0) + 1;
       }
+    } else if(ev.type==='routAnim'){
+      // Diagnostic for the vanishing-rout report. Anything odd here explains it:
+      // 0 squares means it never moved, 1 path point means it stood still, and
+      // fastMode true means animation was skipped entirely.
+      const odd = ev.squares===0 || ev.pathPoints<2 || ev.fastMode;
+      lines.push(`ROUT ANIM: ${label(ev.unitId)} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
+        `${ev.squares} squares, ${ev.pathPoints} path points, timed on ${ev.travelled}` +
+        `${ev.fastMode ? ', FAST MODE' : ''}${odd ? '   *** LOOK HERE ***' : ''}`);
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){

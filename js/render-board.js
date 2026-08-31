@@ -461,6 +461,24 @@ export function animateUnitTo(u, newX, newY, kind){
      is exactly the case where the unit has furthest to go. Taking the greater of
      the two means a fallback can no longer make a long journey instant. */
   const travelled = Math.max(squares, path.length - 1);
+  /* A ROUT logs its animation parameters, because two attempts at fixing "the
+     routed unit vanishes" have both failed by reasoning about the code. The
+     position maths checks out, the render loop runs continuously, and the
+     durations are right, so the next thing to do is record what actually
+     happened rather than infer it a third time.
+
+     Everything that could make a unit invisible is here: a zero or NaN duration
+     would make it skip straight to the end, a one-point path would leave it
+     standing still, and a destination equal to the origin would mean it never
+     went anywhere. */
+  if(kind === 'rout'){
+    logReplay('routAnim', {
+      unitId: u.id, side: u.side,
+      from: {x:fromX, y:fromY}, to: {x:newX, y:newY},
+      squares, pathPoints: path.length, travelled,
+      fastMode: FAST_ANIMATION_MODE,
+    });
+  }
   let duration = moveAnimationMs(Math.max(1, travelled)) * profile.speed;
   if(profile.maxMs) duration = Math.min(duration, profile.maxMs);
   unitAnimations[u.id] = {

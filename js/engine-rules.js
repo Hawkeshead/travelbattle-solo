@@ -881,7 +881,32 @@ export function retreatAndRally(loser, onComplete){
   const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
   const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
   const routSteps = Math.max(Math.abs(cell.x-loser.x), Math.abs(cell.y-loser.y));
-  animateUnitTo(loser, cell.x, cell.y, 'rout');   // breaking for its own board edge
+
+  /* A UNIT WITH NOWHERE TO GO STAYS PUT, and is still turned around.
+
+     findNearestFreeEdgeCell can return the unit's own square: it is already on
+     its board edge, or the edge is full and the fallback overlaps. Previously
+     that produced a "move" of zero squares, which the export flagged as an
+     anomaly (T12 Battery A, "move resolved to its own tile") because it looked
+     like a fault rather than a rule.
+
+     It is a rule: there is no ground left to give, so the unit holds the square
+     and takes the consequences anyway. turnOnly is what actually matters and is
+     applied either way, so the unit cannot move or act next turn whether it
+     retreated across the board or had nowhere to retreat to.
+
+     Skipping the animation in that case is deliberate. Animating a move to the
+     square a unit is already on is a no-op that still occupies the rally delay,
+     and it is what put a spurious flag in the log. */
+  const nowhereToGo = (cell.x === loser.x && cell.y === loser.y);
+  if(nowhereToGo){
+    log(`${unitLabel(loser)} (${SIDE_LABEL[loser.side]}) is driven back against the board edge ` +
+        `with nowhere to go — it holds the square, turned about.`, 'combat');
+    logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y,
+      newStatus:'HeldAtEdge', reason:'routed with nowhere to retreat to' });
+  } else {
+    animateUnitTo(loser, cell.x, cell.y, 'rout');   // breaking for its own board edge
+  }
   loser.turnOnly = true;
   loser.rallying = true;
   const t = UNIT_TYPES[loser.type];
@@ -915,7 +940,8 @@ export function retreatAndRally(loser, onComplete){
   const routAnim = Math.min(
     MOVE_PROFILES.rout.maxMs || Infinity,
     moveAnimationMs(Math.max(1, routSteps)) * MOVE_PROFILES.rout.speed);
-  const routMs = FAST_ANIMATION_MODE ? 0 : routAnim + 120;
+  // No wait when nothing moved: the pause exists to let the retreat be seen.
+  const routMs = (FAST_ANIMATION_MODE || nowhereToGo) ? 0 : routAnim + 120;
   setTimeout(()=>{
   presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
