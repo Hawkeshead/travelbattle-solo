@@ -681,8 +681,39 @@ export function orderAiUnitsForMove(side){
     const members = units.filter(u=>u.brigadeId===bId);
     brigadeX[bId] = brig ? brig.x : members.reduce((s,u)=>s+u.x,0)/members.length;
   }
+  /* WITHIN A BRIGADE, THE OUTERMOST UNIT MOVES FIRST.
+  
+     Ordering by unit type alone ignored the cohesion chain, and the chain is a
+     chain: a unit in the middle of it holds the ones beyond it connected. Move
+     that middle unit first and everything past it is severed and cannot move
+     at all, which throws away a whole unit's turn for nothing.
+  
+     Moving from the outside in removes the problem rather than mitigating it.
+     The unit furthest from its Brigadier has nothing depending on it, so it can
+     always go first safely; once it has moved, the next-furthest is now the
+     outermost, and so on inward.
+  
+     The Brigadier is first of all, ahead of everyone: he is the anchor, and the
+     rest need a freshly-moved anchor to path toward rather than chasing where
+     he used to be. -Infinity rather than a small number, so no distance can
+     ever sort a unit ahead of him.
+  
+     Type priority stays as the final tie-break, and Brigades are still grouped
+     left to right so the camera can follow one at a time. */
+  const brigadierOf = {};
+  for(const bId of new Set(units.map(u=>u.brigadeId))){
+    brigadierOf[bId] = units.find(u=>u.brigadeId===bId && u.type==='BRIGADIER') || null;
+  }
+  const chainDepth = u => {
+    if(u.type==='BRIGADIER') return -Infinity;
+    const brig = brigadierOf[u.brigadeId];
+    return brig ? -chebyshev(u, brig) : 0;   // negated, so furthest sorts first
+  };
+  
   return units
-    .sort((a,b)=> (brigadeX[a.brigadeId]-brigadeX[b.brigadeId]) || (pri[a.type]-pri[b.type]))
+    .sort((a,b)=> (brigadeX[a.brigadeId]-brigadeX[b.brigadeId])
+               || (chainDepth(a)-chainDepth(b))
+               || (pri[a.type]-pri[b.type]))
     .map(u=>u.id);
 }
 
