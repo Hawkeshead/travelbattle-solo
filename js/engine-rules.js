@@ -57,7 +57,15 @@ export function isConcealedFromEnemy(unit){
 // a defensive invariant, checked at the start of every turn.
 export function enforceAmbushWoodsInvariant(){
   for(const u of state.units){
-    if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS') clearAmbushIfOutOfWoods(u);
+    /* Distinct reason from the move-time check. Both used to log "left the
+       woods", which made them indistinguishable in the export, and a match log
+       then showed three units standing down at the START of a turn. That should
+       be impossible now the flag is cleared on the move itself, so something is
+       getting a unit out of the trees without going through animateUnitTo.
+       Naming the two apart is what will identify it. */
+    if(u.hidden && terrainAt(u.x,u.y).key!=='WOODS'){
+      clearAmbushIfOutOfWoods(u, 'turn-start sweep: hidden but not in woods');
+    }
   }
 }
 
@@ -74,13 +82,13 @@ export function enforceAmbushWoodsInvariant(){
    Called on every move now, so the flag cannot outlive the cover that justified
    it. The turn-start sweep is kept as a backstop for any path that repositions a
    unit without going through a move. */
-export function clearAmbushIfOutOfWoods(u){
+export function clearAmbushIfOutOfWoods(u, reason){
   if(!u.hidden) return;
   if(terrainAt(u.x, u.y).key === 'WOODS') return;
   u.hidden = false;
   u.ambushWaited = 0;
   logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y,
-    phase:'standDown', reason:'left the woods' });
+    phase:'standDown', reason: reason || 'moved out of the woods' });
 }
 export function neighbors8(x,y){
   const out=[];

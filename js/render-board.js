@@ -326,6 +326,13 @@ export function displaceBrigadierIfPresent(x, y, fromX, fromY){
   for(const c of candidates){
     if(inBounds(c.x,c.y) && unitsAt(c.x,c.y).length===0){
       occupant.x = c.x; occupant.y = c.y;
+      /* This writes the position DIRECTLY rather than going through
+         animateUnitTo, so none of the per-move bookkeeping runs. The ambush
+         clear is the part that matters: a Brigadier shoved out of woods would
+         otherwise keep a hidden flag with no cover behind it until the next
+         turn's sweep caught it. Called explicitly for the same reason the move
+         path calls it, and named distinctly so the export shows which happened. */
+      clearAmbushIfOutOfWoods(occupant, 'shoved clear of an occupied square');
       log(`${SIDE_LABEL[occupant.side]}'s Brigadier is shoved clear.`, 'system');
       return;
     }
