@@ -232,6 +232,25 @@ export function reconstructPath(u, toX, toY){
   return out.reverse();
 }
 
+/* CAN THIS UNIT MOVE AT ALL — asked without disturbing anything.
+
+   legalMoves() is not a pure query. It writes `lastSearch`, the breadcrumb
+   trail displayPath() reads to animate a move along the route the search
+   actually walked rather than a straight line. That is fine for the one unit a
+   player has selected, but the auto-end test asks the same question of EVERY
+   unit on the side, several times a turn. Left unguarded it would overwrite the
+   moving unit's breadcrumbs with some bystander's, and a three-square move
+   around a wood would start sliding through it.
+
+   The trail is therefore saved and put back. Cheaper than making legalMoves
+   pure, and it keeps the two callers honest about which one owns the state. */
+export function hasAnyLegalMove(u){
+  const saved = lastSearch;
+  const any = legalMoves(u).length > 0;
+  lastSearch = saved;
+  return any;
+}
+
 export function legalMoves(u){
   if(u.formation==='square') return []; // squares don't move
   if(u.turnOnly) return [];
@@ -274,7 +293,19 @@ export function legalMoves(u){
       const enemyOcc = enemyUnitsHere.length>0 && !(enemyUnitsHere.length===1 && enemyUnitsHere[0].type==='BRIGADIER');
       if(enemyOcc) continue; // can't move onto an enemy square (that's a fight, not a move) — except a lone Brigadier, who gets shoved aside instead
       if(occ.length>0){
-        const canDouble = terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.length<2;
+        /* A SQUARE WILL NOT BE DOUBLED INTO.
+        
+           canLayAmbush already refuses to form a Square on a shared cell
+           ("Square-style formations need the square to itself"), but only in
+           that direction: nothing stopped a second unit walking onto a Square
+           that had already formed. The result was a Column and a Square on one
+           square at once, two formations that mean opposite things (one is a
+           marching block, the other is a static all-round defence), with the
+           combat code reading whichever it asked for first.
+        
+           Closed here rather than in the Square button, so the rule holds
+           whoever arrives second. */
+        const canDouble = terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.every(o=>o.formation!=='square') && occ.length<2;
         if(!canDouble) continue;
       }
       dist.set(key, nd);

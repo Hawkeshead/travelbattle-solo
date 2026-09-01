@@ -20,7 +20,8 @@ import { maybeShowArmyPicker } from './ui-menus.js';
 export const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
 export const FULL_ARMY_POOL_GRAND = TB_DATA.unitTypes.brigadeCompositionsGrand.flat(); // Grand Strategy: 3 Brigadier, 4 Guard, 12 Infantry, 4 Heavy Cav, 4 Light Cav, 4 Artillery
 
-export function initDeployment(){
+export function initDeployment(forcedFirstPlacement){
+  deployGeneration += 1; // invalidates any AI deploy step still in flight from a previous deployment
   resetHistoricalIdentities();
   state.captureHoldCounter = { red:0, blue:0 };
   state.turnNumber = 1;
@@ -38,7 +39,11 @@ export function initDeployment(){
   state.currentBrigadeCount = { red: 0, blue: 0 };
   state._aiHardDeployRemaining = { red:{}, blue:{} };
   state._armyPickerShown = { red:false, blue:false };
-  state.deployTurn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
+  /* Passed in only by restartDeployment, which must not re-roll: the AI's own
+     deploy step and the Army picker are both scheduled from deployTurn at the
+     bottom of this function, so the value has to be settled before then rather
+     than corrected afterwards. */
+  state.deployTurn = forcedFirstPlacement || (Math.random()<0.5 ? SIDES.RED : SIDES.BLUE);
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
   document.getElementById('sidebar').style.display='flex';
@@ -48,8 +53,61 @@ export function initDeployment(){
   updateHeader();
   if(maybeShowArmyPicker()) return; // offers the fast-path Army picker instead of leaving the roster panel as the only option — see ui-menus.js
   if(state.mode==='ai' && state.deployTurn===state.aiSide){
-    setTimeout(aiDeployStep, 500);
+    scheduleAiDeployStep(500);
   }
+}
+
+/* AI deployment steps are chained through setTimeout, so at any moment a
+   restart could have one already in flight. Without a guard it lands a moment
+   later and places a unit into the FRESH deployment, on top of whatever the AI
+   is legitimately doing there: one extra unit appears, from the army that was
+   supposed to have been withdrawn.
+
+   Every scheduled step therefore carries the generation it was booked under and
+   discards itself if the board has been reset since. Cheaper and more reliable
+   than trying to track and clear the timer handles, since the chain reschedules
+   itself from three different places. */
+let deployGeneration = 0;
+export function scheduleAiDeployStep(ms){
+  const booked = deployGeneration;
+  setTimeout(()=>{ if(booked === deployGeneration) aiDeployStep(); }, ms);
+}
+
+/* RESTART DEPLOYMENT.
+
+   Ordinary Undo cannot help here. Confirming a Brigade is a commit point that
+   clears the undo stack (see confirmCurrentBrigade), and the Army picker sits
+   in front of the first Brigade, so by the time an army has revealed itself to
+   be the wrong choice there is nothing left to step back through. That is the
+   real complaint: not "undo my last placement" but "I picked the wrong army".
+
+   So this wipes the board and starts the whole placement over, for BOTH sides.
+   It has to be both: the AI counter-picks against whatever is already on the
+   board (pickCounterArmy), so leaving its army standing while the player
+   re-chooses would hand the player a free look at the counter and then let
+   them answer it. Clearing both keeps the deployment bluff intact.
+
+   The first-placement roll is deliberately preserved. Re-rolling it would make
+   this button a way to fish for the first move, which is a different thing
+   from correcting a misclick. */
+export function restartDeployment(){
+  if(state.phase !== 'deploy') return;
+  const placed = state.units.filter(u=>!u.removed).length;
+  if(placed > 0 && !window.confirm('Withdraw both armies and start deployment again? Every unit already placed will be returned to its roster.')) return;
+  const firstPlacement = state.deployTurn;
+  state.units.length = 0;
+  /* The AI's army and Grand-Strategy composition choices are memoised for the
+     match, so they must go too, or it would redeploy the identical army it
+     just had and the counter-pick would be made against a board it has already
+     seen. _aiPlanUsed is the easy AI's equivalent: a Set of plan entries it has
+     already consumed, which would otherwise carry over and leave the fresh
+     deployment thinking half its plan was already spent. */
+  state._aiArmyChoice = null;
+  state._aiCompositionChoice = null;
+  state._aiPlanUsed = null;
+  log('Deployment restarted — both armies withdrawn from the field.', 'system');
+  initDeployment(firstPlacement);
+  draw();
 }
 
 export function sideFullyDeployed(side){ return state.deployBrigadeIndex[side] >= 3; }
@@ -246,7 +304,7 @@ export function placeUnit(side, typeKey, x, y){
   draw();
 
   if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
-    setTimeout(aiDeployStep, 450);
+    scheduleAiDeployStep(450);
   }
 }
 
@@ -275,7 +333,7 @@ export function confirmCurrentBrigade(){
 
   if(maybeShowArmyPicker()) return; // it just became a human side's first turn — offer the fast-path Army picker
   if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
-    setTimeout(aiDeployStep, 450);
+    scheduleAiDeployStep(450);
   }
 }
 

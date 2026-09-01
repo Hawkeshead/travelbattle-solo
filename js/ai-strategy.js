@@ -5,7 +5,7 @@ import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasCha
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
-import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, unitLabel } from './ui-battle.js';
+import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, unitLabel } from './ui-battle.js';
 
 /* =========================================================
    AI: BATTLEFIELD ASSESSMENT, OPERATIONAL PLAN, BRIGADE MISSIONS
@@ -1701,7 +1701,15 @@ export function aiDoMovePhase(){
     // three times as long as a one-square step, so a fixed wait would start the
     // next unit while the previous was still crossing the board.
     const steps = Math.max(Math.abs(u.x-beforeX), Math.abs(u.y-beforeY));
-    setTimeout(step, moved ? moveAnimationMs(Math.max(1, steps)) + 60 : 340);
+    /* An ambush the AI has just walked into resolves here, between units,
+       rather than waiting for endMovePhase. Same reason as the human path: the
+       ambusher should not have to wait while the rest of the Brigade forms up
+       around its victim. resolveAmbushSpringsNow is a no-op when nothing is
+       pending, which is the overwhelming majority of steps, and the human
+       owner's Hold/Advance dialog holds the loop until it is answered because
+       the next step() is its callback. */
+    setTimeout(()=> resolveAmbushSpringsNow(step),
+      moved ? moveAnimationMs(Math.max(1, steps)) + 60 : 340);
   }
   step();
 }

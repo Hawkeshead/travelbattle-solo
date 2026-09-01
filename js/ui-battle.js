@@ -8,8 +8,9 @@ import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, 
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
-import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
+import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
+import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
 
 /* =========================================================
    MAIN GAME FLOW
@@ -230,7 +231,9 @@ export function beginMovePhase(){
   if(aiTurn){
     aiPlanTurn(state.aiSide);
     setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
+    return;
   }
+  maybeStartAutoEnd(); // a side with nothing that can move (all disconnected, all in Square) shouldn't need a button press
 }
 
 export function clearPendingTurnaroundFlagsIfDue(){
@@ -264,7 +267,8 @@ export function beginFirePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
-  if(aiTurn) setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400);
+  if(aiTurn){ setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
+  maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
 export function beginFightPhase(){
@@ -283,7 +287,10 @@ export function beginFightPhase(){
     setTimeout(aiDoFightPhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
   }
-  // auto-skip if no fights available (human turn)
+  /* Was an unconditional setTimeout(endFightPhase, 400): the phase vanished
+     before the player could read why. The explanation still prints, but the
+     phase now waits out the countdown like any other, so there is time to read
+     it and, if the skip is a surprise, to undo back into the Fire phase. */
   if(!anyFightsAvailable(state.turn)){
     const stuck = turnedAroundInContact(state.turn);
     if(stuck.length > 0){
@@ -291,8 +298,8 @@ export function beginFightPhase(){
     } else {
       log('No units in contact — skipping Fight phase.', 'system');
     }
-    setTimeout(endFightPhase, 400);
   }
+  maybeStartAutoEnd();
 }
 // Woodland Ambush: an Infantry-class unit in woods, untouched by the enemy,
 // that hasn't already acted this Move phase, may lie in wait instead of
@@ -337,9 +344,51 @@ export function turnedAroundInContact(side){
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
-export function endMovePhase(){
+/* AMBUSHES RESOLVE THE MOMENT SOMEBODY WALKS INTO ONE.
+
+   They used to be collected and resolved in one batch at the end of the Move
+   phase. That let the mover finish the whole phase first, and the ambusher then
+   sprang on a board that had already rearranged itself around it. The clearest
+   case is the Column: two Infantry units doubled onto one square, formed one
+   unit at a time. Under the batched version the first unit could step adjacent
+   to a hidden unit, the second could then join it, and the ambush sprang on a
+   fully-formed Column with its combat bonus and its shared fate already in
+   place. The ambusher was made to wait for the trap to become worse for it.
+
+   Now every completed move is followed immediately by a spring check, so the
+   ambush fires against the single unit that blundered into it, before its
+   partner can arrive. Nothing about the spring itself changed — same targeting,
+   same Hold/Advance choice, same dice.
+
+   endMovePhase keeps a final sweep. It is a no-op on a normal turn (everything
+   has already resolved) and exists only so that any move path added later, or
+   any spring that could not resolve at the time, still cannot leak past the end
+   of the phase.
+
+   `onDone` is optional: called with no argument from a mid-phase move, this
+   just resolves what is pending and returns. */
+/* Springs the ambush check once the mover has visibly arrived, rather than
+   while it is still sliding across the board. Mirrors the wait the AI move loop
+   already does between units, and collapses to an immediate call under
+   FAST_ANIMATION_MODE so the test harness does not sit on timers. */
+export function afterMoveSettles(steps, kind, fn){
+  if(FAST_ANIMATION_MODE){ fn(); return; }
+  const profile = MOVE_PROFILES[kind] || MOVE_PROFILES.march;
+  let ms = moveAnimationMs(Math.max(1, steps)) * profile.speed;
+  if(profile.maxMs) ms = Math.min(ms, profile.maxMs);
+  setTimeout(fn, ms + 60);
+}
+
+export function resolveAmbushSpringsNow(onDone){
+  onDone = onDone || function(){};
   const springs = collectAmbushSprings();
-  processAmbushSpringsSequentially(springs, 0, beginFirePhase);
+  if(springs.length === 0){ onDone(); return; }
+  processAmbushSpringsSequentially(springs, 0, onDone);
+}
+
+export function endMovePhase(){
+  cancelAutoEnd();
+  resolveAmbushSpringsNow(beginFirePhase);
 }
 
 // Detects (but does not resolve) any hidden unit now adjacent to an enemy
@@ -427,8 +476,9 @@ export function springAmbush(ambusher, target, mode, onComplete){
     onComplete();
   });
 }
-export function endFirePhase(){ beginFightPhase(); }
+export function endFirePhase(){ cancelAutoEnd(); beginFightPhase(); }
 export function endFightPhase(){
+  cancelAutoEnd();
   if(state.gameOver) return;
   if(anyFightsAvailable(state.turn)){
     log('Units in contact must fight before the phase can end.', 'system');
@@ -649,6 +699,7 @@ export function onCellClick(x,y){
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} charges to engage!`, sel.side);
       selectUnit(sel.id);
+      afterMoveSettles(chargeSteps, 'charge', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
@@ -689,6 +740,7 @@ export function onCellClick(x,y){
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
+      afterMoveSettles(marchSteps, 'march', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
     if(clicked && clicked.side===state.turn){ selectUnit(clicked.id); return; }
@@ -698,7 +750,7 @@ export function onCellClick(x,y){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
       selectUnit(null);
-      fireArtillery(sel, target);
+      fireArtillery(sel, target, maybeStartAutoEnd);
       return;
     }
     if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
@@ -734,9 +786,10 @@ export function onCellClick(x,y){
          commitment happens when the attack is declared, so that is where it is
          recorded. */
       state.fought.add(sel.id);
-      resolveFight(sel, target, undefined, ()=>{
-        if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
-      });
+      /* Was setTimeout(endFightPhase, 500) the instant the last fight resolved,
+         which cut off the result of that fight. maybeStartAutoEnd runs the same
+         test and then gives the player four seconds and an Undo. */
+      resolveFight(sel, target, undefined, maybeStartAutoEnd);
       return;
     }
     if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
@@ -1039,6 +1092,7 @@ export function initBattleControls(){
     }
     selectUnit(u.id);
     draw();
+    maybeStartAutoEnd();
   };
 
   document.getElementById('ambushBtn').onclick = ()=>{
@@ -1057,6 +1111,7 @@ export function initBattleControls(){
     }
     selectUnit(u.id);
     draw();
+    maybeStartAutoEnd();
   };
 
   document.getElementById('chargeBtn').onclick = ()=>{
@@ -1070,8 +1125,13 @@ export function initBattleControls(){
   document.getElementById('endMoveBtn').onclick = endMovePhase;
   document.getElementById('endFireBtn').onclick = endFirePhase;
   document.getElementById('endFightBtn').onclick = endFightPhase;
+  /* Handed over rather than imported, to keep phase-autoend.js out of the
+     ui-battle <-> ai-strategy import cycle. See the note in that file. */
+  registerPhaseEnders({ move: endMovePhase, fire: endFirePhase, fight: endFightPhase }, anyFightsAvailable);
   document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
   document.getElementById('endDeployBtn').onclick = startBattle;
+  const restartDeployBtn = document.getElementById('restartDeployBtn');
+  if(restartDeployBtn) restartDeployBtn.onclick = restartDeployment;
   document.getElementById('undoBtn').onclick = undoLastAction;
   document.getElementById('undoBtnBattle').onclick = undoLastAction;
   document.getElementById('resetViewBtn').onclick = resetMapView;
