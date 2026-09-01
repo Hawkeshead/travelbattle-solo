@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -898,7 +898,86 @@ function tempoPhase(side){
    The inverse matters as much. A gun with nothing to shoot and no ground worth
    holding is not being bold, it is stranded, and that is what should bring the
    Brigadier over. */
-export const GUN_VANTAGE_TARGETS = 1;   // one target in arc justifies standing alone
+/* ARTILLERY VANTAGE POINTS.
+
+   A gun's whole job is to find one good position and fire from it for the rest
+   of the match. Previously it had no concept of a position at all: it was
+   rewarded for STAYING somewhere decent, but never for going and finding
+   somewhere decent, so where a battery ended up was an accident of whatever the
+   general advance terms happened to do.
+
+   A vantage point is judged on two things, in order:
+
+     1. SUSTAINED targets. Not what it can hit this turn, but how many enemy
+        units are within range and likely to still be there: a position covering
+        a crowded sector keeps firing turn after turn, and one covering a single
+        passing unit does not. TWO is the minimum that counts, because one target
+        is a shot, not a position.
+
+     2. Defensive value. A building gives +1 in defence, and a hill lets the gun
+        fire over friendly units and obstacles. Both matter, but neither is worth
+        as much as having something to shoot at.
+
+   COHESION IS TWO-PHASE, and that is the part the old code could not express. A
+   gun ON THE MOVE needs its Brigadier's chain, or it cannot move at all. A gun
+   ESTABLISHED at a vantage point does not: it should hold the position and fire,
+   and being dragged back into the chain gives up the ground for nothing.
+
+   Judged per gun, not per side. Two batteries may sit at different vantage
+   points in different Brigades, and one being established says nothing about the
+   other. */
+export const GUN_MIN_SUSTAINED_TARGETS = 2;  // one target is a shot, not a position
+export const GUN_VANTAGE_SEEK_PULL = 0.55;   // per square, toward the best vantage found
+export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
+
+/* How good a square would be to settle on. Returns 0 for anywhere that fails the
+   sustained-target test, so a gun is never drawn to safe ground with nothing to
+   shoot at. */
+export function vantageScore(gun, x, y){
+  const targets = targetsFromSquare(gun, x, y);
+  if(targets < GUN_MIN_SUSTAINED_TARGETS) return 0;
+  const terr = terrainAt(x, y);
+  // Targets dominate; ground breaks ties between positions that can both shoot.
+  let score = targets * 1.0;
+  if(terr.defenseBonus) score += 0.6;   // a building: +1 in defence
+  if(terr.elevation > 0) score += 0.5;  // a hill: fires over friendly units
+  return score;
+}
+
+/* Enemy units within firing range of a square, whether or not the gun is there
+   now. artilleryTargets only answers for the gun's CURRENT square, which cannot
+   tell it whether somewhere else would be better. */
+export function targetsFromSquare(gun, x, y){
+  /* Asks hasLOS about the HYPOTHETICAL square rather than approximating with a
+     radius. hasLOS already encodes range, blocking terrain, intervening units and
+     the overhead-fire rule that lets a gun on high ground shoot over them, so
+     using it means the AI's idea of a firing position matches the one the rules
+     will actually apply when it gets there. A radius check would rate a square
+     behind a wood as excellent. */
+  const probe = { x, y };
+  let n = 0;
+  for(const o of state.units){
+    if(o.removed || o.side === gun.side) continue;
+    if(o.type === 'BRIGADIER') continue;          // guns cannot target Brigadiers
+    if(isConcealedFromEnemy(o)) continue;         // cannot shoot what it cannot see
+    if(hasLOS(probe, o)) n++;
+  }
+  return n;
+}
+
+/* Established means: standing on a square that still earns its keep. The moment
+   it stops earning it — fewer than two targets left in range, the sector having
+   moved on — the gun stops being established and cohesion matters again. */
+export function gunIsEstablished(gun){
+  if(!UNIT_TYPES[gun.type].isArtillery) return false;
+  return vantageScore(gun, gun.x, gun.y) > 0;
+}
+
+/* Superseded by GUN_MIN_SUSTAINED_TARGETS. The old rule accepted a SINGLE target
+   as justification for a gun standing alone, which is a shot rather than a
+   position: the battery would plant itself wherever one enemy happened to wander
+   into arc, then be stranded when that unit moved on. Two sustained targets is
+   the test now. */
 // Holding a good position alone is worth about what breaking the chain costs
 // everyone else, so a gun with a field of fire will choose to stay put.
 export const GUN_VANTAGE_BONUS = 2.0;
@@ -909,21 +988,18 @@ export const GUN_RECOVERY_RANGE = 6;
 // Below APPROACH_PULL (0.16) on purpose: an errand, not a mission.
 export const GUN_RECOVERY_PULL = 0.13;
 
-export function gunHasVantage(gun){
-  if(!UNIT_TYPES[gun.type].isArtillery) return false;
-  if(artilleryTargets(gun).length >= GUN_VANTAGE_TARGETS) return true;
-  const terr = terrainAt(gun.x, gun.y);
-  if(terr.key==='HILL' || terr.key==='WOODS' || terr.key==='BUILDING') return true;
-  return state.units.some(o => !o.removed && o.side===gun.side && o.id!==gun.id &&
-    !UNIT_TYPES[o.type].isArtillery && chebyshev(gun, o) <= 2);
-}
 
 /* A gun the Brigadier should come and collect: cut off, nothing to shoot, and
    no ground worth denying. */
 export function gunIsStranded(gun){
   if(!UNIT_TYPES[gun.type].isArtillery) return false;
   if(movableUnitsForSide(gun.side).has(gun.id)) return false;
-  return !gunHasVantage(gun);
+  /* Stranded means cut off AND not earning it. An ESTABLISHED gun is left
+     alone however isolated it looks: it is doing exactly what a battery is
+     for, and collecting it would give up the position. The moment it drops
+     below two sustained targets it stops being established, and the Brigadier
+     comes for it. */
+  return !gunIsEstablished(gun);
 }
 
 function cavalrySchwerpunkt(side){
@@ -1145,9 +1221,13 @@ export function aiDecideAndExecuteMove(u){
        stranded rather than bold. */
     if(wasConnected && !connNow.has(u.id)){
       if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
-      else if(!gunHasVantage(u)) s -= subScore(parts, 'gunStranded', 2.4);
+    /* Judged on the CANDIDATE square, not the gun's current one, so a move INTO
+       a vantage point counts as established and is not penalised for arriving
+       out of contact. The old test asked where the gun already stood, so a
+       battery could never move to a better position that was off the chain. */
+      else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunStranded', 2.4);
     }
-    if(t.isArtillery && !connNow.has(u.id) && gunHasVantage(u)){
+    if(t.isArtillery && !connNow.has(u.id) && vantageScore(u, c.x, c.y) > 0){
       s += addScore(parts, 'gunVantage', GUN_VANTAGE_BONUS);
     }
     // A Brigadier is always "connected" to itself by definition (see
@@ -1186,7 +1266,7 @@ export function aiDecideAndExecuteMove(u){
          abandoning the plan.
 
          A gun with a field of fire is NOT collected: it is where it should be,
-         and gunHasVantage already keeps it there. */
+         and gunIsEstablished already keeps it there. */
       const strandedGun = state.units.find(o => !o.removed && o.side===side &&
         o.brigadeId===u.brigadeId && gunIsStranded(o));
       if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
@@ -1237,6 +1317,20 @@ export function aiDecideAndExecuteMove(u){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
         s -= subScore(parts, 'gunStandoff', Math.abs(d-4) * 0.06);
+
+        /* SEEKING A VANTAGE POINT. The old logic only rewarded STAYING somewhere
+           good, never GOING somewhere good, so where a battery finished up was an
+           accident of the general advance terms. A gun that is not established now
+           scores each square by what it would be worth to settle on: sustained
+           targets first, defensive ground second.
+        
+           Only while NOT established, so a gun that has found its position is not
+           tempted away by a marginally better one. That shuffling between two
+           adequate squares is what the logged Battery A did for turns on end. */
+        if(!gunIsEstablished(u)){
+          const worth = vantageScore(u, c.x, c.y);
+          if(worth > 0) s += addScore(parts, 'gunSeekVantage', worth * GUN_VANTAGE_SEEK_PULL);
+        }
         // Manoeuvre: a gun already well-placed — decent ground, not under real
         // threat, the enemy already within (or close to) firing range — should
         // settle there and keep firing, not repeatedly reposition just to keep
