@@ -1,6 +1,6 @@
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { brigadeCavalryCount, canAttackTarget, chebyshev, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
+import { brigadeCavalryCount, canAttackTarget, chebyshev, combatBonuses, hasLOS, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
 
 /* =========================================================
    AI: EVALUATION
@@ -134,6 +134,25 @@ export function evaluateState(perspective){
 
 // Rough estimate of how exposed `unit` would be, standing where it is now,
 // to enemy units that could reach + fight it on their next turn.
+/* WHAT THE ENEMY COULD DO TO THIS SQUARE BEFORE OUR NEXT TURN.
+
+   The reach test was already here and is right: an enemy threatens a square if
+   it can move and still engage, which is its base move plus one. What was missing
+   is how the fight would actually GO. Every threat was weighted a flat 1, or 1.6
+   for cavalry against a line, so a square covered by cavalry we would beat scored
+   the same as one covered by cavalry that would ride us down, and standing in a
+   building counted for nothing at all.
+
+   The weight is now the real matchup, taken from the same estimator the fight
+   phase uses, so it already accounts for terrain, formation, Square against
+   cavalry, Column, and the rest. Kept on the same scale as before (roughly 1 per
+   threatening unit) because this value is used as a scalar in several other
+   places, and changing its magnitude would silently reweight all of them.
+
+   ARTILLERY IS TESTED ON LINE OF SIGHT, not distance. A gun six squares away
+   behind a wood cannot touch the square and should not frighten anything; one on
+   a hill firing over its own infantry very much can. Distance answered neither
+   case correctly. */
 export function threatPenalty(unit, side){
   let penalty = 0;
   const enemy = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
@@ -141,13 +160,31 @@ export function threatPenalty(unit, side){
     if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
     const eType = UNIT_TYPES[e.type];
     if(!eType.canFight) continue;
-    const reach = unitBaseMove(e) + 1; // move then engage
-    if(chebyshev(e,unit) <= reach){
-      let w = 1;
-      if(eType.isCavalry && (unit.type==='INFANTRY'||unit.type==='GUARD') && unit.formation!=='square') w = 1.6;
-      if(eType.isArtillery) w = 0.6;
-      penalty += w;
+
+    if(eType.isArtillery){
+      // A gun's threat is its arc, and it must be able to see the square.
+      if(hasLOS(e, unit)) penalty += 0.6;
+      continue;
     }
+
+    const reach = unitBaseMove(e) + 1; // move then engage
+    if(chebyshev(e,unit) > reach) continue;
+
+    /* How badly this would go, from the ENEMY's side of the fight. Positive
+       means the attack favours them. Mapped onto roughly the old scale so the
+       callers that treat this as a scalar keep working: an even matchup stays
+       near 1, a bad one rises toward 2, a favourable one falls toward 0.4. */
+    /* The matchup computed HERE rather than borrowed from estimateFightValue.
+       That function lives in ai-strategy, which already imports this module, so
+       importing it back would make a cycle. combatBonuses is the actual rule and
+       is what estimateFightValue itself reads, so this asks the same source
+       directly: dice the attacker would roll against dice we would roll, with
+       terrain, formation, Square-against-cavalry and the rest already folded in
+       by the engine. */
+    const atk = combatBonuses(e, unit, false).dice;
+    const def = combatBonuses(unit, e, true).dice;
+    const edge = atk - def;   // +1 they out-dice us, -1 we out-dice them
+    penalty += Math.max(0.4, Math.min(2.0, 1 + edge * 0.5));
   }
   return penalty;
 }
