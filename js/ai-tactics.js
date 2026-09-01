@@ -1,6 +1,6 @@
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { brigadeCavalryCount, canAttackTarget, chebyshev, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
+import { brigadeCavalryCount, canAttackTarget, chebyshev, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
 
 /* =========================================================
    AI: EVALUATION
@@ -313,3 +313,78 @@ export function retreatToSupportBonus(pos, side, self){
   return -chebyshev(pos,nearest) * 0.30;
 }
 
+/* =========================================================
+   SHAPE: MUTUAL SUPPORT AND GROUND DENIAL
+
+   Every term the AI had was a distance gradient, so any two squares equidistant
+   from the same things scored identically. A logged match showed six of six
+   sampled decisions as EXACT ties broken by jitter worth 0.03, several described
+   as "identical terms": the scoring simply could not tell most squares apart.
+
+   These two terms are about SHAPE rather than distance, so they distinguish
+   squares the existing ones cannot. Both are deliberately local: they ask what a
+   square is like, not how far it is from something.
+========================================================= */
+
+/* MUTUAL SUPPORT. Two units that can answer for each other are worth more than
+   two isolated ones, because an attacker either has to take on both or accept a
+   counter-attack. It also keeps Column and Square available, which need a
+   neighbour.
+
+   Counts friendly FIGHTING units adjacent to the square. Brigadiers are excluded:
+   they are not a counter-attack, and cohesion already values being near one, so
+   counting them here would double-pay the same thing.
+
+   Diminishing: the second neighbour is worth much less than the first, because
+   the jump from alone to supported is the one that changes what an attacker can
+   do. Three units in a heap is not three times as good as a pair. */
+export function mutualSupportBonus(side, pos, selfId){
+  let n = 0;
+  for(const o of state.units){
+    if(o.removed || o.side !== side || o.id === selfId) continue;
+    if(o.type === 'BRIGADIER') continue;
+    if(!UNIT_TYPES[o.type].canFight) continue;
+    if(isAdjacent(pos, o)) n++;
+  }
+  if(n === 0) return 0;
+  return n === 1 ? 0.9 : 0.9 + Math.min(n - 1, 2) * 0.25;
+}
+
+/* GROUND DENIAL. A square that controls a road or a gap between impassable
+   terrain costs the enemy tempo: roads grant the extra square of movement, and
+   gaps funnel an advance onto ground of our choosing. Worth holding even when
+   the square itself offers nothing defensively, which is exactly the judgement no
+   existing term could express.
+
+   A gap is detected by looking at the square's neighbours: ground that units can
+   cross, flanked by ground they cannot. Two impassable sides make it a defile,
+   one makes it an edge worth something.
+
+   Only counted when the ground is actually contested — an enemy within reach of
+   it. Denying a road in the far corner of the board is not denial, it is
+   loitering, and rewarding it would just invent a new way to sit still. */
+export const DENIAL_CONTEST_RANGE = 7;
+
+export function groundDenialBonus(side, pos){
+  const enemy = otherSide(side);
+  const contested = state.units.some(o => !o.removed && o.side === enemy &&
+    !isConcealedFromEnemy(o) && chebyshev(pos, o) <= DENIAL_CONTEST_RANGE);
+  if(!contested) return 0;
+
+  let value = 0;
+  if(isRoadLike(terrainAt(pos.x, pos.y))) value += 0.5;
+
+  // A defile: passable ground with impassable ground either side of it.
+  let walls = 0;
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const nx = pos.x+dx, ny = pos.y+dy;
+    if(!inBounds(nx,ny)){ walls++; continue; }          // the board edge is a wall
+    const terr = terrainAt(nx,ny);
+    // Impassable to the arms that do the advancing.
+    if(terr.restrictTo && !terr.restrictTo.includes('INFANTRY')) walls++;
+  }
+  if(walls >= 2) value += 0.7;
+  else if(walls === 1) value += 0.25;
+
+  return value;
+}

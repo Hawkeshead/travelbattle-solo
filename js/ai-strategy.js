@@ -1,4 +1,4 @@
-import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, isIsolatedAndThreatened, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
@@ -1523,6 +1523,22 @@ export function aiDecideAndExecuteMove(u){
       const defensivePosture = holdingReserve || currentlyThreatened ||
         mission==='HOLD' || mission==='FIX' || mission==='SCREEN' || mission==='WITHDRAW';
       s += addScore(parts, 'terrainSeek', terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1));
+
+      /* SHAPE, not distance. Every other term here is "how far am I from X", so
+         two squares equidistant from everything score identically: a logged match
+         had six of six sampled decisions as exact ties broken by jitter. These two
+         ask what a square IS rather than where it is, so they can separate options
+         the rest of the scoring cannot tell apart.
+      
+         Sized to break ties rather than to dominate. The largest either can offer
+         is about 1.4, comparable to formColumn and well under cohesionLoss: enough
+         to decide between two otherwise equal squares, not enough to drag a unit
+         off its mission. Brigadiers are excluded from both, since they neither
+         support a fight nor hold ground. */
+      if(t.key !== 'BRIGADIER'){
+        s += addScore(parts, 'mutualSupport', mutualSupportBonus(side, c, u.id));
+        s += addScore(parts, 'groundDenial', groundDenialBonus(side, c));
+      }
     }
     // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
     if(seekTactics) s += addScore(parts, 'screensGun', screensGunBonus(u, side, c));
