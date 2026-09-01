@@ -32,6 +32,8 @@ export function initDeployment(){
     state.deployPool = { red: [...FULL_ARMY_POOL], blue: [...FULL_ARMY_POOL] };
   }
   state.deployBrigadeIndex = { red: 0, blue: 0 };
+  // Cleared per match: a weak flank identified last game says nothing about this one.
+  state._aiTargetFlankX = undefined;
   state.currentBrigadeHasBrigadier = { red: false, blue: false };
   state.currentBrigadeCount = { red: 0, blue: 0 };
   state._aiHardDeployRemaining = { red:{}, blue:{} };

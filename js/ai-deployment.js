@@ -1,6 +1,6 @@
-import { terrainSeekBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, terrainSeekBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
-import { terrainAt, unitsAt } from './engine-rules.js';
+import { isRoadLike, terrainAt, unitsAt } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
 
 /* =========================================================
@@ -13,6 +13,32 @@ import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deploy
 // BRIGADE_COMPOSITIONS' order), but cell choice within a zone is terrain-scored
 // rather than a fixed column. Easy/Medium keep the exact original static plan below.
 export const HARD_DEPLOY_COL_BANDS = [[0,6],[7,13],[14,19]];
+
+/* WHICH BAND A BRIGADE DEPLOYS INTO.
+
+   The bands are fixed left, centre, right, and brigade 0 always took the left
+   one. So the AI could correctly spot a weak enemy flank, correctly counter-pick
+   an army to punish it, and then deploy its heaviest brigade at the other end of
+   the board because that is where index 0 happens to sit.
+
+   Detecting the weakness and then attacking the strong flank is worse than not
+   detecting it at all: it commits the counter-pick's weight in the wrong place.
+   When a weak flank has been identified, the bands are ordered so that BRIGADE 0
+   — the one the templates load heaviest — faces it, and the rest fill in from
+   the other end.
+
+   _aiTargetFlankX is the average column of the enemy's weakest brigade, set by
+   pickCounterArmy. Absent (deploying first, or no clear weakness), the fixed
+   left-to-right order stands. */
+export function deployBandFor(bIdx){
+  const bands = HARD_DEPLOY_COL_BANDS;
+  const targetX = state._aiTargetFlankX;
+  if(typeof targetX !== 'number') return bands[bIdx] || [0, COLS-1];
+  // Order the bands by how near each is to the enemy's weak point.
+  const mid = b => (b[0] + b[1]) / 2;
+  const ordered = bands.slice().sort((a,b)=> Math.abs(mid(a)-targetX) - Math.abs(mid(b)-targetX));
+  return ordered[bIdx] || bands[bIdx] || [0, COLS-1];
+}
 
 export function scoreDeployCell(typeKey, x, y, side, bIdx){
   const terr = terrainAt(x,y);
@@ -59,7 +85,7 @@ export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
   // override the default "only Brigadier/Artillery go in the back" rule with its
   // own front/back rank per unit — undefined keeps today's default behaviour.
   const isBack = forceBack !== undefined ? forceBack : (typeKey==='BRIGADIER' || typeKey==='ARTILLERY');
-  const colBand = HARD_DEPLOY_COL_BANDS[bIdx] || [0, COLS-1];
+  const colBand = deployBandFor(bIdx);
   let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey, side, bIdx)
     || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey, side, bIdx)
     || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRows[0]:frontRow, typeKey);
@@ -80,6 +106,63 @@ export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
 // the weak side before it can be covered; a generic/balanced deployment gets
 // no strong read either way, so it's answered with independent firepower
 // rather than a guess.
+/* WHICH ARMY TO BRING, AND WHERE TO PUT ITS WEIGHT.
+
+   Two situations, and they call for opposite reasoning.
+
+   DEPLOYING FIRST, the AI is showing its hand: whatever it puts down, the player
+   then picks an army specifically to beat it. So it should not gamble on a
+   lopsided composition it cannot defend. It reads the ground instead and takes
+   the army that suits it, playing for a position that is awkward to attack
+   rather than one built to attack something it has not seen yet.
+
+   DEPLOYING SECOND, it has the whole enemy army in front of it and should pick
+   to beat that specific army. A weak flank is the prize: two brigades broken
+   wins the game, so an easy first break is worth more than a general advantage.
+
+   Previously the first case picked at RANDOM from six armies with no reference
+   to the board at all, and the second detected a weak flank but not WHICH SIDE
+   it was on, so it could counter-pick a cavalry wing and then deploy it against
+   the enemy's strongest brigade.
+========================================================= */
+
+/* What the ground rewards. Defensive terrain in a side's own half means an army
+   that can hold; open ground with roads means one that can move. */
+function readGround(side){
+  const rows = side === SIDES.RED
+    ? [ROWS-3, ROWS-2, ROWS-1]
+    : [0, 1, 2];
+  let defensive = 0, open = 0, roads = 0;
+  for(const y of rows){
+    for(let x = 0; x < COLS; x++){
+      const terr = terrainAt(x, y);
+      if(terr.defenseBonus || terr.elevation > 0) defensive++;
+      else open++;
+      if(isRoadLike(terr)) roads++;
+    }
+  }
+  return { defensive, open, roads, total: rows.length * COLS };
+}
+
+/* Which half of the board an army's heaviest brigade should face. Returns the
+   column range the AI wants its strongest brigade deployed against. */
+export function weakestEnemyFlank(humanSide){
+  const units = state.units.filter(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
+  if(units.length === 0) return null;
+  const byBrigade = {};
+  for(const u of units){
+    (byBrigade[u.brigadeId] = byBrigade[u.brigadeId] || []).push(u);
+  }
+  let weakest = null;
+  for(const [bId, list] of Object.entries(byBrigade)){
+    // Fighting strength, not headcount: two Guard is not two line infantry.
+    const strength = list.reduce((sum,u)=> sum + (AI_UNIT_VALUE[u.type] || 3), 0);
+    const avgX = list.reduce((sum,u)=> sum + u.x, 0) / list.length;
+    if(!weakest || strength < weakest.strength) weakest = { bId, strength, avgX, size: list.length };
+  }
+  return weakest;
+}
+
 function pickCounterArmy(humanSide){
   const humanUnits = state.units.filter(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
   if(humanUnits.length === 0) return null;
@@ -94,10 +177,43 @@ function pickCounterArmy(humanSide){
   const counts = Object.values(byBrigade);
   const hasWeakFlank = counts.length >= 2 && Math.min(...counts) <= 2 && Math.max(...counts) >= 5;
   if(hasWeakFlank){
+    /* Remember WHICH SIDE it is on, so the AI's own heaviest brigade is deployed
+       opposite it rather than wherever the template happens to put it.
+
+       Detecting a weak flank and then attacking the enemy's strong one is worse
+       than not detecting it: it commits the counter-pick's weight in the wrong
+       place. Two brigades broken wins the game, so an easy first break is the
+       single most valuable thing on the board and it is worth aiming at. */
+    const weak = weakestEnemyFlank(humanSide);
+    if(weak) state._aiTargetFlankX = weak.avgX;
     return Math.random()<0.5 ? 'vanguard' : 'cavalry_wing';
   }
 
   return Math.random()<0.5 ? 'twin_batteries' : 'balanced';
+}
+
+/* DEPLOYING FIRST: read the ground and take the army that suits it.
+
+   The player will see this and pick specifically to beat it, so a lopsided
+   composition is a gift. The AI plays instead for a position that is awkward to
+   attack.
+
+   Defensive ground (buildings, hills) rewards holding, so twin_batteries: guns
+   on good ground with infantry to screen them are miserable to assault. Open
+   ground with roads rewards movement, so cavalry_wing, which can punish an
+   attacker who commits across it. Anything between takes balanced, which has no
+   exploitable weakness.
+
+   refused_flank is never chosen here on purpose: its 2-unit brigade is exactly
+   what pickCounterArmy hunts for below, and offering one to a player who picks
+   next would be handing over an easy first break, and with it the game. */
+function pickGroundSuitedArmy(side){
+  const g = readGround(side);
+  const defensiveShare = g.defensive / g.total;
+  const roadShare = g.roads / g.total;
+  if(defensiveShare >= 0.25) return 'twin_batteries';
+  if(roadShare >= 0.30 && defensiveShare < 0.15) return 'cavalry_wing';
+  return 'balanced';
 }
 
 export function aiDeployStepHard(side){
@@ -126,11 +242,18 @@ export function aiDeployStepHard(side){
     } else {
       const choices = (state._aiArmyChoice || (state._aiArmyChoice = {red:null, blue:null}));
       if(!choices[side]){
-        const armies = TB_DATA.armyCompositions;
         const humanSide = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
         const otherIsHuman = !(state.mode==='ai' && humanSide===state.aiSide);
-        const counterPick = (otherIsHuman && state.deployBrigadeIndex[humanSide] >= 1) ? pickCounterArmy(humanSide) : null;
-        choices[side] = counterPick || armies[Math.floor(Math.random()*armies.length)].id;
+        /* Deploying SECOND (enemy units already on the board): counter-pick against
+           what is actually there. Deploying FIRST: read the ground instead.
+        
+           The random fallback is gone. It only ever applied when the AI deployed
+           first, which is exactly the case where a lopsided army is most dangerous
+           to itself: it could hand the player a refused_flank, whose 2-unit brigade
+           is the very thing the AI's own counter-pick hunts for. */
+        const enemyIsDown = state.units.some(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
+        const counterPick = (otherIsHuman && enemyIsDown) ? pickCounterArmy(humanSide) : null;
+        choices[side] = counterPick || pickGroundSuitedArmy(side);
       }
       const army = TB_DATA.armyCompositions.find(a=>a.id===choices[side]);
       const brig = army && army.brigades[bIdx];
