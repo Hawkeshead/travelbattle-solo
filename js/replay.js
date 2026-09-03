@@ -567,7 +567,22 @@ export function exportFullMatchLog(){
         }
       }
     } else if(ev.type==='fire'){
-      lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.roll} — ${ev.effect}`);
+      /* Shows the arithmetic, not just the answer. `roll` is the FINAL effect
+         value and used to be printed bare as "rolled 5", which is not what was
+         rolled: a raw 4 against a Square appears as a 5 with nothing to say the
+         +1 was already in it. Exports written before rawRoll existed fall back
+         to the old single-number form rather than claiming a breakdown they
+         do not have. */
+      if(ev.rawRoll === undefined){
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll} — ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
+      } else {
+        const mods = [];
+        if(ev.formationBonus) mods.push('+1 Square/Column');
+        if(ev.shakenBonus) mods.push('+1 already Shaken');
+        if(ev.coverPenalty) mods.push('-1 wood/building');
+        const sum = mods.length ? ` ${mods.join(' ')} ->` : ' ->';
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.rawRoll}${sum} ${ev.roll} — ${ev.effect}`);
+      }
     } else if(ev.type==='status'){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
     }

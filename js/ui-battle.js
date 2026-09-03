@@ -856,37 +856,80 @@ export function fireArtillery(gun, target, onComplete){
       if(shakenBonus) effNotes.push(isColumn ? '+1 effect: both units already Shaken' : '+1 effect: target already Shaken');
 
       presentRollTrigger([{label:'Effect', diceCount:1, notes:effNotes}], gun.side, ()=>{
-        let effRoll = rollD6();
-        effRoll = Math.min(6, effRoll + formationBonus + shakenBonus);
-        if(inCover) effRoll = Math.max(1, effRoll-1);
+        const rawRoll = rollD6();
+        /* CAP LAST, AFTER THE COVER PENALTY.
+
+           This used to read Math.min(6, raw + bonuses) and only THEN subtract
+           for cover. A 6 against a Square in woods went 6 +1 = 7, capped to 6,
+           then -1 for cover = 5, "Falls back". The cap ate a bonus that the
+           cover penalty immediately made room for again. Ordered properly it is
+           7 - 1 = 6, "Removed".
+
+           Same fault the melee path had before the value cap was removed there
+           so that bonuses are never wasted. Artillery kept its cap and was never
+           revisited. The clamp still exists, because the effect table only runs
+           1-6, but nothing is now discarded before every modifier has been
+           counted. */
+        let effRoll = rawRoll + formationBonus + shakenBonus;
+        if(inCover) effRoll -= 1;
+        effRoll = Math.max(1, Math.min(6, effRoll));
         const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
         const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
-        showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+        /* THE DIE SHOWS WHAT WAS ROLLED; finalValue carries the total.
+
+           This passed the already-modified value as the die face while listing
+           the bonuses beside it as notes, so a raw 4 that had become a 5 was
+           drawn as a 5 next to the words "+1 effect: Square formation". It read
+           unmistakably as a bonus that had been announced and then not applied,
+           and it was reported as exactly that.
+
+           The melee panel has always split these (keptValue is the die that
+           counts, finalValue absorbs bonuses and re-rolls). Artillery now does
+           the same, so the arithmetic on screen adds up. */
+        showDice([{label:'Effect', rolls:[rawRoll], keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
+          // Carried so the export records the arithmetic rather than just its
+          // answer — see the note on the fire event in applyArtilleryEffect.
+          const effDetail = { rawRoll, formationBonus, shakenBonus, coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
             selectUnit(null);
             onComplete();
-          });
+          }, effDetail);
         });
       });
     });
   });
 }
 
-export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
+export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone, detail){
   if(idx >= stack.length){ onAllDone(); return; }
   const u = stack[idx];
-  if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone); return; }
-  applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone));
+  if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone, detail); return; }
+  applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone, detail), detail);
 }
 
-export function applyArtilleryEffect(u, roll, onComplete){
+export function applyArtilleryEffect(u, roll, onComplete, detail){
   onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
-  logReplay('fire', { targetId:u.id, side:u.side, x:u.x, y:u.y, roll, effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy' });
+  /* `roll` here is the FINAL effect value, and used to be the only thing
+     recorded, printed in the export as "rolled 5". It is not what was rolled.
+     Every artillery line in every export written before this carried a
+     post-bonus number labelled as a die, which is why a bonus that looked
+     unapplied on screen could not be checked against the log either.
+
+     rawRoll and the modifiers are now carried alongside it, so the arithmetic
+     can be audited from the export instead of inferred from the source. */
+  logReplay('fire', {
+    targetId:u.id, side:u.side, x:u.x, y:u.y, roll,
+    rawRoll: detail ? detail.rawRoll : undefined,
+    formationBonus: detail ? detail.formationBonus : undefined,
+    shakenBonus: detail ? detail.shakenBonus : undefined,
+    coverPenalty: detail ? detail.coverPenalty : undefined,
+    effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
+  });
   /* The shot landing, on any roll that DOES something: 4 shakes, 5 routs,
      6 destroys. A 1-3 is a shot that lands without effect and stays silent,
      so the sound tells you the shell told before the log line does.
