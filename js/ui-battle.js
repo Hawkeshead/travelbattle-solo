@@ -1,15 +1,16 @@
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue } from './ai-strategy.js';
-import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
-import { confirmCurrentBrigade, handleDeployClick } from './ui-deployment.js';
+import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
+import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
 
 /* =========================================================
    MAIN GAME FLOW
@@ -230,7 +231,9 @@ export function beginMovePhase(){
   if(aiTurn){
     aiPlanTurn(state.aiSide);
     setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
+    return;
   }
+  maybeStartAutoEnd(); // a side with nothing that can move (all disconnected, all in Square) shouldn't need a button press
 }
 
 export function clearPendingTurnaroundFlagsIfDue(){
@@ -264,7 +267,8 @@ export function beginFirePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
-  if(aiTurn) setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400);
+  if(aiTurn){ setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
+  maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
 export function beginFightPhase(){
@@ -283,7 +287,10 @@ export function beginFightPhase(){
     setTimeout(aiDoFightPhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
   }
-  // auto-skip if no fights available (human turn)
+  /* Was an unconditional setTimeout(endFightPhase, 400): the phase vanished
+     before the player could read why. The explanation still prints, but the
+     phase now waits out the countdown like any other, so there is time to read
+     it and, if the skip is a surprise, to undo back into the Fire phase. */
   if(!anyFightsAvailable(state.turn)){
     const stuck = turnedAroundInContact(state.turn);
     if(stuck.length > 0){
@@ -291,8 +298,8 @@ export function beginFightPhase(){
     } else {
       log('No units in contact — skipping Fight phase.', 'system');
     }
-    setTimeout(endFightPhase, 400);
   }
+  maybeStartAutoEnd();
 }
 // Woodland Ambush: an Infantry-class unit in woods, untouched by the enemy,
 // that hasn't already acted this Move phase, may lie in wait instead of
@@ -337,9 +344,51 @@ export function turnedAroundInContact(side){
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
-export function endMovePhase(){
+/* AMBUSHES RESOLVE THE MOMENT SOMEBODY WALKS INTO ONE.
+
+   They used to be collected and resolved in one batch at the end of the Move
+   phase. That let the mover finish the whole phase first, and the ambusher then
+   sprang on a board that had already rearranged itself around it. The clearest
+   case is the Column: two Infantry units doubled onto one square, formed one
+   unit at a time. Under the batched version the first unit could step adjacent
+   to a hidden unit, the second could then join it, and the ambush sprang on a
+   fully-formed Column with its combat bonus and its shared fate already in
+   place. The ambusher was made to wait for the trap to become worse for it.
+
+   Now every completed move is followed immediately by a spring check, so the
+   ambush fires against the single unit that blundered into it, before its
+   partner can arrive. Nothing about the spring itself changed — same targeting,
+   same Hold/Advance choice, same dice.
+
+   endMovePhase keeps a final sweep. It is a no-op on a normal turn (everything
+   has already resolved) and exists only so that any move path added later, or
+   any spring that could not resolve at the time, still cannot leak past the end
+   of the phase.
+
+   `onDone` is optional: called with no argument from a mid-phase move, this
+   just resolves what is pending and returns. */
+/* Springs the ambush check once the mover has visibly arrived, rather than
+   while it is still sliding across the board. Mirrors the wait the AI move loop
+   already does between units, and collapses to an immediate call under
+   FAST_ANIMATION_MODE so the test harness does not sit on timers. */
+export function afterMoveSettles(steps, kind, fn){
+  if(FAST_ANIMATION_MODE){ fn(); return; }
+  const profile = MOVE_PROFILES[kind] || MOVE_PROFILES.march;
+  let ms = moveAnimationMs(Math.max(1, steps)) * profile.speed;
+  if(profile.maxMs) ms = Math.min(ms, profile.maxMs);
+  setTimeout(fn, ms + 60);
+}
+
+export function resolveAmbushSpringsNow(onDone){
+  onDone = onDone || function(){};
   const springs = collectAmbushSprings();
-  processAmbushSpringsSequentially(springs, 0, beginFirePhase);
+  if(springs.length === 0){ onDone(); return; }
+  processAmbushSpringsSequentially(springs, 0, onDone);
+}
+
+export function endMovePhase(){
+  cancelAutoEnd();
+  resolveAmbushSpringsNow(beginFirePhase);
 }
 
 // Detects (but does not resolve) any hidden unit now adjacent to an enemy
@@ -427,8 +476,9 @@ export function springAmbush(ambusher, target, mode, onComplete){
     onComplete();
   });
 }
-export function endFirePhase(){ beginFightPhase(); }
+export function endFirePhase(){ cancelAutoEnd(); beginFightPhase(); }
 export function endFightPhase(){
+  cancelAutoEnd();
   if(state.gameOver) return;
   if(anyFightsAvailable(state.turn)){
     log('Units in contact must fight before the phase can end.', 'system');
@@ -613,13 +663,11 @@ export function renderUnitInfo(u){
 export function initBoardInput(){
   canvas.addEventListener('click', (e)=>{
     if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
-    const rect = canvas.getBoundingClientRect();
-    const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
-    const x = Math.floor((e.clientX-rect.left)/cellPxX);
-    const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
-    const y = sy(screenY);
-    if(!inBounds(x,y)) return;
-    onCellClick(x,y);
+    const hit = cellFromClient(e.clientX, e.clientY);
+    if(!hit) return;
+    const y = sy(hit.screenY);
+    if(!inBounds(hit.x,y)) return;
+    onCellClick(hit.x,y);
   });
 }
 
@@ -649,6 +697,7 @@ export function onCellClick(x,y){
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} charges to engage!`, sel.side);
       selectUnit(sel.id);
+      afterMoveSettles(chargeSteps, 'charge', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
     if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
@@ -689,6 +738,7 @@ export function onCellClick(x,y){
       state.moved.add(sel.id);
       log(`${unitLabel(sel)} moves to (${x},${y}).`, sel.side);
       selectUnit(sel.id);
+      afterMoveSettles(marchSteps, 'march', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
     if(clicked && clicked.side===state.turn){ selectUnit(clicked.id); return; }
@@ -698,7 +748,7 @@ export function onCellClick(x,y){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
       selectUnit(null);
-      fireArtillery(sel, target);
+      fireArtillery(sel, target, maybeStartAutoEnd);
       return;
     }
     if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
@@ -734,9 +784,10 @@ export function onCellClick(x,y){
          commitment happens when the attack is declared, so that is where it is
          recorded. */
       state.fought.add(sel.id);
-      resolveFight(sel, target, undefined, ()=>{
-        if(!anyFightsAvailable(state.turn)) setTimeout(endFightPhase, 500);
-      });
+      /* Was setTimeout(endFightPhase, 500) the instant the last fight resolved,
+         which cut off the result of that fight. maybeStartAutoEnd runs the same
+         test and then gives the player four seconds and an Undo. */
+      resolveFight(sel, target, undefined, maybeStartAutoEnd);
       return;
     }
     if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
@@ -805,37 +856,80 @@ export function fireArtillery(gun, target, onComplete){
       if(shakenBonus) effNotes.push(isColumn ? '+1 effect: both units already Shaken' : '+1 effect: target already Shaken');
 
       presentRollTrigger([{label:'Effect', diceCount:1, notes:effNotes}], gun.side, ()=>{
-        let effRoll = rollD6();
-        effRoll = Math.min(6, effRoll + formationBonus + shakenBonus);
-        if(inCover) effRoll = Math.max(1, effRoll-1);
+        const rawRoll = rollD6();
+        /* CAP LAST, AFTER THE COVER PENALTY.
+
+           This used to read Math.min(6, raw + bonuses) and only THEN subtract
+           for cover. A 6 against a Square in woods went 6 +1 = 7, capped to 6,
+           then -1 for cover = 5, "Falls back". The cap ate a bonus that the
+           cover penalty immediately made room for again. Ordered properly it is
+           7 - 1 = 6, "Removed".
+
+           Same fault the melee path had before the value cap was removed there
+           so that bonuses are never wasted. Artillery kept its cap and was never
+           revisited. The clamp still exists, because the effect table only runs
+           1-6, but nothing is now discarded before every modifier has been
+           counted. */
+        let effRoll = rawRoll + formationBonus + shakenBonus;
+        if(inCover) effRoll -= 1;
+        effRoll = Math.max(1, Math.min(6, effRoll));
         const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
         const effCls = effRoll<=3 ? '' : effRoll<=4 ? 'draw' : 'lose';
-        showDice([{label:'Effect', rolls:[effRoll], keptValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+        /* THE DIE SHOWS WHAT WAS ROLLED; finalValue carries the total.
+
+           This passed the already-modified value as the die face while listing
+           the bonuses beside it as notes, so a raw 4 that had become a 5 was
+           drawn as a 5 next to the words "+1 effect: Square formation". It read
+           unmistakably as a bonus that had been announced and then not applied,
+           and it was reported as exactly that.
+
+           The melee panel has always split these (keptValue is the die that
+           counts, finalValue absorbs bonuses and re-rolls). Artillery now does
+           the same, so the arithmetic on screen adds up. */
+        showDice([{label:'Effect', rolls:[rawRoll], keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
+          // Carried so the export records the arithmetic rather than just its
+          // answer — see the note on the fire event in applyArtilleryEffect.
+          const effDetail = { rawRoll, formationBonus, shakenBonus, coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
             selectUnit(null);
             onComplete();
-          });
+          }, effDetail);
         });
       });
     });
   });
 }
 
-export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone){
+export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone, detail){
   if(idx >= stack.length){ onAllDone(); return; }
   const u = stack[idx];
-  if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone); return; }
-  applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone));
+  if(u.removed){ applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone, detail); return; }
+  applyArtilleryEffect(u, roll, ()=> applyArtilleryEffectToStack(stack, roll, idx+1, onAllDone, detail), detail);
 }
 
-export function applyArtilleryEffect(u, roll, onComplete){
+export function applyArtilleryEffect(u, roll, onComplete, detail){
   onComplete = onComplete || function(){};
   const t = UNIT_TYPES[u.type];
-  logReplay('fire', { targetId:u.id, side:u.side, x:u.x, y:u.y, roll, effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy' });
+  /* `roll` here is the FINAL effect value, and used to be the only thing
+     recorded, printed in the export as "rolled 5". It is not what was rolled.
+     Every artillery line in every export written before this carried a
+     post-bonus number labelled as a die, which is why a bonus that looked
+     unapplied on screen could not be checked against the log either.
+
+     rawRoll and the modifiers are now carried alongside it, so the arithmetic
+     can be audited from the export instead of inferred from the source. */
+  logReplay('fire', {
+    targetId:u.id, side:u.side, x:u.x, y:u.y, roll,
+    rawRoll: detail ? detail.rawRoll : undefined,
+    formationBonus: detail ? detail.formationBonus : undefined,
+    shakenBonus: detail ? detail.shakenBonus : undefined,
+    coverPenalty: detail ? detail.coverPenalty : undefined,
+    effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
+  });
   /* The shot landing, on any roll that DOES something: 4 shakes, 5 routs,
      6 destroys. A 1-3 is a shot that lands without effect and stays silent,
      so the sound tells you the shell told before the log line does.
@@ -1039,6 +1133,7 @@ export function initBattleControls(){
     }
     selectUnit(u.id);
     draw();
+    maybeStartAutoEnd();
   };
 
   document.getElementById('ambushBtn').onclick = ()=>{
@@ -1057,6 +1152,7 @@ export function initBattleControls(){
     }
     selectUnit(u.id);
     draw();
+    maybeStartAutoEnd();
   };
 
   document.getElementById('chargeBtn').onclick = ()=>{
@@ -1070,8 +1166,13 @@ export function initBattleControls(){
   document.getElementById('endMoveBtn').onclick = endMovePhase;
   document.getElementById('endFireBtn').onclick = endFirePhase;
   document.getElementById('endFightBtn').onclick = endFightPhase;
+  /* Handed over rather than imported, to keep phase-autoend.js out of the
+     ui-battle <-> ai-strategy import cycle. See the note in that file. */
+  registerPhaseEnders({ move: endMovePhase, fire: endFirePhase, fight: endFightPhase }, anyFightsAvailable);
   document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
   document.getElementById('endDeployBtn').onclick = startBattle;
+  const restartDeployBtn = document.getElementById('restartDeployBtn');
+  if(restartDeployBtn) restartDeployBtn.onclick = restartDeployment;
   document.getElementById('undoBtn').onclick = undoLastAction;
   document.getElementById('undoBtnBattle').onclick = undoLastAction;
   document.getElementById('resetViewBtn').onclick = resetMapView;

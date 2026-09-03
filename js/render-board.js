@@ -281,6 +281,96 @@ export function unitGaitOffset(u){
   return -Math.abs(Math.sin(elapsed * Math.PI * g.hz)) * g.amp * fade;
 }
 
+/* =========================================================
+   ROUT RENDER PROBE
+
+   "The routed unit vanishes and reappears at the board edge" has survived three
+   attempts to fix it, all of which reasoned about the code. It is still live.
+
+   The instrumentation that exists (the routAnim replay event) records what the
+   animation was SET UP with, and in every logged rout those numbers are
+   correct: right number of path points, non-zero duration, destination not equal
+   to origin. So the fault is downstream of setup, and nothing records what the
+   renderer then did.
+
+   This probe closes that gap. It samples the unit at the point it is actually
+   drawn, so absence of samples is itself the answer. Four outcomes, each
+   pointing somewhere completely different:
+
+     no samples at all   -> drawUnit was never called: a culling or grouping
+                            fault in draw(), not an animation fault
+     NaN / off-board xy   -> being drawn where it cannot be seen
+     xy already at target -> interpolation collapsing to the destination
+     xy correct throughout-> drawn correctly, so something is covering it and
+                            this is a compositing problem, not an animation one
+
+   overlayUp is sampled alongside, because the last of those is otherwise
+   indistinguishable from the first by eye.
+
+   Deliberately cheap: at most MAX_SAMPLES entries, throttled, and only while a
+   rout is in flight. It costs nothing on any other move.
+========================================================= */
+const ROUT_PROBE_MAX_SAMPLES = 10;
+let routProbe = null;
+
+export function beginRoutProbe(u, anim){
+  routProbe = {
+    unitId: u.id, label: u.historicalName || UNIT_TYPES[u.type].key,
+    from: {x:anim.fromX, y:anim.fromY}, to: {x:anim.toX, y:anim.toY},
+    startTime: anim.startTime, duration: anim.duration,
+    pathPoints: anim.path ? anim.path.length : 0,
+    samples: [], drawCalls: 0, frames: 0, grouped: null, flushed: false,
+  };
+}
+
+// Called from drawUnit for every unit drawn, so the probe sees exactly what the
+// renderer saw. Cheap early-out for the 99.9% of calls that are not a rout.
+export function routProbeSample(u, vp, cx, cy){
+  if(!routProbe || routProbe.unitId !== u.id || routProbe.flushed) return;
+  routProbe.drawCalls++;
+  if(routProbe.samples.length >= ROUT_PROBE_MAX_SAMPLES) return;
+  const elapsed = Date.now() - routProbe.startTime;
+  const t = routProbe.duration ? elapsed/routProbe.duration : 1;
+  const last = routProbe.samples[routProbe.samples.length-1];
+  if(last && t - last.t < 1/ROUT_PROBE_MAX_SAMPLES) return;   // throttle: even spread, not every frame
+  routProbe.samples.push({
+    t: +t.toFixed(3),
+    vx: Number.isFinite(vp.x) ? +vp.x.toFixed(2) : String(vp.x),
+    vy: Number.isFinite(vp.y) ? +vp.y.toFixed(2) : String(vp.y),
+    cx: Number.isFinite(cx) ? Math.round(cx) : String(cx),
+    cy: Number.isFinite(cy) ? Math.round(cy) : String(cy),
+    overlayUp: ['diceOverlay','overlay'].some(id=>{
+      const el = document.getElementById(id);
+      return !!(el && el.classList.contains('show'));
+    }),
+  });
+}
+
+// Counts frames whether or not the unit was drawn, so "the loop stopped" and
+// "the loop ran but skipped this unit" can be told apart.
+export function routProbeTick(){
+  if(!routProbe || routProbe.flushed) return;
+  routProbe.frames++;
+  if(Date.now() < routProbe.startTime + routProbe.duration + 250) return;
+  routProbe.flushed = true;
+  logReplay('routProbe', {
+    unitId: routProbe.unitId, label: routProbe.label,
+    from: routProbe.from, to: routProbe.to,
+    duration: Math.round(routProbe.duration), pathPoints: routProbe.pathPoints,
+    framesInWindow: routProbe.frames, drawCalls: routProbe.drawCalls,
+    grouped: routProbe.grouped,
+    samples: routProbe.samples,
+  });
+  routProbe = null;
+}
+
+// Which branch of the draw loop the unit fell into. 'moving' is correct for a
+// unit mid-animation; anything else means it was grouped with the contents of
+// its destination square and drawn underneath them.
+export function routProbeGrouping(u, where){
+  if(routProbe && routProbe.unitId === u.id && !routProbe.flushed) routProbe.grouped = where;
+}
+
 export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
@@ -435,6 +525,11 @@ export function animateUnitTo(u, newX, newY, kind){
     unitType: UNIT_TYPES[u.type].key,
     brigadeId: u.brigadeId,
     formation: u.formation || 'line',
+    /* Carried so the diagnostics can tell WHY a unit moved, not just how far.
+       Without it, section 6 had to guess from the geometry, and its guess was
+       wrong often enough to send a whole analysis session down a blind alley.
+       See the note on the movement-allowance flag in replay.js. */
+    kind: kind || 'march',
     status: u.turnOnly ? 'PushedBack' : (u.rallying ? 'Rallied' : 'Active'),
     connected: connectedAfter,
   });
@@ -485,6 +580,7 @@ export function animateUnitTo(u, newX, newY, kind){
     fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
     startTime:Date.now(), duration,
   };
+  if(kind === 'rout') beginRoutProbe(u, unitAnimations[u.id]);
   ensureAnimationLoopRunning();
 }
 
@@ -510,6 +606,7 @@ export function ensureAnimationLoopRunning(){
   if(animFrameHandle) return;
   function tick(){
     draw();
+    routProbeTick();   // counts frames even when the unit is not drawn, and flushes the probe
     // Road dust outlives the move that kicked it up, so the loop keeps running
     // until the last puff has faded or it would freeze in mid-air.
     const stillAnimating = Object.keys(unitAnimations).length>0 || roadDust.length>0;
@@ -625,13 +722,41 @@ export function endDiagramMode(){
   if(saved.animHandle) ensureAnimationLoopRunning();
 }
 
+/* SCREEN POSITION -> BOARD CELL, in one place.
+
+   Both hit tests (battle clicks and deployment drag-hover) used to derive cell
+   size as rect.width/COLS. That was true only while the canvas was exactly the
+   board; with a margin around it, rect.width covers COLS + 2*BOARD_PAD_X cells
+   and every click lands progressively further off toward the edges.
+
+   Reading getBoundingClientRect each call is deliberate: it already reflects the
+   CSS transform used for pinch-zoom and pan, so this needs no knowledge of
+   either. Returns the UNFLIPPED screen row; callers apply sy() themselves,
+   as they did before. Returns null when the point is outside the board proper,
+   which now includes the margin (clicking the border of the table is not a move
+   on the square nearest it). */
+export function cellFromClient(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const cellPxX = rect.width / (COLS + BOARD_PAD_X*2);
+  const cellPxY = rect.height / (ROWS + BOARD_PAD_TOP + BOARD_PAD_BOTTOM);
+  const x = Math.floor(((clientX - rect.left) - BOARD_PAD_X*cellPxX) / cellPxX);
+  const screenY = Math.floor(((clientY - rect.top) - BOARD_PAD_TOP*cellPxY) / cellPxY);
+  if(x < 0 || x >= COLS || screenY < 0 || screenY >= ROWS) return null;
+  return { x, screenY };
+}
+
 export function computeCellSize(){
   const wrap = document.getElementById('boardWrap');
   const viewportW = document.documentElement.clientWidth || window.innerWidth;
   const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - 16);
   const availH = Math.max(200, wrap.clientHeight - 16);
-  const byWidth = Math.floor(availW / COLS);
-  const byHeight = Math.floor(availH / ROWS);
+  /* The margin is measured in CELLS, so it grows with the board and cannot be
+     subtracted before dividing. Solving availW = CELL*COLS + 2*PAD_X*CELL gives
+     the divisor below. Without this the board would overflow its wrapper by
+     exactly the margin, which on a phone in landscape is the difference between
+     fitting and not. Costs about 2% of board width. */
+  const byWidth = Math.floor(availW / (COLS + BOARD_PAD_X*2));
+  const byHeight = Math.floor(availH / (ROWS + BOARD_PAD_TOP + BOARD_PAD_BOTTOM));
   return Math.max(22, Math.min(byWidth, byHeight, 68));
 }
 
@@ -664,14 +789,45 @@ export function observeBoardResize(){
   boardResizeObserver.observe(wrap);
 }
 
+/* THE BOARD NEEDS A MARGIN AROUND IT.
+
+   Hill, Building and Woods all draw at WOODS_OVERSCAN (1.3 cells wide, and
+   1.3/0.77 = 1.69 cells tall, bottom-anchored so the art rises out of its
+   square). The canvas was exactly COLS*CELL by ROWS*CELL, so that overhang had
+   nowhere to go:
+
+     sides  - a tile in column 0 or the last column loses (1.3-1)/2 = 0.15 of a
+              cell off the edge
+     top    - a tile in row 0 is drawn from (CELL - 1.69*CELL) = -0.69 of a cell,
+              so it loses SIXTY-NINE PER CENT of its height. A hill or a village
+              on the back row is beheaded.
+     bottom - nothing, because the art is anchored to the bottom of its square
+
+   Reported as units being clipped at the board edge, but the units are fine: the
+   largest a unit ever draws is 0.62 of a cell centred, or 0.373 from centre for
+   a stacked pair at its offset, against a 0.5 boundary. It is the terrain
+   underneath them that was losing its head.
+
+   Implemented as a one-off translate rather than an offset threaded through
+   every draw call, so all ~1700 lines of drawing code below are untouched and
+   keep working in board coordinates. Only the two places that convert a SCREEN
+   position back into a cell have to know (see the note in computeCellSize). */
+export const BOARD_PAD_X = 0.2;   // cells, each side
+export const BOARD_PAD_TOP = 0.7; // cells; covers the 0.69 overhang with a hair to spare
+export const BOARD_PAD_BOTTOM = 0.05;
+
 export function sizeCanvas(){
   setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
-  canvas.style.width = (COLS*CELL) + 'px';
-  canvas.style.height = (ROWS*CELL) + 'px';
-  canvas.width = COLS*CELL*dpr;
-  canvas.height = ROWS*CELL*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const padX = BOARD_PAD_X*CELL, padT = BOARD_PAD_TOP*CELL, padB = BOARD_PAD_BOTTOM*CELL;
+  const w = COLS*CELL + padX*2, h = ROWS*CELL + padT + padB;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = w*dpr;
+  canvas.height = h*dpr;
+  // The translate is baked into the base transform, so ctx.clearRect(0,0,...)
+  // and every subsequent draw stay in board coordinates as before.
+  ctx.setTransform(dpr,0,0,dpr, padX*dpr, padT*dpr);
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
   draw();
@@ -1102,7 +1258,13 @@ export function draw(){
   const debugPanel = document.getElementById('aiDebugPanel');
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
   const flip = screenFlipActive();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  /* Cleared in BOARD coordinates including the margin, which sits at negative
+     x/y now that the base transform is translated by it. clearRect(0,0,...)
+     would start at the board's top-left corner and leave the margin holding the
+     previous frame, which shows up as terrain art smearing at the edges. */
+  ctx.clearRect(-BOARD_PAD_X*CELL, -BOARD_PAD_TOP*CELL,
+                COLS*CELL + BOARD_PAD_X*CELL*2,
+                ROWS*CELL + (BOARD_PAD_TOP + BOARD_PAD_BOTTOM)*CELL);
   const terrain = state.terrain;
 
   // base fill — road cells fill as open ground; Hill matches Open (elevation is
@@ -1592,12 +1754,13 @@ export function draw(){
   const moving = [];
   for(const key in stackGroups){
     const list = stackGroups[key];
-    if(list.length===1 && unitAnimations[list[0].id]){ moving.push(list[0]); continue; }
-    if(list.length===1){ drawUnit(list[0]); }
+    if(list.length===1 && unitAnimations[list[0].id]){ routProbeGrouping(list[0], 'moving'); moving.push(list[0]); continue; }
+    if(list.length===1){ routProbeGrouping(list[0], 'single'); drawUnit(list[0]); }
     else if(list.length===2 && (list[0].type==='INFANTRY'||list[0].type==='GUARD') && (list[1].type==='INFANTRY'||list[1].type==='GUARD')){
+      list.forEach(u=> routProbeGrouping(u, 'columnPair'));
       drawColumnUnitPair(list[0], list[1]);
     }
-    else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
+    else { list.forEach((u,i)=>{ routProbeGrouping(u, 'stacked'); drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length]); }); }
   }
   for(const u of moving) drawUnit(u);
 
@@ -1724,7 +1887,9 @@ export function playBoardIntroAnimation(onComplete){
   function tick(){
     const now = performance.now();
     const elapsedGlobal = now - startTime;
-    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.clearRect(-BOARD_PAD_X*CELL, -BOARD_PAD_TOP*CELL,
+                  COLS*CELL + BOARD_PAD_X*CELL*2,
+                  ROWS*CELL + (BOARD_PAD_TOP + BOARD_PAD_BOTTOM)*CELL);
 
     let allSettled = true;
     for(const tile of tiles){

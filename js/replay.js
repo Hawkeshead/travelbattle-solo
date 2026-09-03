@@ -329,15 +329,46 @@ function sectionFlags(log, label){
     const u = state.units.find(o=>o.id===e.unitId);
     const cap = u ? (ALLOW[UNIT_TYPES[u.type].key] ?? 2) + 1 : 3;   // +1 for a road
     const d = cheb(e.from, e.to);
-    /* A rout legitimately crosses the board, so long moves to the unit's own
-       edge are exempt. But only if the move actually TRAVELS to that edge: a
-       unit already standing on its edge row and sliding along it is not
-       routing, and that is exactly the shape of the eight-tile pushback bug
-       ((8,0) -> (0,0), both on row 0). Requiring the row to change keeps genuine
-       routs quiet and still catches it. */
-    const edgeRow = u ? (u.side===SIDES.RED ? ROWS-1 : 0) : null;
-    const routingToEdge = u && e.to.y === edgeRow && e.from.y !== e.to.y;
-    if(d > cap && !routingToEdge){
+    /* WHY A UNIT MOVED, not how far it went.
+
+       A rout is not bounded by movement allowance. retreatAndRally sends the
+       unit to findNearestFreeEdgeCell(its own edge row, its Brigadier's column),
+       which can legitimately be most of the board away.
+
+       This used to infer "that was a rout" from the geometry: exempt the move if
+       it ENDED on the unit's own edge row having started off it. The row-change
+       requirement was there on purpose, to keep catching the old eight-tile
+       pushback bug ((8,0) -> (0,0), both on row 0). But it also catches the case
+       it was never meant to: a unit ALREADY standing on its own edge row, which
+       routs by sliding along that row toward its Brigadier and never changes row
+       at all.
+
+       That is not hypothetical. Seed 3234512697 T47, French Foot Artillery
+       Battery A, (1,0) -> (6,0), already on row 0, five squares against an
+       allowance of two. Correct behaviour, flagged as a fault, and subsequently
+       read by two separate analyses as a returning movement-allowance bug and
+       promoted up a priority list. Artillery trips it first purely because its
+       allowance of 1 is the lowest in the game, which made it look like an
+       artillery-specific pattern across two matches. It was not.
+
+       The move event now carries its own kind, so the geometry guess is gone. A
+       rout is exempt because it is a rout. Exports made before that field
+       existed fall back to the old inference rather than flooding with
+       false positives. */
+    if(e.kind === 'rout') continue;
+    if(e.kind === undefined){
+      const edgeRow = u ? (u.side===SIDES.RED ? ROWS-1 : 0) : null;
+      if(e.to.y === edgeRow) continue;   // legacy export: assume any move ending on the home edge was a rout
+    }
+    /* A pushback is one square, always: one step directly away from the winner,
+       or one step along the board edge when there is nothing behind. Anything
+       longer is the eight-tile bug returning, and is now caught by name rather
+       than by distance, so it cannot hide behind a large allowance. */
+    if(e.kind === 'pushback' && d > 1){
+      flags.push(`T${e.turn}  ${label(e.unitId)}: pushed back ${d} tiles (a pushback is always 1)`);
+      continue;
+    }
+    if(d > cap){
       flags.push(`T${e.turn}  ${label(e.unitId)}: moved ${d} tiles (allowance ${cap-1} +1 road)`);
     }
     /* A rout with nowhere to go no longer produces a zero-square move at all,
@@ -456,6 +487,34 @@ export function exportFullMatchLog(){
       lines.push(`ROUT ANIM: ${label(ev.unitId)} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
         `${ev.squares} squares, ${ev.pathPoints} path points, timed on ${ev.travelled}` +
         `${ev.fastMode ? ', FAST MODE' : ''}${odd ? '   *** LOOK HERE ***' : ''}`);
+    } else if(ev.type==='routProbe'){
+      /* The render side of the vanishing-rout report. routAnim above says what
+         the animation was set up with, and has been correct every time. This
+         says what the renderer then actually did with it, sampled at the
+         coordinates the unit was drawn at.
+
+         The verdict is computed here rather than left to the reader, because
+         the four failure modes look alike in a wall of numbers and the whole
+         point of this probe is to stop the next person guessing. */
+      const s = ev.samples || [];
+      const bad = v => typeof v !== 'number' || !Number.isFinite(v);
+      const offBoard = s.some(p => bad(p.vx) || bad(p.vy) || p.vx < -1 || p.vy < -1 || p.vx > COLS || p.vy > ROWS);
+      const atTarget = s.length > 0 && s.every(p => !bad(p.vx) && Math.abs(p.vx-ev.to.x) < 0.01 && Math.abs(p.vy-ev.to.y) < 0.01);
+      const covered = s.length > 0 && s.every(p => p.overlayUp);
+      let verdict;
+      if(ev.drawCalls === 0 && ev.framesInWindow === 0) verdict = 'NOT DRAWN, AND NO FRAMES RAN — the animation loop was not running';
+      else if(ev.drawCalls === 0) verdict = `NOT DRAWN across ${ev.framesInWindow} frames — culled in draw(), grouped as "${ev.grouped}"`;
+      else if(offBoard) verdict = 'DRAWN OFF-BOARD or at a non-finite position';
+      else if(atTarget) verdict = 'DRAWN AT THE DESTINATION THROUGHOUT — interpolation collapsed';
+      else if(covered) verdict = 'DRAWN CORRECTLY BUT AN OVERLAY WAS UP THE WHOLE TIME — this is a compositing fault, not an animation one';
+      else verdict = 'drawn correctly and uncovered — animation itself looks healthy';
+      lines.push(`ROUT PROBE: ${ev.label} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
+        `${ev.duration}ms, ${ev.pathPoints} path points, ${ev.framesInWindow} frames, ` +
+        `${ev.drawCalls} draw calls, grouped as "${ev.grouped}"`);
+      lines.push(`  VERDICT: ${verdict}`);
+      for(const p of s){
+        lines.push(`    t=${p.t}  visual (${p.vx},${p.vy})  screen px (${p.cx},${p.cy})${p.overlayUp ? '  [overlay up]' : ''}`);
+      }
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){
@@ -508,7 +567,22 @@ export function exportFullMatchLog(){
         }
       }
     } else if(ev.type==='fire'){
-      lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.roll} — ${ev.effect}`);
+      /* Shows the arithmetic, not just the answer. `roll` is the FINAL effect
+         value and used to be printed bare as "rolled 5", which is not what was
+         rolled: a raw 4 against a Square appears as a 5 with nothing to say the
+         +1 was already in it. Exports written before rawRoll existed fall back
+         to the old single-number form rather than claiming a breakdown they
+         do not have. */
+      if(ev.rawRoll === undefined){
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll} — ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
+      } else {
+        const mods = [];
+        if(ev.formationBonus) mods.push('+1 Square/Column');
+        if(ev.shakenBonus) mods.push('+1 already Shaken');
+        if(ev.coverPenalty) mods.push('-1 wood/building');
+        const sum = mods.length ? ` ${mods.join(' ')} ->` : ' ->';
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.rawRoll}${sum} ${ev.roll} — ${ev.effect}`);
+      }
     } else if(ev.type==='status'){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
     }

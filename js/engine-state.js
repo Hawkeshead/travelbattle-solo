@@ -3,6 +3,7 @@ import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 import { selectUnit, updateHeader } from './ui-battle.js';
 import { renderRoster, resetDeploymentUiState } from './ui-deployment.js';
+import { cancelAutoEnd, maybeStartAutoEnd } from './phase-autoend.js';
 
 /* =========================================================
    UNDO
@@ -55,6 +56,14 @@ export function undoLastAction(){
   draw();
   log('Undone.', 'system');
   updateUndoButtons();
+  /* Undo is the documented way to interrupt the auto-end countdown, so it stops
+     the clock first and only then re-tests. Normally the test now fails (the
+     undone action is exactly the one that completed the phase) and no new
+     countdown starts. Where it still passes — undoing something that never
+     blocked the phase — the clock restarts from four rather than resuming, so a
+     player who undoes at the last moment always gets the full window back. */
+  cancelAutoEnd();
+  maybeStartAutoEnd();
 }
 // Ensures the visible End-Phase button always matches state.phase — called
 // after undo as a defensive re-sync (the undo stack is now scoped so it can
