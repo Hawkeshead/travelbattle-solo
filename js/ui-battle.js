@@ -1,10 +1,10 @@
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue } from './ai-strategy.js';
-import { COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { addCrater, animateUnitTo, CameraPref, cameraRestorePlayerView, canvas, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
+import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -663,13 +663,11 @@ export function renderUnitInfo(u){
 export function initBoardInput(){
   canvas.addEventListener('click', (e)=>{
     if(consumeGestureFlag()){ return; } // this click is the tail end of a pan/pinch, not a tap
-    const rect = canvas.getBoundingClientRect();
-    const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
-    const x = Math.floor((e.clientX-rect.left)/cellPxX);
-    const screenY = Math.floor((e.clientY-rect.top)/cellPxY);
-    const y = sy(screenY);
-    if(!inBounds(x,y)) return;
-    onCellClick(x,y);
+    const hit = cellFromClient(e.clientX, e.clientY);
+    if(!hit) return;
+    const y = sy(hit.screenY);
+    if(!inBounds(hit.x,y)) return;
+    onCellClick(hit.x,y);
   });
 }
 

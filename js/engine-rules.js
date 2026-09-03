@@ -234,16 +234,21 @@ export function reconstructPath(u, toX, toY){
 
 /* CAN THIS UNIT MOVE AT ALL — asked without disturbing anything.
 
-   legalMoves() is not a pure query. It writes `lastSearch`, the breadcrumb
-   trail displayPath() reads to animate a move along the route the search
-   actually walked rather than a straight line. That is fine for the one unit a
-   player has selected, but the auto-end test asks the same question of EVERY
-   unit on the side, several times a turn. Left unguarded it would overwrite the
-   moving unit's breadcrumbs with some bystander's, and a three-square move
-   around a wood would start sliding through it.
+   legalMoves() is not a pure query: it writes `lastSearch`, and the auto-end
+   test asks it of every unit on the side, several times a turn. This saves and
+   restores that trail so a bystander's search cannot overwrite a live one.
 
-   The trail is therefore saved and put back. Cheaper than making legalMoves
-   pure, and it keeps the two callers honest about which one owns the state. */
+   CORRECTING AN EARLIER COMMIT MESSAGE, which said this was fixing a visible
+   fault in move animation. It was not. reconstructPath() is the only reader of
+   lastSearch, and it is currently called from nowhere. The animator uses
+   displayPath() in render-board.js, which runs its own search and deliberately
+   does NOT consult this one, because for display purposes squares holding other
+   units are passable and the legality search cannot treat them that way. So
+   there was no live consumer to corrupt and the animation was never at risk.
+
+   Kept regardless, on the narrower grounds that something named like a query
+   should not leave state behind and reconstructPath is exported and may yet be
+   wired up. But it prevents a hypothetical bug, not one that was happening. */
 export function hasAnyLegalMove(u){
   const saved = lastSearch;
   const any = legalMoves(u).length > 0;

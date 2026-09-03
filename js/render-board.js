@@ -435,6 +435,11 @@ export function animateUnitTo(u, newX, newY, kind){
     unitType: UNIT_TYPES[u.type].key,
     brigadeId: u.brigadeId,
     formation: u.formation || 'line',
+    /* Carried so the diagnostics can tell WHY a unit moved, not just how far.
+       Without it, section 6 had to guess from the geometry, and its guess was
+       wrong often enough to send a whole analysis session down a blind alley.
+       See the note on the movement-allowance flag in replay.js. */
+    kind: kind || 'march',
     status: u.turnOnly ? 'PushedBack' : (u.rallying ? 'Rallied' : 'Active'),
     connected: connectedAfter,
   });
@@ -625,13 +630,41 @@ export function endDiagramMode(){
   if(saved.animHandle) ensureAnimationLoopRunning();
 }
 
+/* SCREEN POSITION -> BOARD CELL, in one place.
+
+   Both hit tests (battle clicks and deployment drag-hover) used to derive cell
+   size as rect.width/COLS. That was true only while the canvas was exactly the
+   board; with a margin around it, rect.width covers COLS + 2*BOARD_PAD_X cells
+   and every click lands progressively further off toward the edges.
+
+   Reading getBoundingClientRect each call is deliberate: it already reflects the
+   CSS transform used for pinch-zoom and pan, so this needs no knowledge of
+   either. Returns the UNFLIPPED screen row; callers apply sy() themselves,
+   as they did before. Returns null when the point is outside the board proper,
+   which now includes the margin (clicking the border of the table is not a move
+   on the square nearest it). */
+export function cellFromClient(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  const cellPxX = rect.width / (COLS + BOARD_PAD_X*2);
+  const cellPxY = rect.height / (ROWS + BOARD_PAD_TOP + BOARD_PAD_BOTTOM);
+  const x = Math.floor(((clientX - rect.left) - BOARD_PAD_X*cellPxX) / cellPxX);
+  const screenY = Math.floor(((clientY - rect.top) - BOARD_PAD_TOP*cellPxY) / cellPxY);
+  if(x < 0 || x >= COLS || screenY < 0 || screenY >= ROWS) return null;
+  return { x, screenY };
+}
+
 export function computeCellSize(){
   const wrap = document.getElementById('boardWrap');
   const viewportW = document.documentElement.clientWidth || window.innerWidth;
   const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - 16);
   const availH = Math.max(200, wrap.clientHeight - 16);
-  const byWidth = Math.floor(availW / COLS);
-  const byHeight = Math.floor(availH / ROWS);
+  /* The margin is measured in CELLS, so it grows with the board and cannot be
+     subtracted before dividing. Solving availW = CELL*COLS + 2*PAD_X*CELL gives
+     the divisor below. Without this the board would overflow its wrapper by
+     exactly the margin, which on a phone in landscape is the difference between
+     fitting and not. Costs about 2% of board width. */
+  const byWidth = Math.floor(availW / (COLS + BOARD_PAD_X*2));
+  const byHeight = Math.floor(availH / (ROWS + BOARD_PAD_TOP + BOARD_PAD_BOTTOM));
   return Math.max(22, Math.min(byWidth, byHeight, 68));
 }
 
@@ -664,14 +697,45 @@ export function observeBoardResize(){
   boardResizeObserver.observe(wrap);
 }
 
+/* THE BOARD NEEDS A MARGIN AROUND IT.
+
+   Hill, Building and Woods all draw at WOODS_OVERSCAN (1.3 cells wide, and
+   1.3/0.77 = 1.69 cells tall, bottom-anchored so the art rises out of its
+   square). The canvas was exactly COLS*CELL by ROWS*CELL, so that overhang had
+   nowhere to go:
+
+     sides  - a tile in column 0 or the last column loses (1.3-1)/2 = 0.15 of a
+              cell off the edge
+     top    - a tile in row 0 is drawn from (CELL - 1.69*CELL) = -0.69 of a cell,
+              so it loses SIXTY-NINE PER CENT of its height. A hill or a village
+              on the back row is beheaded.
+     bottom - nothing, because the art is anchored to the bottom of its square
+
+   Reported as units being clipped at the board edge, but the units are fine: the
+   largest a unit ever draws is 0.62 of a cell centred, or 0.373 from centre for
+   a stacked pair at its offset, against a 0.5 boundary. It is the terrain
+   underneath them that was losing its head.
+
+   Implemented as a one-off translate rather than an offset threaded through
+   every draw call, so all ~1700 lines of drawing code below are untouched and
+   keep working in board coordinates. Only the two places that convert a SCREEN
+   position back into a cell have to know (see the note in computeCellSize). */
+export const BOARD_PAD_X = 0.2;   // cells, each side
+export const BOARD_PAD_TOP = 0.7; // cells; covers the 0.69 overhang with a hair to spare
+export const BOARD_PAD_BOTTOM = 0.05;
+
 export function sizeCanvas(){
   setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
-  canvas.style.width = (COLS*CELL) + 'px';
-  canvas.style.height = (ROWS*CELL) + 'px';
-  canvas.width = COLS*CELL*dpr;
-  canvas.height = ROWS*CELL*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const padX = BOARD_PAD_X*CELL, padT = BOARD_PAD_TOP*CELL, padB = BOARD_PAD_BOTTOM*CELL;
+  const w = COLS*CELL + padX*2, h = ROWS*CELL + padT + padB;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = w*dpr;
+  canvas.height = h*dpr;
+  // The translate is baked into the base transform, so ctx.clearRect(0,0,...)
+  // and every subsequent draw stay in board coordinates as before.
+  ctx.setTransform(dpr,0,0,dpr, padX*dpr, padT*dpr);
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
   draw();
@@ -1102,7 +1166,13 @@ export function draw(){
   const debugPanel = document.getElementById('aiDebugPanel');
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
   const flip = screenFlipActive();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  /* Cleared in BOARD coordinates including the margin, which sits at negative
+     x/y now that the base transform is translated by it. clearRect(0,0,...)
+     would start at the board's top-left corner and leave the margin holding the
+     previous frame, which shows up as terrain art smearing at the edges. */
+  ctx.clearRect(-BOARD_PAD_X*CELL, -BOARD_PAD_TOP*CELL,
+                COLS*CELL + BOARD_PAD_X*CELL*2,
+                ROWS*CELL + (BOARD_PAD_TOP + BOARD_PAD_BOTTOM)*CELL);
   const terrain = state.terrain;
 
   // base fill — road cells fill as open ground; Hill matches Open (elevation is
@@ -1724,7 +1794,9 @@ export function playBoardIntroAnimation(onComplete){
   function tick(){
     const now = performance.now();
     const elapsedGlobal = now - startTime;
-    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.clearRect(-BOARD_PAD_X*CELL, -BOARD_PAD_TOP*CELL,
+                  COLS*CELL + BOARD_PAD_X*CELL*2,
+                  ROWS*CELL + (BOARD_PAD_TOP + BOARD_PAD_BOTTOM)*CELL);
 
     let allSettled = true;
     for(const tile of tiles){

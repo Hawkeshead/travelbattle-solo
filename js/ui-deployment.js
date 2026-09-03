@@ -1,8 +1,8 @@
 import { aiDeployStep } from './ai-deployment.js';
-import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
+import { BRIGADE_COMPOSITIONS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
 import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
-import { canvas, draw, sy } from './render-board.js';
+import { cellFromClient, draw, sy } from './render-board.js';
 import { unitLabel, updateHeader } from './ui-battle.js';
 import { maybeShowArmyPicker } from './ui-menus.js';
 
@@ -237,15 +237,10 @@ export function startChipDrag(e, typeKey){
 }
 
 export function updateDragHoverCell(clientX, clientY){
-  const rect = canvas.getBoundingClientRect();
-  if(clientX<rect.left || clientX>rect.right || clientY<rect.top || clientY>rect.bottom){
-    dragState.hoverCell = null; return;
-  }
-  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
-  const x = Math.floor((clientX-rect.left)/cellPxX);
-  const screenY = Math.floor((clientY-rect.top)/cellPxY);
-  const y = sy(screenY);
-  dragState.hoverCell = inBounds(x,y) ? {x,y} : null;
+  const hit = cellFromClient(clientX, clientY);
+  if(!hit){ dragState.hoverCell = null; return; }
+  const y = sy(hit.screenY);
+  dragState.hoverCell = inBounds(hit.x,y) ? {x:hit.x,y} : null;
 }
 
 // Shared deployment-placement validation, used by both tap-to-place and drag-and-drop.

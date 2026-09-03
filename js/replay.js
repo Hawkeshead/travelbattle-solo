@@ -329,15 +329,46 @@ function sectionFlags(log, label){
     const u = state.units.find(o=>o.id===e.unitId);
     const cap = u ? (ALLOW[UNIT_TYPES[u.type].key] ?? 2) + 1 : 3;   // +1 for a road
     const d = cheb(e.from, e.to);
-    /* A rout legitimately crosses the board, so long moves to the unit's own
-       edge are exempt. But only if the move actually TRAVELS to that edge: a
-       unit already standing on its edge row and sliding along it is not
-       routing, and that is exactly the shape of the eight-tile pushback bug
-       ((8,0) -> (0,0), both on row 0). Requiring the row to change keeps genuine
-       routs quiet and still catches it. */
-    const edgeRow = u ? (u.side===SIDES.RED ? ROWS-1 : 0) : null;
-    const routingToEdge = u && e.to.y === edgeRow && e.from.y !== e.to.y;
-    if(d > cap && !routingToEdge){
+    /* WHY A UNIT MOVED, not how far it went.
+
+       A rout is not bounded by movement allowance. retreatAndRally sends the
+       unit to findNearestFreeEdgeCell(its own edge row, its Brigadier's column),
+       which can legitimately be most of the board away.
+
+       This used to infer "that was a rout" from the geometry: exempt the move if
+       it ENDED on the unit's own edge row having started off it. The row-change
+       requirement was there on purpose, to keep catching the old eight-tile
+       pushback bug ((8,0) -> (0,0), both on row 0). But it also catches the case
+       it was never meant to: a unit ALREADY standing on its own edge row, which
+       routs by sliding along that row toward its Brigadier and never changes row
+       at all.
+
+       That is not hypothetical. Seed 3234512697 T47, French Foot Artillery
+       Battery A, (1,0) -> (6,0), already on row 0, five squares against an
+       allowance of two. Correct behaviour, flagged as a fault, and subsequently
+       read by two separate analyses as a returning movement-allowance bug and
+       promoted up a priority list. Artillery trips it first purely because its
+       allowance of 1 is the lowest in the game, which made it look like an
+       artillery-specific pattern across two matches. It was not.
+
+       The move event now carries its own kind, so the geometry guess is gone. A
+       rout is exempt because it is a rout. Exports made before that field
+       existed fall back to the old inference rather than flooding with
+       false positives. */
+    if(e.kind === 'rout') continue;
+    if(e.kind === undefined){
+      const edgeRow = u ? (u.side===SIDES.RED ? ROWS-1 : 0) : null;
+      if(e.to.y === edgeRow) continue;   // legacy export: assume any move ending on the home edge was a rout
+    }
+    /* A pushback is one square, always: one step directly away from the winner,
+       or one step along the board edge when there is nothing behind. Anything
+       longer is the eight-tile bug returning, and is now caught by name rather
+       than by distance, so it cannot hide behind a large allowance. */
+    if(e.kind === 'pushback' && d > 1){
+      flags.push(`T${e.turn}  ${label(e.unitId)}: pushed back ${d} tiles (a pushback is always 1)`);
+      continue;
+    }
+    if(d > cap){
       flags.push(`T${e.turn}  ${label(e.unitId)}: moved ${d} tiles (allowance ${cap-1} +1 road)`);
     }
     /* A rout with nowhere to go no longer produces a zero-square move at all,
