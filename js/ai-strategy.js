@@ -7,6 +7,13 @@ import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
 import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, unitLabel } from './ui-battle.js';
 
+/* How hard evaluateState pulls on a move decision. Declared at module scope
+   because two separate comparisons depend on it and they must agree: the
+   per-candidate move score, and the Form Square score that is weighed against
+   the winner of those candidates. It previously lived inside the candidate loop,
+   which is why the Square comparison was left reading evaluateState raw. */
+const BASE_STATE_WEIGHT = 0.35;
+
 /* =========================================================
    AI: BATTLEFIELD ASSESSMENT, OPERATIONAL PLAN, BRIGADE MISSIONS
    (Hard difficulty only. Existing tactics elsewhere in this file — terrain
@@ -1194,7 +1201,6 @@ export function aiDecideAndExecuteMove(u){
          threatPenalty is deliberately left at FULL weight: a unit stepping into
          immediate danger should still notice. What stops is the vague
          board-wide unease that was vetoing every advance. */
-      const BASE_STATE_WEIGHT = 0.35;
       let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
             + addScore(parts, 'threat', -0.5*threatPenalty(u, side));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
@@ -1594,7 +1600,42 @@ export function aiDecideAndExecuteMove(u){
        option and is reverted two lines down. Logging it recorded a formation
        change that never happened, which is why the export shows every AI square
        twice. The real change is logged below, inside the branch that keeps it. */
-    const squareScore = evaluateState(side) - 0.15*threatPenalty(u, side);
+    /* SCORED ON THE SAME SCALE AS THE MOVES IT IS COMPARED AGAINST.
+
+       This read `evaluateState(side)` raw while bestScore contains
+       `evaluateState(side) * BASE_STATE_WEIGHT`. The two sides of the
+       comparison below were a factor of ~2.9 apart, and have been since
+       baseState was demoted from 1.0 to 0.35 to fix the 93% hold rate.
+
+       Because evaluateState is a material balance, that turned "should this
+       unit form Square?" into a question about how the whole match was going.
+       Solving the old comparison gives Square winning only when
+       0.65 * evaluateState exceeds the intent terms, so roughly only while the
+       AI was materially AHEAD by about two points.
+
+       That is backwards. Square is what you form when cavalry is about to ride
+       you down, which is usually when you are losing. And it produced both
+       halves of a symptom that looked like two separate bugs: in a match the AI
+       was winning, evaluateState sat near zero, Square cleared the bar
+       constantly and the export showed 18 formation changes in 41 turns; in a
+       match it was losing 14 units to 2, evaluateState reached -17.8, Square
+       could never clear the bar again and the AI formed one ZERO times in 53
+       turns while the enemy collected four Cavalry-vs-non-Square bonuses off
+       its unformed infantry. Same fault, two ends of one curve. It also fed
+       back on itself: losing material disabled Square, which lost more.
+
+       Applying the weight makes the 0.35*evaluateState term appear identically
+       on both sides, where it cancels, exactly as it does between candidate
+       squares. What is left is the real question: does the threat Square
+       removes outweigh what holding still gives up.
+
+       NOT CHANGED, but noted because it is the next thing anyone will ask
+       about: this prices threat at -0.15 while the move path prices it at -0.5
+       (see the 'threat' term above). Since Square's whole purpose is to lower
+       threatPenalty, the lighter coefficient systematically undervalues its
+       main benefit. Left alone deliberately so this fix can be measured on its
+       own rather than tangled with a weight change. */
+    const squareScore = evaluateState(side) * BASE_STATE_WEIGHT - 0.15*threatPenalty(u, side);
     u.formation = origForm;
     if(squareScore > bestScore){
       u.formation = 'square';
