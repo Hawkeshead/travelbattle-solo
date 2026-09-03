@@ -1,6 +1,6 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
-import { WOODS_OVERSCAN, ctx, getUnitVisualPos, sy, unitGaitOffset, woodsStyleIndex } from './render-board.js';
+import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, sy, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
@@ -404,6 +404,9 @@ export function drawUnit(u, off){
   // feeds the depth sort and a bobbing sort key would flicker against terrain.
   const cx = vp.x*CELL+CELL/2 + off.dx*CELL,
         cy = (sy(vp.y) + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
+  // Sampled here, at the exact coordinates the unit is about to be drawn at, so
+  // the probe records what the renderer saw rather than what it was told.
+  routProbeSample(u, vp, cx, cy);
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
   const col = SIDE_COLOR[u.side];

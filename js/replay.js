@@ -487,6 +487,34 @@ export function exportFullMatchLog(){
       lines.push(`ROUT ANIM: ${label(ev.unitId)} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
         `${ev.squares} squares, ${ev.pathPoints} path points, timed on ${ev.travelled}` +
         `${ev.fastMode ? ', FAST MODE' : ''}${odd ? '   *** LOOK HERE ***' : ''}`);
+    } else if(ev.type==='routProbe'){
+      /* The render side of the vanishing-rout report. routAnim above says what
+         the animation was set up with, and has been correct every time. This
+         says what the renderer then actually did with it, sampled at the
+         coordinates the unit was drawn at.
+
+         The verdict is computed here rather than left to the reader, because
+         the four failure modes look alike in a wall of numbers and the whole
+         point of this probe is to stop the next person guessing. */
+      const s = ev.samples || [];
+      const bad = v => typeof v !== 'number' || !Number.isFinite(v);
+      const offBoard = s.some(p => bad(p.vx) || bad(p.vy) || p.vx < -1 || p.vy < -1 || p.vx > COLS || p.vy > ROWS);
+      const atTarget = s.length > 0 && s.every(p => !bad(p.vx) && Math.abs(p.vx-ev.to.x) < 0.01 && Math.abs(p.vy-ev.to.y) < 0.01);
+      const covered = s.length > 0 && s.every(p => p.overlayUp);
+      let verdict;
+      if(ev.drawCalls === 0 && ev.framesInWindow === 0) verdict = 'NOT DRAWN, AND NO FRAMES RAN — the animation loop was not running';
+      else if(ev.drawCalls === 0) verdict = `NOT DRAWN across ${ev.framesInWindow} frames — culled in draw(), grouped as "${ev.grouped}"`;
+      else if(offBoard) verdict = 'DRAWN OFF-BOARD or at a non-finite position';
+      else if(atTarget) verdict = 'DRAWN AT THE DESTINATION THROUGHOUT — interpolation collapsed';
+      else if(covered) verdict = 'DRAWN CORRECTLY BUT AN OVERLAY WAS UP THE WHOLE TIME — this is a compositing fault, not an animation one';
+      else verdict = 'drawn correctly and uncovered — animation itself looks healthy';
+      lines.push(`ROUT PROBE: ${ev.label} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
+        `${ev.duration}ms, ${ev.pathPoints} path points, ${ev.framesInWindow} frames, ` +
+        `${ev.drawCalls} draw calls, grouped as "${ev.grouped}"`);
+      lines.push(`  VERDICT: ${verdict}`);
+      for(const p of s){
+        lines.push(`    t=${p.t}  visual (${p.vx},${p.vy})  screen px (${p.cx},${p.cy})${p.overlayUp ? '  [overlay up]' : ''}`);
+      }
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){

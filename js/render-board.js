@@ -281,6 +281,96 @@ export function unitGaitOffset(u){
   return -Math.abs(Math.sin(elapsed * Math.PI * g.hz)) * g.amp * fade;
 }
 
+/* =========================================================
+   ROUT RENDER PROBE
+
+   "The routed unit vanishes and reappears at the board edge" has survived three
+   attempts to fix it, all of which reasoned about the code. It is still live.
+
+   The instrumentation that exists (the routAnim replay event) records what the
+   animation was SET UP with, and in every logged rout those numbers are
+   correct: right number of path points, non-zero duration, destination not equal
+   to origin. So the fault is downstream of setup, and nothing records what the
+   renderer then did.
+
+   This probe closes that gap. It samples the unit at the point it is actually
+   drawn, so absence of samples is itself the answer. Four outcomes, each
+   pointing somewhere completely different:
+
+     no samples at all   -> drawUnit was never called: a culling or grouping
+                            fault in draw(), not an animation fault
+     NaN / off-board xy   -> being drawn where it cannot be seen
+     xy already at target -> interpolation collapsing to the destination
+     xy correct throughout-> drawn correctly, so something is covering it and
+                            this is a compositing problem, not an animation one
+
+   overlayUp is sampled alongside, because the last of those is otherwise
+   indistinguishable from the first by eye.
+
+   Deliberately cheap: at most MAX_SAMPLES entries, throttled, and only while a
+   rout is in flight. It costs nothing on any other move.
+========================================================= */
+const ROUT_PROBE_MAX_SAMPLES = 10;
+let routProbe = null;
+
+export function beginRoutProbe(u, anim){
+  routProbe = {
+    unitId: u.id, label: u.historicalName || UNIT_TYPES[u.type].key,
+    from: {x:anim.fromX, y:anim.fromY}, to: {x:anim.toX, y:anim.toY},
+    startTime: anim.startTime, duration: anim.duration,
+    pathPoints: anim.path ? anim.path.length : 0,
+    samples: [], drawCalls: 0, frames: 0, grouped: null, flushed: false,
+  };
+}
+
+// Called from drawUnit for every unit drawn, so the probe sees exactly what the
+// renderer saw. Cheap early-out for the 99.9% of calls that are not a rout.
+export function routProbeSample(u, vp, cx, cy){
+  if(!routProbe || routProbe.unitId !== u.id || routProbe.flushed) return;
+  routProbe.drawCalls++;
+  if(routProbe.samples.length >= ROUT_PROBE_MAX_SAMPLES) return;
+  const elapsed = Date.now() - routProbe.startTime;
+  const t = routProbe.duration ? elapsed/routProbe.duration : 1;
+  const last = routProbe.samples[routProbe.samples.length-1];
+  if(last && t - last.t < 1/ROUT_PROBE_MAX_SAMPLES) return;   // throttle: even spread, not every frame
+  routProbe.samples.push({
+    t: +t.toFixed(3),
+    vx: Number.isFinite(vp.x) ? +vp.x.toFixed(2) : String(vp.x),
+    vy: Number.isFinite(vp.y) ? +vp.y.toFixed(2) : String(vp.y),
+    cx: Number.isFinite(cx) ? Math.round(cx) : String(cx),
+    cy: Number.isFinite(cy) ? Math.round(cy) : String(cy),
+    overlayUp: ['diceOverlay','overlay'].some(id=>{
+      const el = document.getElementById(id);
+      return !!(el && el.classList.contains('show'));
+    }),
+  });
+}
+
+// Counts frames whether or not the unit was drawn, so "the loop stopped" and
+// "the loop ran but skipped this unit" can be told apart.
+export function routProbeTick(){
+  if(!routProbe || routProbe.flushed) return;
+  routProbe.frames++;
+  if(Date.now() < routProbe.startTime + routProbe.duration + 250) return;
+  routProbe.flushed = true;
+  logReplay('routProbe', {
+    unitId: routProbe.unitId, label: routProbe.label,
+    from: routProbe.from, to: routProbe.to,
+    duration: Math.round(routProbe.duration), pathPoints: routProbe.pathPoints,
+    framesInWindow: routProbe.frames, drawCalls: routProbe.drawCalls,
+    grouped: routProbe.grouped,
+    samples: routProbe.samples,
+  });
+  routProbe = null;
+}
+
+// Which branch of the draw loop the unit fell into. 'moving' is correct for a
+// unit mid-animation; anything else means it was grouped with the contents of
+// its destination square and drawn underneath them.
+export function routProbeGrouping(u, where){
+  if(routProbe && routProbe.unitId === u.id && !routProbe.flushed) routProbe.grouped = where;
+}
+
 export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
@@ -490,6 +580,7 @@ export function animateUnitTo(u, newX, newY, kind){
     fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
     startTime:Date.now(), duration,
   };
+  if(kind === 'rout') beginRoutProbe(u, unitAnimations[u.id]);
   ensureAnimationLoopRunning();
 }
 
@@ -515,6 +606,7 @@ export function ensureAnimationLoopRunning(){
   if(animFrameHandle) return;
   function tick(){
     draw();
+    routProbeTick();   // counts frames even when the unit is not drawn, and flushes the probe
     // Road dust outlives the move that kicked it up, so the loop keeps running
     // until the last puff has faded or it would freeze in mid-air.
     const stillAnimating = Object.keys(unitAnimations).length>0 || roadDust.length>0;
@@ -1662,12 +1754,13 @@ export function draw(){
   const moving = [];
   for(const key in stackGroups){
     const list = stackGroups[key];
-    if(list.length===1 && unitAnimations[list[0].id]){ moving.push(list[0]); continue; }
-    if(list.length===1){ drawUnit(list[0]); }
+    if(list.length===1 && unitAnimations[list[0].id]){ routProbeGrouping(list[0], 'moving'); moving.push(list[0]); continue; }
+    if(list.length===1){ routProbeGrouping(list[0], 'single'); drawUnit(list[0]); }
     else if(list.length===2 && (list[0].type==='INFANTRY'||list[0].type==='GUARD') && (list[1].type==='INFANTRY'||list[1].type==='GUARD')){
+      list.forEach(u=> routProbeGrouping(u, 'columnPair'));
       drawColumnUnitPair(list[0], list[1]);
     }
-    else { list.forEach((u,i)=> drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length])); }
+    else { list.forEach((u,i)=>{ routProbeGrouping(u, 'stacked'); drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length]); }); }
   }
   for(const u of moving) drawUnit(u);
 
