@@ -102,11 +102,20 @@ export const CONVERGE_PULL = 0.10;
    produces a negative number and pushes the unit away. Sized to sit alongside
    chargeBonus (2.2) once a decent fight is on offer, rather than below the
    incidental terrain and cohesion terms that were drowning the old pulls. */
-export const ENGAGE_WEIGHT = 0.9;
+/* Lowered from 0.9 with the clamp widened to match. In three logged matches
+   engage's observed maximum was exactly 2.70, which is ENGAGE_CLAMP*ENGAGE_WEIGHT
+   to the penny: the term was SATURATED. Every square offering any decent fight
+   scored the identical capped value, so its spread across those squares was zero
+   and it could never be the widest-spread term, which is exactly the statistic
+   that says which term decided a move. That is why it "never decides" despite a
+   healthy range: not that it is outvoted, but that it cannot tell its own good
+   options apart. Widening the clamp and reducing the weight keeps the same
+   effective magnitude while restoring the resolution. */
+export const ENGAGE_WEIGHT = 0.5;
 // Hard ceiling on the fight estimate before weighting. Belt and braces: the
 // estimator is already bounded, and this makes sure engage cannot dominate the
 // scorer even if that stops being true.
-export const ENGAGE_CLAMP = 3.0;
+export const ENGAGE_CLAMP = 6.0;
 
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
@@ -1488,6 +1497,29 @@ export function aiDecideAndExecuteMove(u){
     
        Skipped when the move is already a charge, or the two would stack and send
        cavalry in on anything. */
+    /* W7.3: NEVER END A CAVALRY MOVE NEXT TO A SQUARE.
+
+       The most important of the matchup rules, and it is POSITIONAL rather than
+       target selection. Adjacency compels a fight, so cavalry that finishes its
+       move beside a square will be FORCED into it next phase at one die against
+       two. Declining the attack is not available; the tile has to be avoided.
+
+       The reverse is worth just as much and is deliberately exploited: infantry
+       in line is rewarded for taking adjacency to an enemy square, because it
+       will be compelled into a fight it is favoured to win (second die under
+       Infantry vs Square, and after W4 the square cannot even initiate back).
+
+       Applied to the candidate square rather than to any target, so it shapes
+       where units stand and not merely what they choose to hit. */
+    if(seekTactics && !c.stay){
+      const adjSquare = state.units.some(o=>!o.removed && o.side!==side &&
+        o.formation==='square' && isAdjacent(c,o));
+      if(adjSquare){
+        if(t.isCavalry) s += addScore(parts, 'squareTrap', -3.0);
+        else if((t.key==='INFANTRY'||t.key==='GUARD') && u.formation!=='square') s += addScore(parts, 'squareHunt', 1.6);
+      }
+    }
+
     if(seekTactics && !c.stay && !isChargeMove && canInitiateFight(u)){
       const reachable = state.units.filter(o=>!o.removed && o.side!==side &&
         isAdjacent(c,o) && canAttackTarget(u,o));
@@ -1510,7 +1542,16 @@ export function aiDecideAndExecuteMove(u){
            again for a reason nobody predicted. */
         const raw = Math.max(...reachable.map(o=>estimateFightValue(u, o)));
         const best = Math.max(-ENGAGE_CLAMP, Math.min(ENGAGE_CLAMP, raw));
-        s += addScore(parts, 'engage', best * ENGAGE_WEIGHT);
+        /* W9: a unit that keeps losing stops looking for new fights.
+
+           Three consecutive defeats is the point a human commander pulls a unit
+           out rather than feeding it back in. engage is clamped to zero rather
+           than reversed, so the unit does not flee, it simply stops being
+           PAID to start anything, which lets retreatToSupport and threat carry
+           it back without a new term fighting them for control. */
+        const beaten = (u.lossStreak || 0) >= 3;
+        s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT);
+        if(beaten) s += addScore(parts, 'disengage', -0.5 * Math.min(5, u.lossStreak));
       }
     }
 
@@ -1813,14 +1854,57 @@ export function aiDoFirePhase(){
 /* =========================================================
    AI: FIGHTING
 ========================================================= */
+/* W1: WHAT THIS FIGHT IS WORTH, not merely that a fight is possible.
+
+   Rewritten for three reasons.
+
+   1. IT CONTRADICTED THE RULES IT WAS MEANT TO MODEL. The two Math.max(aD,2)
+      lines re-asserted the cavalry and infantry-vs-square dice AFTER
+      combatBonuses had already decided them. Harmless while the two agreed;
+      actively wrong from W3 onward, where cavalry into woods gets +1 and no
+      second die. The override would have told the AI it still had two, and it
+      would have gone on charging woods forever. Everything is now taken from
+      combatBonuses alone, so the estimator cannot drift from the rules again.
+
+   2. DICE WERE UNDERWEIGHTED AGAINST FLAT BONUSES. A second die is worth far
+      more than +1: it reshapes the distribution rather than shifting it (the
+      expected kept value goes 3.5 -> 4.47, and the tail matters more than the
+      mean when margins of 2 and 3 decide rout and removal). Weighted at 3:1
+      accordingly. Under the old edge*2 with +1s counted nowhere, a level fight
+      with two flat bonuses could outscore a genuine dice advantage.
+
+   3. IT DID NOT KNOW ABOUT STATUS (W8). The player picks targets that are
+      turned around, and the bonus tally shows it: Britain 22, France 4 in one
+      match; Britain 5, France 1 in the next. That is not a facing model, since
+      units fight omnidirectionally. It is target selection, and it belongs
+      here.
+
+   W4: a unit in Square cannot initiate at all, so there is no fight to value.
+   Returned as a large negative rather than zero, because zero means "a level
+   fight, no better than standing still" and this must be strictly worse than
+   any move that keeps the option.
+
+   Scale: dice edge dominates at +/-3 per die, flat bonuses at 1 each, and unit
+   values kept as a light tiebreaker so that among equally good matchups the AI
+   prefers to kill the more valuable thing. */
+export const DIE_WEIGHT = 3.0;
+export const BONUS_WEIGHT = 1.0;
+const SQUARE_CANNOT_ATTACK = -9;
+
 export function estimateFightValue(a, t){
-  let aD = combatBonuses(a, t, false).dice;
-  let dD = combatBonuses(t, a, true).dice;
-  const aType = UNIT_TYPES[a.type], tType = UNIT_TYPES[t.type];
-  if(aType.isCavalry && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation!=='square') aD = Math.max(aD,2);
-  if((aType.key==='INFANTRY'||aType.key==='GUARD') && a.formation!=='square' && (tType.key==='INFANTRY'||tType.key==='GUARD') && t.formation==='square') aD = Math.max(aD,2);
-  const edge = aD - dD;
-  return edge*2 + AI_UNIT_VALUE[t.type]*0.4 - AI_UNIT_VALUE[a.type]*0.15;
+  if(a.formation === 'square') return SQUARE_CANNOT_ATTACK;
+
+  const aB = combatBonuses(a, t, false);
+  const dB = combatBonuses(t, a, true);
+
+  /* The status bonuses live in resolveFight rather than combatBonuses, so they
+     have to be added by hand here. Kept in step with that list deliberately:
+     turned-around and rallying are the two that grant the attacker +1. */
+  let aBonus = aB.valueBonus + (t.turnOnly ? 1 : 0) + (t.rallying ? 1 : 0);
+  const dBonus = dB.valueBonus;
+
+  const edge = (aB.dice - dB.dice) * DIE_WEIGHT + (aBonus - dBonus) * BONUS_WEIGHT;
+  return edge + AI_UNIT_VALUE[t.type]*0.25 - AI_UNIT_VALUE[a.type]*0.10;
 }
 
 // Medium+: how much finishing off `target` matters for actually winning the game —
