@@ -316,7 +316,35 @@ export function canLayAmbush(u){
   return !adjacentEnemy;
 }
 
+/* W4, HOUSE RULE: A UNIT IN SQUARE DOES NOT INITIATE.
+
+   Square is a defensive posture and should cost something. Before this it was
+   strictly better than Line on contested ground: it bought two dice against
+   cavalry and gave up nothing, so there was no reason not to sit in it. Now it
+   is a genuine trade, and the AI's decision to form one becomes a real choice
+   rather than a free upgrade.
+
+   What does NOT change:
+     - a square still DEFENDS normally, including its second die against cavalry
+     - enemies adjacent to a square are still obliged to attack it in their own
+       fight phase, exactly as with any other adjacency
+     - the square still cannot move, which was already true
+
+   So the square keeps every defensive property it had and loses only the option
+   to start a fight of its own.
+
+   Noted as a departure: the printed ruleset says "Infantry in Square formation
+   fighting only cavalry roll an additional dice", with no restriction on who
+   started it, which implies a square may attack. This game already narrowed
+   that die to defence only; W4 is the second half of the same judgement, that
+   a square stands and receives rather than marching out.
+
+   Gated here rather than in the adjacency sweep so that everything downstream
+   agrees at once: anyFightsAvailable, the fight-phase auto-end countdown, the
+   AI's own target collection and the "fights declined" logging all read this
+   one function. */
 export function canInitiateFight(u){
+  if(u.formation === 'square') return false;
   return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !u.noActionThisTurn && !(state.fought && state.fought.has(u.id));
 }
 // Cavalry cannot attack a unit sheltering inside a building under any circumstance.
@@ -814,17 +842,39 @@ export function fireArtillery(gun, target, onComplete){
   const minRoll = Math.max(1, Math.min(6, needed));
   hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range — cannot hit');
 
-  presentRollTrigger([{label:'To Hit', diceCount:1, notes:hitNotes}], gun.side, ()=>{
-    const roll = rollD6();
+  /* W6.1, CANISTER SHOT, HOUSE RULE. A gun firing at 2 squares or less rolls two
+     dice for BOTH the to-hit and the effect.
+
+     The counterweight to W5. Artillery just became the softest thing on the board
+     once anything reaches it, so it needs to be genuinely dangerous in the band
+     where that is about to happen. Historically this is the right trade too: at
+     close range a gun switches to canister and stops being a siege weapon.
+
+     Guns cannot fire on an ADJACENT unit at all (an adjacent enemy compels melee
+     in the fight phase instead), and that is unchanged. artilleryTargets already
+     excludes any gun in contact, so the band this actually covers is exactly
+     range 2, plus range 1 in the case where the target is diagonal-adjacent but
+     the gun is not itself in contact. Written as <= 2 rather than === 2 so it
+     stays correct if the adjacency exclusion is ever loosened. */
+  const canister = dist <= 2;
+  if(canister) hitNotes.push('Canister Shot: extra die');
+
+  presentRollTrigger([{label:'To Hit', diceCount: canister ? 2 : 1, notes:hitNotes}], gun.side, ()=>{
+    const hitRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
+    const roll = Math.max(...hitRolls);
     const hit = roll >= needed;
+    /* W6.2, CRACK SHOT, HOUSE RULE: a KEPT hit die of 6 adds +1 to the effect.
+       Deliberately the kept die, not "either die shows a 6", so canister raises
+       the chance of triggering it without making it automatic. */
+    const crackShot = roll === 6;
     /* The report of the gun, on every shot. Sounded on the TO-HIT roll rather
        than the effect roll, because that is the moment the piece is fired: a
        miss makes exactly as much noise as a hit. Panned to the GUN, not the
        target, for the same reason. */
     AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
       { pan: AudioManager.panForBoardX(gun.x) });
-    showDice([{label:'To Hit', rolls:[roll], keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
-      log(`Artillery fires at ${unitLabel(target)} (range ${dist}, needs ${needed}+): rolled ${roll}.`, 'combat');
+    showDice([{label:'To Hit', rolls:hitRolls, keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
+      log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
       if(!hit){
         logNarration('artillery_miss');
         log('Shot falls wide.', 'combat');
@@ -850,13 +900,19 @@ export function fireArtillery(gun, target, onComplete){
       const shakenBonus = isColumn
         ? (stack.every(u=>u.turnOnly) ? 1 : 0)
         : (target.turnOnly ? 1 : 0);
+      // W6, HOUSE RULE: canister gives the effect roll a second die as well as
+      // the to-hit, and a kept hit die of 6 adds +1 to the effect on top.
+      const crackShotBonus = crackShot ? 1 : 0;
       const effNotes = [];
       if(inCover) effNotes.push('-1 effect: target in wood/building');
       if(formationBonus) effNotes.push(target.formation==='square' ? '+1 effect: Square formation' : '+1 effect: doubled Infantry (Column)');
       if(shakenBonus) effNotes.push(isColumn ? '+1 effect: both units already Shaken' : '+1 effect: target already Shaken');
+      if(canister) effNotes.push('Canister Shot: extra die');
+      if(crackShotBonus) effNotes.push('+1 effect: Crack Shot (kept a 6 to hit)');
 
-      presentRollTrigger([{label:'Effect', diceCount:1, notes:effNotes}], gun.side, ()=>{
-        const rawRoll = rollD6();
+      presentRollTrigger([{label:'Effect', diceCount: canister ? 2 : 1, notes:effNotes}], gun.side, ()=>{
+        const effRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
+        const rawRoll = Math.max(...effRolls);
         /* CAP LAST, AFTER THE COVER PENALTY.
 
            This used to read Math.min(6, raw + bonuses) and only THEN subtract
@@ -870,7 +926,7 @@ export function fireArtillery(gun, target, onComplete){
            revisited. The clamp still exists, because the effect table only runs
            1-6, but nothing is now discarded before every modifier has been
            counted. */
-        let effRoll = rawRoll + formationBonus + shakenBonus;
+        let effRoll = rawRoll + formationBonus + shakenBonus + crackShotBonus;
         if(inCover) effRoll -= 1;
         effRoll = Math.max(1, Math.min(6, effRoll));
         const effLabel = effRoll<=3 ? 'No effect' : effRoll===4 ? 'Shaken' : effRoll===5 ? 'Falls back' : 'Removed';
@@ -886,13 +942,14 @@ export function fireArtillery(gun, target, onComplete){
            The melee panel has always split these (keptValue is the die that
            counts, finalValue absorbs bonuses and re-rolls). Artillery now does
            the same, so the arithmetic on screen adds up. */
-        showDice([{label:'Effect', rolls:[rawRoll], keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+        showDice([{label:'Effect', rolls:effRolls, keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
           // Carried so the export records the arithmetic rather than just its
           // answer — see the note on the fire event in applyArtilleryEffect.
-          const effDetail = { rawRoll, formationBonus, shakenBonus, coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
+          const effDetail = { rawRoll, formationBonus, shakenBonus, crackShotBonus, canister,
+                              coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
             selectUnit(null);
@@ -927,6 +984,8 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     rawRoll: detail ? detail.rawRoll : undefined,
     formationBonus: detail ? detail.formationBonus : undefined,
     shakenBonus: detail ? detail.shakenBonus : undefined,
+    crackShotBonus: detail ? detail.crackShotBonus : undefined,
+    canister: detail ? detail.canister : undefined,
     coverPenalty: detail ? detail.coverPenalty : undefined,
     effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
   });

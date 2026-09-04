@@ -492,11 +492,53 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   if(defending && oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
     sources.push('Square vs Cavalry');
   }
-  // Cavalry fighting Infantry/Guard not in Square rolls a second die, regardless of
-  // whether the Cavalry is attacking or defending (ruleset makes no attacker-only
-  // distinction here).
+  /* Cavalry fighting Infantry/Guard not in Square rolls a second die, whether
+     the cavalry is attacking or defending.
+
+     W3, HOUSE RULE: except into woods, where it gets the +1 without the die.
+
+     Trees break up a charge. Shock is the whole of cavalry's advantage over
+     formed infantry, and an extra die is what shock is worth in this system, so
+     terrain that removes the charge should remove the die rather than merely
+     tax the result. Note the printed ruleset has no woods clause here at all,
+     and also forbids cavalry from ENTERING woods, so this only ever applies to
+     a charge made from outside into infantry sheltering among the trees.
+
+     Deliberately still worth +1: the horsemen are still a threat at the edge of
+     the wood, just not a decisive one. Under the sources model below the first
+     entry grants the second die and later ones grant +1 each, so this has to be
+     applied directly rather than pushed, or it would silently become the die it
+     is meant to withhold. */
   if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
-    sources.push('Cavalry vs non-Square Infantry');
+    if(terrainAt(opponent.x, opponent.y).key === 'WOODS'){
+      valueBonusDirect += 1;
+      directReasons.push('Cavalry into woods: +1 to roll (no 2nd die)');
+    } else {
+      sources.push('Cavalry vs non-Square Infantry');
+    }
+  }
+
+  /* W5, HOUSE RULE: melee against artillery is a second die, not just a +1,
+     unless the gun is in a building.
+
+     Artillery is the only ranged unit in the game and it is the strongest thing
+     on the board at range, so it should be correspondingly fragile once anyone
+     reaches it. This was already a flat +1 applied further down in resolveFight;
+     it moves here so that it grants the die, and so that it appears in the
+     logged sources list like every other bonus.
+
+     A BUILDING CANCELS BOTH the die and the +1. A gun behind walls is fought as
+     an ordinary defender, and the defender's own building bonus then applies on
+     top, which makes buildings genuinely worth siting a battery in rather than
+     incidental terrain.
+
+     Never three dice: the sources model grants exactly one second die however
+     many entries fire, so cavalry attacking a gun in the open rolls two, the
+     same as infantry attacking that gun. Artillery is not infantry, so the
+     cavalry clause above does not fire against it in any case. */
+  if(!defending && (t.key==='INFANTRY'||t.key==='GUARD'||t.isCavalry) && oppT.key==='ARTILLERY'
+     && terrainAt(opponent.x, opponent.y).key !== 'BUILDING'){
+    sources.push('Attacking Artillery');
   }
   if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)){
     sources.push('Attack Column');
@@ -623,10 +665,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   const extraASources = [];
   if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); extraASources.push('Defender turned around +1'); }
   if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll'); extraASources.push('Ambush +1'); }
-  // Infantry, Guard, and Cavalry all get +1 to the roll when attacking Artillery.
-  if((aType.key==='INFANTRY'||aType.key==='GUARD'||aType.isCavalry) && dType.key==='ARTILLERY'){
-    aValueBonus += 1; aReasons.push('Attacking Artillery: +1 to roll'); extraASources.push('Attacking Artillery +1');
-  }
+  /* The Attacking Artillery bonus used to be a flat +1 applied here. It moved
+     into combatBonuses under W5, where it grants a second die instead and is
+     cancelled entirely by a building. Applying it here as well would double it. */
 
   const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
   const tieWinNote = attacker.charged && aType.isCavalry && defender.formation!=='square' ? `${aName} wins ties (Charge)`

@@ -579,9 +579,11 @@ export function exportFullMatchLog(){
         const mods = [];
         if(ev.formationBonus) mods.push('+1 Square/Column');
         if(ev.shakenBonus) mods.push('+1 already Shaken');
+        if(ev.crackShotBonus) mods.push('+1 Crack Shot');
         if(ev.coverPenalty) mods.push('-1 wood/building');
         const sum = mods.length ? ` ${mods.join(' ')} ->` : ' ->';
-        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.rawRoll}${sum} ${ev.roll} — ${ev.effect}`);
+        const can = ev.canister ? ' [canister: 2 dice]' : '';
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.rawRoll}${can}${sum} ${ev.roll} — ${ev.effect}`);
       }
     } else if(ev.type==='status'){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
