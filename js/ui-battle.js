@@ -948,7 +948,14 @@ export function fireArtillery(gun, target, onComplete){
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
           // Carried so the export records the arithmetic rather than just its
           // answer — see the note on the fire event in applyArtilleryEffect.
+          /* F3: the hit roll travels with the effect. Until now only the effect
+             number reached the export, so a line reading "rolled 2 +1 Crack Shot"
+             was unverifiable: Crack Shot triggers on the HIT die keeping a 6, and
+             the number shown was the effect die. Correct, and indistinguishable
+             from a bug. Same for canister, which announced two dice and then
+             printed one number. */
           const effDetail = { rawRoll, formationBonus, shakenBonus, crackShotBonus, canister,
+                              hitRolls: hitRolls.slice(), hitKept: roll, hitNeeded: needed, effRolls: effRolls.slice(),
                               coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
@@ -986,6 +993,10 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     shakenBonus: detail ? detail.shakenBonus : undefined,
     crackShotBonus: detail ? detail.crackShotBonus : undefined,
     canister: detail ? detail.canister : undefined,
+    hitRolls: detail ? detail.hitRolls : undefined,
+    effRolls: detail ? detail.effRolls : undefined,
+    hitKept: detail ? detail.hitKept : undefined,
+    hitNeeded: detail ? detail.hitNeeded : undefined,
     coverPenalty: detail ? detail.coverPenalty : undefined,
     effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
   });

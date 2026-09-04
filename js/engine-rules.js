@@ -504,15 +504,31 @@ export function combatBonuses(unit, opponent, defending, extraSources){
      and also forbids cavalry from ENTERING woods, so this only ever applies to
      a charge made from outside into infantry sheltering among the trees.
 
-     Deliberately still worth +1: the horsemen are still a threat at the edge of
-     the wood, just not a decisive one. Under the sources model below the first
-     entry grants the second die and later ones grant +1 each, so this has to be
-     applied directly rather than pushed, or it would silently become the die it
-     is meant to withhold. */
+     F1: NO COMPENSATING +1. The first build of this gave the cavalry +1 in
+     place of the die, on the reasoning that horsemen at the edge of a wood are
+     still a threat. That reasoning was wrong on the arithmetic and the fault was
+     mine. Two dice kept-highest has an expected value of 4.47; one die plus one
+     has an expected value of 4.5. The "nerf" was worth about a twentieth of a
+     pip, so it did nothing at all. Losing the die IS the rule; there is nothing
+     to compensate.
+
+     F2: ATTACKER ONLY. The base cavalry die is deliberately granted whether the
+     cavalry attacks or defends, and the woods exception inherited that, which
+     was wrong. combatBonuses is called once per side, so when cavalry DEFENDED
+     against infantry attacking out of a wood, `opponent` was that infantry, its
+     tile was woods, and the defending cavalry was handed the bonus. Logged at
+     turn 20 of seed 4087646989: the 28th North Gloucestershire attacked out of
+     woods at (14,6) onto Carabiniers-a-Cheval standing on a road at (15,5), and
+     the cavalry collected a woods bonus for being attacked. It won that fight by
+     exactly that margin, routed the 28th, and the 28th failed its rally and died.
+
+     The rule is about riding INTO trees. Cavalry standing on open ground being
+     charged by infantry is not riding anywhere, so it keeps its full second die.
+     Hence the !defending gate: the exception only ever applies to the attacking
+     side's own roll. */
   if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
-    if(terrainAt(opponent.x, opponent.y).key === 'WOODS'){
-      valueBonusDirect += 1;
-      directReasons.push('Cavalry into woods: +1 to roll (no 2nd die)');
+    if(!defending && terrainAt(opponent.x, opponent.y).key === 'WOODS'){
+      directReasons.push('Cavalry into woods: no 2nd die');
     } else {
       sources.push('Cavalry vs non-Square Infantry');
     }

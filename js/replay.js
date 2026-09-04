@@ -452,6 +452,12 @@ export function exportFullMatchLog(){
         if(quietMoves[sd]) lines.push(`  (${quietMoves[sd]} routine ${SIDE_LABEL[sd]} moves)`);
       }
       quietMoves = {};
+      /* F6: name the turns that produced nothing at all, rather than letting the
+         log jump 35 to 37. A gap reads as missing data; a stated empty turn reads
+         as what it is, and makes two matches diffable against each other. */
+      if(lastTurn !== null && ev.turn > lastTurn + 1){
+        for(let t = lastTurn + 1; t < ev.turn; t++) lines.push(`--- Turn ${t} --- (no events)`);
+      }
       lines.push(`--- Turn ${ev.turn} ---`);
       lastTurn = ev.turn;
     }
@@ -582,8 +588,15 @@ export function exportFullMatchLog(){
         if(ev.crackShotBonus) mods.push('+1 Crack Shot');
         if(ev.coverPenalty) mods.push('-1 wood/building');
         const sum = mods.length ? ` ${mods.join(' ')} ->` : ' ->';
-        const can = ev.canister ? ' [canister: 2 dice]' : '';
-        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): rolled ${ev.rawRoll}${can}${sum} ${ev.roll} — ${ev.effect}`);
+        const can = ev.canister ? '  [canister: 2 dice]' : '';
+        /* F3: both rolls, in the same shape melee already uses, because one
+           number could not distinguish a working Crack Shot from a broken one. */
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.effect}`);
+        if(ev.hitRolls){
+          lines.push(`    hit    dice[${ev.hitRolls.join(',')}] x${ev.hitRolls.length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${can}`);
+        }
+        const eRolls = ev.effRolls || [ev.rawRoll];
+        lines.push(`    effect dice[${eRolls.join(',')}] x${eRolls.length} kept ${ev.rawRoll}${sum} ${ev.roll}`);
       }
     } else if(ev.type==='status'){
       lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
