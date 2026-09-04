@@ -371,6 +371,16 @@ export function routProbeGrouping(u, where){
   if(routProbe && routProbe.unitId === u.id && !routProbe.flushed) routProbe.grouped = where;
 }
 
+/* Unit ids are strings ('u17'), so anything doing arithmetic on one gets NaN.
+   Cheap stable hash to a number instead: same unit always weaves the same way,
+   different units differ, and no caller has to remember the id is not numeric. */
+function routJitterSeed(id){
+  const s = String(id);
+  let h = 0;
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 100000;
+  return h;
+}
+
 export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
@@ -402,10 +412,39 @@ export function getUnitVisualPos(u){
      or it reads as a deliberate weave. Faded out at both ends so the unit still
      leaves and arrives on its squares exactly. */
   if(prof.jitter){
+    /* THE VANISHING ROUT. Four sessions, three attempts by reasoning, found by
+       the render probe in one match.
+
+       This read `u.id*11.3`. Unit ids are STRINGS: engine-state.js builds them
+       as 'u'+nextUid(), so they look like "u17". "u17" * 11.3 is NaN, the whole
+       jitter term is NaN, and pos becomes {x:NaN, y:NaN}. Canvas silently draws
+       nothing at a non-finite coordinate, so the unit disappeared for the entire
+       run and reappeared the instant t reached 1, because the t>=1 branch above
+       returns {u.x, u.y} and never touches jitter.
+
+       Only routs broke because rout is the only profile with a non-zero jitter;
+       every other move skips this block on a falsy value.
+
+       It also explains why it survived so long. The ROUT ANIM instrumentation
+       records the animation's SETUP, which was correct every single time: right
+       path points, right duration, right destination. Nothing recorded what the
+       renderer did with it. The probe samples inside drawUnit and reported ten
+       consecutive NaN positions across 197 frames and 197 draw calls, which is
+       "being drawn, at a position that cannot be seen" rather than "not drawn".
+
+       The seed is now a stable number derived from the id, so each unit still
+       weaves differently and identically from run to run. */
+    const seed = routJitterSeed(u.id);
     const fade = Math.sin(Math.PI * t);
-    const n = (Math.sin(t*37.1 + u.id*11.3) + Math.sin(t*61.7 + u.id*5.9)) * 0.5;
+    const n = (Math.sin(t*37.1 + seed*11.3) + Math.sin(t*61.7 + seed*5.9)) * 0.5;
     pos = { x: pos.x + n * prof.jitter * fade, y: pos.y + n * prof.jitter * fade * 0.6 };
   }
+  /* Belt and braces. A non-finite coordinate does not throw, it just silently
+     draws nothing, which is the least debuggable failure the renderer has: the
+     unit is simply absent and no error is raised anywhere. Falling back to the
+     logical square makes any future arithmetic fault show up as a unit that
+     fails to animate rather than one that ceases to exist. */
+  if(!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) pos = { x: u.x, y: u.y };
   emitRoadDustIfCrossing(u, anim, pos);
   return pos;
 }
