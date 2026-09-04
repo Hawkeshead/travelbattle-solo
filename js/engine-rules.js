@@ -876,6 +876,14 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       const winner = winnerIsAttacker ? attacker : defender;
       const loser = winnerIsAttacker ? defender : attacker;
       const diff = Math.abs(finalA - finalD);
+      /* W9: a unit's own combat record, so the AI can notice it is losing.
+         Logged matches show units fighting nine and ten times without a single
+         win before dying: Carabiniers-a-Cheval 9 fought 0 won 6 lost, 1er
+         Grenadiers 4 fought 0 won 4 lost. A human pulls a unit out after the
+         third failure. Recorded on the unit rather than in a side table so it
+         travels with undo snapshots and the replay for free. */
+      winner.lossStreak = 0;
+      loser.lossStreak = (loser.lossStreak || 0) + 1;
       log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
       const columnPartner = stackPartner(loser); // a broken Column takes both units with it
