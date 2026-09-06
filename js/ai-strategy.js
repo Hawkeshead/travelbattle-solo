@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -1240,6 +1240,27 @@ export function aiDecideAndExecuteMove(u){
        stranded rather than bold. */
     if(wasConnected && !connNow.has(u.id)){
       if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
+      /* S7: DISCONNECTING FOR NOTHING COSTS EXTRA.
+
+         Disconnections ran 1.5% -> 8% -> 11% across three matches. cohesionLoss
+         at 2.4 is deliberately clearable, and has to be: S4 raises engage to
+         +4.3 for a genuinely good fight, and a unit SHOULD leave its Brigadier's
+         chain to destroy an exposed battery. Raising cohesionLoss would undo
+         that, which is why the brief says not to touch it.
+
+         The units actually going missing are not doing that. They drift off the
+         chain for terrain, ground denial or mission pull, gaining nothing worth
+         the isolation, and then cannot move at all until the Brigadier catches
+         up. So the extra cost is charged only when the move creates no fight:
+         reachable enemies from the candidate square, not a general threat
+         count.
+
+         Result: breaking cohesion for a target stays affordable at 2.4, and
+         breaking it for scenery costs 4.0, which nothing else in the scoring
+         can clear. */
+      const buysAFight = state.units.some(o=>!o.removed && o.side!==side &&
+        isAdjacent(c, o) && canAttackTarget(u, o));
+      if(!t.isArtillery && !buysAFight) s -= subScore(parts, 'cohesionDrift', 1.6);
     /* Judged on the CANDIDATE square, not the gun's current one, so a move INTO
        a vantage point counts as established and is not penalised for arriving
        out of contact. The old test asked where the gun already stood, so a
@@ -1674,7 +1695,43 @@ export function aiDecideAndExecuteMove(u){
   // line: no move, +1 to the enemy's artillery effect roll, and a second die for
   // infantry attacking it. The old log line already claimed "sensing cavalry
   // nearby" while checking no such thing.
-  if(canSquare && cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
+  /* S5: SQUARE IS NOT THE ONLY ANSWER TO CAVALRY, AND OFTEN NOT THE BEST ONE.
+
+     The AI's cavalry judgement is sound and is deliberately left alone: it read
+     correctly that British cavalry was dismantling it and forced the player onto
+     infantry instead, and four units forming square in one turn was a good
+     collective decision. What it lacks is the alternatives.
+
+     Measured cost of not having them: seven "Infantry vs Square" bonuses for
+     Britain against two "Square vs Cavalry" for France. Squares were caught by
+     line infantry three and a half times for every time square did its job.
+
+     Three checks, cheapest first, each one a reason NOT to form:
+
+       enemyLineNear   Forming square beside enemy line infantry trades one bad
+                       matchup for a worse one. After S2 the square faces 1 v 2
+                       in BOTH directions, so it cannot even attack its way out.
+                       This is the clause that matters most.
+       coverNear       Woods or a building already does the job: cavalry loses
+                       its second die into woods (W3/F1) and cannot enter a
+                       building at all. Standing there costs no move and keeps
+                       the unit able to fight normally.
+       columnPartner   An adjacent friendly infantry gives a second die through
+                       Attack Column without giving up mobility.
+
+     Deliberately NOT scored as a penalty against squareScore. A square formed
+     next to enemy line infantry is a mistake at any score, so this is a gate. */
+  const enemyLineNear = state.units.some(o=>!o.removed && o.side!==side &&
+    (UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') &&
+    o.formation!=='square' && chebyshev(o, u) <= 2);
+  const coverNear = ['WOODS','BUILDING'].includes(terrainAt(u.x,u.y).key) ||
+    neighbors8(u.x,u.y).some(n=>['WOODS','BUILDING'].includes(terrainAt(n.x,n.y).key) &&
+      unitsAt(n.x,n.y).length===0 && !state.moved.has(u.id));
+  const columnPartner = state.units.some(o=>!o.removed && o.side===side && o.id!==u.id &&
+    (UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') &&
+    o.formation!=='square' && isAdjacent(o, u));
+  if(canSquare && !enemyLineNear && !coverNear && !columnPartner &&
+     cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
     const origForm = u.formation;
     u.formation = 'square';
     /* NOT logged here. This square is hypothetical: it is set only to score the
