@@ -474,21 +474,25 @@ export function combatBonuses(unit, opponent, defending, extraSources){
       sources.push(coverLabel);
     }
   }
-  /* SQUARE ONLY HELPS A UNIT THAT IS RECEIVING, not one that attacks.
-  
-     The `defending` gate was missing, so infantry in square drew its second die
-     when it marched out and attacked cavalry. A logged fight shows 9e Legere
-     attacking the Scots Greys and rolling two dice for 'Square vs Cavalry'.
-  
-     A square is formed to stand and receive a charge; a unit that leaves to
-     attack is not doing that, and every other cover and formation bonus here is
-     already gated on defending.
-  
-     FLAGGED AS A JUDGEMENT, not a citation: the ruleset PDF in the project is
-     not readable (it carries a ZIP header, so the file is something else under
-     a .pdf name). The cavalry bonus immediately below WAS checked against the
-     printed rules and is deliberately not gated, so the two differ on purpose
-     rather than by oversight. Worth confirming against the book. */
+  /* S2: THE SQUARE MATRIX.
+
+       square DEFENDS vs cavalry      2 v 1   the counter, unchanged
+       square ATTACKS cavalry         1 v 1   neutral: no advantage either way
+       square vs line infantry        1 v 2   either direction
+       square attacks artillery       2 v 1   as any infantry (building cancels)
+
+     Revises W4, which removed square's attack entirely. That went too far.
+     Square's cost is now its vulnerability to line infantry and the loss of its
+     anti-cavalry edge when it attacks, rather than a blanket ban.
+
+     The old note here recorded the ruleset as unreadable. It is readable: the
+     file carries a ZIP header because it is eight page scans, and the printed
+     rule says "Infantry in Square formation fighting only cavalry roll an
+     additional dice", with no attacker/defender split. We depart from that
+     deliberately and Matthew has confirmed the game has moved past the book.
+
+     Only the defend case grants a source. Square attacking cavalry grants
+     nothing to either side, which is the 1 v 1 row and needs no code. */
   if(defending && oppT.isCavalry && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation==='square'){
     sources.push('Square vs Cavalry');
   }
@@ -559,9 +563,13 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   if((t.key==='INFANTRY'||t.key==='GUARD') && isInColumn(unit)){
     sources.push('Attack Column');
   }
-  // Infantry attacking a Square (and not itself in Square) rolls a second die —
-  // attacker-only, since a Square never initiates a fight (it can't move).
-  if(!defending && (t.key==='INFANTRY'||t.key==='GUARD') && unit.formation!=='square' && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation==='square'){
+  /* S2: line infantry rolls the second die against a square in EITHER
+     direction, not just when attacking. Was attacker-only on the reasoning that
+     a square never initiates; S2 gives square its attack back, so a square that
+     marches into line infantry must face the same 1 v 2 it would as defender.
+     Otherwise attacking would be strictly better than being attacked, which is
+     the opposite of what a square is for. */
+  if((t.key==='INFANTRY'||t.key==='GUARD') && unit.formation!=='square' && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation==='square'){
     sources.push('Infantry vs Square');
   }
   for(const ex of (extraSources||[])){ if(ex.applies) sources.push(ex.reason); }
@@ -900,6 +908,30 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
          travels with undo snapshots and the replay for free. */
       winner.lossStreak = 0;
       loser.lossStreak = (loser.lossStreak || 0) + 1;
+      /* S3: A SQUARE THAT IS DRIVEN BACK BREAKS, AND STAYS BROKEN.
+
+         A square has no movement allowance (S1), so a combat result that forces
+         displacement has to resolve the contradiction. It resolves by breaking
+         the formation: the unit reforms to line, then displaces normally, and
+         everything downstream (rally, Brigadier range, turned-around) treats it
+         as any line unit.
+
+         It does NOT revert. Re-forming square is a fresh decision on a later
+         turn like any other formation change.
+
+         The tactical consequence is the point: pushing a square strips its
+         protection, and it cannot re-form until its own next turn, so a second
+         attack that same turn faces line infantry. One unit pushes, a second
+         kills. That is what the player already does and the AI does not.
+
+         Set here, where winner and loser are already frozen and BEFORE the
+         displacement runs, so target scoring later in the same phase sees a
+         line unit rather than a square. */
+      if(diff >= 1 && loser.formation === 'square'){
+        loser.formation = 'line';
+        logReplay('formation', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, to:'line', by:'combat' });
+        log(`${unitLabel(loser)}'s Square is broken by the attack and reforms Line.`, loser.side);
+      }
       log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
       const columnPartner = stackPartner(loser); // a broken Column takes both units with it

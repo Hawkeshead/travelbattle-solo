@@ -344,7 +344,11 @@ export function canLayAmbush(u){
    AI's own target collection and the "fights declined" logging all read this
    one function. */
 export function canInitiateFight(u){
-  if(u.formation === 'square') return false;
+  /* W4's blanket "a square cannot initiate" is REVERTED by S2. It went too far.
+     Square now fights in both directions and the S2 matrix carries the cost:
+     1 v 1 when it attacks cavalry (its edge only applies to receiving) and
+     1 v 2 against line infantry either way. A rule expressed in dice is better
+     than one expressed as a prohibition, because the AI can weigh it. */
   return !u.removed && UNIT_TYPES[u.type].canFight && !u.turnOnly && !u.noActionThisTurn && !(state.fought && state.fought.has(u.id));
 }
 // Cavalry cannot attack a unit sheltering inside a building under any circumstance.

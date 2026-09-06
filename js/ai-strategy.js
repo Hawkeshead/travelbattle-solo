@@ -111,11 +111,15 @@ export const CONVERGE_PULL = 0.10;
    healthy range: not that it is outvoted, but that it cannot tell its own good
    options apart. Widening the clamp and reducing the weight keeps the same
    effective magnitude while restoring the resolution. */
-export const ENGAGE_WEIGHT = 0.5;
+/* S4: back to full weight. At 0.5 a perfect fight was worth 2.3, which could
+   not clear cohesionLoss at -2.40, so a unit would never break formation for a
+   fight however good. At 1.0 the table runs about -4 to +4.6 as specified, and a
+   good fight clears -2.40 on its own without cohesionLoss being touched. */
+export const ENGAGE_WEIGHT = 1.0;
 // Hard ceiling on the fight estimate before weighting. Belt and braces: the
 // estimator is already bounded, and this makes sure engage cannot dominate the
 // scorer even if that stops being true.
-export const ENGAGE_CLAMP = 6.0;
+export const ENGAGE_CLAMP = 5.0;
 
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
@@ -1428,7 +1432,26 @@ export function aiDecideAndExecuteMove(u){
         // Cavalry aims at the side's single chosen point rather than each
         // squadron at its own nearest weak enemy, so the horse arrives together.
         const point = cavalrySchwerpunkt(side);
-        if(point) s -= subScore(parts, 'cavalryConcentration', chebyshev(c, point) * CAVALRY_CONCENTRATION_PULL);
+        /* S8: cavalryConcentration reaches 0 when massed, and pays when it can
+           mass ON something.
+
+           It was distance * PULL, subtracted. Distance is never negative, so the
+           term was never zero and never positive: a permanent tax on every
+           cavalry move, functioning only as a tie-break between degrees of
+           badness (range -4.76 to -1.12 in the last match). It could not reward
+           the behaviour it is named after.
+
+           Now the penalty is only the distance STILL to travel, so arriving at
+           the rally point scores exactly 0.00. And when two or more cavalry can
+           reach the same enemy this turn, it goes positive, which is the
+           concentration the term was always supposed to buy. */
+        if(point){
+          const gap = chebyshev(c, point);
+          if(gap > 0) s -= subScore(parts, 'cavalryConcentration', gap * CAVALRY_CONCENTRATION_PULL);
+          const massed = state.units.filter(o=>!o.removed && o.side===side && o.id!==u.id &&
+            UNIT_TYPES[o.type].isCavalry && chebyshev(o, point) <= 2).length;
+          if(massed >= 1) s += addScore(parts, 'cavalryConcentration', Math.min(2, massed) * 0.6);
+        }
         else s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
       } else {
         s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
@@ -1520,7 +1543,24 @@ export function aiDecideAndExecuteMove(u){
       }
     }
 
-    if(seekTactics && !c.stay && !isChargeMove && canInitiateFight(u)){
+    /* S4: `isChargeMove` USED TO EXCLUDE THIS BLOCK, and that was the collapse.
+
+       Reported as "engage went the wrong way": maximum value +0.42 against an
+       intended +4.0. The weight was not the cause. +0.42 is exactly a level
+       fight against a Guard (4*0.25 - 4*0.10 = 0.85, halved by ENGAGE_WEIGHT),
+       which means the best fight the AI saw all match was a 1 v 1.
+
+       It could not see better, because every 2 v 1 in the game belongs to
+       cavalry closing on infantry, and a cavalry move into contact is a CHARGE.
+       Excluding charges excluded exactly the matchups engage exists to find, so
+       it only ever scored infantry walking into level fights. chargeBonus is a
+       flat 2.2 for any charge at all and cannot tell a good one from a bad one,
+       so nothing was reading the matchup.
+
+       The two now coexist: chargeBonus prices the manoeuvre, engage prices the
+       fight it creates. A charge into square scores 2.2 - 2.4 and is correctly
+       declined; a charge into exposed artillery scores 2.2 + 4.1. */
+    if(seekTactics && !c.stay && canInitiateFight(u)){
       const reachable = state.units.filter(o=>!o.removed && o.side!==side &&
         isAdjacent(c,o) && canAttackTarget(u,o));
       if(reachable.length){
@@ -1889,11 +1929,12 @@ export function aiDoFirePhase(){
    prefers to kill the more valuable thing. */
 export const DIE_WEIGHT = 3.0;
 export const BONUS_WEIGHT = 1.0;
-const SQUARE_CANNOT_ATTACK = -9;
 
 export function estimateFightValue(a, t){
-  if(a.formation === 'square') return SQUARE_CANNOT_ATTACK;
-
+  /* S2/S4: a square CAN attack now, so the -9 sentinel is gone. combatBonuses
+     carries the whole matrix, so square scores 0.0 into cavalry (neutral, worth
+     taking if it is the only option) and -3.0 into line infantry (avoid),
+     without a special case here. */
   const aB = combatBonuses(a, t, false);
   const dB = combatBonuses(t, a, true);
 
@@ -1904,7 +1945,14 @@ export function estimateFightValue(a, t){
   const dBonus = dB.valueBonus;
 
   const edge = (aB.dice - dB.dice) * DIE_WEIGHT + (aBonus - dBonus) * BONUS_WEIGHT;
-  return edge + AI_UNIT_VALUE[t.type]*0.25 - AI_UNIT_VALUE[a.type]*0.10;
+  /* The unit-value tiebreaker is now zero-MEAN: a difference, not two separate
+     terms. Written as value*0.25 - value*0.10 it added about +0.6 to every
+     matchup, so a level fight scored +0.60 rather than 0.00 and the whole table
+     sat above the specification. That matters because 0.00 is load-bearing: it
+     is the statement that an even fight is worth no more than standing still.
+     As a difference it vanishes between equals and still prefers the more
+     valuable target among equally good matchups. */
+  return edge + (AI_UNIT_VALUE[t.type] - AI_UNIT_VALUE[a.type]) * 0.15;
 }
 
 // Medium+: how much finishing off `target` matters for actually winning the game —
