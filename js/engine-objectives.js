@@ -106,6 +106,35 @@ export function checkScenarioTurnLimit(){
 
 export function endGame(winner){
   state.gameOver = true;
+  /* THE LAST BRIGADE TO BREAK STILL GETS ANNOUNCED.
+
+     The second break is the one that wins, so the dispatch and this overlay want
+     the screen at the same instant. Rather than let the overlay swallow it, the
+     victory screen waits out the dispatch window and then opens.
+
+     gameOver is set FIRST, before the wait, so nothing else can take a turn in
+     the gap. Only the presentation is deferred, never the result. */
+  const wait = (state._dispatchUntil || 0) - Date.now();
+  if(wait > 0){
+    // Guarded against re-entry: removeUnit can call checkWinCondition more than
+    // once while the dispatch is up (a Column loses both units, then the
+    // Brigadier withdraws), and without this each call would queue its own
+    // overlay and they would stack.
+    if(!state._endDeferred){
+      state._endDeferred = true;
+      setTimeout(()=>{
+        /* An undo during the wait rewinds _endDeferred, because it lives on
+           `state` and snapshotState serialises the whole object. If the flag is
+           gone, this timer is orphaned: the break that triggered it has been
+           undone and the match is live again. Abandon rather than ending a game
+           that is back in play. */
+        if(!state._endDeferred) return;
+        state._endDeferred = false;
+        endGame(winner);
+      }, wait + 120);
+    }
+    return;
+  }
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
   const bodyText = state.scenario
     ? `${SIDE_LABEL[winner]} achieves the objective: ${state.scenario.title}.`

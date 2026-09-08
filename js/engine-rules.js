@@ -5,7 +5,7 @@ import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
-import { renderBrigadeStatus, unitLabel } from './ui-battle.js';
+import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
 /* =========================================================
    GEOMETRY HELPERS
@@ -1248,6 +1248,10 @@ export function removeUnit(u, reason){
       }
     }
   }
+  /* Announced BEFORE the win check, so the dispatch is queued and its window is
+     already open when endGame reads state._dispatchUntil. The other order would
+     have the victory overlay decide it had nothing to wait for. */
+  noteBrigadeBreaks();
   checkWinCondition();
   renderBrigadeStatus();
 }

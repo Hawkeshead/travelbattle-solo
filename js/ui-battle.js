@@ -85,6 +85,126 @@ export function brigadeBrokenStatus(side){
   return out;
 }
 
+/* =========================================================
+   BRIGADE BREAK DISPATCH
+
+   A Brigade breaking is the single most decisive event in a match (two of them
+   ends it) and until now it happened in silence, as a pip changing colour in
+   the header while the player was reading a dice panel somewhere else.
+
+   Nothing new is computed. brigadeBrokenStatus already returns the six booleans
+   the header draws; this watches them for a false->true edge and announces it.
+
+   QUEUED, NOT IMMEDIATE. Brigades break during fight resolution, with a dice
+   panel up and possibly a rout still crossing the board. Firing at that moment
+   would land on top of both. The dispatch waits for a quiet board, the same way
+   ambush springs and the phase countdown already do.
+
+   ONE AT A TIME. Two Brigades can break on the same removal (a Column loses
+   both units, or a shared fight breaks one on each side). A single element
+   cannot show two dispatches, so they queue and play in sequence rather than
+   the second overwriting the first before it has been read.
+
+   UNDO-SAFE. The seen-flags live on `state`, so pushUndoSnapshot captures them.
+   Held in a module variable they would survive an undo, and re-fighting the same
+   battle would announce the same break twice (or, worse, not at all, because the
+   flag would already be set). Everything the queue does is re-checked against
+   live state at the moment of display for the same reason: an undo can rewind a
+   break between queueing and showing it.
+
+   IT DELAYS THE VICTORY SCREEN RATHER THAN BEING SWALLOWED BY IT. The second
+   break is the one that wins, so the dispatch and the end overlay want the
+   screen simultaneously. endGame reads state._dispatchUntil and waits, so the
+   last Brigade to break is still announced on its own terms.
+========================================================= */
+const DISPATCH_MS = 3500;
+const DISPATCH_GAP_MS = 400;   // fade-out breathing room between queued dispatches
+let dispatchTimer = null;
+let dispatchQueue = [];
+let dispatchActive = false;
+
+function dispatchBoardBusy(){
+  return ['diceOverlay','overlay'].some(id=>{
+    const o = document.getElementById(id);
+    return !!(o && o.classList.contains('show'));
+  });
+}
+
+/* Reserves the window endGame waits on. Called at queue time as well as at
+   display time, so a break that is still queued when the match ends cannot be
+   swallowed by a victory screen that decided it had nothing to wait for. */
+function reserveDispatchWindow(ms){
+  state._dispatchUntil = Math.max(state._dispatchUntil || 0, Date.now() + ms);
+}
+
+function showDispatch(side, brigadeId){
+  const el = document.getElementById('brigadeDispatch');
+  if(!el) return;
+  dispatchActive = true;
+  const statuses = brigadeBrokenStatus(side);
+  const brokenCount = statuses.filter(Boolean).length;
+  const brig = state.units.find(u=>u.side===side && u.brigadeId===brigadeId && u.type==='BRIGADIER');
+  const who = brig ? (brig.historicalName || `${brigadeId+1} Brigade`) : `${brigadeId+1} Brigade`;
+  el.innerHTML =
+    `<div class="dispatch-kicker">Dispatch from the field</div>` +
+    `<div class="dispatch-head">${who}'s Brigade is broken</div>` +
+    `<div class="dispatch-sub">${SIDE_LABEL[side]} &mdash; ${brokenCount} of 3 &middot; two ends the battle</div>`;
+  el.classList.add('show');
+  // No dedicated sound yet: the audio catalogue has no brigadeBreak entry and
+  // inventing one silently would fail the asset check. Hook here when one exists.
+  reserveDispatchWindow(DISPATCH_MS);
+  if(dispatchTimer) clearTimeout(dispatchTimer);
+  const hide = ()=>{
+    el.classList.remove('show');
+    el.onclick = null;
+    if(dispatchTimer){ clearTimeout(dispatchTimer); dispatchTimer = null; }
+    dispatchActive = false;
+    if(dispatchQueue.length===0) state._dispatchUntil = 0;
+    setTimeout(pumpDispatchQueue, DISPATCH_GAP_MS);
+  };
+  // Tap to dismiss: three lines you were not expecting, on a phone, while
+  // probably looking at the other end of the board. Some people will want it gone.
+  el.onclick = hide;
+  dispatchTimer = setTimeout(hide, DISPATCH_MS);
+}
+
+/* Drains the queue one dispatch at a time, waiting for a quiet board and
+   re-checking each entry against live state before it is shown. */
+function pumpDispatchQueue(){
+  if(dispatchActive || dispatchQueue.length===0) return;
+  if(dispatchBoardBusy()){ setTimeout(pumpDispatchQueue, 250); return; }
+  let next = null;
+  while(dispatchQueue.length){
+    const cand = dispatchQueue.shift();
+    // Re-checked rather than assumed: an undo can rewind a break between the
+    // moment it was queued and the moment the board finally goes quiet.
+    if(brigadeBrokenStatus(cand.side)[cand.brigadeId]){ next = cand; break; }
+  }
+  if(!next){ if(dispatchQueue.length===0) state._dispatchUntil = 0; return; }
+  showDispatch(next.side, next.brigadeId);
+}
+
+/* Called after every unit removal. Compares against what has already been
+   announced and reports only the rising edge. */
+export function noteBrigadeBreaks(){
+  if(state.replaying || state.phase === 'deploy') return;
+  if(!state.brokenSeen) state.brokenSeen = {};
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const now = brigadeBrokenStatus(side);
+    const seen = state.brokenSeen[side] || [false,false,false];
+    for(let i=0;i<3;i++){
+      if(now[i] && !seen[i]){
+        dispatchQueue.push({ side, brigadeId:i });
+        // Reserve the whole run up front, not just the first one, so a second
+        // queued break still holds the victory screen off.
+        reserveDispatchWindow(350 + dispatchQueue.length * (DISPATCH_MS + DISPATCH_GAP_MS));
+        setTimeout(pumpDispatchQueue, 350);
+      }
+    }
+    state.brokenSeen[side] = now;
+  }
+}
+
 export function renderBrigadeStatus(){
   const el = document.getElementById('brigadeStatus');
   if(!el) return;
