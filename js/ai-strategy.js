@@ -953,15 +953,51 @@ export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
 /* How good a square would be to settle on. Returns 0 for anywhere that fails the
    sustained-target test, so a gun is never drawn to safe ground with nothing to
    shoot at. */
+/* WHAT A SHOT AT RANGE N IS WORTH, 0-1.
+
+   The to-hit number IS the range (needed = dist in the fire path), so a target
+   at 6 is a 1-in-6 shot and one at 3 is 2-in-3. vantageScore used to count every
+   target as 1.0 regardless, which meant a square seeing three enemies at range 6
+   scored exactly the same as one seeing the same three at range 2, and nothing
+   in the AI had any reason to close. Both French batteries in the Sep 8 match
+   (seed 488332463) sat at the back edge for 23 and 17 turns respectively, and
+   this is why: from the scoring's point of view they were already ideally sited.
+
+   Peaks at 3-4 rather than at the best odds available. Range 1-2 is canister and
+   hits far more often, but W5 made a gun in melee something attackers get a
+   second die against, and 1-2 squares is inside a charge. The curve prices that:
+   good odds are not worth being overrun for. Deliberate doctrine, not an
+   approximation of the hit table. */
+const GUN_RANGE_WORTH = { 1: 0.5, 2: 0.8, 3: 1.0, 4: 1.0, 5: 0.5, 6: 0.25 };
+export function rangeWorth(d){ return GUN_RANGE_WORTH[d] || 0; }
+
 export function vantageScore(gun, x, y){
   const targets = targetsFromSquare(gun, x, y);
+  /* The GATE is still a raw head-count, so "can this square sustain a position"
+     answers the same as it always did and gunIsEstablished / gunStranded keep
+     their existing behaviour. Only the SCORE is weighted. */
   if(targets < GUN_MIN_SUSTAINED_TARGETS) return 0;
   const terr = terrainAt(x, y);
   // Targets dominate; ground breaks ties between positions that can both shoot.
-  let score = targets * 1.0;
+  let score = weightedTargetsFromSquare(gun, x, y);
   if(terr.defenseBonus) score += 0.6;   // a building: +1 in defence
   if(terr.elevation > 0) score += 0.5;  // a hill: fires over friendly units
   return score;
+}
+
+/* As targetsFromSquare, but each target counts what a shot at it is worth from
+   here rather than counting one. Same LOS test, so the two never disagree about
+   what is visible — only about what it is worth. */
+export function weightedTargetsFromSquare(gun, x, y){
+  const probe = { x, y };
+  let n = 0;
+  for(const o of state.units){
+    if(o.removed || o.side === gun.side) continue;
+    if(o.type === 'BRIGADIER') continue;
+    if(isConcealedFromEnemy(o)) continue;
+    if(hasLOS(probe, o)) n += rangeWorth(chebyshev(probe, o));
+  }
+  return n;
 }
 
 /* Enemy units within firing range of a square, whether or not the gun is there
@@ -1356,7 +1392,17 @@ export function aiDecideAndExecuteMove(u){
     if(!holdingReserve && !selfPreservation && t.key!=='BRIGADIER'){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
-        s -= subScore(parts, 'gunStandoff', Math.abs(d-4) * 0.06);
+        /* Was Math.abs(d-4) * 0.06, which pointed at the right band and could
+           not reach it: across the whole Sep 8 match it produced a spread of
+           0.07, against gunHasShot's 2.82. A term that never separates two
+           squares by more than a rounding error decides nothing, however
+           correct its direction.
+
+           Now a flat-bottomed band at 3-4 with a coefficient that can actually
+           move a decision. Flat rather than a point at 4 so the gun is not
+           dragged off a good square at 3 for an equal one at 4. */
+        const bandMiss = d < 3 ? (3 - d) : d > 4 ? (d - 4) : 0;
+        s -= subScore(parts, 'gunStandoff', bandMiss * 0.45);
 
         /* SEEKING A VANTAGE POINT. The old logic only rewarded STAYING somewhere
            good, never GOING somewhere good, so where a battery finished up was an
@@ -1398,8 +1444,25 @@ export function aiDecideAndExecuteMove(u){
              one covering three units stays put. Gated on not being under real
              threat: a battery about to be overrun should still run. */
           if(safeEnough){
-            const shots = artilleryTargets(u).length;
-            if(shots > 0) s += addScore(parts, 'gunHasShot', GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2);
+            /* SCALED BY WHAT THE SHOT IS WORTH, not just that one exists.
+
+               This is the strongest gun term in the model (spread 2.82, decided
+               17 moves in the Sep 8 match, second only to cohesionLoss), and it
+               paid the same hold bonus for a 1-in-6 shot at range 6 as for a
+               2-in-3 at range 3. Since move-or-fire means repositioning forfeits
+               the shot, that was enough to pin a battery at long range
+               indefinitely: it had "a shot", so it stayed, forever.
+
+               Quality comes from the BEST target available, because that is the
+               one the gun would actually take. */
+            const targets = artilleryTargets(u);
+            const shots = targets.length;
+            if(shots > 0){
+              let best = 0;
+              for(const t2 of targets) best = Math.max(best, rangeWorth(chebyshev(u, t2)));
+              s += addScore(parts, 'gunHasShot',
+                (GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2) * Math.max(best, 0.2));
+            }
           }
         }
       } else {
