@@ -1992,8 +1992,15 @@ export function estimateFightValue(a, t){
      carries the whole matrix, so square scores 0.0 into cavalry (neutral, worth
      taking if it is the only option) and -3.0 into line infantry (avoid),
      without a special case here. */
+  /* An ambush on cavalry strips its second die, so ambushing horsemen is worth
+     considerably more than ambushing infantry. Modelled by setting the same flag
+     combatBonuses reads, rather than by a parallel clause that could drift from
+     the rule. Restored immediately: this is a hypothetical, not a live fight. */
+  const wasAmbushed = t.ambushedThisFight;
+  if(a.hidden && UNIT_TYPES[t.type].isCavalry) t.ambushedThisFight = true;
   const aB = combatBonuses(a, t, false);
   const dB = combatBonuses(t, a, true);
+  if(wasAmbushed === undefined) delete t.ambushedThisFight; else t.ambushedThisFight = wasAmbushed;
 
   /* The status bonuses live in resolveFight rather than combatBonuses, so they
      have to be added by hand here. Kept in step with that list deliberately:

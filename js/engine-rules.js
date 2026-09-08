@@ -530,7 +530,21 @@ export function combatBonuses(unit, opponent, defending, extraSources){
      charged by infantry is not riding anywhere, so it keeps its full second die.
      Hence the !defending gate: the exception only ever applies to the attacking
      side's own roll. */
-  if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
+  /* AMBUSHED CAVALRY ROLLS ONE DIE.
+
+     Same principle as the woods rule: an ambush catches horsemen before they can
+     build momentum, and shock is the whole of what the second die represents.
+     Applies whenever an ambush is sprung on cavalry, whatever the terrain and
+     whatever the ambusher is. The ambusher's own bonuses ("Ambush +1" and
+     "Ambush: committed second die") are untouched.
+
+     Gated on `defending` because a sprung ambush always makes the cavalry the
+     receiving side; a cavalry unit attacking out of its own ambush is not being
+     surprised and keeps everything. */
+  if(defending && t.isCavalry && unit.ambushedThisFight){
+    directReasons.push('Ambushed cavalry: no 2nd die');
+  }
+  else if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
     if(!defending && terrainAt(opponent.x, opponent.y).key === 'WOODS'){
       directReasons.push('Cavalry into woods: no 2nd die');
     } else {
@@ -596,6 +610,14 @@ export function combatBonuses(unit, opponent, defending, extraSources){
 // visible before any decision is asked for. No listed limit on the card, so
 // it's available every fight, and the AI always takes it when eligible since
 // there's no cost to declining.
+/* The same test tryOne uses, exported so the panel above can ask "might these
+   numbers still change?" without duplicating the condition. Kept as one function
+   deliberately: a divergence between what the panel believes and what the
+   re-roll actually does is the exact class of fault this is fixing. */
+export function canRerollFight(unit, roll){
+  return !!UNIT_TYPES[unit.type].reroll && roll.value < 6;
+}
+
 export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
   const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
   function currentGroups(){
@@ -667,6 +689,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   const aType = UNIT_TYPES[attacker.type], dType = UNIT_TYPES[defender.type];
   const aExtra = [];
   if(ambushMode==='advance') aExtra.push({applies:true, reason:'Ambush: committed second die'});
+  /* Set for the duration of THIS fight only and cleared below, so the flag
+     cannot leak into a later, unambushed engagement. Read by combatBonuses,
+     which is called for both sides a few lines down. */
+  if(ambushMode) defender.ambushedThisFight = true;
   const aBonus = combatBonuses(attacker, defender, false, aExtra);
   const dBonus = combatBonuses(defender, attacker, true, []);
   let aDice = aBonus.dice, dDice = dBonus.dice;
@@ -773,13 +799,36 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     // the exact same result phrasing as the final settle below (not a
     // placeholder "X leads"), recomputed here since the tie-break rules
     // (Charge/Column/Hill) can only be evaluated once real values exist.
+    /* THE INTERIM PANEL MUST NOT ANNOUNCE A VERDICT WHILE A RE-ROLL IS PENDING.
+
+       Reported three times in one match, all light cavalry against heavy: the
+       panel said "Britain wins by 3 — France destroyed" while its own note
+       underneath read "re-rolled to 3, fights on 3", and the board then did
+       something else. The reported arithmetic was exactly right:
+
+         instance 1   4 - 1 = 3   "wins by 3"   (defender's PRE-re-roll die)
+         instance 2   2 - 1 = 1   "wins by 1"
+
+       This is the line that produced it. The interim verdict is computed from
+       the pre-re-roll values, which is correct at the instant it is drawn. The
+       re-roll then pushes its note into dReasons and refreshes the dice, so the
+       note updates underneath a headline that does not. The frozen block below
+       recomputes everything properly, but only AFTER the re-roll resolves, and
+       the stale headline is on screen for the whole of the decision.
+
+       A headline that will be contradicted a moment later is worse than no
+       headline. Where a re-roll may still change the numbers, the panel now
+       states that instead of stating a winner. Where no re-roll is available
+       the verdict is final at this point and is shown as before. */
+    const rerollPending = canRerollFight(attacker, aRoll) || canRerollFight(defender, dRoll);
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
       {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
        portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
-    ], interim.resultText, interim.resultCls, null, true);
+    ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
+       rerollPending ? 'draw' : interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
     /* FROZEN AT THE MOMENT THE PANEL IS BUILT.
@@ -823,6 +872,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       // Deferred until the popup has fully faded — nothing on the board moves
       // while there are still dice on screen to read.
       attacker.charged = false; // spent, win or lose — a charge is a one-shot burst of momentum
+      delete defender.ambushedThisFight;   // one fight only
 
       // Derived from the FROZEN values, not a fresh read. See the note above.
       const fightOutcome = genuineDraw ? 'stalemate'
