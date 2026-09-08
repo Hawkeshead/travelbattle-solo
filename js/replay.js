@@ -49,6 +49,7 @@ export function replayEventCaption(ev){
     return `Fighting at the line: ${labels[ev.result]||ev.result}`;
   }
   if(ev.type==='fire'){
+    if(ev.hit === false) return 'Artillery fires: shot falls wide';
     const labels = {none:'No effect', disrupt:'Shaken', rout:'Falls back', destroy:'Destroyed'};
     return `Artillery fires: ${labels[ev.effect]||ev.effect}`;
   }
@@ -90,6 +91,7 @@ export function applyReplayEvent(ev){
   }
   if(ev.type==='fire'){
     showReplayHitRing(ev.x, ev.y);
+    if(ev.hit === false) return;   // shot fell wide: nothing landed to replay
     const u = state.units.find(x=>x.id===ev.targetId);
     if(u && ev.effect==='disrupt') u.turnOnly = true;
     return;
@@ -258,7 +260,41 @@ function sectionSummary(log, label){
   }
   out.push('');
 
-  out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots`);
+  /* SHOTS, HITS AND HIT RATE BY RANGE. `fires` used to be reported bare as
+     "artillery shots" when it could only ever contain hits, so the one question
+     the export existed to answer — is the battery firing less, or missing more —
+     was the one it could not address. Misses are events now, and the range
+     breakdown is here because the to-hit number IS the range: a shot at 6 is
+     1-in-6 and a shot at 3 is 2-in-3, so a falling hit count means nothing until
+     you know what range it was taken at.
+
+     Older exports carry no `hit` field. Rather than counting those legacy events
+     as hits and quietly reporting 100%, they are counted as shots and the rate
+     is withheld. */
+  const misses = fires.filter(e=>e.hit === false);
+  const hits   = fires.filter(e=>e.hit === true);
+  if(hits.length + misses.length === fires.length && fires.length){
+    const pct = Math.floor(hits.length / fires.length * 100);
+    out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots (${hits.length} hit, ${misses.length} missed, ${pct}%)`);
+    const byRange = {};
+    for(const e of fires){
+      const r = e.hitNeeded;
+      if(r === undefined) continue;
+      const b = (byRange[r] = byRange[r] || {shots:0, hits:0});
+      b.shots++;
+      if(e.hit) b.hits++;
+    }
+    const rows = Object.keys(byRange).map(Number).sort((a,b)=>a-b);
+    if(rows.length){
+      out.push('  by range (to-hit number = range):');
+      for(const r of rows){
+        const b = byRange[r];
+        out.push(`    range ${r} (needs ${Math.max(1,Math.min(6,r))}+): ${b.shots} fired, ${b.hits} hit`);
+      }
+    }
+  } else {
+    out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots (hits only — this export predates miss logging)`);
+  }
   const byResult = {};
   for(const f of fights) byResult[f.result] = (byResult[f.result]||0)+1;
   out.push('  outcomes: ' + (Object.entries(byResult).map(([k,v])=>`${k} ${v}`).join(', ') || 'none'));
@@ -579,7 +615,16 @@ export function exportFullMatchLog(){
          +1 was already in it. Exports written before rawRoll existed fall back
          to the old single-number form rather than claiming a breakdown they
          do not have. */
-      if(ev.rawRoll === undefined){
+      /* MISSES. Older exports have no `hit` field at all and contain hits only,
+         because a miss never reached logReplay; those still read as before. A
+         miss has no effect roll, so it prints the hit line and stops. `who`
+         names the firing side where the event carries it: `side` is the
+         TARGET's side and on its own cannot answer who shot. */
+      const who = ev.gunSide !== undefined ? `${SIDE_LABEL[ev.gunSide]} gun` : 'Artillery';
+      if(ev.hit === false){
+        lines.push(`${who} on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): MISS`);
+        lines.push(`    hit    dice[${(ev.hitRolls||[]).join(',')}] x${(ev.hitRolls||[]).length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${ev.canister ? '  [canister: 2 dice]' : ''}`);
+      } else if(ev.rawRoll === undefined){
         lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll} — ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
       } else {
         const mods = [];
@@ -591,7 +636,7 @@ export function exportFullMatchLog(){
         const can = ev.canister ? '  [canister: 2 dice]' : '';
         /* F3: both rolls, in the same shape melee already uses, because one
            number could not distinguish a working Crack Shot from a broken one. */
-        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.effect}`);
+        lines.push(`${who} on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.effect}`);
         if(ev.hitRolls){
           lines.push(`    hit    dice[${ev.hitRolls.join(',')}] x${ev.hitRolls.length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${can}`);
         }

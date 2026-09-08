@@ -1000,6 +1000,23 @@ export function fireArtillery(gun, target, onComplete){
     showDice([{label:'To Hit', rolls:hitRolls, keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
       log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
       if(!hit){
+        /* A MISS IS A SHOT. It used to return here without ever reaching
+           logReplay, so no `fire` event existed for it and the export could not
+           see it at all. Every artillery line in every export was therefore a
+           HIT, section 5's "artillery shots" was a hit count wearing the wrong
+           label, and a match could read as eighteen shots for eighteen hits with
+           no die below 3 — indistinguishable from loaded dice, and the reason
+           "artillery has nearly disappeared from play" could never be told apart
+           from "artillery is firing as often as ever and missing".
+
+           Recorded with the same hit detail a hit carries, and hit:false so
+           every consumer can tell the two apart. There is no effect roll,
+           because none was made. */
+        logReplay('fire', {
+          targetId: target.id, side: target.side, x: target.x, y: target.y,
+          hit: false, gunId: gun.id, gunSide: gun.side,
+          hitRolls: hitRolls.slice(), hitKept: roll, hitNeeded: needed, canister,
+        });
         logNarration('artillery_miss');
         log('Shot falls wide.', 'combat');
         state.fired.add(gun.id);
@@ -1078,8 +1095,14 @@ export function fireArtillery(gun, target, onComplete){
              the number shown was the effect die. Correct, and indistinguishable
              from a bug. Same for canister, which announced two dice and then
              printed one number. */
+          /* gunId/gunSide travel with the shot because `side` on a fire event is
+             the TARGET's side, so the export could name what was hit but never
+             what fired. A turn-20 line reading "ARTILLERY on French Battery A
+             (France)" during France's own turn was unresolvable for exactly this
+             reason: nothing in the record said whose gun it was. */
           const effDetail = { rawRoll, formationBonus, shakenBonus, crackShotBonus, canister,
                               hitRolls: hitRolls.slice(), hitKept: roll, hitNeeded: needed, effRolls: effRolls.slice(),
+                              gunId: gun.id, gunSide: gun.side,
                               coverPenalty: inCover ? 1 : 0, notes: effNotes.slice() };
           applyArtilleryEffectToStack(stack, effRoll, 0, ()=>{
             state.fired.add(gun.id);
@@ -1121,6 +1144,9 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     effRolls: detail ? detail.effRolls : undefined,
     hitKept: detail ? detail.hitKept : undefined,
     hitNeeded: detail ? detail.hitNeeded : undefined,
+    hit: true,
+    gunId: detail ? detail.gunId : undefined,
+    gunSide: detail ? detail.gunSide : undefined,
     coverPenalty: detail ? detail.coverPenalty : undefined,
     effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
   });
