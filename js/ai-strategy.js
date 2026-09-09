@@ -121,6 +121,58 @@ export const ENGAGE_WEIGHT = 1.0;
 // scorer even if that stops being true.
 export const ENGAGE_CLAMP = 5.0;
 
+/* R1: THE AVOIDANCE CAPS, AND THE INVARIANT BEHIND THEM.
+
+   THE INVARIANT IS ABOUT SPREAD, NOT MAGNITUDE. It is tempting to write "no
+   avoidance term may exceed engage's positive maximum", but magnitudes do not
+   compete in this scorer: only the DIFFERENCE between the chosen square and its
+   rivals decides anything. baseState reaches -13.65 and decides nothing, because
+   its spread is 0.21 and it cancels across every option. Stated as a magnitude
+   rule this would licence tuning baseState down, which is the error the project
+   has already made once. Stated correctly: no avoidance term should routinely
+   out-SPREAD engage on squares where a fight is available.
+
+   Neither number below existed as a constant. threatPenalty accumulates 0.4-2.0
+   per enemy in reach (0.6 per gun with LOS) and is unclamped, so the -5.00
+   observed in seed 488332463 is several enemies summing rather than a ceiling
+   anyone chose. retreatToSupportBonus is -chebyshev * 0.30, also unclamped, so
+   -4.50 is simply a 15-tile distance.
+
+   Capped at the SCORING SITE rather than inside the functions. Both are read as
+   scalars by gates elsewhere (square formation at >= 1.4, reserve release at
+   >= 1.0, exposed-artillery detection at >= 1, and others), every one of them
+   below 1.5. Capping the functions themselves would leave those thresholds
+   intact today and silently entangle them the next time one moves. */
+export const THREAT_SCORE_MAX  = 2.50;   // was effectively 5.00, uncapped
+export const RETREAT_SCORE_MAX = 2.00;   // was effectively 4.50, uncapped
+
+/* R1: WHAT ACTUALLY KEPT THE FRENCH ARMY AT HOME.
+
+   In seed 488332463 France initiated ONE of seven fights and held on 60% of its
+   decisions. engage cannot be outvoted on a square where no enemy is reachable,
+   so the reason it decided almost nothing is that the army never closed, not
+   that avoidance beat it.
+
+   Advancing one square was worth 0.12, for a spread of 0.16 across the match.
+   terrainSeek ranges to 0.84, groundDenial to 0.75 and mutualSupport to 1.40, so
+   standing on pleasant ground outscored closing with the enemy several times
+   over, and five of the twelve closest decisions tied to the penny with 0.01 of
+   jitter breaking them. Brigade 0 shuffled between (3,0) and (4,0) for
+   twenty-five turns on exactly that.
+
+   At 0.35 a full two-square advance is worth 0.70, which puts closing on terms
+   with the terrain and support pulls rather than far beneath them. Deliberately
+   not higher: this term is a blunt distance gradient with no notion of whether
+   the fight at the end of it is a good one, and engage is what is supposed to
+   judge that. A JUDGEMENT CALL WITH NO DATA BEHIND IT — 0.12 was measured and
+   found wanting, 0.35 is reasoned. It may want a second pass.
+
+   Note this does NOT reach two of Brigade 0's five units: Brigadiers use
+   brigadierTrail instead (Napoleon follows his own units, so he moves once they
+   do) and held-back Guard are suppressed by Reserve Doctrine until a crisis
+   exists. The latter is R2/R4's problem, not R1's. */
+export const ADVANCE_PULL_WEIGHT = 0.35;  // was 0.12
+
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
 export const RESERVE_COMMIT_TURN = 12;        // holding back past this is not a plan
@@ -1251,7 +1303,7 @@ export function aiDecideAndExecuteMove(u){
          immediate danger should still notice. What stops is the vague
          board-wide unease that was vetoing every advance. */
       let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
-            + addScore(parts, 'threat', -0.5*threatPenalty(u, side));
+            + addScore(parts, 'threat', Math.max(-THREAT_SCORE_MAX, -0.5*threatPenalty(u, side)));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
@@ -1466,7 +1518,7 @@ export function aiDecideAndExecuteMove(u){
           }
         }
       } else {
-        s -= subScore(parts, 'advancePull', nearestEnemyDist(c, side) * 0.12);
+        s -= subScore(parts, 'advancePull', nearestEnemyDist(c, side) * ADVANCE_PULL_WEIGHT);
         // Core Tactic: prefer the road network while actually closing distance
         // — the real +1 movement bonus for starting and ending on road, and
         // the same reason a human player uses roads to move quickly into the
@@ -1482,7 +1534,7 @@ export function aiDecideAndExecuteMove(u){
     // AI continuing to press it forward alone — exactly the exposure the AI is
     // now taught to actively punish an enemy unit for standing in.
     if(selfPreservation){
-      s += addScore(parts, 'retreatToSupport', retreatToSupportBonus(c, side, u));
+      s += addScore(parts, 'retreatToSupport', Math.max(-RETREAT_SCORE_MAX, retreatToSupportBonus(c, side, u)));
     }
 
     // Concentrate on a vulnerable (isolated/unsupported) enemy unit specifically,
