@@ -1292,8 +1292,16 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
        exactly backwards. Infantry and cavalry fight one unit at a time, so
        beating the top of a Column does not kill the one beneath it. A gun does
        not care which of them it hits. */
-    const killPartner = stackPartner(u);
-    removeUnit(u,'destroyed by artillery');
+    /* B1: A VOLLEY IS NOT A GUN. applyArtilleryEffect is shared by both weapons
+       because they use the same effect table, but the CAUSE recorded has to
+       differ or casualty analysis attributes musketry to the batteries. Four of
+       thirteen destructions in seed 373739702 were volleys logged as artillery. */
+    const cause = (detail && detail.volley) ? 'destroyed by volley' : 'destroyed by artillery';
+    /* THE COLUMN RULE IS ARTILLERY-ONLY. A roundshot goes through a doubled
+       stand and kills both; a volley hits the single unit aimed at, which is the
+       one deliberate difference between the two weapons in this path. */
+    const killPartner = detail && detail.volley ? null : stackPartner(u);
+    removeUnit(u, cause);
     if(killPartner && !killPartner.removed){
       removeUnit(killPartner, 'Column broken alongside its partner');
     }

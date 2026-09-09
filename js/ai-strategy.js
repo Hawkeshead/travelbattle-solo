@@ -1207,6 +1207,20 @@ export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
 const GUN_RANGE_WORTH = { 1: 0.5, 2: 0.8, 3: 1.0, 4: 1.0, 5: 0.5, 6: 0.25 };
 export function rangeWorth(d){ return GUN_RANGE_WORTH[d] || 0; }
 
+/* THE ACTUAL CHANCE OF HITTING AT RANGE d, which is a different question from
+   how much we WANT the gun at range d.
+
+   rangeWorth above is doctrine: it peaks at 3-4 because closer is more exposed.
+   This is arithmetic: needed = dist, so range 6 hits one time in six. The two
+   are used for different decisions. Choosing where to stand is doctrine;
+   deciding whether the shot in hand is worth forfeiting a move for is
+   arithmetic, and using the doctrine curve for it priced a 1-in-6 shot at a
+   quarter of a certain one when it is worth a sixth.
+
+   Canister (range <= 2) rolls two dice to hit, hence the near-certainty. */
+const GUN_HIT_CHANCE = { 1: 0.97, 2: 0.97, 3: 0.667, 4: 0.5, 5: 0.333, 6: 0.167 };
+export function hitChance(d){ return GUN_HIT_CHANCE[d] || 0; }
+
 /* WHAT A SQUARE IS WORTH TO MOVE TOWARD, as opposed to worth settling on.
 
    vantageScore answers "could a battery hold this position", and gates on
@@ -1566,7 +1580,10 @@ export function aiDecideAndExecuteMove(u){
       else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunStranded', 2.4);
     }
     if(t.isArtillery && !connNow.has(u.id) && vantageScore(u, c.x, c.y) > 0){
-      s += addScore(parts, 'gunVantage', GUN_VANTAGE_BONUS);
+      /* Range-scaled for the same reason as gunGoodGround: this exists to let a
+         gun stay off the cohesion chain when it has a real field of fire, not to
+         pay it for being far away with a nominal one. */
+      s += addScore(parts, 'gunVantage', GUN_VANTAGE_BONUS * rangeWorth(nearestEnemyDist(c, side)));
     }
     // A Brigadier is always "connected" to itself by definition (see
     // movableUnitsForSide — the chain starts FROM the Brigadier), so the penalty
@@ -1674,7 +1691,12 @@ export function aiDecideAndExecuteMove(u){
            move a decision. Flat rather than a point at 4 so the gun is not
            dragged off a good square at 3 for an equal one at 4. */
         const bandMiss = d < 3 ? (3 - d) : d > 4 ? (d - 4) : 0;
-        s -= subScore(parts, 'gunStandoff', bandMiss * 0.45);
+        /* 0.45 -> 0.90. At 0.45 the pull toward the band was smaller than the
+           hold bonus a gun forfeits by moving, so a battery with any shot at all
+           preferred to keep taking it. This is the term whose entire job is to
+           get guns into the band, and it has to be able to pay for one turn of
+           lost fire to do it. */
+        s -= subScore(parts, 'gunStandoff', bandMiss * 0.90);
 
         /* SEEKING A VANTAGE POINT. The old logic only rewarded STAYING somewhere
            good, never GOING somewhere good, so where a battery finished up was an
@@ -1717,7 +1739,18 @@ export function aiDecideAndExecuteMove(u){
           const terr = terrainAt(c.x, c.y);
           const goodGround = terr.elevation>0 || terr.defenseBonus;
           const safeEnough = threatPenalty(u, side) < 1.4;
-          if(goodGround && safeEnough && d<=6) s += addScore(parts, 'gunGoodGround', 1.6);
+          /* B2: SCALED BY RANGE. This was a flat 1.6 for standing on a hill or in
+             a building at ANY range out to 6, and it is the largest single gun
+             term. A hill six squares from the enemy scored the same as a hill at
+             three, so a battery that reached high ground stayed there and shot
+             at 1-in-6 for the rest of the match. French Battery A sat on the
+             hill at (6,0) in seed 373739702 doing exactly that, and nine of the
+             ten range-6 shots in that match were French.
+
+             Elevation and cover are worth having, but they are worth having
+             WITHIN RANGE. A gun that cannot hit from its hill is not well sited,
+             it is merely comfortable. */
+          if(goodGround && safeEnough && d<=6) s += addScore(parts, 'gunGoodGround', 1.6 * rangeWorth(d));
 
           /* A gun may MOVE OR FIRE, never both in the same turn. So if it has a
              shot from where it stands, repositioning does not merely delay the
@@ -1749,9 +1782,14 @@ export function aiDecideAndExecuteMove(u){
             const shots = targets.length;
             if(shots > 0){
               let best = 0;
-              for(const t2 of targets) best = Math.max(best, rangeWorth(chebyshev(u, t2)));
+              /* hitChance, not rangeWorth. This decides whether to give up the
+                 shot in hand to reposition, which is a question about expected
+                 damage, not about where we would like the gun to be. The floor
+                 is gone with it: a shot so poor it is not worth a move should
+                 not be propped up by a minimum. */
+              for(const t2 of targets) best = Math.max(best, hitChance(chebyshev(u, t2)));
               s += addScore(parts, 'gunHasShot',
-                (GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2) * Math.max(best, 0.2));
+                (GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2) * best);
             }
           }
         }
@@ -2731,8 +2769,32 @@ export function exportAiMoveLog(){
   const lines = [];
   lines.push(`=== AI MOVE LOG — ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
   lines.push(`Total AI moves: ${history.length}`);
+  /* TWO NUMBERS, BECAUSE ONE OF THEM HAS BEEN MISREAD THREE TIMES.
+
+     A disconnected unit CANNOT MOVE until its Brigadier returns, so it logs
+     "Hold, DISCONNECTED" every turn it stays stranded. Counting those states
+     measures how long units were stuck, not how often the AI chose badly, and
+     one frozen cavalry regiment can generate a dozen of them on its own: 7e
+     Hussards produced 12 of 41 in seed 499086477 while never once choosing to
+     move. Read as a decision metric it reported 17%, 15% and "worst since the
+     79-disconnection match" for matches whose real rates were 5.8% and 5.6%.
+
+     The DECISION is the move that broke the chain. That is the number to tune
+     against. The state count is kept because it is a real measure of a real
+     problem (units frozen out of the battle), just a different one.
+
+     Artillery is reported apart from both, because guns are deliberately exempt
+     from cohesionLoss so that a battery in a good position can keep firing after
+     its Brigade advances past it. Those disconnections are sanctioned, and
+     counting them against a target they were never meant to meet is what makes
+     the headline figure look like a regression. */
   const disconnectedCount = history.filter(h=>!h.connectedAfter).length;
-  lines.push(`Moves ending disconnected from Brigadier: ${disconnectedCount}`);
+  const breaking = history.filter(h=>!h.connectedAfter && h.connectedBefore && h.action !== 'Hold');
+  const breakingGuns = breaking.filter(h=>UNIT_TYPES[h.type] && UNIT_TYPES[h.type].isArtillery).length;
+  const breakingRest = breaking.length - breakingGuns;
+  const pct = history.length ? (breakingRest / history.length * 100).toFixed(1) : '0.0';
+  lines.push(`Moves that BROKE the command chain: ${breaking.length} of ${history.length} (${breakingRest} non-artillery = ${pct}%, ${breakingGuns} artillery, exempt by design)`);
+  lines.push(`Turns spent already disconnected (a frozen unit re-flags every turn): ${disconnectedCount}`);
   lines.push('');
 
   let lastTurn = null;
