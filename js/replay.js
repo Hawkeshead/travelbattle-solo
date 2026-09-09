@@ -271,13 +271,19 @@ function sectionSummary(log, label){
      Older exports carry no `hit` field. Rather than counting those legacy events
      as hits and quietly reporting 100%, they are counted as shots and the rate
      is withheld. */
-  const misses = fires.filter(e=>e.hit === false);
-  const hits   = fires.filter(e=>e.hit === true);
-  if(hits.length + misses.length === fires.length && fires.length){
-    const pct = Math.floor(hits.length / fires.length * 100);
-    out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots (${hits.length} hit, ${misses.length} missed, ${pct}%)`);
+  /* Volleys are excluded from every artillery figure below. They share the
+     `fire` event type but have no to-hit roll at all, so counting them would
+     report a hit rate inflated by shots that could not miss, and put them in a
+     range breakdown where they are always range 1. */
+  const volleys = fires.filter(e=>e.volley);
+  const gunFires = fires.filter(e=>!e.volley);
+  const misses = gunFires.filter(e=>e.hit === false);
+  const hits   = gunFires.filter(e=>e.hit === true);
+  if(hits.length + misses.length === gunFires.length && gunFires.length){
+    const pct = Math.floor(hits.length / gunFires.length * 100);
+    out.push(`Combat: ${fights.length} fights, ${gunFires.length} artillery shots (${hits.length} hit, ${misses.length} missed, ${pct}%)`);
     const byRange = {};
-    for(const e of fires){
+    for(const e of gunFires){
       const r = e.hitNeeded;
       if(r === undefined) continue;
       const b = (byRange[r] = byRange[r] || {shots:0, hits:0});
@@ -293,7 +299,13 @@ function sectionSummary(log, label){
       }
     }
   } else {
-    out.push(`Combat: ${fights.length} fights, ${fires.length} artillery shots (hits only — this export predates miss logging)`);
+    out.push(`Combat: ${fights.length} fights, ${gunFires.length} artillery shots (hits only — this export predates miss logging)`);
+  }
+  if(volleys.length){
+    const byEffect = {};
+    for(const v of volleys) byEffect[v.effect] = (byEffect[v.effect]||0)+1;
+    out.push(`  volleys: ${volleys.length} fired — ` +
+      (Object.entries(byEffect).map(([k,v])=>`${k} ${v}`).join(', ') || 'none'));
   }
   const byResult = {};
   for(const f of fights) byResult[f.result] = (byResult[f.result]||0)+1;
@@ -620,7 +632,13 @@ export function exportFullMatchLog(){
          miss has no effect roll, so it prints the hit line and stops. `who`
          names the firing side where the event carries it: `side` is the
          TARGET's side and on its own cannot answer who shot. */
-      const who = ev.gunSide !== undefined ? `${SIDE_LABEL[ev.gunSide]} gun` : 'Artillery';
+      /* A volley writes the same `fire` event as artillery, because it reuses
+         applyArtilleryEffect and the two share an effect table. It is labelled
+         apart here so the export does not report musketry as gunnery, and so the
+         range breakdown below counts only shots that HAVE a range. */
+      const who = ev.volley
+        ? `${SIDE_LABEL[ev.shooterSide !== undefined ? ev.shooterSide : ev.side]} volley`
+        : (ev.gunSide !== undefined ? `${SIDE_LABEL[ev.gunSide]} gun` : 'Artillery');
       if(ev.hit === false){
         lines.push(`${who} on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): MISS`);
         lines.push(`    hit    dice[${(ev.hitRolls||[]).join(',')}] x${(ev.hitRolls||[]).length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${ev.canister ? '  [canister: 2 dice]' : ''}`);
@@ -628,6 +646,7 @@ export function exportFullMatchLog(){
         lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll} — ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
       } else {
         const mods = [];
+        if(ev.turnedBonus) mods.push('+1 target turned around');
         if(ev.formationBonus) mods.push('+1 Square/Column');
         if(ev.shakenBonus) mods.push('+1 already Shaken');
         if(ev.crackShotBonus) mods.push('+1 Crack Shot');

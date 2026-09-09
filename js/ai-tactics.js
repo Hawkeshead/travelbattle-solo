@@ -226,9 +226,18 @@ export function cavalryThreatWithinCharge(unit, side){
 
 export function terrainSeekBonus(unitTypeKey, x, y){
   const terr = terrainAt(x,y);
+  /* VOLLEY RAISED THE PRICE OF COVER. Woods and buildings now subtract 1 from
+     every incoming volley's effect roll, which turns a 4 into a miss and a 6
+     into a rout: cover no longer merely helps in melee, it removes a whole band
+     of the new effect table. 0.3 -> 0.5 accordingly.
+
+     HILL IS DELIBERATELY NOT RAISED. Elevation lets a gun fire over friendly
+     units and wins ties against a lower attacker, but it is explicitly NOT cover
+     against a volley, so nothing about this rule made it better. Raising it too
+     would have quietly erased the distinction the rule just created. */
   if(terr.key==='HILL') return 0.35; // tie-win vs a lower attacker, benefits any unit type
-  if(terr.key==='WOODS' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD')) return 0.3;
-  if(terr.key==='BUILDING' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD'||unitTypeKey==='ARTILLERY')) return 0.3;
+  if(terr.key==='WOODS' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD')) return 0.5;
+  if(terr.key==='BUILDING' && (unitTypeKey==='INFANTRY'||unitTypeKey==='GUARD'||unitTypeKey==='ARTILLERY')) return 0.5;
   return 0;
 }
 

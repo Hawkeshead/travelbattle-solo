@@ -30,7 +30,7 @@
    see the note on that function.
 ========================================================= */
 import { state } from './data-core.js';
-import { artilleryTargets, hasAnyLegalMove } from './engine-rules.js';
+import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules.js';
 
 export const AUTO_END_MS = 4000;
 const TICK_MS = 100;
@@ -89,7 +89,11 @@ export function phaseActionsComplete(phase){
   const side = state.turn;
   const mine = state.units.filter(u => !u.removed && u.side === side);
   if(phase === 'move')  return !mine.some(u => hasAnyLegalMove(u));
-  if(phase === 'fire')  return !mine.some(u => artilleryTargets(u).length > 0);
+  /* The Firing phase is no longer artillery-only: infantry volley resolves here
+     too, so a turn with no gun but an infantry unit in contact still has an
+     action outstanding. Without the second test the phase would auto-end out
+     from under the player before they could fire it. */
+  if(phase === 'fire')  return !mine.some(u => artilleryTargets(u).length > 0 || volleyTargets(u).length > 0);
   if(phase === 'fight') return !(fightsAvailableFn && fightsAvailableFn(side));
   return false;
 }
