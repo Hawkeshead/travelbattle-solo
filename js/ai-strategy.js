@@ -192,6 +192,24 @@ export const RESERVE_ENEMY_RANGE = 6;         // the enemy has come to us
    and PRESERVE is what makes them work for it. */
 export const PRESERVE_THRESHOLD = 1;          // Brigadier + this many fighting units
 
+/* BOTH OF THESE ARE THEIR OWN CONSTANTS RATHER THAN MULTIPLES OF APPROACH_PULL.
+
+   They were first written as fractions of APPROACH_PULL (0.16), which produced
+   -0.24 for a reserve out of position and -0.96 for a remnant six squares from
+   safety. Against cohesionLoss at 2.40 and engage at 2.37 those are noise, and
+   both missions would have been as inert as the null RESERVE they replace: the
+   behaviour would have looked implemented and done nothing.
+
+   PRESERVE_PULL is the larger of the two on purpose. It has to overcome
+   cohesionLoss to pull a remnant out of a line it is standing in, because
+   leaving is the entire instruction. At 0.45 a six-square journey is worth 2.70,
+   which clears cohesionLoss with something to spare.
+
+   RESERVE_AXIS_PULL is deliberately smaller. A reserve should drift toward the
+   decisive axis, not barge toward it through everything else on the board. */
+export const PRESERVE_PULL     = 0.45;
+export const RESERVE_AXIS_PULL = 0.25;
+
 /* From R5's strength model, built here because R6 needs it and reassignment
    does not exist yet. The Brigadier counts for half: he cannot fight, but a
    Brigade that still has him can rally and can move. */
@@ -848,7 +866,7 @@ export function missionMoveBonus(u, side, pos, mission, plan){
          at holdingReserve still stops it starting anything. */
       if(nearestTargetDist == null) return 0;
       const RESERVE_STANDOFF = 4;   // squares from the target Brigade: close enough to matter, far enough not to be drawn in
-      return -Math.abs(nearestTargetDist - RESERVE_STANDOFF) * APPROACH_PULL * 0.5;
+      return -Math.abs(nearestTargetDist - RESERVE_STANDOFF) * RESERVE_AXIS_PULL;
     }
     case 'PRESERVE': {
       /* R6. A destination, not a direction. Once there, nothing pulls it
@@ -862,7 +880,7 @@ export function missionMoveBonus(u, side, pos, mission, plan){
          stops wanting ground once it is close, so a reserve advancing through
          the same tiles is never contested. */
       if(d <= 1) return 0.6;
-      return -d * APPROACH_PULL;
+      return -d * PRESERVE_PULL;
     }
     case 'SCREEN':
       return screensGunBonus(u, side, pos) * 1.2;
