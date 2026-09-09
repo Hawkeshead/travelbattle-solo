@@ -25,7 +25,7 @@ const BASE_STATE_WEIGHT = 0.35;
 ========================================================= */
 export const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
   'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL','FINISHING_BLOW'];
-export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP'];
+export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP','PRESERVE'];
 export const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
 
 /* Re-escalation. Every reassessment trigger below MAX_PLAN_TURNS_UNCHANGED used to
@@ -178,6 +178,82 @@ export const ADVANCE_PULL_WEIGHT = 0.35;  // was 0.12
 export const RESERVE_COMMIT_TURN = 12;        // holding back past this is not a plan
 export const RESERVE_RELIEF_REMAINING = 2;    // a sister Brigade down to 2 fighters
 export const RESERVE_ENEMY_RANGE = 6;         // the enemy has come to us
+
+/* R6: PRESERVE — STAYING ALIVE IS A WAY OF WINNING.
+
+   The match is decided by breaking two of three Brigades, so a Brigade reduced
+   to its Brigadier and one fighting unit is worth far more alive and out of
+   reach than dead attacking: surviving denies the enemy a kill they REQUIRE.
+   This inverts the normal reading of a weak Brigade. It should become harder to
+   kill, not spend itself.
+
+   R7 is the same arithmetic seen from the other side, and the two are meant to
+   meet in the middle: brigadeKillValue pays the enemy 3.00 for that last unit,
+   and PRESERVE is what makes them work for it. */
+export const PRESERVE_THRESHOLD = 1;          // Brigadier + this many fighting units
+
+/* From R5's strength model, built here because R6 needs it and reassignment
+   does not exist yet. The Brigadier counts for half: he cannot fight, but a
+   Brigade that still has him can rally and can move. */
+export function effectiveStrength(side, brigadeId){
+  const units = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===brigadeId);
+  const fighters = units.filter(o=>o.type!=='BRIGADIER').length;
+  const hasBrigadier = units.some(o=>o.type==='BRIGADIER');
+  return fighters + (hasBrigadier ? 0.5 : 0);
+}
+
+export function brigadeAtPreserveThreshold(side, brigadeId){
+  const units = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===brigadeId);
+  const fighters = units.filter(o=>o.type!=='BRIGADIER').length;
+  const hasBrigadier = units.some(o=>o.type==='BRIGADIER');
+  // Brigadier + exactly one. With none left the Brigade is broken and there is
+  // nothing to preserve; with two or more it can still be useful in the line.
+  return hasBrigadier && fighters === PRESERVE_THRESHOLD;
+}
+
+/* A DESTINATION, NOT A DIRECTION, and that distinction is the whole rule.
+
+   "Flee from danger" is a gradient with no end, and it produced a French remnant
+   wandering the board for twenty turns under artillery fire (seed 3460471751).
+   "Get behind Brigade 2 and stop" terminates.
+
+   The tile chosen is on the far side of the strongest surviving friendly
+   Brigade's centroid, measured from the nearest enemy: the healthy Brigade ends
+   up between the remnant and the fighting, which is the actual protection.
+   Cached per side per turn, since it is one shared destination and recomputing
+   it per candidate square would be a board scan inside the scoring loop. */
+export function preserveDestination(side, brigadeId){
+  const cache = state._aiPreserveCache;
+  const key = side + ':' + brigadeId;
+  if(cache && cache.turn===state.turnNumber && cache.key===key) return cache.point;
+
+  let point = null;
+  const others = [0,1,2].filter(id=>id!==brigadeId && effectiveStrength(side,id) > 0);
+  if(others.length){
+    const strongestId = others.reduce((a,b)=>effectiveStrength(side,b) > effectiveStrength(side,a) ? b : a);
+    const guard = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===strongestId);
+    if(guard.length){
+      const cx = guard.reduce((n,o)=>n+o.x,0)/guard.length;
+      const cy = guard.reduce((n,o)=>n+o.y,0)/guard.length;
+      const foes = state.units.filter(o=>!o.removed && o.side!==side && o.type!=='BRIGADIER');
+      if(foes.length){
+        // Step away from the nearest enemy, through the guarding Brigade's centre.
+        const near = foes.reduce((a,b)=>
+          (Math.abs(b.x-cx)+Math.abs(b.y-cy)) < (Math.abs(a.x-cx)+Math.abs(a.y-cy)) ? b : a);
+        const dx = cx - near.x, dy = cy - near.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        point = {
+          x: Math.max(0, Math.min(COLS-1, Math.round(cx + (dx/len)*3))),
+          y: Math.max(0, Math.min(ROWS-1, Math.round(cy + (dy/len)*3)))
+        };
+      } else {
+        point = { x: Math.round(cx), y: Math.round(cy) };
+      }
+    }
+  }
+  state._aiPreserveCache = { turn: state.turnNumber, key, point };
+  return point;
+}
 
 // Hysteresis floor. A plan gets at least this many AI turns to execute before a
 // SOFT trigger may unseat it. Hard triggers (main effort broken, target Brigade
@@ -623,6 +699,20 @@ export function assignBrigadeMissions(side, plan, assessment){
     }
   }
 
+  /* --- PRESERVE OVERRIDE (R6) ---
+     Applied AFTER the reserve release and before the command-state pass, and it
+     overrides everything: a Brigade down to its Brigadier and one fighting unit
+     must not be committed by any of the rules above. Surviving denies the enemy
+     a Brigade break they need to win, which is worth more than anything that one
+     unit could achieve in the line.
+
+     Not applied to a Brigade with no Brigadier: without him it cannot rally and
+     cannot reliably move, so hiding it achieves nothing, and it is broken as
+     soon as its last fighter goes anyway. */
+  for(const id of brigadeIds){
+    if(brigadeAtPreserveThreshold(side, id)) missions[id] = 'PRESERVE';
+  }
+
   /* --- COMMAND-STATE PASS ---
      Missions above are assigned purely on brigadeId, which says nothing about
      whether a Brigade can carry the order out. Two things make an offensive
@@ -741,10 +831,39 @@ export function missionMoveBonus(u, side, pos, mission, plan){
     case 'SUPPORT':
       return nearestTargetDist!=null
         ? -nearestTargetDist*APPROACH_PULL*0.7 + Math.max(0, 5-nearestTargetDist)*0.1 : 0;
-    case 'RESERVE':
-      // Handled mainly via the existing holdingReserve suppression in
-      // aiDecideAndExecuteMove; here just a mild pull back toward the Brigadier.
-      return 0;
+    case 'RESERVE': {
+      /* R2: A RESERVE THAT DOES SOMETHING.
+
+         This returned 0, so combined with the holdingReserve suppression a
+         reserve Brigade had NO term pulling it anywhere at all: units follow
+         their Brigadier, the Brigadier follows his units, and the formation sits
+         in equilibrium until the match ends. Murat's Brigade sat on RESERVE for
+         45 turns and was destroyed piecemeal without moving.
+
+         A reserve is not a spectator. It sits within reach of the axis the
+         battle is being decided on, so that when it commits it is already
+         somewhere useful. Half MAIN_ATTACK's approach pull, and explicitly
+         floored so it stops short: the fall-off term rewards being NEAR the
+         target Brigade, not in contact with it, and the engagement suppression
+         at holdingReserve still stops it starting anything. */
+      if(nearestTargetDist == null) return 0;
+      const RESERVE_STANDOFF = 4;   // squares from the target Brigade: close enough to matter, far enough not to be drawn in
+      return -Math.abs(nearestTargetDist - RESERVE_STANDOFF) * APPROACH_PULL * 0.5;
+    }
+    case 'PRESERVE': {
+      /* R6. A destination, not a direction. Once there, nothing pulls it
+         further, which is the entire point: a gradient away from danger is what
+         sent a remnant wandering the board under fire for twenty turns. */
+      const dest = preserveDestination(side, u.brigadeId);
+      if(!dest) return 0;
+      const d = chebyshev(pos, dest);
+      /* Yields on arrival, and the deadlock rule falls out of that rather than
+         needing its own code: a PRESERVE Brigade under no time pressure simply
+         stops wanting ground once it is close, so a reserve advancing through
+         the same tiles is never contested. */
+      if(d <= 1) return 0.6;
+      return -d * APPROACH_PULL;
+    }
     case 'SCREEN':
       return screensGunBonus(u, side, pos) * 1.2;
     case 'HOLD':
@@ -1338,6 +1457,10 @@ export function aiDecideAndExecuteMove(u){
   // non-Guard unit assigned RESERVE should be, which the old type-only check couldn't express.
   const holdingReserve = mission ? (mission==='RESERVE' && !reserveCrisisExists(side))
     : (state.aiDifficulty==='hard' && isReserveType && !reserveCrisisExists(side));
+  /* R6: a PRESERVE Brigade never initiates. It defends normally if attacked and
+     still rallies, but nothing pays it to look for a fight, because the whole
+     value of the Brigade now lies in continuing to exist. */
+  const preserving = mission === 'PRESERVE';
   const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
   const wasConnected = connectedBefore; // captured before any candidate is tried, at the unit's real starting position
   const currentlyThreatened = threatPenalty(u, side) >= 1.2; // at the unit's real starting position, before any candidate is tried
@@ -1510,7 +1633,17 @@ export function aiDecideAndExecuteMove(u){
     // Brigadiers excluded: they have their own trailing rule above, and taking
     // this pull as well is what sent them off on independent paths toward the
     // enemy instead of following their own Brigade.
-    if(!holdingReserve && !selfPreservation && t.key!=='BRIGADIER'){
+    /* R2: ARTILLERY IS EXEMPT FROM THE RESERVE SUPPRESSION.
+
+       A reserve Brigade holds its foot back; its guns should still go forward to
+       a firing position, because a battery parked on the baseline contributes
+       nothing to a reserve's purpose and is the single easiest thing a held-back
+       Brigade CAN do usefully. Only the gunStandoff branch below is reached in
+       that case, which is the band pull, not an advance to contact.
+
+       PRESERVE suppresses everything including the guns: that Brigade is not
+       trying to influence the battle at all. */
+    if((!holdingReserve || t.isArtillery) && !preserving && !selfPreservation && t.key!=='BRIGADIER'){
       if(t.isArtillery){
         const d = nearestEnemyDist(c, side);
         /* Was Math.abs(d-4) * 0.06, which pointed at the right band and could
@@ -1650,7 +1783,7 @@ export function aiDecideAndExecuteMove(u){
       if(kill) s -= subScore(parts, 'killPull', chebyshev(c, kill.unit) * kill.worth);
     }
 
-    if(seekTactics && !holdingReserve && !selfPreservation && !t.isArtillery){
+    if(seekTactics && !holdingReserve && !preserving && !selfPreservation && !t.isArtillery){
       if(t.isCavalry){
         // Cavalry aims at the side's single chosen point rather than each
         // squadron at its own nearest weak enemy, so the horse arrives together.
@@ -1700,7 +1833,7 @@ export function aiDecideAndExecuteMove(u){
            denies the rally and is worth the risk
          - the unit is ALREADY in contact, where the decision has been taken and
            declining changes nothing */
-    if(seekTactics && !holdingReserve){
+    if(seekTactics && !holdingReserve && !preserving){
       const alreadyInContact = state.units.some(o=>!o.removed && o.side!==side &&
         isAdjacent({x:ox,y:oy}, o) && canAttackTarget(u, o));
       if(!alreadyInContact){
@@ -1842,7 +1975,7 @@ export function aiDecideAndExecuteMove(u){
     // exactly when a real commander repositions onto good ground, rather than just mildly
     // preferring it as a tie-break while advancing straight past it regardless.
     if(seekTactics){
-      const defensivePosture = holdingReserve || currentlyThreatened ||
+      const defensivePosture = holdingReserve || preserving || currentlyThreatened ||
         mission==='HOLD' || mission==='FIX' || mission==='SCREEN' || mission==='WITHDRAW';
       s += addScore(parts, 'terrainSeek', terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1));
 
@@ -2393,7 +2526,13 @@ export function aiDoFightPhase(){
        fight can isolate a unit by removing the neighbour that was supporting
        it. Recomputed per step so it always reflects the board as it now is. */
     const vulnerableIds = new Set(findVulnerableEnemyUnits(state.aiSide).map(v=>v.id));
+    /* R6: a PRESERVE Brigade defends normally if attacked but never initiates,
+       so it is filtered out of the attacker pool here as well as being denied
+       the engage score on movement. Suppressing only the movement term would
+       leave a remnant that had been caught still throwing itself forward, which
+       is the exact behaviour PRESERVE exists to stop. */
     const attackers = state.units.filter(u=>u.side===state.aiSide && canInitiateFight(u) && !state.fought.has(u.id) &&
+      missionFor(u) !== 'PRESERVE' &&
       state.units.some(o=>!o.removed && o.side!==state.aiSide && isAdjacent(u,o) && canAttackTarget(u,o)));
     if(attackers.length===0){ endFightPhase(); return; }
     let bestA=null, bestT=null, bestScore=-Infinity;
