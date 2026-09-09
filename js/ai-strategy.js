@@ -215,6 +215,7 @@ export const CAVALRY_CONCENTRATION_PULL = 0.28;
 
 export const FOCUS_FIRE_BONUS = 1.8;
 export const WOUNDED_TARGET_BONUS = 1.2;
+
 // An enemy off its Brigadier's chain or with no support within two squares.
 // Below the wounded bonus on purpose: isolation is an opportunity, a unit that
 // cannot fight back is a certainty.
@@ -1000,6 +1001,11 @@ function tempoPhase(side){
    other. */
 export const GUN_MIN_SUSTAINED_TARGETS = 2;  // one target is a shot, not a position
 export const GUN_VANTAGE_SEEK_PULL = 0.55;   // per square, toward the best vantage found
+/* How much better a square must be before an ESTABLISHED gun will give up its
+   shot to move there. A gun may move OR fire, so repositioning always costs a
+   turn of fire: the threshold is what stops that being paid for a rounding
+   error. 0.6 is roughly one extra target at middling range, or a hill. */
+export const GUN_SEEK_IMPROVEMENT = 0.6;
 export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
 
 /* How good a square would be to settle on. Returns 0 for anywhere that fails the
@@ -1022,6 +1028,28 @@ export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
    approximation of the hit table. */
 const GUN_RANGE_WORTH = { 1: 0.5, 2: 0.8, 3: 1.0, 4: 1.0, 5: 0.5, 6: 0.25 };
 export function rangeWorth(d){ return GUN_RANGE_WORTH[d] || 0; }
+
+/* WHAT A SQUARE IS WORTH TO MOVE TOWARD, as opposed to worth settling on.
+
+   vantageScore answers "could a battery hold this position", and gates on
+   GUN_MIN_SUSTAINED_TARGETS so that one fleeting target does not read as a
+   position. That gate is right for gunIsEstablished and gunStranded and wrong
+   for seeking, and it made gunSeekVantage DEAD CODE: a gun with fewer than two
+   targets scored zero on every candidate square so there was nothing to seek
+   toward, and a gun with two or more counted as established so seeking was
+   suppressed. The term appears in neither the Sep 8 nor the Sep 9 export
+   (addScore skips zeros), across two full matches.
+
+   So the seek measure drops the gate and keeps the weighting. One target at a
+   good range is a real reason to sidestep; it is simply not a reason to call
+   yourself established. */
+export function vantageSeekScore(gun, x, y){
+  let score = weightedTargetsFromSquare(gun, x, y);
+  const terr = terrainAt(x, y);
+  if(terr.defenseBonus) score += 0.6;
+  if(terr.elevation > 0) score += 0.5;
+  return score;
+}
 
 export function vantageScore(gun, x, y){
   const targets = targetsFromSquare(gun, x, y);
@@ -1465,10 +1493,28 @@ export function aiDecideAndExecuteMove(u){
            Only while NOT established, so a gun that has found its position is not
            tempted away by a marginally better one. That shuffling between two
            adequate squares is what the logged Battery A did for turns on end. */
-        if(!gunIsEstablished(u)){
-          const worth = vantageScore(u, c.x, c.y);
-          if(worth > 0) s += addScore(parts, 'gunSeekVantage', worth * GUN_VANTAGE_SEEK_PULL);
-        }
+        /* SCORED AS AN IMPROVEMENT ON WHERE IT STANDS, not as an absolute.
+
+           The absolute form could not distinguish "this square is good" from
+           "this square is good and so is the one I am on", so on top of the dead
+           gate above it had no gradient to offer even when it did fire.
+
+           The anti-shuffle intent of the old `!gunIsEstablished` guard is kept,
+           but as hysteresis rather than a prohibition: an established gun still
+           looks for something better, and only moves for a MEANINGFUL
+           improvement. Battery A shuffling between two adequate squares was the
+           behaviour to avoid, and a threshold avoids it without also freezing a
+           battery into the first place it happened to see two targets from.
+
+           Long-range approach is NOT this term's job. gunStandoff supplies that
+           gradient (bandMiss * 0.45 off nearestEnemyDist, which works at any
+           distance); this is the local choice of arc once the gun is in the
+           area. */
+        const hereWorth = vantageSeekScore(u, u.x, u.y);
+        const thereWorth = vantageSeekScore(u, c.x, c.y);
+        const gain = thereWorth - hereWorth;
+        const needed = gunIsEstablished(u) ? GUN_SEEK_IMPROVEMENT : 0;
+        if(gain > needed) s += addScore(parts, 'gunSeekVantage', gain * GUN_VANTAGE_SEEK_PULL);
         // Manoeuvre: a gun already well-placed — decent ground, not under real
         // threat, the enemy already within (or close to) firing range — should
         // settle there and keep firing, not repeatedly reposition just to keep
