@@ -5,7 +5,7 @@ import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasCha
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
-import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, unitLabel } from './ui-battle.js';
+import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
    because two separate comparisons depend on it and they must agree: the
@@ -216,6 +216,47 @@ export const CAVALRY_CONCENTRATION_PULL = 0.28;
 export const FOCUS_FIRE_BONUS = 1.8;
 export const WOUNDED_TARGET_BONUS = 1.2;
 
+/* R7: WHAT A KILL IS WORTH TOWARD WINNING, as opposed to what the unit is worth.
+
+   The match is won by breaking two of three enemy Brigades, and nothing in the
+   scoring knew that. A unit in a six-strong Brigade and a unit in a two-strong
+   one scored identically, so the AI would spend a good attack widening a lead it
+   could not convert while a Brigade sat one casualty from breaking.
+
+   Marginal, not flat: each kill is worth a share of the break it brings closer,
+   so the last combat unit in a Brigade is worth the whole break and one of six
+   is worth a sixth of it. Doubled when one enemy Brigade is already broken,
+   because that break ends the match.
+
+     units left   value   if second break
+        6          0.50        1.00
+        4          0.75        1.50
+        3          1.00        2.00
+        2          1.50        3.00
+        1          3.00        6.00
+
+   ADDITIVE WITH engage, NEVER REPLACING IT. A remnant is usually protected, and
+   a Brigade at its last unit is exactly where a square is standing. Win-condition
+   value must not be able to talk the AI into a fight the fight-estimator already
+   rates as bad. */
+export const BRIGADE_BREAK_VALUE = 3.0;
+
+/* The brief specified this floor at engage <= -3.00. That is unusable: engage's
+   observed floor in seed 499086477 was exactly -3.00, so the guard could only
+   fire on a single value and never in practice. It is the one line in R7 that
+   has to work, since it is all that stops cavalry being sent into a square for
+   win-condition value, so it sits at a magnitude engage actually reaches.
+   Documented rather than silently retuned. */
+export const KILL_VALUE_ENGAGE_FLOOR = -1.5;
+
+export function brigadeKillValue(target){
+  const remaining = state.units.filter(o=>!o.removed && o.side===target.side &&
+    o.brigadeId===target.brigadeId && o.type!=='BRIGADIER').length;
+  if(remaining === 0) return 0;              // already broken: nothing left to bring closer
+  let v = BRIGADE_BREAK_VALUE / remaining;   // the target itself is counted, so a lone unit scores the full break
+  if(brigadeBrokenStatus(target.side).filter(Boolean).length === 1) v *= 2.0;
+  return v;
+}
 // An enemy off its Brigadier's chain or with no support within two squares.
 // Below the wounded bonus on purpose: isolation is an opportunity, a unit that
 // cannot fight back is a certainty.
@@ -1762,8 +1803,17 @@ export function aiDecideAndExecuteMove(u){
            which stays in roughly -2.5 to +4.5 whatever the board looks like. Clamped
            as well, because a term that decides moves should not be able to run away
            again for a reason nobody predicted. */
-        const raw = Math.max(...reachable.map(o=>estimateFightValue(u, o)));
-        const best = Math.max(-ENGAGE_CLAMP, Math.min(ENGAGE_CLAMP, raw));
+        /* Chosen on engage + brigadeKillValue together, then reported as two
+           terms, so Section 4 can show which of the two actually moved the
+           decision rather than burying the win-condition pull inside engage. */
+        let bestTarget = null, raw = -Infinity;
+        for(const o of reachable){
+          const fv = estimateFightValue(u, o);
+          const combined = fv + (fv > KILL_VALUE_ENGAGE_FLOOR ? brigadeKillValue(o) : 0);
+          if(combined > raw){ raw = combined; bestTarget = o; }
+        }
+        const rawEngage = bestTarget ? estimateFightValue(u, bestTarget) : 0;
+        const best = Math.max(-ENGAGE_CLAMP, Math.min(ENGAGE_CLAMP, rawEngage));
         /* W9: a unit that keeps losing stops looking for new fights.
 
            Three consecutive defeats is the point a human commander pulls a unit
@@ -1774,6 +1824,9 @@ export function aiDecideAndExecuteMove(u){
         const beaten = (u.lossStreak || 0) >= 3;
         s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT);
         if(beaten) s += addScore(parts, 'disengage', -0.5 * Math.min(5, u.lossStreak));
+        if(!beaten && bestTarget && best > KILL_VALUE_ENGAGE_FLOOR){
+          s += addScore(parts, 'brigadeKillValue', brigadeKillValue(bestTarget));
+        }
       }
     }
 
@@ -2308,6 +2361,12 @@ export function aiDoFightPhase(){
            repeated pattern in the player's play that the AI did not have. */
         if(t.turnOnly)  s += WOUNDED_TARGET_BONUS;
         if(t.rallying)  s += WOUNDED_TARGET_BONUS;
+
+        /* R7 at the point of attack as well as the approach. The same guard
+           applies: a fight the estimator rates below the floor gets no
+           win-condition credit, so a protected last unit cannot draw an attack
+           that engage alone would refuse. */
+        if(estimateFightValue(a, t) > KILL_VALUE_ENGAGE_FLOOR) s += brigadeKillValue(t);
 
         // Cut off from its Brigadier, or with no friendly unit within two
         // squares. It cannot be reinforced and, if disconnected, cannot even
