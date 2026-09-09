@@ -2,7 +2,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -65,7 +65,11 @@ export function updateHeader(){
   renderBrigadeStatus();
 }
 export function phaseLabel(p){
-  return {deploy:'Deployment', move:'Movement', fire:'Artillery Fire', fight:'Fighting', rally:'Rally / Turnaround'}[p] || p;
+  /* "Firing", not "Artillery Fire": infantry volley resolves in this phase too
+     (see volleyTargets in engine-rules). The internal key stays 'fire', which was
+     never artillery-specific, so replays, saved state and the phase machinery are
+     untouched by the rename. */
+  return {deploy:'Deployment', move:'Movement', fire:'Firing', fight:'Fighting', rally:'Rally / Turnaround'}[p] || p;
 }
 
 export function brigadeBrokenStatus(side){
@@ -378,6 +382,7 @@ export function clearPendingTurnaroundFlagsIfDue(){
 export function beginFirePhase(){
   state.phase = 'fire';
   state.fired = new Set();
+  state.volleyed = new Set();   // one volley per infantry unit per Firing phase
   state.turnGunTargets = new Set();
   resetUndoStack();
   document.getElementById('endMoveBtn').style.display='none';
@@ -698,6 +703,12 @@ export function selectUnit(id){
     } else if(state.phase==='fire' && UNIT_TYPES[u.type].isArtillery){
       const targets = artilleryTargets(u);
       setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
+    } else if(state.phase==='fire' && isFootInfantry(u)){
+      // Volley: adjacent only, so this highlight is always the ring around the
+      // unit rather than an arc. Same 'target' kind as artillery and melee, so
+      // it reads identically to every other targeting the player already knows.
+      const targets = volleyTargets(u);
+      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
     } else if(state.phase==='fight'){
       const targets = state.units.filter(o=>!o.removed && o.side!==u.side && isAdjacent(u,o) && canAttackTarget(u,o));
       setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
@@ -778,9 +789,21 @@ export function renderUnitInfo(u){
      ambush button already behaves. */
   sqBtn.style.display = t.canFormSquare ? 'inline-block' : 'none';
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
-  const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
+  /* HOUSE RULE: SQUARE MAY BE FORMED AFTER MOVING, LEAVING IT STILL CANNOT BE.
+
+     The asymmetry is the rule, not an oversight. Forming is a reaction to cavalry
+     that has just appeared, and requiring the unit to have foreseen it at the
+     start of its own activation made square useless in exactly the situation it
+     exists for. Leaving square is a deliberate change of posture and still costs
+     the whole turn.
+
+     Both still spend the activation (the handler adds to state.moved either
+     way), so this buys the unit no extra movement, only the ability to decide
+     late. Not reactive: it happens in the unit's own Move phase, never during
+     the opponent's turn. */
+  const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !u.turnOnly;
   if(u.formation==='square'){
-    sqBtn.disabled = !baseOk;
+    sqBtn.disabled = !(baseOk && !state.moved.has(u.id));
   } else {
     sqBtn.disabled = !(baseOk && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1);
   }
@@ -903,7 +926,27 @@ export function onCellClick(x,y){
       fireArtillery(sel, target, maybeStartAutoEnd);
       return;
     }
-    if(clicked && clicked.side===state.turn && UNIT_TYPES[clicked.type].isArtillery){ selectUnit(clicked.id); return; }
+    /* VOLLEY. Deliberately the same shape as the artillery branch above, down to
+       the undo snapshot, so the Firing phase has one interaction model.
+
+       COLUMN TARGETING IS NOT BUILT HERE. The brief specifies tapping the tile to
+       cycle between the two units in a Column, and flags that it may collide with
+       the existing tile tap handler on iOS. It would: this branch and the
+       selection fallthrough below both already consume a tap on an occupied cell,
+       so a third meaning for the same gesture cannot be added blind and cannot be
+       tested in this sandbox. Volley therefore resolves against pickUnitAtCell,
+       the same unit artillery and melee would hit, and the choice is deferred
+       rather than guessed at. The AI's own rule (pickVolleyTarget) is built and
+       independent of this. */
+    if(sel && isFootInfantry(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
+      const target = pickUnitAtCell(x,y);
+      pushUndoSnapshot();
+      selectUnit(null);
+      resolveVolley(sel, target, maybeStartAutoEnd);
+      return;
+    }
+    if(clicked && clicked.side===state.turn &&
+       (UNIT_TYPES[clicked.type].isArtillery || isFootInfantry(clicked))){ selectUnit(clicked.id); return; }
     selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fight'){
     /* canInitiateFight is re-checked HERE, not only at selection time.
@@ -1115,6 +1158,61 @@ export function fireArtillery(gun, target, onComplete){
   });
 }
 
+/* =========================================================
+   VOLLEY — resolution
+
+   Deliberately shaped like fireArtillery so the Firing phase reads as one phase
+   with two actions rather than two systems. Same roll-trigger panel, same effect
+   application, same replay event shape.
+
+   The differences are the rule: no to-hit roll (a musket at one square does not
+   miss for range), and the effect roll is the whole of it.
+========================================================= */
+export function resolveVolley(shooter, target, onComplete){
+  onComplete = onComplete || function(){};
+  const dice = volleyDiceCount(shooter, target);
+  const { turnedBonus, coverPenalty } = volleyModifiers(target);
+  const notes = [];
+  if(dice === 2) notes.push('Square vs Cavalry: two dice');
+  if(turnedBonus)  notes.push('+1 effect: target turned around');
+  if(coverPenalty) notes.push('-1 effect: target in wood/building');
+  // Cancelling exactly is the intended behaviour, but a player watching two
+  // modifiers appear and the number not move deserves to be told why.
+  if(turnedBonus && coverPenalty) notes.push('(these cancel — base table)');
+
+  showActionLine(shooter, target, '#e8c46a', 3800, true);
+
+  presentRollTrigger([{label:'Volley', diceCount:dice, notes}], shooter.side, ()=>{
+    const rolls = dice === 2 ? [rollD6(), rollD6()] : [rollD6()];
+    const rawRoll = Math.max(...rolls);
+    /* Capped at 6 and floored at 1. "A natural 6 with +1 does nothing beyond
+       destroyed" is the brief's wording; the floor is the same statement from
+       the other end, since 1-3 is already no effect and a 0 would only be a
+       number the effect table has no row for. */
+    const effRoll = Math.max(1, Math.min(6, rawRoll + turnedBonus - coverPenalty));
+
+    /* NO SOUND YET. The audio catalogue has no musket volley and inventing an
+       asset path fails check-assets, which is exactly how this was caught. Hook
+       here when one exists: it wants a ragged crackle, panned to the SHOOTER
+       like artillery-fire is, not to the target. */
+
+    const label = effRoll<=3?'No effect':effRoll===4?'Turned around':effRoll===5?'Routed':'Destroyed';
+    showDice([{label:'Volley', rolls, keptValue:rawRoll, notes}], label, effRoll>=4 ? 'win' : 'lose', ()=>{
+      log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''}.`, 'combat');
+      state.volleyed.add(shooter.id);
+      /* THE ARTILLERY EFFECT PATH, REUSED. The volley table and the artillery
+         table are the same table, so this is the same function rather than a
+         copy of it: rout and rally, the destroy path, the death effect and the
+         replay event all behave identically, and the two cannot drift apart. */
+      const detail = { rawRoll, formationBonus:0, shakenBonus:0, crackShotBonus:0,
+                       canister:false, effRolls:rolls.slice(),
+                       volley:true, shooterId:shooter.id, shooterSide:shooter.side,
+                       coverPenalty, turnedBonus };
+      applyArtilleryEffect(target, effRoll, ()=>{ selectUnit(null); onComplete(); }, detail);
+    });
+  });
+}
+
 export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone, detail){
   if(idx >= stack.length){ onAllDone(); return; }
   const u = stack[idx];
@@ -1147,6 +1245,14 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     hit: true,
     gunId: detail ? detail.gunId : undefined,
     gunSide: detail ? detail.gunSide : undefined,
+    /* Volley reuses this function, so its identifying fields have to be
+       forwarded explicitly: the event is built from a fixed list and anything
+       not named here is dropped without a word. Without these the export would
+       report every volley as an artillery shot. */
+    volley: detail ? detail.volley : undefined,
+    shooterId: detail ? detail.shooterId : undefined,
+    shooterSide: detail ? detail.shooterSide : undefined,
+    turnedBonus: detail ? detail.turnedBonus : undefined,
     coverPenalty: detail ? detail.coverPenalty : undefined,
     effect: roll<=3?'none':roll===4?'disrupt':roll===5?'rout':'destroy',
   });

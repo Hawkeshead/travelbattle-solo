@@ -1,11 +1,11 @@
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
-import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, unitLabel } from './ui-battle.js';
+import { canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
    because two separate comparisons depend on it and they must agree: the
@@ -2047,18 +2047,74 @@ export function aiFireDecision(gun, onComplete){
   fireArtillery(gun, best, onComplete);
 }
 
+/* WHICH UNIT IN A COLUMN THE AI SHOOTS AT.
+
+   A Column is two units on one tile, and a killing volley removes only the one
+   aimed at. Raw unit value is the wrong tie-break: what a kill is worth is what
+   it does to the WIN CONDITION, and the match is won by breaking two of three
+   enemy Brigades, not by points.
+
+   So the AI shoots whichever candidate leaves its Brigade nearest to breaking.
+   A unit in a two-strong Brigade is worth far more dead than an identical unit
+   in a six-strong one, and the last combat unit in a Brigade is worth most of
+   all because killing it breaks the Brigade outright.
+
+   Wounded units break the tie: a turned-around or rallying unit is closer to
+   removal already and cannot answer the volley. */
+export function pickVolleyTarget(candidates){
+  let best = null, bestScore = -Infinity;
+  for(const t of candidates){
+    const remaining = state.units.filter(o=>!o.removed && o.side===t.side &&
+      o.brigadeId===t.brigadeId && o.type!=='BRIGADIER').length;
+    if(remaining === 0) continue;
+    let sc = 3.0 / remaining;                       // last unit in a Brigade scores 3.0
+    if(t.turnOnly || t.rallying) sc += 0.5;         // already wounded, and cannot reply
+    if(sc > bestScore){ bestScore = sc; best = t; }
+  }
+  return best;
+}
+
+/* The Firing phase runs guns first, then volleys.
+
+   Guns first is deliberate rather than incidental: artillery has range and can
+   often shoot a unit that is not adjacent to anything, while a volley is only
+   ever available at contact. Resolving the longer weapon first means a gun is
+   never wasted on a target the volley was about to remove anyway. */
 export function aiDoFirePhase(){
   const guns = state.units.filter(u=>!u.removed && u.side===state.aiSide && UNIT_TYPES[u.type].isArtillery && !state.fired.has(u.id));
   let i=0;
   function step(){
     if(state.gameOver) return;
-    if(i>=guns.length){ endFirePhase(); return; }
+    if(i>=guns.length){ aiDoVolleyStep(); return; }
     const gun = guns[i]; i++;
     if(!gun.removed){
       aiFireDecision(gun, ()=>{ draw(); setTimeout(step, 250); });
     } else {
       setTimeout(step, 100);
     }
+  }
+  step();
+}
+
+/* Volleys are taken unconditionally where one is available. There is no decision
+   to model: a volley costs nothing (it does not consume the move, and the unit
+   may still melee the same target afterwards), so declining one is never
+   correct. The only judgement is WHICH unit to shoot at, which is
+   pickVolleyTarget's job. */
+function aiDoVolleyStep(){
+  const shooters = state.units.filter(u=>!u.removed && u.side===state.aiSide && isFootInfantry(u));
+  let i=0;
+  function step(){
+    if(state.gameOver) return;
+    if(i>=shooters.length){ endFirePhase(); return; }
+    const u = shooters[i]; i++;
+    const targets = volleyTargets(u);
+    if(!targets.length){ step(); return; }
+    const target = pickVolleyTarget(targets);
+    if(!target){ step(); return; }
+    logAiDebugMove(u.side, { unit: unitLabel(u), mission: missionFor(u), action:'Volley',
+                             target: unitLabel(target), score: '—' });
+    resolveVolley(u, target, ()=>{ draw(); setTimeout(step, 250); });
   }
   step();
 }

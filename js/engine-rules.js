@@ -377,6 +377,71 @@ export function hasLOS(gun, target){
   return blockedCount === 0 || (blockedCount / Math.max(path.length,1)) < 0.5;
 }
 
+/* =========================================================
+   VOLLEY — HOUSE RULE, NOT IN THE PERRY PRINTED RULESET
+
+   Infantry musketry at contact range, resolved in the Firing phase alongside
+   artillery. Deliberate departure; do not "correct" it back.
+
+   Range 1, adjacent only, because musket range and melee range are the same
+   thing at this scale. Available in every formation. No to-hit roll at all,
+   unlike artillery: a single effect roll, because at one square the question is
+   never whether the volley reaches.
+
+   A unit may move and then volley (no stationary requirement) and may volley and
+   then melee the SAME target in the same turn. Both are deliberate: closing to
+   contact now buys a free first strike, which is the point of the rule.
+
+   THE EFFECT TABLE IS THE ARTILLERY TABLE. 1-3 nothing, 4 turned around, 5 rout,
+   6 destroyed — identical to applyArtilleryEffect's mapping, so volley reuses
+   that function outright rather than restating it. If the artillery table ever
+   moves, volley moves with it and the two cannot silently diverge.
+
+   Not available to a turned-around unit. canInitiateFight already excludes
+   turnOnly from melee (see ui-battle), so this is the same restriction applied
+   to the new action rather than a new rule. */
+export function isFootInfantry(u){
+  const t = UNIT_TYPES[u.type];
+  return !!t.canFight && !t.isCavalry && !t.isArtillery;
+}
+
+export function volleyTargets(u){
+  if(u.removed || !isFootInfantry(u)) return [];
+  if(u.turnOnly) return [];                                   // turned around: cannot fire
+  if(u.noActionThisTurn) return [];
+  if(state.volleyed && state.volleyed.has(u.id)) return [];    // one volley per Firing phase
+  return state.units.filter(o=>!o.removed && o.side!==u.side &&
+    o.type!=='BRIGADIER' &&                                    // never a valid target, as with artillery
+    !isConcealedFromEnemy(o) &&
+    isAdjacent(u, o));
+}
+
+/* Two dice ONLY for a square receiving cavalry, and that is the whole of the
+   exception. Column deliberately gets one die like everything else: only the
+   front ranks could bring muskets to bear, so depth adds weight in the melee and
+   nothing to the volley.
+
+   Two dice keep the highest, matching how melee reports a second die
+   (dice[6,1] x2 kept 6), so a player reading a volley panel is reading the same
+   notation they already know. */
+export function volleyDiceCount(shooter, target){
+  return (shooter.formation === 'square' && UNIT_TYPES[target.type].isCavalry) ? 2 : 1;
+}
+
+/* Cover is applied to the EFFECT roll, which is where artillery already applies
+   it (fireArtillery: `if(inCover) effRoll -= 1`). Deliberately the same hook, so
+   the Firing phase does not end up running two different cover mechanics side by
+   side. Hills are not cover: elevation helps a gun shoot over people, it does
+   not stop a musket ball.
+
+   The two modifiers cancel exactly by design — a turned-around unit in a wood
+   rolls the base table. */
+export function volleyModifiers(target){
+  const terr = terrainAt(target.x, target.y);
+  const inCover = terr.key === 'WOODS' || terr.key === 'BUILDING';
+  return { turnedBonus: target.turnOnly ? 1 : 0, coverPenalty: inCover ? 1 : 0 };
+}
+
 export function artilleryTargets(gun){
   if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
