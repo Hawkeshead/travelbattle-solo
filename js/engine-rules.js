@@ -409,10 +409,29 @@ export function volleyTargets(u){
   if(u.removed || !isFootInfantry(u)) return [];
   if(u.turnOnly) return [];                                   // turned around: cannot fire
   if(u.noActionThisTurn) return [];
+  /* A HIDDEN AMBUSHER MAY NOT VOLLEY. The Firing phase runs before the Fight
+     phase, so without this an ambusher with an enemy adjacent would take a free
+     shot before its own ambush ever sprang, and every ambush the AI set would
+     resolve as an anonymous volley instead. Holding fire is the whole of what an
+     ambush is. */
+  if(u.hidden) return [];
   if(state.volleyed && state.volleyed.has(u.id)) return [];    // one volley per Firing phase
   return state.units.filter(o=>!o.removed && o.side!==u.side &&
     o.type!=='BRIGADIER' &&                                    // never a valid target, as with artillery
-    !isConcealedFromEnemy(o) &&
+    /* CONCEALMENT IS NOT isConcealedFromEnemy HERE, and the difference is the
+       rule rather than an oversight.
+
+       isConcealedFromEnemy is `hidden || standing in WOODS`. The WOODS half is
+       right for a gun picking out a target at range 5 and wrong for a musket at
+       one square: the men in the trees are plainly there, which is precisely why
+       item 4 gives cover a -1 on the effect roll. Filtering on the shared helper
+       made that -1 unreachable, since a target in woods was never a legal target
+       to apply it to.
+
+       So only the `hidden` half survives. A deliberate ambusher is still
+       something you cannot shoot at because you do not know it is there;
+       ordinary infantry in a wood is something you shoot at badly. */
+    !o.hidden &&
     isAdjacent(u, o));
 }
 
