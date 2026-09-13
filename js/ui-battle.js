@@ -1,6 +1,6 @@
 import { setFloatingTextEnabled } from './floating-text.js';
 const FCT_PREF_KEY = 'fc:floatingText';
-import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue } from './ai-strategy.js';
+import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue, missionFor } from './ai-strategy.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
@@ -327,7 +327,7 @@ export function renderAiDebugPanel(){
   } else {
     for(const m of dbg.moveLog){
       html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'—'}): ${m.action}` +
-        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?' — '+m.reason:''} <span style="color:var(--ink-dim);">[${m.score}]</span></div>`;
+        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?' — '+m.reason:''}${m.score!=null&&m.score!=='—'?` <span style="color:var(--ink-dim);">[${m.score}]</span>`:''}</div>`;
     }
   }
   el.innerHTML = html;
@@ -487,9 +487,68 @@ export function canInitiateFight(u){
 // joining the ui-battle <-> ai-strategy import cycle. Re-exported here so every
 // existing importer keeps working unchanged.
 export { canAttackTarget };
+/* ONE PREDICATE, USED BY BOTH SIDES OF THE GATE.
+
+   THE CAUSE OF THE HANG. The AI's attacker pool and this gate each decided
+   independently whether a unit owed a fight, and R6 added `missionFor(u) !==
+   'PRESERVE'` to the AI's list only. A PRESERVE unit in contact was therefore an
+   obligation the gate demanded and the AI refused to discharge: the AI found no
+   attacker, called endFightPhase, the gate said units in contact must fight,
+   and round it went. Async retry, so the UI stayed responsive while the match
+   never advanced.
+
+   It fired late in a match (turns 19 and 20) because PRESERVE only triggers when
+   a Brigade is reduced to its Brigadier and one fighting unit. Occurrence 3 is
+   the mechanism in one line: the 9e Légère was destroyed immediately before the
+   gate fired, and that death is what dropped its Brigade to the threshold.
+
+   The three occurrences looked like three different unit states because the
+   states were incidental. The bug was two lists that had to agree and nothing
+   making them.
+
+   So there is now one exported test and both callers use it. A future exclusion
+   added to the AI's behaviour cannot desynchronise from the gate again, because
+   there is no second place to add it to. */
+export function owesAFight(u, side){
+  if(u.side !== side || !canInitiateFight(u)) return false;
+  // PRESERVE never initiates (R6), so it can never owe a fight either.
+  if(missionFor(u) === 'PRESERVE') return false;
+  return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o));
+}
+
 export function anyFightsAvailable(side){
-  return state.units.some(u=>u.side===side && canInitiateFight(u) &&
-    state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
+  /* Recomputed live on every call, never cached at phase start, so a unit
+     destroyed mid-phase cannot leave a stale obligation behind. */
+  return state.units.some(u=>owesAFight(u, side));
+}
+
+/* Names every contact the gate still considers outstanding, and why the unit
+   cannot discharge it. Prints the specific failing check rather than the
+   generic message, so the next occurrence of this class of bug says what it is
+   instead of leaving it to be inferred. */
+function describeBlockingContacts(side, limit){
+  const out = [];
+  for(const u of state.units){
+    if(u.side !== side || u.removed) continue;
+    const foes = state.units.filter(o=>!o.removed && o.side!==side && isAdjacent(u,o));
+    if(!foes.length) continue;
+    if(!owesAFight(u, side)) continue;
+    for(const o of foes){
+      if(out.length >= limit) return out;
+      out.push(
+        `BLOCKED CONTACT: ${unitLabel(u)} [${u.id}] (${SIDE_LABEL[u.side]}) at (${u.x},${u.y}) ` +
+        `vs ${unitLabel(o)} [${o.id}] at (${o.x},${o.y})` +
+        `
+    attacker: alive=${!u.removed} formation=${u.formation} turnOnly=${!!u.turnOnly} ` +
+        `noAction=${!!u.noActionThisTurn} hasFought=${!!(state.fought && state.fought.has(u.id))} ` +
+        `mission=${missionFor(u) || 'none'} terrain=${terrainAt(u.x,u.y).key}` +
+        `
+    target:   alive=${!o.removed} terrain=${terrainAt(o.x,o.y).key} ` +
+        `canAttackTarget=${canAttackTarget(u,o)}`
+      );
+    }
+  }
+  return out;
 }
 // Distinguishes "genuinely nothing adjacent" from "adjacent, but every one of
 // those units is still turned around from a pushback and can't fight yet" —
@@ -636,13 +695,27 @@ export function springAmbush(ambusher, target, mode, onComplete){
   });
 }
 export function endFirePhase(){ cancelAutoEnd(); beginFightPhase(); }
+const FIGHT_GATE_MAX_REFUSALS = 3;
 export function endFightPhase(){
   cancelAutoEnd();
   if(state.gameOver) return;
   if(anyFightsAvailable(state.turn)){
-    log('Units in contact must fight before the phase can end.', 'system');
-    return;
+    /* THE ESCAPE HATCH LIVES HERE, AT THE GATE, not in the decision loop. A
+       guard placed in the loop is refused by the same gate it was meant to
+       escape, which is why the earlier timeout did not catch this. After three
+       consecutive refusals the blocking contacts are named in full and the
+       phase is forced to end: losing one contested fight is a far better
+       outcome than losing a nineteen-turn match. */
+    state._fightGateRefusals = (state._fightGateRefusals || 0) + 1;
+    if(state._fightGateRefusals < FIGHT_GATE_MAX_REFUSALS){
+      log('Units in contact must fight before the phase can end.', 'system');
+      return;
+    }
+    log(`Fight gate refused ${state._fightGateRefusals} times — forcing the phase to end. Diagnostics:`, 'system');
+    for(const line of describeBlockingContacts(state.turn, 3)) log(line, 'system');
+    logReplay('gateForced', { side: state.turn, refusals: state._fightGateRefusals });
   }
+  state._fightGateRefusals = 0;
   state.phase = 'rally';
   updateHeader();
   log(`${SIDE_LABEL[state.turn]} turn complete.`, 'system');

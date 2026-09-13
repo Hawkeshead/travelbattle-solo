@@ -6,7 +6,7 @@ import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasCha
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
-import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
+import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, owesAFight, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
    because two separate comparisons depend on it and they must agree: the
@@ -2726,9 +2726,16 @@ export function aiDoFightPhase(){
        the engage score on movement. Suppressing only the movement term would
        leave a remnant that had been caught still throwing itself forward, which
        is the exact behaviour PRESERVE exists to stop. */
-    const attackers = state.units.filter(u=>u.side===state.aiSide && canInitiateFight(u) && !state.fought.has(u.id) &&
-      missionFor(u) !== 'PRESERVE' &&
-      state.units.some(o=>!o.removed && o.side!==state.aiSide && isAdjacent(u,o) && canAttackTarget(u,o)));
+    /* THE SAME PREDICATE THE GATE USES, deliberately, and this is the fix for the
+       turn-never-ends hang. This list and endFightPhase's gate used to decide
+       independently whether a unit owed a fight, and R6's PRESERVE exclusion was
+       added here only. A PRESERVE unit in contact became an obligation the gate
+       demanded and this list refused to supply, and the phase retried forever.
+
+       owesAFight is now the only definition of "this unit owes a fight" in the
+       codebase, so there is no second place for a future exclusion to be added
+       to and no way for the two to drift apart again. */
+    const attackers = state.units.filter(u=>owesAFight(u, state.aiSide));
     if(attackers.length===0){ endFightPhase(); return; }
     let bestA=null, bestT=null, bestScore=-Infinity;
     for(const a of attackers){
