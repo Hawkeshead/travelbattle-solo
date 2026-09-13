@@ -135,20 +135,37 @@ export function showModeSelect(isSplash){
   const aiBtn = document.createElement('button');
   aiBtn.className = 'primary';
   aiBtn.textContent = 'vs AI Opponent';
-  aiBtn.onclick = ()=>{ state.scenario=null; state.campaign=null; extra.style.display='none'; showSideSelect(); };
+  aiBtn.onclick = ()=>{ state.scenario=null; state.campaign=null; state.spectate=false; extra.style.display='none'; showSideSelect(); };
+  /* SPECTATE. Sets mode 'ai' like a normal match, plus state.spectate, which is
+     the only thing that distinguishes it: everywhere the game asks "is the side
+     to act the AI's side", spectate answers yes by pointing aiSide at whoever is
+     acting. The AI then deploys both armies, picks both board orientations and
+     plays both sides, using the same scoring for each. */
+  const spectateBtn = document.createElement('button');
+  spectateBtn.textContent = 'Spectate (AI vs AI)';
+  spectateBtn.onclick = ()=>{
+    state.scenario = null; state.campaign = null;
+    state.mode = 'ai';
+    state.spectate = true;
+    state.aiDifficulty = 'hard';
+    state.aiSide = SIDES.RED;   // re-pointed at the acting side from here on
+    extra.style.display = 'none';
+    beginBoardSetup();
+  };
   const opsBtn = document.createElement('button');
   opsBtn.textContent = 'Operations';
-  opsBtn.onclick = ()=>{ state.campaign=null; extra.style.display='none'; showOperationsMenu(); };
+  opsBtn.onclick = ()=>{ state.campaign=null; state.spectate=false; extra.style.display='none'; showOperationsMenu(); };
   const campBtn = document.createElement('button');
   campBtn.textContent = 'Campaigns';
-  campBtn.onclick = ()=>{ extra.style.display='none'; showCampaignMenu(); };
+  campBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showCampaignMenu(); };
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
-  grandBtn.onclick = ()=>{ extra.style.display='none'; showGrandMatchTypeSelect(); };
+  grandBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showGrandMatchTypeSelect(); };
   // Hotseat (2 players) removed from the home menu for now — beginBoardSetup()
   // and everything it needs is untouched, so this is just the one entry point
   // no longer being offered, easy to re-add later.
   extra.appendChild(aiBtn);
+  extra.appendChild(spectateBtn);
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,
@@ -475,6 +492,9 @@ function runRotationPicks(eligibleSides, i){
     return;
   }
   const side = eligibleSides[i];
+  /* Spectate: point the AI at the side being asked, so it picks the board
+     orientation for both rather than waiting on a person for one of them. */
+  if(state.spectate) state.aiSide = side;
   const isHumanControlled = !FAST_DICE_MODE && !(state.mode==='ai' && side===state.aiSide);
   if(!isHumanControlled){
     const chosen = Math.floor(Math.random()*4);

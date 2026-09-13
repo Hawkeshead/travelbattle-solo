@@ -352,6 +352,10 @@ export function beginMovePhase(){
   selectUnit(null);
   updateHeader();
   draw();
+  /* SPECTATE: point the AI at whichever side is acting, so the same AI plays
+     both. One line, evaluated before the check below, and inert when the flag
+     is unset. */
+  if(state.spectate) state.aiSide = state.turn;
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endMoveBtn').disabled = aiTurn;
   if(aiTurn){

@@ -3,7 +3,7 @@ import { BRIGADE_COMPOSITIONS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNI
 import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
 import { cellFromClient, draw, sy } from './render-board.js';
-import { unitLabel, updateHeader } from './ui-battle.js';
+import { startBattle, unitLabel, updateHeader } from './ui-battle.js';
 import { maybeShowArmyPicker } from './ui-menus.js';
 
 /* =========================================================
@@ -52,7 +52,7 @@ export function initDeployment(forcedFirstPlacement){
   renderRoster();
   updateHeader();
   if(maybeShowArmyPicker()) return; // offers the fast-path Army picker instead of leaving the roster panel as the only option — see ui-menus.js
-  if(state.mode==='ai' && state.deployTurn===state.aiSide){
+  if(aiControlsDeployTurn()){
     scheduleAiDeployStep(500);
   }
 }
@@ -68,6 +68,24 @@ export function initDeployment(forcedFirstPlacement){
    than trying to track and clear the timer handles, since the chain reschedules
    itself from three different places. */
 let deployGeneration = 0;
+
+/* =========================================================
+   SPECTATE MODE — AI versus AI, watched rather than played
+
+   The game already acts automatically whenever the side to act is the AI's
+   side. Spectate does not add a second AI: it points state.aiSide at whichever
+   side is currently acting, so the SAME AI plays both. Same scoring, same
+   weights, same doctrine, only the side flag differs, which is what makes a
+   result mean anything.
+
+   One helper for deployment and one line in beginMovePhase is the whole of it.
+   Nothing in the AI changes, and with state.spectate unset every check below
+   reads exactly as it did before. */
+function aiControlsDeployTurn(){
+  if(state.spectate) state.aiSide = state.deployTurn;
+  return state.mode==='ai' && state.deployTurn===state.aiSide;
+}
+
 export function scheduleAiDeployStep(ms){
   const booked = deployGeneration;
   setTimeout(()=>{ if(booked === deployGeneration) aiDeployStep(); }, ms);
@@ -261,6 +279,9 @@ export function attemptDeployAt(typeKey, x, y){
 export function checkDeployAdvance(){
   if(sideFullyDeployed(SIDES.RED) && sideFullyDeployed(SIDES.BLUE)){
     document.getElementById('endDeployBtn').disabled = false;
+    /* Spectate has nobody to press it. The button is enabled either way so the
+       watcher can see the state the game is in, and then pressed for them. */
+    if(state.spectate) setTimeout(()=>{ if(state.phase==='deploy') startBattle(); }, 900);
   }
 }
 
@@ -298,7 +319,7 @@ export function placeUnit(side, typeKey, x, y){
   updateHeader();
   draw();
 
-  if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
+  if(aiControlsDeployTurn() && !sideFullyDeployed(state.aiSide)){
     scheduleAiDeployStep(450);
   }
 }
@@ -327,7 +348,7 @@ export function confirmCurrentBrigade(){
   draw();
 
   if(maybeShowArmyPicker()) return; // it just became a human side's first turn — offer the fast-path Army picker
-  if(state.mode==='ai' && state.deployTurn===state.aiSide && !sideFullyDeployed(state.aiSide)){
+  if(aiControlsDeployTurn() && !sideFullyDeployed(state.aiSide)){
     scheduleAiDeployStep(450);
   }
 }
