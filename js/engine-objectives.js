@@ -106,6 +106,11 @@ export function checkScenarioTurnLimit(){
 
 export function endGame(winner){
   state.gameOver = true;
+  /* Recorded on state as well as shown on screen. The victory screen is the only
+     place the result existed, which is fine for a person reading it and no use
+     to anything that needs the outcome without a DOM (the AI-vs-AI runner, a
+     future campaign tally). One field, set at the same instant as gameOver. */
+  state.winner = winner;
   /* THE LAST BRIGADE TO BREAK STILL GETS ANNOUNCED.
 
      The second break is the one that wins, so the dispatch and this overlay want

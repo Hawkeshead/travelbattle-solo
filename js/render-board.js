@@ -1952,6 +1952,12 @@ export function draw(){
    live terrain-rendering pipeline itself is never touched.
 ========================================================= */
 export function playBoardIntroAnimation(onComplete){
+  /* The intro measures REAL elapsed time: 200 tiles at a 50ms stagger is about
+     ten and a half seconds no matter how fast frames are served. That is the
+     point when a person is watching and pure dead weight in a batch run, so the
+     harness flag skips straight to the finished board. Inert in real play, where
+     FAST_ANIMATION_MODE is never set. */
+  if(FAST_ANIMATION_MODE){ draw(); if(onComplete) onComplete(); return; }
   draw(); // render the true final board once, to capture as the source for every tile fragment
   const snapshot = document.createElement('canvas');
   snapshot.width = canvas.width;
