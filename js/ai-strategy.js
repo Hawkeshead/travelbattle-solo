@@ -73,6 +73,25 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
    Deliberately a discouragement now, not a prohibition. */
 export const SOLO_ATTACK_PENALTY = 1.2;
 
+/* F1: THE CAP, AND THE INVARIANT IT EXISTS TO PROTECT.
+
+   INVARIANT: no single avoidance term may exceed the positive maximum of engage.
+   If the worst danger outscores the best fight, the AI is structurally incapable
+   of attacking, however well every other term is tuned.
+   Previously broken by: threat (-5.00), soloAttackPenalty (-4.80).
+
+   soloAttackPenalty did not drift. The constant above has been 1.2 throughout.
+   It is applied once PER ADJACENT ENEMY, so a square touching four of them
+   accumulated -4.80 with nothing stopping it, and became the largest-magnitude
+   term in the game.
+
+   The stacking is right in principle: walking unsupported into four enemies is
+   worse than walking into one. What was wrong is that it stacked without a
+   ceiling, so at three or more it stopped being a discouragement and became the
+   veto the comment above says it must not be. Capped, the shape is kept and the
+   veto is not. */
+export const SOLO_ATTACK_PENALTY_MAX = 2.0;
+
 // Per-square pull toward a mission's target, applied at ANY range rather than
 // dying off past six squares. Set above terrainSeekBonus's 0.35 for a hill, so
 // an ordered Brigade crosses ground instead of settling on the nicest terrain
@@ -1221,7 +1240,35 @@ export const GUN_SEEK_IMPROVEMENT = 0.6;
 export const GUN_ADVANCE_WINDOW  = 10;   // turns in which a battery may freely go looking for ground
 export const GUN_CROWD_RADIUS    = 2;    // canister range: inside this a unit reaches the gun next turn
 export const GUN_CROWD_THRESHOLD = 2;    // this many inside that radius and the gun cannot answer them all
-export const GUN_APPROACH_GUARD  = 3;    // do not move this close to an enemy without holding the ground
+/* F2: NARROWED FROM 3 TO 2, and this is the change that lets the guns shoot.
+
+   The doctrine says do not move within 3 of an enemy. The acceptance target
+   wants most shots at range 2-4. Those contradict: to shoot at range 3 a gun
+   must STAND at range 3, which was inside the guard, so the rule written to keep
+   batteries safe was the rule keeping them out of their own effective band. Four
+   matches running, range 5-6 took the majority of shots and hit 14-18%.
+
+   At 2 the guard still covers what it was for. A gun at 1 or 2 is reachable by
+   anything; a gun at 3 is a move away from being reached, which is the risk
+   canister is worth taking. Range 3 and 4 are now free ground. */
+export const GUN_APPROACH_GUARD  = 2;    // do not move this close to an enemy without holding the ground
+
+/* F2: TWO TERMS, NOT FIVE, AND A CEILING ON BOTH.
+
+   Five overlapping negatives (standoff, stranded, approachGuard, settled,
+   crowded) summed to a potential -10.50 against +5.15 of positives, and each was
+   individually defensible while the total was not. They are now reported and
+   capped as two groups:
+
+     gunExposure    - proximity danger: crowding, and walking into reach
+     gunPositioning - positioning quality: too far to hit, churning, no vantage
+
+   Capped at 1.75 each, so the combined gun negative cannot exceed -3.50 however
+   many of the underlying rules fire at once. The rules themselves are unchanged
+   and still readable one at a time; what changed is that they can no longer
+   stack into a veto behind everyone's back. Same fault as soloAttackPenalty in
+   F1, and the same fix. */
+export const GUN_PENALTY_GROUP_CAP = 1.75;
 
 /* How many enemies could be on the gun next turn from a given square. */
 export function gunCrowdCount(side, x, y){
@@ -1526,7 +1573,18 @@ export function aiDecideAndExecuteMove(u){
 
   if(state.aiDifficulty==='hard' && !u.ambushCooldown && canLayAmbush(u)){
     const near = nearestEnemyDist(u, side);
-    if(near>=2 && near<=5){
+    /* F3: SET AND STAND-DOWN NOW SHARE ONE RADIUS.
+
+       Setting allowed an enemy up to 5 squares away; standing down fires when
+       none is within AMBUSH_STANDDOWN_RANGE (4) for three turns. A unit that hid at
+       exactly 5 was therefore already in stand-down territory on the turn it
+       committed, and burned three unit-turns proving it. In seed 99304470 that
+       is all three ambushes: two laid in a far corner at T5 and stood down at
+       T11 and T13, none ever resolving.
+
+       Same class of fault as the fight-gate hang: two numbers that had to agree,
+       with nothing making them. One constant now, read by both. */
+    if(near>=2 && near<=AMBUSH_STANDDOWN_RANGE){
       u.hidden = true;
       u.ambushWaited = 0;
       logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'set', by:'ai' });
@@ -1635,7 +1693,9 @@ export function aiDecideAndExecuteMove(u){
        a vantage point counts as established and is not penalised for arriving
        out of contact. The old test asked where the gun already stood, so a
        battery could never move to a better position that was off the chain. */
-      else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunStranded', 2.4);
+      // Reported as gunPositioning so the export shows the two groups rather than a
+      // third name for the same concern: a gun with no field of fire is badly placed.
+      else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunPositioning', Math.min(2.4, GUN_PENALTY_GROUP_CAP));
     }
     if(t.isArtillery && !connNow.has(u.id) && vantageScore(u, c.x, c.y) > 0){
       /* Range-scaled for the same reason as gunGoodGround: this exists to let a
@@ -1759,9 +1819,8 @@ export function aiDecideAndExecuteMove(u){
            thereby the attractive ones, which is what makes this a retreat rather
            than only a fear. */
         const crowd = gunCrowdCount(side, c.x, c.y);
-        if(crowd >= GUN_CROWD_THRESHOLD){
-          s -= subScore(parts, 'gunCrowded', (crowd - GUN_CROWD_THRESHOLD + 1) * 1.3);
-        }
+        let exposure = 0, positioning = 0;
+        if(crowd >= GUN_CROWD_THRESHOLD) exposure += (crowd - GUN_CROWD_THRESHOLD + 1) * 1.3;
 
         /* RULE 4: DO NOT WALK INTO REACH without holding the ground.
 
@@ -1771,7 +1830,7 @@ export function aiDecideAndExecuteMove(u){
            penalised as though the gun had just walked there. */
         if(!c.stay && d <= GUN_APPROACH_GUARD){
           const edge = localSuperiority(side, c.x, c.y, GUN_APPROACH_GUARD);
-          if(edge < 2) s -= subScore(parts, 'gunApproachGuard', (GUN_APPROACH_GUARD - d + 1) * 0.7);
+          if(edge < 2) exposure += (GUN_APPROACH_GUARD - d + 1) * 0.7;
         }
 
         /* RULE 3: ADVANCE EARLY, THEN ONLY FOR A REASON.
@@ -1787,7 +1846,7 @@ export function aiDecideAndExecuteMove(u){
            outweighs it, and a gun is never frozen by its own doctrine. */
         const settled = state.turnNumber > GUN_ADVANCE_WINDOW;
         if(settled && !c.stay && crowd < GUN_CROWD_THRESHOLD){
-          s -= subScore(parts, 'gunSettled', 1.1);
+          positioning += 1.1;
         }
 
         /* RULE 1: CLOSE IS NOT PUNISHED ANY MORE.
@@ -1807,7 +1866,11 @@ export function aiDecideAndExecuteMove(u){
            preferred to keep taking it. This is the term whose entire job is to
            get guns into the band, and it has to be able to pay for one turn of
            lost fire to do it. */
-        s -= subScore(parts, 'gunStandoff', bandMiss * 0.90);
+        positioning += bandMiss * 0.90;
+
+        // Capped as groups, so no combination of the rules above can veto a move.
+        if(exposure > 0)    s -= subScore(parts, 'gunExposure',    Math.min(exposure, GUN_PENALTY_GROUP_CAP));
+        if(positioning > 0) s -= subScore(parts, 'gunPositioning', Math.min(positioning, GUN_PENALTY_GROUP_CAP));
 
         /* SEEKING A VANTAGE POINT. The old logic only rewarded STAYING somewhere
            good, never GOING somewhere good, so where a battery finished up was an
@@ -2006,11 +2069,13 @@ export function aiDecideAndExecuteMove(u){
       if(!alreadyInContact){
         const wouldContact = state.units.filter(o=>!o.removed && o.side!==side &&
           isAdjacent(c, o) && canAttackTarget(u, o));
+        let solo = 0;
         for(const target of wouldContact){
           if(target.turnOnly || target.rallying) continue;   // wounded: finish it
           // Would anyone else be able to join this fight this turn?
-          if(supportCountFor(target, side, u.id) === 0) s -= subScore(parts, 'soloAttackPenalty', SOLO_ATTACK_PENALTY);
+          if(supportCountFor(target, side, u.id) === 0) solo += SOLO_ATTACK_PENALTY;
         }
+        if(solo > 0) s -= subScore(parts, 'soloAttackPenalty', Math.min(solo, SOLO_ATTACK_PENALTY_MAX));
       }
     }
 
