@@ -97,6 +97,29 @@ global.fetch = async (u) => ({ ok:true, json: async()=>JSON.parse(fs.readFileSyn
 
 /* Loads the game modules in dependency order under the shim above and hands
    them back. Import this first from any harness script. */
+/* COLLAPSE THE CLOCK.
+
+   The game is paced for a person to watch: deploy steps land about 300ms apart,
+   camera pans run 420-900ms, dice panels hold, floating text staggers. A single
+   match therefore takes minutes of wall time, and two hundred of them would take
+   most of a day.
+
+   Every one of those delays is a setTimeout. Clamping the delay to zero keeps
+   the ORDER and the callback chain exactly as they are (this is still an async
+   queue, not synchronous execution) and removes only the waiting. No game code
+   is modified and no timing logic is bypassed; the same callbacks run in the
+   same sequence, just without the pauses that exist for human eyes.
+
+   Installed by the harness, never by the game. */
+export function collapseTimers(){
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, _ms, ...args) => realSetTimeout(fn, 0, ...args);
+  dom.window.setTimeout = globalThis.setTimeout;
+  globalThis.requestAnimationFrame = cb => realSetTimeout(()=>cb(Date.now()), 0);
+  dom.window.requestAnimationFrame = globalThis.requestAnimationFrame;
+  return () => { globalThis.setTimeout = realSetTimeout; };
+}
+
 export async function loadGame(){
   const data   = await import('../../js/data-core.js');
   const dice   = await import('../../js/dice.js');

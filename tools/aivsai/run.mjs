@@ -15,7 +15,13 @@
    This is the brief's one permitted addition and it lives entirely here. Nothing
    in js/ is touched, so the human-vs-AI path cannot be affected by it.
 ========================================================= */
-import { loadGame } from './headless-env.mjs';
+import { loadGame, collapseTimers } from './headless-env.mjs';
+
+/* Captured BEFORE collapseTimers replaces the global. The harness still needs a
+   real clock to poll and to time out with; only the game's own delays are
+   collapsed. */
+const realSetTimeout = globalThis.setTimeout;
+const realSetInterval = globalThis.setInterval;
 
 const SETTLE_POLL_MS = 4;
 
@@ -36,8 +42,7 @@ export async function runOneMatch({ seed, deployFirst, difficulty = 'hard' }, g)
   /* The driver. A bare interval that keeps aiSide pointed at the side to act,
      during deployment and during play alike. It reads state and writes one
      field; it makes no decisions and has no opinion about the game. */
-  let lastPlaced = -1, idleTicks = 0;
-  const driver = setInterval(() => {
+  const driver = realSetInterval(() => {
     const acting = state.phase === 'deploy' ? state.deployTurn : state.turn;
     if (acting !== undefined && state.aiSide !== acting) state.aiSide = acting;
 
@@ -48,17 +53,23 @@ export async function runOneMatch({ seed, deployFirst, difficulty = 'hard' }, g)
        re-arms it when nothing has been placed for a few ticks. It adds no
        decision: aiDeployStep chooses the square exactly as it always does. */
     if (state.phase === 'deploy') {
-      const placed = (state.units || []).length;
-      if (placed === lastPlaced) {
-        if (++idleTicks > 8) { idleTicks = 0; g.uiDeploy.scheduleAiDeployStep(0); }
-      } else { lastPlaced = placed; idleTicks = 0; }
+      const bothDone = g.uiDeploy.sideFullyDeployed(data.SIDES.RED) &&
+                       g.uiDeploy.sideFullyDeployed(data.SIDES.BLUE);
+      if (bothDone) {
+        /* THE SECOND KICK. With both armies placed the browser waits on the
+           "Start battle" button. Nothing presses it headless, so the harness
+           calls the same function the button is wired to. */
+        g.ui.startBattle();
+      } else {
+        g.uiDeploy.scheduleAiDeployStep(0);
+      }
     }
-  }, SETTLE_POLL_MS);
+  }, 20);
 
   state.aiSide = deployFirst;
   g.uiDeploy.initDeployment(deployFirst);
 
-  const finished = await waitForEnd(state, 60_000);
+  const finished = await waitForEnd(state, 45_000);
   clearInterval(driver);
 
   return {
@@ -77,7 +88,7 @@ export async function runOneMatch({ seed, deployFirst, difficulty = 'hard' }, g)
 function waitForEnd(state, timeoutMs) {
   return new Promise(resolve => {
     const t0 = Date.now();
-    const poll = setInterval(() => {
+    const poll = realSetInterval(() => {
       if (state.gameOver) { clearInterval(poll); resolve('win'); return; }
       if (Date.now() - t0 > timeoutMs) { clearInterval(poll); resolve('timeout'); return; }
     }, SETTLE_POLL_MS);
@@ -86,6 +97,7 @@ function waitForEnd(state, timeoutMs) {
 
 export async function main() {
   const g = await loadGame();
+  collapseTimers();   // installed once, before any match runs
   const uiDeploy = await import('../../js/ui-deployment.js');
   g.uiDeploy = uiDeploy;
   const { SIDES } = g.data;

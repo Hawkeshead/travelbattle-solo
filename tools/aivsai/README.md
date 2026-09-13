@@ -13,20 +13,36 @@ synchronously), Image (sprite preload), Audio/WebAudio, and canvas.getContext.
 `floating-text.js` loads with no shim at all, which verifies the leaf-module
 property rather than asserting it.
 
-## Runner: written, blocked at one identified point
+## Runner: deployment works end to end, turn loop is next
 
-`run.mjs` exists and runs. It seeds the RNG, sets fast dice, starts deployment
-and drives both sides. Verified working: the environment loads, a match
-initialises, and the AI places units.
+Working now:
 
-**It stalls after three units, and the cause is pinned down.** Deployment gates
-on the Army picker modal (`state._armyPickerShown` stays false and
-`deployBrigadeIndex` never advances past 0). In the browser a human dismisses
-that modal and the chain continues. Headless nothing does.
+- Timers collapsed (`collapseTimers`), so the game's human pacing no longer
+  costs wall time. Order and callback chains are unchanged; only the waiting
+  goes.
+- **All 34 units deploy, both sides, in under a second.** Brigade indices reach
+  3/3 for both.
+- The battle starts and reaches turn 2.
 
-That is the single remaining blocker. The fix is to have the harness make the
-picker's default selection directly, the same way the deployment code does when
-the player chooses, which is a harness-side call and not a change to `js/`.
+Remaining: the turn loop stalls the same way deployment did. Each phase waits on
+a button the browser supplies and nothing presses headless. The fix is the same
+shape as the two kicks already in `run.mjs`: when a phase has nothing outstanding,
+call the function the End Phase button is wired to. `phaseActionsComplete` in
+`phase-autoend.js` already answers "is this phase finished", so the kick has a
+correct condition available rather than needing a timeout.
+
+Then: the manifest, the aggregate report (4a-4j), and the 200-match run.
+
+## Corrections to earlier notes in this file
+
+The Army picker was **never** the blocker. `maybeShowArmyPicker` already returns
+false under `FAST_DICE_MODE`, so it is correctly suppressed headless;
+`_armyPickerShown` staying false meant it was never shown, not that it was
+waiting. The earlier note was wrong.
+
+The first "stall at three units" was also wrong. Deployment was progressing at
+about 300ms per placement, which is the deliberate human pacing, and a 1500ms
+sample simply caught it early.
 
 ## Still not done after that
 
