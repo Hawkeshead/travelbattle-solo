@@ -1010,6 +1010,59 @@ export function cameraTo(cellX, cellY, opts = {}){
   cameraRaf = requestAnimationFrame(frame);
 }
 
+/* =========================================================
+   FRAME AN ACTION: the unit acting AND the unit it is acting on.
+
+   cameraToUnits centres on a centroid at a FIXED zoom, which is right for a
+   Brigade (they are clustered by cohesion) and wrong for a duel. A gun firing at
+   range 5 and its target share a centroid that is three squares from both of
+   them, so at CAMERA_ZOOM the shot lands with neither end on screen and the
+   player sees an empty stretch of field while the dice panel explains what
+   happened somewhere else.
+
+   This fits the zoom to the pair instead: work out the zoom at which the whole
+   bounding box plus a margin fits the viewport, take the tighter of the two
+   axes, and clamp it. The upper clamp is CAMERA_ACTION_ZOOM so a melee between
+   adjacent units gets a genuine close-up; the lower is MAP_MIN_ZOOM so a shot
+   across half the board simply pulls back far enough to show both ends rather
+   than picking one.
+========================================================= */
+export const CAMERA_ACTION_ZOOM = 2.2;   // closest the camera goes for a duel
+/* Shorter than CAMERA_PAN_MS. A Brigade pan is scene-setting and can take its
+   time; an action pan is the beat before a die is rolled, and the caller waits
+   it out before resolving, so every millisecond here is added to the length of
+   the AI's turn. */
+export const CAMERA_ACTION_PAN_MS = 420;
+const CAMERA_ACTION_MARGIN = 0.72;       // fraction of the viewport the action may fill
+
+export function cameraToAction(units, opts = {}){
+  if(!CameraPref.enabled) return;
+  const live = (units || []).filter(u => u && !u.removed);
+  if(!live.length) return;
+  const wrap = document.getElementById('boardWrap');
+  if(!wrap || !canvas) return;
+
+  const xs = live.map(u=>u.x), ys = live.map(u=>sy(u.y));
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  // +1 so the box covers the full squares at each end, not just their centres.
+  const spanX = (maxX - minX) + 1, spanY = (maxY - minY) + 1;
+
+  const scale = canvas.offsetWidth / (COLS * CELL);
+  const fitX = (wrap.clientWidth  * CAMERA_ACTION_MARGIN) / (spanX * CELL * scale);
+  const fitY = (wrap.clientHeight * CAMERA_ACTION_MARGIN) / (spanY * CELL * scale);
+  const zoom = Math.max(MAP_MIN_ZOOM, Math.min(CAMERA_ACTION_ZOOM, Math.min(fitX, fitY)));
+
+  /* Centre on the box, not the centroid. With two units they are the same; with
+     three in a stack they are not, and the box is what has to fit. sy() is
+     already applied above, so the y handed back to cameraTo is un-flipped to
+     avoid flipping it twice. */
+  const cx = (minX + maxX) / 2;
+  const cyScreen = (minY + maxY) / 2;
+  const cy = screenFlipActive() ? (ROWS - 1 - cyScreen) : cyScreen;
+  cameraTo(cx, cy, Object.assign({ zoom }, opts));
+}
+
 /* Frame a group of units rather than a point: their centroid, so a Brigade
    spread over a few squares is centred on its middle. */
 export function cameraToUnits(units, opts){

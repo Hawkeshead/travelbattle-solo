@@ -5,7 +5,7 @@ import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
-import { animateUnitTo, cameraParkPlayerView, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
+import { CAMERA_ACTION_PAN_MS, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
 import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
@@ -2462,7 +2462,13 @@ export function aiFireDecision(gun, onComplete){
   if(!state.turnGunTargets) state.turnGunTargets = new Set();
   state.turnGunTargets.add(best.id);
   logAiDebugMove(gun.side, { unit: unitLabel(gun), mission: missionFor(gun), action:'Fire', target: unitLabel(best), score: bestScore.toFixed(2) });
-  fireArtillery(gun, best, onComplete);
+  /* FRAME THE SHOT BEFORE TAKING IT. The Firing phase never moved the camera at
+     all, so a battery could fire from wherever the Move phase had left the view
+     and the player would see the dice panel explain a shot happening off-screen.
+     Both ends are framed, not the gun alone: the shot is only legible if you can
+     see what it is aimed at. */
+  cameraToAction([gun, best], { durationMs: CAMERA_ACTION_PAN_MS });
+  setTimeout(()=> fireArtillery(gun, best, onComplete), CAMERA_ACTION_PAN_MS);
 }
 
 /* WHICH UNIT IN A COLUMN THE AI SHOOTS AT.
@@ -2532,7 +2538,10 @@ function aiDoVolleyStep(){
     if(!target){ step(); return; }
     logAiDebugMove(u.side, { unit: unitLabel(u), mission: missionFor(u), action:'Volley',
                              target: unitLabel(target), score: '—' });
-    resolveVolley(u, target, ()=>{ draw(); setTimeout(step, 250); });
+    /* A volley is always at range 1, so this is close to a pure close-up: the
+       fit calculation settles at CAMERA_ACTION_ZOOM for two adjacent squares. */
+    cameraToAction([u, target], { durationMs: CAMERA_ACTION_PAN_MS });
+    setTimeout(()=> resolveVolley(u, target, ()=>{ draw(); setTimeout(step, 250); }), CAMERA_ACTION_PAN_MS);
   }
   step();
 }
@@ -2758,9 +2767,13 @@ export function aiDoFightPhase(){
       }
     }
     if(bestA){
-      // A fight is the thing most worth seeing, so the camera reframes on the
-      // pair even if they are inside the Brigade frame already.
-      cameraToUnits([bestA, bestT]);
+      /* A fight is the thing most worth seeing, so the camera reframes on the
+         pair even if they are inside the Brigade frame already. cameraToUnits
+         centred them at the Brigade zoom of 1.4, which frames the area rather
+         than the duel; cameraToAction fits the pair, so two adjacent units get a
+         genuine close-up. The resolve is held for the pan so the dice do not
+         land while the board is still moving. */
+      cameraToAction([bestA, bestT], { durationMs: CAMERA_ACTION_PAN_MS });
       logAiDebugMove(state.aiSide, { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
       // Remember what we are working on, so the next attacker in this phase
       // piles onto the same unit. Cleared when the fight phase ends.
@@ -2769,13 +2782,13 @@ export function aiDoFightPhase(){
       // thrown itself in, whatever the dice then say. Recording it at the settle
       // instead left a window in which the same unit could fight again.
       state.fought.add(bestA.id);
-      resolveFight(bestA, bestT, undefined, ()=>{
+      setTimeout(()=> resolveFight(bestA, bestT, undefined, ()=>{
         // A destroyed or routed target is finished business; let the next
         // attacker choose freshly rather than chasing a unit that has gone.
         if(bestT.removed || bestT.rallying) state._aiFocusTargetId = null;
         draw();
         setTimeout(step, 300);
-      });
+      }), CAMERA_ACTION_PAN_MS);
     } else {
       endFightPhase();
     }
