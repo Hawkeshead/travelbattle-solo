@@ -840,6 +840,45 @@ export function observeBoardResize(){
    change: the snapshot offset has to be subtracted when cutting tiles. The
    translate approach is otherwise sound, and was chosen so the ~1700 lines of
    drawing code below could stay in board coordinates. */
+/* =========================================================
+   FLOATING TEXT LAYER GEOMETRY
+
+   render-board owns CELL, the row flip and the map transform, so it owns
+   putting the label layer where the board is. floating-text.js stays a leaf and
+   is simply handed the function below.
+
+   THE LAYER MIRRORS THE CANVAS TRANSFORM. #board carries a live
+   translate/scale from the pinch-pan system, so a layer pinned to the wrapper
+   with inset:0 would be correct only at zoom 1 with no pan, and would slide out
+   of alignment the moment the player moved the board. Matching left/top/size to
+   the canvas box and copying its transform keeps a label welded to its square
+   at any zoom, and makes the labels scale with the board for free.
+========================================================= */
+export function syncFctLayer(){
+  const el = document.getElementById('fct-layer');
+  if(!el || !canvas) return;
+  el.style.left   = canvas.offsetLeft + 'px';
+  el.style.top    = canvas.offsetTop + 'px';
+  el.style.width  = (COLS*CELL) + 'px';
+  el.style.height = (ROWS*CELL) + 'px';
+  el.style.transform = canvas.style.transform;
+  el.style.setProperty('--fct-scale', CELL + 'px');
+}
+
+/* Square to pixel, in the LAYER's own untransformed space, since the layer
+   carries the same transform as the canvas. atTopEdge reports whether the
+   square is drawn at the top of the board rather than whether row === 0: the
+   board can be screen-flipped, and a label needs to know where the room is. */
+export function fctSquareToPixel(col, row){
+  const r = sy(row);
+  return {
+    centreX: (col + 0.5) * CELL,
+    top: r * CELL,
+    bottom: (r + 1) * CELL,
+    atTopEdge: r === 0,
+  };
+}
+
 export function sizeCanvas(){
   setCell(computeCellSize());
   const dpr = window.devicePixelRatio || 1;
@@ -850,6 +889,7 @@ export function sizeCanvas(){
   ctx.setTransform(dpr,0,0,dpr,0,0);
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
+  syncFctLayer();
   draw();
   // Released on the next frame: the observer fires asynchronously after this
   // function has already returned, so clearing it here would not prevent the
@@ -1019,6 +1059,7 @@ export function clampMapPan(){
 export function applyMapTransform(){
   clampMapPan();
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
+  syncFctLayer();   // the label layer rides the same transform or it drifts off the board
 }
 
 canvas.addEventListener('pointerdown', (e)=>{

@@ -1,3 +1,4 @@
+import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
@@ -2408,9 +2409,20 @@ export function aiDoMovePhase(){
        pending, which is the overwhelming majority of steps, and the human
        owner's Hold/Advance dialog holds the loop until it is answered because
        the next step() is its callback. */
-    setTimeout(()=> resolveAmbushSpringsNow(step),
+    /* LABELS DRAIN PER UNIT, NOT PER TURN. The gate sits here, where a single
+       unit's action has fully resolved, so the player reads what happened to
+       that unit before the next one starts. Waiting until endMovePhase would
+       let seventeen units' worth of labels pile up and then replay as a burst
+       with nothing on the board to attach them to.
+
+       floatingTextIdle resolves instantly when the queue is empty or the
+       feature is off, so this costs nothing on a quiet turn and a turn with
+       labels disabled runs at exactly its previous duration. The per-turn
+       budget inside the module is what stops a heavy turn dragging. */
+    setTimeout(()=> floatingTextIdle().then(()=> resolveAmbushSpringsNow(step)),
       moved ? moveAnimationMs(Math.max(1, steps)) + 60 : 340);
   }
+  resetFloatingTextTurnBudget();
   step();
 }
 

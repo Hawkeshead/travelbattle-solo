@@ -1,3 +1,5 @@
+import { setFloatingTextEnabled } from './floating-text.js';
+const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue } from './ai-strategy.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
@@ -1465,6 +1467,21 @@ export function initBattleControls(){
   document.getElementById('muteToggle').onchange = (e)=> AudioManager.setMuted(e.target.checked);
   const ambientToggleEl = document.getElementById('ambientToggle');
   if(ambientToggleEl) ambientToggleEl.onchange = (e)=>{ AmbientPref.enabled = e.target.checked; };
+  /* Floating battle text. Same localStorage shape as the ambient-motion pref
+     ('fc:' prefix, 'on'/'off', wrapped against private mode) rather than a new
+     storage mechanism. Default on: absent key reads as on. */
+  const fctToggleEl = document.getElementById('fctToggle');
+  if(fctToggleEl){
+    let stored = null;
+    try { stored = localStorage.getItem(FCT_PREF_KEY); } catch { /* private mode */ }
+    const on = stored !== 'off';
+    fctToggleEl.checked = on;
+    setFloatingTextEnabled(on);
+    fctToggleEl.onchange = (e)=>{
+      setFloatingTextEnabled(e.target.checked);
+      try { localStorage.setItem(FCT_PREF_KEY, e.target.checked ? 'on' : 'off'); } catch { /* nothing we can do */ }
+    };
+  }
   const cameraToggleEl = document.getElementById('cameraToggle');
   if(cameraToggleEl) cameraToggleEl.onchange = (e)=>{ CameraPref.enabled = e.target.checked; };
   for(const [id, category] of VOLUME_SLIDERS){

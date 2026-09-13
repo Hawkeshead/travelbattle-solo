@@ -1,3 +1,4 @@
+import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
 import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -130,9 +131,62 @@ export function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 ========================================================= */
 export function logReplay(type, data){
   if(!state.matchLog || state.replaying) return;
-  state.matchLog.push(Object.assign({
-    type, turn: state.turnNumber, phase: state.phase
-  }, data));
+  const ev = Object.assign({ type, turn: state.turnNumber, phase: state.phase }, data);
+  state.matchLog.push(ev);
+  emitLabelFor(ev);
+}
+
+/* =========================================================
+   FLOATING TEXT ADAPTER
+
+   Every rules event already passes through logReplay at the exact moment the
+   rule resolves, which is where the spec says labels must fire. Hooking here
+   rather than adding twenty scattered emit calls has three consequences worth
+   stating:
+
+   ONE PLACE TO READ. The mapping from rule to label is a single table, so what
+   the player sees can be checked against what the game recorded without going
+   through the whole rules layer.
+
+   IT CANNOT INVENT A TRIGGER. A label exists only where an event already
+   exists, which satisfies the spec's non-goal directly: nothing here adds a
+   rules branch to create a trigger point that was not already there.
+
+   AND IT CANNOT CHANGE ANYTHING. The adapter reads the event and calls a leaf
+   module. floating-text.js imports nothing, so there is no path from a label
+   back into state.
+
+   Ordering within one resolution (formation, bonuses, penalties, outcome) falls
+   out of the order the rules code already writes its events in, which is the
+   order the rules actually resolve. */
+const FCT_ORDER = { formation:0, bonus:1, penalty:2, command:3 };
+function emitLabelFor(ev){
+  let labels = null;
+  if(ev.type === 'formation'){
+    const to = String(ev.to || '').toUpperCase();
+    labels = [{ text: to === 'SQUARE' ? 'SQUARE!' : to === 'COLUMN' ? 'COLUMN!' : 'SQUARE LOWERED!', kind:'formation' }];
+  } else if(ev.type === 'rally'){
+    labels = [{ text: ev.success ? 'RALLIED!' : 'RALLY FAILED!', kind: ev.success ? 'bonus' : 'penalty' }];
+  } else if(ev.type === 'leadership'){
+    labels = [{ text:'LEADERSHIP!', kind:'command' }];
+  } else if(ev.type === 'ambush'){
+    labels = [{ text:'AMBUSH! +1', kind:'bonus' }];
+  } else if(ev.type === 'fire'){
+    if(ev.hit === false) return;                       // a miss is not an event on the target
+    labels = [];
+    if(!ev.volley) labels.push({ text:'DIRECT HIT!', kind:'penalty' });
+    if(ev.effect === 'rout')      labels.push({ text:'ROUTED!', kind:'penalty' });
+    if(ev.effect === 'disrupt')   labels.push({ text:'TURNED AROUND!', kind:'penalty' });
+    if(ev.effect === 'knockback') labels.push({ text:'PUSHED BACK!', kind:'penalty' });
+    if(ev.effect === 'destroy')   labels.push({ text:'DESTROYED!', kind:'penalty' });
+  }
+  if(!labels || !labels.length) return;
+  labels.sort((a,b)=>FCT_ORDER[a.kind] - FCT_ORDER[b.kind]);
+  const aiTurn = state.turn === state.aiSide;
+  for(const l of labels){
+    emitFloatingText({ col: ev.x, row: ev.y, text: l.text, kind: l.kind,
+                       hold: aiTurn ? FCT_AI_HOLD_MS : 0 });
+  }
 }
 
 // Assembles a short flavor paragraph from a narration bucket (opening + middle

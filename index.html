@@ -744,6 +744,62 @@
   @media (max-width:900px) and (orientation:portrait){
     #brigadeDispatch{ position:fixed; bottom:12px; }
   }
+  /* =========================================================
+     FLOATING COMBAT TEXT
+     z-index 16: above the board canvas and the brigade dispatch (15), below the
+     dice panel (20) and every modal sheet (38-50). A label must never sit on top
+     of a roll the player is reading.
+     transform-origin matches #board so the mirrored zoom transform lands.
+  ========================================================= */
+  #fct-layer{
+    position:absolute; pointer-events:none; overflow:visible;
+    z-index:16; transform-origin:0 0;
+  }
+  .fct-label{
+    position:absolute;
+    transform:translate(-50%, 0);
+    white-space:nowrap;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:clamp(11px, calc(var(--fct-scale, 68px) * 0.22), 20px);
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    text-shadow:
+      1px 1px 0 rgba(0,0,0,0.85),
+      -1px 1px 0 rgba(0,0,0,0.85),
+      1px -1px 0 rgba(0,0,0,0.85),
+      -1px -1px 0 rgba(0,0,0,0.85),
+      0 0 4px rgba(0,0,0,0.6);
+    animation:fct-rise 1100ms ease-out forwards;
+    will-change:transform, opacity;
+  }
+  .fct-formation{ color:#FFFFFF; }
+  .fct-bonus    { color:#7FBF5F; }
+  .fct-penalty  { color:#E0564E; }
+  .fct-command  { color:#E8C063; }
+
+  @keyframes fct-rise{
+    0%   { opacity:0; transform:translate(-50%, 6px) scale(0.92); }
+    14%  { opacity:1; transform:translate(-50%, 0) scale(1); }
+    62%  { opacity:1; transform:translate(-50%, -14px) scale(1); }
+    100% { opacity:0; transform:translate(-50%, -22px) scale(1); }
+  }
+  /* Row 0 drifts DOWNWARD, since there is no room above it. */
+  @keyframes fct-rise-below{
+    0%   { opacity:0; transform:translate(-50%, -6px) scale(0.92); }
+    14%  { opacity:1; transform:translate(-50%, 0) scale(1); }
+    62%  { opacity:1; transform:translate(-50%, 14px) scale(1); }
+    100% { opacity:0; transform:translate(-50%, 22px) scale(1); }
+  }
+  .fct-label.fct-below{ animation-name:fct-rise-below; }
+
+  @media (prefers-reduced-motion: reduce){
+    .fct-label, .fct-label.fct-below{ animation:fct-fade 1100ms linear forwards; }
+    @keyframes fct-fade{
+      0% { opacity:0; } 12% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; }
+    }
+  }
+
   #diceOverlay{
     position:absolute; top:10px; left:50%; transform:translateX(-50%) translateY(-8px);
     opacity:0; pointer-events:none; transition:opacity 0.18s ease, transform 0.18s ease; z-index:20;
@@ -908,6 +964,14 @@
     <div id="brigadeDispatch" aria-live="polite"></div>
     <div id="boardWrap">
       <canvas id="board" width="900" height="900"></canvas>
+      <!-- Floating combat text. Sibling of the canvas inside #boardWrap, NOT inside
+           #overlay: the candle layer there uses mix-blend-mode:screen with
+           isolation:isolate, which would wash the labels out. Sized and
+           transformed to match the canvas by render-board (see syncFctLayer):
+           #board carries a live translate/scale from the pinch-pan system, and a
+           static inset:0 layer would drift out of alignment the moment the board
+           is zoomed. -->
+      <div id="fct-layer" aria-hidden="true"></div>
       <div id="diceOverlay"><div class="dice-panel"><div class="dice-groups"></div><div id="diceLegend" class="dice-legend" style="display:none;"></div><div class="dice-result"></div><button id="diceRollBtn" class="primary" style="display:none;margin-top:8px;">Roll</button></div></div>
     </div>
 
@@ -987,6 +1051,10 @@
             <label class="menuToggleRow">
               <span>Ambient Motion</span>
               <input type="checkbox" id="ambientToggle">
+            </label>
+            <label class="menuToggleRow">
+              <span>Floating battle text</span>
+              <input type="checkbox" id="fctToggle">
             </label>
             <label class="menuToggleRow">
               <span>Battle Camera</span>

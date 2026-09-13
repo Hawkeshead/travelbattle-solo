@@ -1,5 +1,6 @@
+import { clearFloatingText, initFloatingText } from './floating-text.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { sizeCanvas } from './render-board.js';
+import { fctSquareToPixel, sizeCanvas } from './render-board.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
@@ -73,6 +74,15 @@ export function start(){
   }
 
   sizeCanvas();
+  /* Layer init after sizeCanvas, which is what first places and sizes it.
+     floating-text is a leaf: it is handed the element and the coordinate
+     function and imports neither. */
+  initFloatingText(document.getElementById('fct-layer'), fctSquareToPixel);
+  /* Cleared on resize and orientation change rather than repositioned live: a
+     label is a 1.1s transient, so redrawing it in a new geometry is more work
+     and more ways to be wrong than simply letting the burst go. */
+  window.addEventListener('resize', clearFloatingText);
+  window.addEventListener('orientationchange', clearFloatingText);
 }
 
 start();
