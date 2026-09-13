@@ -67,6 +67,7 @@ export async function runOneMatch({ seed }, g) {
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
     survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
     brokenBrigades: countBrokenBrigades(state, SIDES),
+    stall: finished === 'timeout' ? snapshotStall(state, SIDES) : null,
   };
 }
 
@@ -76,14 +77,54 @@ function countBrokenBrigades(state, SIDES) {
   const out = { red: 0, blue: 0 };
   for (const side of [SIDES.RED, SIDES.BLUE]) {
     const key = side === SIDES.RED ? 'red' : 'blue';
-    const brigades = new Set(state.units.filter(u => u.side === side).map(u => u.brigade));
+    /* brigadeId, NOT brigade. The first version of this read u.brigade, which
+       does not exist on a unit, so every unit grouped under one undefined key
+       and the tally was silently meaningless rather than wrong-looking. */
+    const brigades = new Set(state.units.filter(u => u.side === side).map(u => u.brigadeId));
     for (const b of brigades) {
-      const alive = state.units.filter(u => u.side === side && u.brigade === b &&
+      const alive = state.units.filter(u => u.side === side && u.brigadeId === b &&
                                             !u.removed && u.type !== 'BRIGADIER').length;
       if (alive === 0) out[key]++;
     }
   }
   return out;
+}
+
+
+function readLogTail(n) {
+  try {
+    const el = document.getElementById('log');
+    if (!el) return [];
+    return [...el.children].slice(-n).map(d => d.textContent);
+  } catch { return []; }
+}
+
+/* WHAT A STALLED MATCH LOOKED LIKE AT THE MOMENT IT WAS ABANDONED.
+
+   A match that will not end is the most valuable thing a long run finds and the
+   hardest to get back, because the seed does not fix the map (see above), so
+   re-running the same seed plays a different battle. Confirmed the hard way:
+   seed 5 timed out at turn 2380 in one batch and finished at turn 82 on the next
+   run. The snapshot therefore has to be taken while it is happening. */
+function snapshotStall(state, SIDES) {
+  const live = side => state.units.filter(u => !u.removed && u.side === side);
+  const r = live(SIDES.RED), b = live(SIDES.BLUE);
+  let minGap = 99, contacts = 0;
+  for (const a of r) for (const c of b) {
+    const d = Math.max(Math.abs(a.x - c.x), Math.abs(a.y - c.y));
+    if (d < minGap) minGap = d;
+    if (d <= 1) contacts++;
+  }
+  const place = us => us.map(u => `${u.type}@${u.x},${u.y}${u.formation === 'line' ? '' : '/' + u.formation}`);
+  return {
+    minGap, contacts,
+    red: place(r), blue: place(b),
+    /* log() writes straight into the #log element rather than onto state, so
+       the tail is read back out of the DOM. Headless that DOM is jsdom's, which
+       is why this works at all. */
+    tail: readLogTail(25),
+    events: (state.matchLog || []).slice(-15),
+  };
 }
 
 /* Resolves when the match reports itself over, or when the wall clock runs out.
@@ -136,7 +177,12 @@ export function summarise(results) {
   if (stuck.length) {
     lines.push('');
     lines.push('SEEDS THAT DID NOT FINISH CLEANLY (reproduce with: node tools/aivsai/run.mjs 1 --seed N)');
-    for (const r of stuck) lines.push(`  seed ${r.seed} ${r.finished} at turn ${r.turns}`);
+    for (const r of stuck) {
+      lines.push(`  seed ${r.seed} ${r.finished} at turn ${r.turns}` +
+                 (r.stall ? `  survivors ${r.survivors.red}v${r.survivors.blue}` +
+                            `  closest units ${r.stall.minGap} apart, ${r.stall.contacts} in contact` : ''));
+    }
+    lines.push('  (the seed does not fix the map, so these do not replay — use --json for the board snapshot)');
   }
   return lines.join('\n');
 }
