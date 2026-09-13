@@ -20,7 +20,7 @@ import { loadGame, collapseTimers } from './headless-env.mjs';
 /* Captured BEFORE collapseTimers replaces the global. The harness still needs a
    real clock to poll and to time out with; only the game's own delays are
    collapsed. */
-const realSetTimeout = globalThis.setTimeout;
+const _realSetTimeout = globalThis.setTimeout;   // reserved: harness-side waits that must not be collapsed
 const realSetInterval = globalThis.setInterval;
 
 const SETTLE_POLL_MS = 4;
