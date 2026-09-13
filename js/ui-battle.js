@@ -2,7 +2,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -1196,19 +1196,52 @@ export function resolveVolley(shooter, target, onComplete){
        here when one exists: it wants a ragged crackle, panned to the SHOOTER
        like artillery-fire is, not to the target. */
 
-    const label = effRoll<=3?'No effect':effRoll===4?'Turned around':effRoll===5?'Routed':'Destroyed';
-    showDice([{label:'Volley', rolls, keptValue:rawRoll, notes}], label, effRoll>=4 ? 'win' : 'lose', ()=>{
-      log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''}.`, 'combat');
+    /* V1: THE VOLLEY LADDER NO LONGER MATCHES THE ARTILLERY LADDER.
+
+       1-3 nothing, 4-5 turned around, 6+ knocked back. A volley can no longer
+       kill or rout, and no rally roll is triggered because nothing routs from
+       one.
+
+       Across four matches volleys were 57 fired for 17 kills and 10 routs: a
+       free action, costing only the phase, needing no approach, removing a unit
+       nearly a third of the time. Fights per match fell from 59 to the teens as
+       both sides shot instead of closing, and melee stopped being the decisive
+       act. A volley is now a SETUP: it turns a unit around so the follow-up
+       melee gets +1, or shoves it off the ground it wanted.
+
+       This is why volley can no longer call applyArtilleryEffect for its
+       mapping. The two tables were identical and sharing the function kept them
+       honest; they are now deliberately different, so sharing it would be a bug
+       waiting to happen. The MODIFIERS are untouched and matter more than
+       before: +1 for a target already turned around is exactly what turns a 5
+       into a knock back. */
+    const outcome = effRoll >= 6 ? 'knockback' : effRoll >= 4 ? 'disrupt' : 'none';
+    const label = outcome==='knockback' ? 'Knocked back' : outcome==='disrupt' ? 'Turned around' : 'No effect';
+    showDice([{label:'Volley', rolls, keptValue:rawRoll, notes}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
+      log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''} (${label.toLowerCase()}).`, 'combat');
       state.volleyed.add(shooter.id);
-      /* THE ARTILLERY EFFECT PATH, REUSED. The volley table and the artillery
-         table are the same table, so this is the same function rather than a
-         copy of it: rout and rally, the destroy path, the death effect and the
-         replay event all behave identically, and the two cannot drift apart. */
-      const detail = { rawRoll, formationBonus:0, shakenBonus:0, crackShotBonus:0,
-                       canister:false, effRolls:rolls.slice(),
-                       volley:true, shooterId:shooter.id, shooterSide:shooter.side,
-                       coverPenalty, turnedBonus };
-      applyArtilleryEffect(target, effRoll, ()=>{ selectUnit(null); onComplete(); }, detail);
+      logReplay('fire', {
+        targetId: target.id, side: target.side, x: target.x, y: target.y,
+        hit: true, volley: true, shooterId: shooter.id, shooterSide: shooter.side,
+        effect: outcome, rawRoll, roll: effRoll, effRolls: rolls.slice(),
+        coverPenalty, turnedBonus,
+      });
+      if(outcome === 'knockback'){
+        /* Standard pushback displacement, so a knock back behaves exactly like
+           losing a melee by one: same shove-the-blocker rule, same edge rule. A
+           square that is pushed back reforms to line permanently, which is the
+           existing rule and is applied by pushBack's callers, so it is applied
+           here too rather than restated. */
+        if(target.formation === 'square'){
+          target.formation = 'line';
+          log(`${unitLabel(target)} is knocked out of square and reforms to line.`, 'combat');
+        }
+        pushBack(target, shooter);
+      } else if(outcome === 'disrupt'){
+        target.turnOnly = true;
+      }
+      selectUnit(null);
+      onComplete();
     });
   });
 }

@@ -1284,6 +1284,20 @@ export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
   onComplete = onComplete || function(){};
   if(useIt){
     brig.leadershipUsed = true;
+    /* V5: THE SAVE WAS INVISIBLE. This wrote to the in-game combat log and
+       nowhere else, so no replay event existed and the export could not show
+       it. In seed 104014103 two units were saved this way (Brunswick Oels
+       Jägers on turn 9, 1er Grenadiers on turn 15) and neither appears anywhere
+       in the match record: the only trace was the "no Leadership Roll left"
+       note on a LATER rally, which says it was spent without ever saying when,
+       on whom, or by whom.
+
+       One save per Brigade for the whole match is among the most consequential
+       decisions either side makes, and it was the one event with no record. */
+    logReplay('leadership', {
+      side: loser.side, unitId: loser.id, brigadierId: brig.id,
+      brigadeId: loser.brigadeId, x: loser.x, y: loser.y,
+    });
     log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
     logNarration('rally_success');
   } else {

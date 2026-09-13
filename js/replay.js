@@ -301,6 +301,13 @@ function sectionSummary(log, label){
   } else {
     out.push(`Combat: ${fights.length} fights, ${gunFires.length} artillery shots (hits only — this export predates miss logging)`);
   }
+  const saves = log.filter(e=>e.type==='leadership');
+  if(saves.length){
+    const bySide = {};
+    for(const e of saves) bySide[SIDE_LABEL[e.side]] = (bySide[SIDE_LABEL[e.side]]||0)+1;
+    out.push(`  leadership rolls spent: ${saves.length} — ` +
+      Object.entries(bySide).map(([k,v])=>`${k} ${v}`).join(', '));
+  }
   if(volleys.length){
     const byEffect = {};
     for(const v of volleys) byEffect[v.effect] = (byEffect[v.effect]||0)+1;
@@ -569,6 +576,9 @@ export function exportFullMatchLog(){
       for(const p of s){
         lines.push(`    t=${p.t}  visual (${p.vx},${p.vy})  screen px (${p.cx},${p.cy})${p.overlayUp ? '  [overlay up]' : ''}`);
       }
+    } else if(ev.type==='leadership'){
+      lines.push(`LEADERSHIP ROLL: ${label(ev.brigadierId)} spends his Brigade's one save for ${label(ev.unitId)} at (${ev.x},${ev.y})`);
+      lines.push(`    Failed to rally and kept in the field. ${SIDE_LABEL[ev.side]} Brigade ${ev.brigadeId + 1} has no save left.`);
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){
