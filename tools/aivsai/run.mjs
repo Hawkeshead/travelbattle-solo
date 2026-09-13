@@ -1,117 +1,209 @@
 /* =========================================================
    AI-VS-AI RUNNER
 
-   Runs a full match with the AI on both sides, headless, and returns the
-   existing match export unchanged.
+   Plays full matches with the same AI on both sides, headless, and aggregates
+   the results.
 
-   HOW BOTH SIDES ARE DRIVEN, and why it needs no change to js/.
+   HOW BOTH SIDES ARE DRIVEN. It does not drive them. Spectate mode already does,
+   in js/, and this runs that: state.spectate points state.aiSide at whichever
+   side is acting, so the same scoring, the same weights and the same doctrine
+   play both. The runner sets the flag, starts the match and reads the result.
 
-   The game already acts automatically whenever `state.turn === state.aiSide`.
-   So the harness does not add an AI for Britain: it keeps `state.aiSide` equal
-   to whichever side is currently to act. The same scoring, the same weights, the
-   same doctrine, only the side flag differs, which is exactly what the brief
-   requires for the test to mean anything.
+   THAT IS THE WHOLE DESIGN CHANGE FROM THE PREVIOUS VERSION. The old runner
+   carried its own turn driver and two kicks (re-arm the deploy chain, press
+   Start Battle) because there was no in-game path for an unattended match.
+   Spectate is that path, so all of it is gone. What runs here is what runs on
+   the phone, which is the only way a batch result says anything about the game
+   that is actually played.
 
-   This is the brief's one permitted addition and it lives entirely here. Nothing
-   in js/ is touched, so the human-vs-AI path cannot be affected by it.
+   Usage:  node tools/aivsai/run.mjs [matches] [--seed N] [--json out.json]
 ========================================================= */
 import { loadGame, collapseTimers } from './headless-env.mjs';
+import fs from 'fs';
 
-/* Captured BEFORE collapseTimers replaces the global. The harness still needs a
-   real clock to poll and to time out with; only the game's own delays are
-   collapsed. */
+/* Captured BEFORE collapseTimers replaces the global. The runner still needs a
+   real clock to poll and to time out with; only the game's own pacing goes. */
 const realSetInterval = globalThis.setInterval;
+const POLL_MS = 4;
+const MATCH_TIMEOUT_MS = 60_000;
 
-const SETTLE_POLL_MS = 4;
-
-export async function runOneMatch({ seed, deployFirst, difficulty = 'hard' }, g) {
-  const { data, dice, rules, replay } = g;
-  const { state } = data;
+export async function runOneMatch({ seed }, g) {
+  const { data, dice, rules, render, menus } = g;
+  const { state, SIDES } = data;
 
   dice.setFastDiceMode(true);
-  state.mode = 'ai';
-  state.aiDifficulty = difficulty;
-  state.boardMode = 'standard';
-  state.scenario = null;
-  state.gameOver = false;
+  render.setFastAnimationMode(true);
 
-  // Deterministic per match, so any single result can be reproduced.
+  /* Exactly what the Spectate button sets, and nothing else. If this list ever
+     drifts from ui-menus, the runner stops testing the shipped mode. */
+  state.scenario = null;
+  state.campaign = null;
+  state.mode = 'ai';
+  state.spectate = true;
+  state.aiDifficulty = 'hard';
+  state.aiSide = SIDES.RED;
+  state.gameOver = false;
+  state.winner = null;
+  state.turnNumber = 1;
+
+  /* Deterministic per match so any single result can be reproduced. NOTE: board
+     assignment and rotation in beginBoardSetup use Math.random directly rather
+     than the seeded generator, so THE SEED FIXES THE DICE, NOT THE MAP. The
+     board drawn is recorded per match below so a result stays identifiable. */
   rules.seedRng(seed);
 
-  /* The driver. A bare interval that keeps aiSide pointed at the side to act,
-     during deployment and during play alike. It reads state and writes one
-     field; it makes no decisions and has no opinion about the game. */
-  const driver = realSetInterval(() => {
-    const acting = state.phase === 'deploy' ? state.deployTurn : state.turn;
-    if (acting !== undefined && state.aiSide !== acting) state.aiSide = acting;
+  const t0 = Date.now();
+  menus.beginBoardSetup();
 
-    /* THE DEPLOYMENT KICK. In the browser the AI's next deploy step is scheduled
-       by the previous placement, and a human placement schedules the AI's reply.
-       With no UI there is no human placement, so the chain has nothing to
-       restart it and deployment stalls with both sides half-placed. The harness
-       re-arms it when nothing has been placed for a few ticks. It adds no
-       decision: aiDeployStep chooses the square exactly as it always does. */
-    if (state.phase === 'deploy') {
-      const bothDone = g.uiDeploy.sideFullyDeployed(data.SIDES.RED) &&
-                       g.uiDeploy.sideFullyDeployed(data.SIDES.BLUE);
-      if (bothDone) {
-        /* THE SECOND KICK. With both armies placed the browser waits on the
-           "Start battle" button. Nothing presses it headless, so the harness
-           calls the same function the button is wired to. */
-        g.ui.startBattle();
-      } else {
-        g.uiDeploy.scheduleAiDeployStep(0);
-      }
-    }
-  }, 20);
-
-  state.aiSide = deployFirst;
-  g.uiDeploy.initDeployment(deployFirst);
-
-  const finished = await waitForEnd(state, 45_000);
-  clearInterval(driver);
+  const finished = await waitForEnd(state, MATCH_TIMEOUT_MS);
+  const living = side => state.units.filter(u => !u.removed && u.side === side).length;
 
   return {
     seed,
-    deployFirst,
-    finished,
-    export: replay.exportFullMatchLog ? replay.exportFullMatchLog() : null,
-    state,
+    finished,                       // 'win' | 'timeout'
+    winner: state.winner || null,
+    turns: state.turnNumber,
+    wallMs: Date.now() - t0,
+    board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
+    survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
+    brokenBrigades: countBrokenBrigades(state, SIDES),
   };
 }
 
+/* A broken brigade is the win condition, so it is the one tally worth taking
+   from every match rather than reconstructing it later from the log. */
+function countBrokenBrigades(state, SIDES) {
+  const out = { red: 0, blue: 0 };
+  for (const side of [SIDES.RED, SIDES.BLUE]) {
+    const key = side === SIDES.RED ? 'red' : 'blue';
+    const brigades = new Set(state.units.filter(u => u.side === side).map(u => u.brigade));
+    for (const b of brigades) {
+      const alive = state.units.filter(u => u.side === side && u.brigade === b &&
+                                            !u.removed && u.type !== 'BRIGADIER').length;
+      if (alive === 0) out[key]++;
+    }
+  }
+  return out;
+}
+
 /* Resolves when the match reports itself over, or when the wall clock runs out.
-   A timeout is a RESULT, not an error: a match that will not end is exactly the
-   kind of thing a hundred-seed run exists to find, and it is recorded with its
-   seed rather than crashing the run. */
+   A TIMEOUT IS A RESULT, NOT AN ERROR. A match that will not end is exactly the
+   thing a long run exists to find, so it is recorded against its seed rather
+   than crashing the batch. */
 function waitForEnd(state, timeoutMs) {
   return new Promise(resolve => {
     const t0 = Date.now();
     const poll = realSetInterval(() => {
       if (state.gameOver) { clearInterval(poll); resolve('win'); return; }
       if (Date.now() - t0 > timeoutMs) { clearInterval(poll); resolve('timeout'); return; }
-    }, SETTLE_POLL_MS);
+    }, POLL_MS);
   });
 }
 
-export async function main() {
-  const g = await loadGame();
-  collapseTimers();   // installed once, before any match runs
-  const uiDeploy = await import('../../js/ui-deployment.js');
-  g.uiDeploy = uiDeploy;
-  const { SIDES } = g.data;
+/* ---------------------------------------------------------
+   AGGREGATION
+--------------------------------------------------------- */
+export function summarise(results) {
+  const done = results.filter(r => r.finished === 'win');
+  const wins = { red: 0, blue: 0, none: 0 };
+  for (const r of done) {
+    if (r.winner === 'red') wins.red++;
+    else if (r.winner === 'blue') wins.blue++;
+    else wins.none++;
+  }
+  const turns = done.map(r => r.turns).sort((a, b) => a - b);
+  const pct = n => (results.length ? Math.floor((n / results.length) * 1000) / 10 : 0);
+  const median = turns.length ? turns[Math.floor(turns.length / 2)] : null;
 
-  const n = Number(process.argv[2] || 2);
+  const lines = [];
+  lines.push(`matches            ${results.length}`);
+  lines.push(`completed          ${done.length} (${pct(done.length)}%)`);
+  lines.push(`timed out          ${results.filter(r => r.finished === 'timeout').length}`);
+  lines.push(`crashed            ${results.filter(r => r.finished === 'crashed').length}`);
+  lines.push('');
+  lines.push(`Britain (red) wins ${wins.red} (${pct(wins.red)}%)`);
+  lines.push(`France (blue) wins ${wins.blue} (${pct(wins.blue)}%)`);
+  if (wins.none) lines.push(`no winner recorded ${wins.none}`);
+  if (turns.length) {
+    lines.push('');
+    lines.push(`turns   shortest ${turns[0]}  median ${median}  longest ${turns[turns.length - 1]}`);
+    const surv = done.reduce((a, r) => ({ red: a.red + r.survivors.red, blue: a.blue + r.survivors.blue }),
+                             { red: 0, blue: 0 });
+    lines.push(`mean survivors   Britain ${Math.floor(surv.red / done.length * 10) / 10}` +
+               `  France ${Math.floor(surv.blue / done.length * 10) / 10}`);
+  }
+  const stuck = results.filter(r => r.finished !== 'win');
+  if (stuck.length) {
+    lines.push('');
+    lines.push('SEEDS THAT DID NOT FINISH CLEANLY (reproduce with: node tools/aivsai/run.mjs 1 --seed N)');
+    for (const r of stuck) lines.push(`  seed ${r.seed} ${r.finished} at turn ${r.turns}`);
+  }
+  return lines.join('\n');
+}
+
+/* ---------------------------------------------------------
+   ONE MATCH PER PROCESS
+
+   The game keeps its state in a module singleton, and a finished match leaves
+   things behind: a deferred endGame timer waiting out the brigade-break
+   dispatch, the previous roster, the undo stack. Running a second match in the
+   same process produced instant turn-1 "wins" from that residue, which is a
+   harness artefact and would have quietly poisoned a hundred-match tally.
+
+   Rather than hunt every field that needs clearing (and re-hunt it whenever a
+   new one is added), each match gets a clean process. It costs about a second
+   of module loading per match and buys total isolation, plus a crashed match
+   now loses one result instead of the batch.
+--------------------------------------------------------- */
+async function runChild(seed) {
+  const g = await loadGame();
+  g.render = await import('../../js/render-board.js');
+  g.menus  = await import('../../js/ui-menus.js');
+  collapseTimers();
+  const r = await runOneMatch({ seed }, g);
+  process.stdout.write('\u0001RESULT' + JSON.stringify(r) + '\n');
+  process.exit(0);
+}
+
+export async function main() {
+  const args = process.argv.slice(2);
+  const childAt = args.indexOf('--child');
+  if (childAt > -1) return runChild(Number(args[childAt + 1]));
+
+  const { spawn } = await import('node:child_process');
+  const n = Number(args.find(a => /^\d+$/.test(a)) || 5);
+  const jsonAt = args.indexOf('--json');
+  const seedAt = args.indexOf('--seed');
+  const firstSeed = seedAt > -1 ? Number(args[seedAt + 1]) : 1;
+
   const results = [];
   for (let i = 0; i < n; i++) {
-    const seed = i + 1;
-    for (const deployFirst of [SIDES.RED, SIDES.BLUE]) {
-      const r = await runOneMatch({ seed, deployFirst }, g);
-      results.push(r);
-      console.log(`  seed ${seed} deployFirst=${deployFirst}: ${r.finished} turns=${r.state.turnNumber}`);
-    }
+    const seed = firstSeed + i;
+    const r = await new Promise(resolve => {
+      let out = '';
+      const child = spawn(process.execPath, [process.argv[1], '--child', String(seed)],
+                          { cwd: process.cwd() });
+      child.stdout.on('data', d => { out += d; });
+      child.stderr.on('data', () => {});   // game logging, not wanted in a batch
+      child.on('close', code => {
+        const line = out.split('\n').find(l => l.startsWith('\u0001RESULT'));
+        if (line) { resolve(JSON.parse(line.slice(7))); return; }
+        /* A CRASH IS A RESULT TOO, and the most interesting kind: it names a
+           seed that breaks the game rather than merely stalling it. */
+        resolve({ seed, finished: 'crashed', winner: null, turns: 0, wallMs: 0,
+                  exitCode: code, survivors: { red: 0, blue: 0 } });
+      });
+    });
+    results.push(r);
+    console.log(`  seed ${r.seed}  ${r.finished.padEnd(7)} winner=${String(r.winner).padEnd(5)}` +
+                ` turns=${String(r.turns).padStart(3)}  survivors ${r.survivors.red}v${r.survivors.blue}` +
+                `  ${(r.wallMs / 1000).toFixed(1)}s`);
   }
-  console.log(`\n${results.length} matches, ${results.filter(r => r.finished === 'win').length} reached a win condition`);
+  console.log('\n' + summarise(results));
+  if (jsonAt > -1) {
+    fs.writeFileSync(args[jsonAt + 1], JSON.stringify(results, null, 2));
+    console.log(`\nwritten to ${args[jsonAt + 1]}`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

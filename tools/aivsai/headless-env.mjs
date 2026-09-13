@@ -80,6 +80,19 @@ global.XMLHttpRequest = FileXHR;
    loaded and never fires is enough; the renderer only ever asks whether it is
    complete before blitting, and no blitting happens. */
 global.Image = dom.window.Image || class { set src(v){ this._src=v; this.complete=true; if(this.onload) this.onload(); } get src(){ return this._src; } };
+/* dice.js watches the battle-bed element for attribute changes. jsdom ships a
+   MutationObserver but does not expose it as a global; the game reads the bare
+   name, so it is handed over here. Real observer, not a stub, so if the game
+   ever depends on a callback firing it still does. */
+global.MutationObserver = dom.window.MutationObserver;
+/* performance deliberately left as Node's own: jsdom's window.performance is a
+   separate clock and swapping it stalled the board intro, which measures real
+   elapsed time. */
+global.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+global.DOMParser = dom.window.DOMParser;
+global.ResizeObserver = dom.window.ResizeObserver || class { observe(){} unobserve(){} disconnect(){} };
+global.matchMedia = dom.window.matchMedia || (q => ({ matches:false, media:q, addListener(){}, removeListener(){}, addEventListener(){}, removeEventListener(){} }));
+dom.window.matchMedia = dom.window.matchMedia || global.matchMedia;
 global.Audio = class { play(){ return Promise.resolve(); } pause(){} addEventListener(){} removeEventListener(){} load(){} };
 global.AudioContext = global.webkitAudioContext = class {
   constructor(){ this.destination={}; this.currentTime=0; this.state='running'; }
