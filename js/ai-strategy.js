@@ -2065,7 +2065,15 @@ export function aiDecideAndExecuteMove(u){
        paused Brigade should still take good ground and hold its cohesion, it
        just should not be closing on its own. */
     if(mission){
-      const tempoMul = TEMPO_PULL[tempoPhase(side)] ?? 1;
+      /* PRESERVE IS EXEMPT FROM THE TEMPO MULTIPLIER.
+
+         TEMPO_PULL.COMMIT (1.7) exists to make the army press harder late in a
+         match. Getting a beaten Brigade out of the line is not a tempo decision,
+         and multiplying it produced a -9.18 pull in seed 104014103: a remnant
+         twelve squares from safety wanted to reach it so badly that it would
+         weigh almost nothing else on the way. Same destination, same behaviour,
+         less frantic about the route. */
+      const tempoMul = mission === 'PRESERVE' ? 1 : (TEMPO_PULL[tempoPhase(side)] ?? 1);
       s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
