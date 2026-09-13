@@ -13,7 +13,22 @@ synchronously), Image (sprite preload), Audio/WebAudio, and canvas.getContext.
 `floating-text.js` loads with no shim at all, which verifies the leaf-module
 property rather than asserting it.
 
-## Not done
+## Runner: written, blocked at one identified point
+
+`run.mjs` exists and runs. It seeds the RNG, sets fast dice, starts deployment
+and drives both sides. Verified working: the environment loads, a match
+initialises, and the AI places units.
+
+**It stalls after three units, and the cause is pinned down.** Deployment gates
+on the Army picker modal (`state._armyPickerShown` stays false and
+`deployBrigadeIndex` never advances past 0). In the browser a human dismisses
+that modal and the chain continues. Headless nothing does.
+
+That is the single remaining blocker. The fix is to have the harness make the
+picker's default selection directly, the same way the deployment code does when
+the player chooses, which is a harness-side call and not a change to `js/`.
+
+## Still not done after that
 
 The runner, the aggregate report, and the 200-match run. What remains:
 

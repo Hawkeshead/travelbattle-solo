@@ -27,8 +27,38 @@ Object.defineProperty(global,'navigator',{value:dom.window.navigator,configurabl
 global.localStorage = dom.window.localStorage;
 global.requestAnimationFrame = cb => setTimeout(()=>cb(Date.now()),0);
 global.cancelAnimationFrame = id => clearTimeout(id);
-dom.window.HTMLCanvasElement.prototype.getContext = () =>
-  new Proxy({}, { get: (t,k) => (k==='canvas' ? {width:0,height:0} : ()=>({})) });
+/* A context that accepts every call and returns a plausible SHAPE for the few
+   whose result the renderer reads back: image data (it walks .data to build the
+   parchment texture), gradients and patterns (it calls addColorStop), and text
+   measurement. Everything else is a no-op, since nothing is ever displayed. */
+function makeCtx(){
+  const grad = { addColorStop(){}, };
+  const ctx = new Proxy({
+    canvas: { width: 1400, height: 700 },
+    getImageData: (x,y,w,h) => ({ width:w|0 || 1, height:h|0 || 1,
+                                  data: new Uint8ClampedArray(Math.max(4, (w|0||1)*(h|0||1)*4)) }),
+    createImageData: (w,h) => ({ width:w|0 || 1, height:h|0 || 1,
+                                 data: new Uint8ClampedArray(Math.max(4, (w|0||1)*(h|0||1)*4)) }),
+    putImageData(){},
+    createLinearGradient: () => grad,
+    createRadialGradient: () => grad,
+    createPattern: () => ({}),
+    measureText: (t) => ({ width: String(t||'').length * 6, actualBoundingBoxAscent: 8,
+                           actualBoundingBoxDescent: 2 }),
+    getLineDash: () => [],
+  }, {
+    get(target, k){
+      if(k in target) return target[k];
+      return () => undefined;     // every other draw call is a no-op
+    },
+    set(target, k, v){ target[k] = v; return true; },
+  });
+  return ctx;
+}
+dom.window.HTMLCanvasElement.prototype.getContext = function(){
+  if(!this.__ctx) this.__ctx = makeCtx();
+  return this.__ctx;
+};
 
 /* data-core loads its JSON synchronously over XHR. In a browser that is a
    same-origin fetch; here it is a file read. Nothing in the game changes. */
