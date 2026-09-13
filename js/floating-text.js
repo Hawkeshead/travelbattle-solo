@@ -87,9 +87,27 @@ export function emitFloatingText({ col, row, text, kind, hold }){
 /* Resolves when the queue has drained AND the last label has been released.
    Resolves immediately when disabled or already idle, so the AI controller can
    await it unconditionally without a branch at the call site. */
+/* SAFETY TIMEOUT, and it is not optional.
+
+   The AI move loop awaits this between units. A promise that never settles
+   would not slow the turn down, it would stop it dead, with no error and
+   nothing in the log: the board would simply sit there. A presentation layer
+   must never be able to do that to the game.
+
+   The cap is generous enough that it never fires in normal play (the whole
+   queue is MAX_QUEUE entries at STAGGER_MS plus holds, well inside it) and is
+   there purely so that any bug in the drain chain degrades into labels being
+   cut short rather than a frozen match. */
+const IDLE_TIMEOUT_MS = (MAX_QUEUE * (STAGGER_MS + AI_HOLD_MS)) + 1000;
+
 export function floatingTextIdle(){
   if(!enabled || (queue.length === 0 && !draining)) return Promise.resolve();
-  return new Promise(res => idleResolvers.push(res));
+  return new Promise(res => {
+    let done = false;
+    const settle = ()=>{ if(!done){ done = true; res(); } };
+    idleResolvers.push(settle);
+    setTimeout(settle, IDLE_TIMEOUT_MS);
+  });
 }
 
 export function clearFloatingText(){

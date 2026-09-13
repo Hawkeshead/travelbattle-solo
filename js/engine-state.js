@@ -171,6 +171,43 @@ function emitLabelFor(ev){
     labels = [{ text:'LEADERSHIP!', kind:'command' }];
   } else if(ev.type === 'ambush'){
     labels = [{ text:'AMBUSH! +1', kind:'bonus' }];
+  } else if(ev.type === 'fight'){
+    /* MELEE WAS THE BIG GAP. Formations were labelled and the outcome of every
+       fight was not, which is why only SQUARE! was showing in play: a match has
+       a handful of formation changes and dozens of fights.
+
+       Bonuses are read from the STRUCTURED source lists the fight event already
+       records (aSources / dSources), not by parsing panel text. Each is labelled
+       over the unit that earned it, which is why the event now carries the
+       attacker's square as well as the defender's. */
+    const out = [];
+    const push = (arr, text, kind, atAttacker) => arr.push({ text, kind, atAttacker });
+    for(const [sources, atAttacker] of [[ev.diag && ev.diag.aSources, true], [ev.diag && ev.diag.dSources, false]]){
+      for(const src of (sources || [])){
+        if(src === 'Defending in woods')        push(out, 'WOODS +1', 'bonus', atAttacker);
+        else if(src === 'Defending in a building') push(out, 'VILLAGE +1', 'bonus', atAttacker);
+        else if(src === 'Attack Column')        push(out, 'COLUMN +1', 'bonus', atAttacker);
+        else if(src === 'Infantry vs Square')   push(out, '+1 VS SQUARE', 'bonus', atAttacker);
+        else if(src === 'Ambush: committed second die') push(out, 'AMBUSH! +1', 'bonus', atAttacker);
+        else if(/turned around/i.test(src))     push(out, 'STRUCK FROM BEHIND! +1', 'penalty', !atAttacker);
+      }
+    }
+    const ties = (ev.diag && ev.diag.ties) || {};
+    if(ties.attackerChargeTieWin) push(out, 'CHARGE!', 'bonus', true);
+    if(ties.defenderHillTieWin)   push(out, 'HIGH GROUND!', 'bonus', false);
+    // The outcome lands on the defender, and last, so it reads after its causes.
+    if(ev.result === 'pushback') push(out, 'PUSHED BACK!', 'penalty', false);
+    if(ev.result === 'rout')     push(out, 'ROUTED!', 'penalty', false);
+    if(ev.result === 'destroy')  push(out, 'DESTROYED!', 'penalty', false);
+    for(const l of out) l.col = l.atAttacker ? ev.ax : ev.x, l.row = l.atAttacker ? ev.ay : ev.y;
+    labels = out;
+  } else if(ev.type === 'status'){
+    /* Destroyed also arrives on the fight and fire events that caused it. The
+       250ms same-square-same-text collapse in the emitter is what stops the
+       double, which is exactly what it was built for. Lost is skipped: it is
+       always immediately followed by Destroyed and would read as two deaths. */
+    if(ev.newStatus === 'Destroyed')    labels = [{ text:'DESTROYED!', kind:'penalty' }];
+    else if(ev.newStatus === 'Rallied') labels = [{ text:'RALLIED!', kind:'bonus' }];
   } else if(ev.type === 'fire'){
     if(ev.hit === false) return;                       // a miss is not an event on the target
     labels = [];
@@ -184,7 +221,8 @@ function emitLabelFor(ev){
   labels.sort((a,b)=>FCT_ORDER[a.kind] - FCT_ORDER[b.kind]);
   const aiTurn = state.turn === state.aiSide;
   for(const l of labels){
-    emitFloatingText({ col: ev.x, row: ev.y, text: l.text, kind: l.kind,
+    emitFloatingText({ col: l.col != null ? l.col : ev.x, row: l.row != null ? l.row : ev.y,
+                       text: l.text, kind: l.kind,
                        hold: aiTurn ? FCT_AI_HOLD_MS : 0 });
   }
 }

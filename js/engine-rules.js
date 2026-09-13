@@ -966,6 +966,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         attackerId: attacker.id, defenderId: defender.id,
         attackerSide: attacker.side, defenderSide: defender.side,
         x: defender.x, y: defender.y, result: fightOutcome,
+        /* The attacker's square, so a bonus the ATTACKER earned can be labelled
+           over the attacker rather than over whoever they hit. x/y is the
+           defender's and stays that way: the outcome happens to them. */
+        ax: attacker.x, ay: attacker.y,
         aRoll: finalA, dRoll: finalD,
         /* DIAGNOSTIC. Screenshots from a real match showed the panel and the
            board disagreeing: one frame carried a "Tie-win: Attack Column" note,
