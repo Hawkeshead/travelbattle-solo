@@ -1184,6 +1184,63 @@ export const GUN_VANTAGE_SEEK_PULL = 0.55;   // per square, toward the best vant
    turn of fire: the threshold is what stops that being paid for a rounding
    error. 0.6 is roughly one extra target at middling range, or a hill. */
 export const GUN_SEEK_IMPROVEMENT = 0.6;
+
+/* =========================================================
+   GUN DOCTRINE — how a battery decides to move, as a gunner would
+
+   Written from how Matthew plays his own artillery, and the four rules are his:
+
+   1. ONE ENEMY CLOSING IS AN OPPORTUNITY, NOT A THREAT. You do not pull a
+      battery back because a single unit came near: that is a canister shot, and
+      canister is the best thing a gun does.
+
+   2. SEVERAL ENEMIES CLOSING IS A THREAT, because a gun fires once a turn. Two
+      units inside canister range means one of them reaches you untouched, and a
+      gun in melee is the most fragile thing on the board (W5 gives its attacker
+      a second die). At that point the gun is worth more alive than the shot is
+      worth taking.
+
+   3. ADVANCE EARLY, THEN STOP. A gun may move OR fire, so every reposition costs
+      a turn of fire. The time to spend those turns is at the start, before
+      anyone is in range to shoot at. After that a battery should be settled and
+      should only move for a reason.
+
+   4. DO NOT WALK INTO THE ENEMY'S REACH. Moving to a square within three of an
+      enemy invites exactly the melee in rule 2, and is only worth it where your
+      own side already holds the ground.
+
+   Together these also relieve a fault neither of them is aimed at. In seed
+   104014103 both French batteries advanced ahead of their Brigade, broke the
+   command chain, and a disconnected unit CANNOT MOVE: Battery A froze at (1,2)
+   from turn 10 to turn 24, Battery B froze at (13,1) until it was destroyed. All
+   three command breaks that match were artillery. A gun that stops advancing
+   after the opening, and that withdraws toward its own side when crowded, walks
+   into that far less often.
+========================================================= */
+export const GUN_ADVANCE_WINDOW  = 10;   // turns in which a battery may freely go looking for ground
+export const GUN_CROWD_RADIUS    = 2;    // canister range: inside this a unit reaches the gun next turn
+export const GUN_CROWD_THRESHOLD = 2;    // this many inside that radius and the gun cannot answer them all
+export const GUN_APPROACH_GUARD  = 3;    // do not move this close to an enemy without holding the ground
+
+/* How many enemies could be on the gun next turn from a given square. */
+export function gunCrowdCount(side, x, y){
+  return state.units.filter(o=>!o.removed && o.side!==side && o.type!=='BRIGADIER' &&
+    UNIT_TYPES[o.type].canFight && chebyshev({x,y}, o) <= GUN_CROWD_RADIUS).length;
+}
+
+/* "Unless I have an overwhelming presence in that area and can afford the risk."
+   Counts fighting units on both sides near the square, the gun excluded: it is
+   the thing being protected, not part of the protection. */
+export function localSuperiority(side, x, y, radius){
+  let friend = 0, foe = 0;
+  for(const o of state.units){
+    if(o.removed || o.type==='BRIGADIER' || !UNIT_TYPES[o.type].canFight) continue;
+    if(UNIT_TYPES[o.type].isArtillery) continue;
+    if(chebyshev({x,y}, o) > radius) continue;
+    if(o.side === side) friend++; else foe++;
+  }
+  return friend - foe;
+}
 export const GUN_VANTAGE_SEARCH = 6;         // how far a gun will look for one
 
 /* How good a square would be to settle on. Returns 0 for anywhere that fails the
@@ -1690,7 +1747,60 @@ export function aiDecideAndExecuteMove(u){
            Now a flat-bottomed band at 3-4 with a coefficient that can actually
            move a decision. Flat rather than a point at 4 so the gun is not
            dragged off a good square at 3 for an equal one at 4. */
-        const bandMiss = d < 3 ? (3 - d) : d > 4 ? (d - 4) : 0;
+        /* RULE 2: CROWDED MEANS WITHDRAW, and it is measured per candidate square
+           so the withdrawal has somewhere to go rather than just a reason.
+
+           One enemy inside canister range scores NOTHING either way: that is the
+           shot the gun wants and it should stand and take it. Two is the point
+           where a gun that fires once a turn cannot answer them all, and the
+           penalty scales with how many, so a battery with three closing pulls
+           back harder than one with two. Squares that reduce the count are
+           thereby the attractive ones, which is what makes this a retreat rather
+           than only a fear. */
+        const crowd = gunCrowdCount(side, c.x, c.y);
+        if(crowd >= GUN_CROWD_THRESHOLD){
+          s -= subScore(parts, 'gunCrowded', (crowd - GUN_CROWD_THRESHOLD + 1) * 1.3);
+        }
+
+        /* RULE 4: DO NOT WALK INTO REACH without holding the ground.
+
+           Only applied to a square the gun is MOVING TO. A gun already sited
+           close is covered by rule 2, which is about how many are coming rather
+           than how near they are: standing firm for a canister shot must not be
+           penalised as though the gun had just walked there. */
+        if(!c.stay && d <= GUN_APPROACH_GUARD){
+          const edge = localSuperiority(side, c.x, c.y, GUN_APPROACH_GUARD);
+          if(edge < 2) s -= subScore(parts, 'gunApproachGuard', (GUN_APPROACH_GUARD - d + 1) * 0.7);
+        }
+
+        /* RULE 3: ADVANCE EARLY, THEN ONLY FOR A REASON.
+
+           Every reposition costs a turn of fire, so the turns to spend are the
+           opening ones, before anyone is in range to be shot at. After the
+           window a settled battery pays to move at all, and the two things that
+           excuse it are the two real reasons: being crowded (rule 2, a retreat)
+           and a materially better position (gunSeekVantage, which already has
+           its own improvement threshold).
+
+           Not a prohibition. It is a cost, so a large enough reason still
+           outweighs it, and a gun is never frozen by its own doctrine. */
+        const settled = state.turnNumber > GUN_ADVANCE_WINDOW;
+        if(settled && !c.stay && crowd < GUN_CROWD_THRESHOLD){
+          s -= subScore(parts, 'gunSettled', 1.1);
+        }
+
+        /* RULE 1: CLOSE IS NOT PUNISHED ANY MORE.
+
+           bandMiss used to penalise BOTH ends, d<3 as well as d>4, which meant a
+           gun sitting at canister range was charged for it. That is the opposite
+           of the doctrine: one enemy at two squares is the best shot the gun
+           will ever get and it should stand and take it.
+
+           The close end is now rule 4's job, and rule 4 asks the right question.
+           It charges for MOVING into reach without holding the ground, and says
+           nothing about a gun that is already there. One concern, one mechanism.
+           This term is now purely "you are too far to hit anything". */
+        const bandMiss = d > 4 ? (d - 4) : 0;
         /* 0.45 -> 0.90. At 0.45 the pull toward the band was smaller than the
            hold bonus a gun forfeits by moving, so a battery with any shot at all
            preferred to keep taking it. This is the term whose entire job is to
