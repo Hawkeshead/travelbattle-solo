@@ -363,6 +363,30 @@ export const TERRAIN = TB_DATA.unitTypes.terrainTypes;
 /* =========================================================
    STATE
 ========================================================= */
+/* =========================================================
+   WHO ANSWERS A PROMPT
+
+   Three places stop the game and ask a question that only a person can answer:
+   the combat re-roll offer, the Leadership Roll offer, and the ambush
+   Hold/Advance choice. Each used to decide with its own copy of the same
+   expression, and each copy was wrong in spectate mode for the same reason.
+
+   In spectate, state.aiSide is pointed at the side currently ACTING. But all
+   three questions are asked of the side that is NOT acting: the ambusher is the
+   side being moved against, the defender re-rolls first by the printed ruleset
+   (p.6), and the unit that fails to rally is usually the one that just lost a
+   fight. So `side === state.aiSide` was false every time and all three read as
+   human-owned, opening a modal with nobody there to dismiss it.
+
+   One predicate now answers it for all three, so a fourth prompt added later
+   inherits the right behaviour instead of repeating the bug. With
+   state.spectate unset this returns exactly what the three copies returned.
+========================================================= */
+export function humanOwns(side){
+  if(state.spectate) return false;      // AI versus AI: there is nobody to ask
+  return !(state.mode==='ai' && side===state.aiSide);
+}
+
 export let state = {
   gameOver: false,
   mode: 'hotseat',  // 'hotseat' | 'ai'

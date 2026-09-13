@@ -1,7 +1,7 @@
 import { setFloatingTextEnabled } from './floating-text.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue, missionFor } from './ai-strategy.js';
-import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets } from './engine-rules.js';
@@ -641,7 +641,7 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
   if(!amb || amb.removed || !amb.hidden || !target || target.removed){
     processAmbushSpringsSequentially(springs, idx+1, onDone); return; // already resolved (e.g. shared target)
   }
-  const isHumanOwner = !(state.mode==='ai' && amb.side===state.aiSide);
+  const isHumanOwner = humanOwns(amb.side);
   if(isHumanOwner){
     showAmbushChoice(amb, target, (mode)=>{
       springAmbush(amb, target, mode, ()=> processAmbushSpringsSequentially(springs, idx+1, onDone));

@@ -1,5 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
-import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, state } from './data-core.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
@@ -718,7 +718,7 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   }
   function tryOne(unit, roll, reasons, valueBonus, opponentValue, next){
     if(!UNIT_TYPES[unit.type].reroll || roll.value >= opponentValue){ next(); return; }
-    const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && unit.side===state.aiSide);
+    const isHuman = !FAST_DICE_MODE && humanOwns(unit.side);
     const doReroll = ()=> applyCombatReroll(unit, roll, reasons, valueBonus, ()=>{
       refreshDiceFrame(currentGroups(), leadText(), '');
       next();
@@ -1257,7 +1257,7 @@ export function retreatAndRally(loser, onComplete){
 // worth asking (or, for the AI, weighing) whether THIS is the unit worth it.
 export function offerLeadershipRoll(loser, brig, onComplete){
   onComplete = onComplete || function(){};
-  const isHuman = !FAST_DICE_MODE && !(state.mode==='ai' && loser.side===state.aiSide);
+  const isHuman = !FAST_DICE_MODE && humanOwns(loser.side);
   if(!isHuman){
     const useIt = aiDecideLeadershipRoll(loser, brig);
     applyLeadershipRollChoice(loser, brig, useIt, onComplete);
