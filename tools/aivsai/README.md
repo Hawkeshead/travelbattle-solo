@@ -136,6 +136,40 @@ a half seconds per match however fast frames are served), and `endGame` records
 `state.winner` alongside `state.gameOver`, which previously existed only as text
 on the victory screen.
 
+
+## The cause of the stalls, found with stall-probe.mjs
+
+Not timidity. A unit can become PERMANENTLY IMMOBILE and there is no way back.
+
+`legalMoves` gates a unit on `movableUnitsForSide`, which walks each Brigade's
+adjacency chain out from its Brigadier. A unit not in that chain gets an empty
+move list. It cannot move, and moving is the only way it could ever rejoin, so
+the state is absorbing.
+
+Nothing stops a unit entering it. The gate tests where the unit IS, never where
+it is GOING, so a unit can walk itself out of its own chain in one move. It can
+also be stranded with no move of its own at all, when the unit that linked it to
+the Brigadier is killed. In a match with casualties that is not a rare accident.
+
+Seed 6 is the clean example. `9e Légère` sits at (3,0) from turn 87 to turn 346
+and beyond without moving once. Its Brigade is Napoleon at (1,3) and a battery at
+(0,2), neither adjacent to it. The AI's own record shows the diagnosis directly:
+`considered=1`, meaning one option existed and that option was stay. It did not
+choose to hold.
+
+The consequence is the win condition. A frozen unit is still a LIVE unit, so its
+Brigade is not broken, so two Brigades can never break, so the match cannot end.
+By turn 214 of seed 6 the entire board is static except one Brigadier oscillating
+between two squares.
+
+This is why escalating aggression alone will not clear the stalls. It would move
+the units that are choosing to hold (Soult and Murat consider twenty-one options
+and hold by a margin of about 0.2, so they would flip readily) and do nothing at
+all for the ones that have no options.
+
+`collectStrandedGun` exists, so the idea of a Brigadier going to recover a cut-off
+unit is already in the AI. It applies to artillery only.
+
 ## Environment
 
 `headless-env.mjs` runs the whole game outside a browser. All modules load,
