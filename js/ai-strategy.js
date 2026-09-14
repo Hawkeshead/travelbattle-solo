@@ -135,6 +135,41 @@ export const CONVERGE_PULL = 0.10;
    not clear cohesionLoss at -2.40, so a unit would never break formation for a
    fight however good. At 1.0 the table runs about -4 to +4.6 as specified, and a
    good fight clears -2.40 on its own without cohesionLoss being touched. */
+/* =========================================================
+   PER-SIDE TUNING — how the simulator runs a variant against a control
+
+   Every weight below is a module constant, read directly wherever it is needed.
+   That is right for the shipped game, where there is one AI, and it is exactly
+   what makes a controlled experiment impossible: with state.aiSide pointed at
+   whichever side is acting, both armies necessarily share every constant, so
+   there is nothing to compare.
+
+   This is the smallest thing that fixes that. state.aiConfig holds an optional
+   override table per side, and tune() consults it with the module constant as
+   the fallback. An absent or empty config returns the constant, so the played
+   game is byte-identical and no default moves: the constants below remain the
+   single source of truth and an override is always visible at the call site.
+
+   Deliberately NOT a wholesale conversion of every constant to an accessor. Only
+   the ones a variant actually changes get wired, so the diff stays readable and
+   a term that is not part of an experiment cannot silently acquire two values.
+
+   It lives on `state` rather than in a module variable so it is carried through
+   undo and snapshotting like everything else, and so it cannot leak between
+   matches in a batch.
+
+   flag() is the same idea for behaviour rather than magnitude: a variant that
+   adds a rule needs to add it for one side only. Defaults false, so an unset
+   flag is the current game. */
+export function tune(side, name, fallback){
+  const c = state.aiConfig && state.aiConfig[side];
+  return (c && c[name] !== undefined) ? c[name] : fallback;
+}
+export function flag(side, name){
+  const c = state.aiConfig && state.aiConfig[side];
+  return !!(c && c[name]);
+}
+
 export const ENGAGE_WEIGHT = 1.0;
 // Hard ceiling on the fight estimate before weighting. Belt and braces: the
 // estimator is already bounded, and this makes sure engage cannot dominate the

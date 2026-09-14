@@ -20,6 +20,7 @@
 ========================================================= */
 import { loadGame, collapseTimers } from './headless-env.mjs';
 import fs from 'fs';
+import { resolveVariant } from './variants.mjs';
 
 /* Captured BEFORE collapseTimers replaces the global. The runner still needs a
    real clock to poll and to time out with; only the game's own pacing goes. */
@@ -44,7 +45,7 @@ const POLL_MS = 4;
 const MATCH_TURN_CAP = 400;
 const MATCH_TIMEOUT_MS = 45_000;
 
-export async function runOneMatch({ seed }, g) {
+export async function runOneMatch({ seed, variant = 'control', variantSide = null }, g) {
   const { data, dice, rules, render, menus } = g;
   const { state, SIDES } = data;
 
@@ -69,15 +70,30 @@ export async function runOneMatch({ seed }, g) {
      board drawn is recorded per match below so a result stays identifiable. */
   rules.seedRng(seed);
 
+  /* THE VARIANT IS AN OVERRIDE TABLE ON ONE SIDE, NOT A SECOND AI.
+
+     ai-strategy reads every wired weight through tune(side, ...), which falls
+     back to the module constant when a side has no entry. So the control side
+     literally runs the shipped code path with no overrides, rather than a copy
+     of it that could drift. Both armies share the same scoring, the same
+     doctrine and the same everything else, which is the only way the win rate
+     isolates the change. */
+  state.aiConfig = { red: {}, blue: {} };
+  if (variantSide) state.aiConfig[variantSide] = resolveVariant(variant);
+
   const t0 = Date.now();
   menus.beginBoardSetup();
 
   const finished = await waitForEnd(state, MATCH_TIMEOUT_MS);
   const living = side => state.units.filter(u => !u.removed && u.side === side).length;
 
+  const variantWon = variantSide && state.winner
+    ? (state.winner === variantSide ? 'variant' : 'control') : null;
+
   return {
     seed,
-    finished,                       // 'win' | 'timeout'
+    variant, variantSide, variantWon,
+    finished,                       // 'win' | 'stalled' | 'hung'
     winner: state.winner || null,
     turns: state.turnNumber,
     wallMs: Date.now() - t0,
@@ -166,6 +182,46 @@ function waitForEnd(state, timeoutMs) {
 /* ---------------------------------------------------------
    AGGREGATION
 --------------------------------------------------------- */
+/* THE VARIANT VERDICT.
+
+   UNDECIDED MATCHES ARE EXCLUDED, not scored as draws. A stall is a failure of
+   both AIs to commit and says nothing about which weights are better; folding it
+   in as half a win would let a change that made matches MORE likely to stall
+   look neutral. The count is reported on its own line instead, where a variant
+   that raises the stall rate is visible as the regression it is. That has
+   already happened twice.
+
+   The 60/55 thresholds are the brief's and they are not arbitrary: on ~170
+   decided matches the standard error on a win rate is about 4 points, so 55% is
+   inside noise and 60% is not. */
+function verdict(results) {
+  const played = results.filter(r => r.variantSide);
+  if (!played.length) return null;
+  const decided = played.filter(r => r.finished === 'win' && r.variantWon);
+  const lines = ['', '=== VARIANT vs CONTROL ==='];
+  const tally = set => {
+    const w = set.filter(r => r.variantWon === 'variant').length;
+    return { w, n: set.length, pct: set.length ? Math.floor((w / set.length) * 1000) / 10 : 0 };
+  };
+  const all = tally(decided);
+  const asRed  = tally(decided.filter(r => r.variantSide === 'red'));
+  const asBlue = tally(decided.filter(r => r.variantSide === 'blue'));
+  lines.push(`variant '${played[0].variant}'`);
+  lines.push(`decided            ${decided.length} of ${played.length}` +
+             `   (${played.length - decided.length} excluded: stalled, hung or crashed)`);
+  lines.push(`variant win rate   ${all.w}/${all.n}  ${all.pct}%`);
+  lines.push(`  as Britain       ${asRed.w}/${asRed.n}  ${asRed.pct}%`);
+  lines.push(`  as France        ${asBlue.w}/${asBlue.n}  ${asBlue.pct}%`);
+  const bothSides = asRed.pct > 50 && asBlue.pct > 50;
+  lines.push('');
+  lines.push(all.pct >= 60 && bothSides ? 'IMPROVEMENT: above 60% and present on both sides of the swap.'
+    : all.pct >= 60 ? 'INCONCLUSIVE: above 60% overall but NOT on both sides. That is a side effect, not a change effect.'
+    : all.pct > 55 ? 'WORTH A SECOND RUN: between 55% and 60%.'
+    : all.pct < 45 ? 'REGRESSION: the control is winning.'
+    : 'NOISE: within 55%, no effect detected.');
+  return lines.join('\n');
+}
+
 export function summarise(results) {
   const done = results.filter(r => r.finished === 'win');
   const wins = { red: 0, blue: 0, none: 0 };
@@ -207,6 +263,8 @@ export function summarise(results) {
     }
     lines.push('  (seeds reproduce exactly — stall-probe.mjs takes the same seed)');
   }
+  const v = verdict(results);
+  if (v) lines.push(v);
   return lines.join('\n');
 }
 
@@ -224,12 +282,12 @@ export function summarise(results) {
    of module loading per match and buys total isolation, plus a crashed match
    now loses one result instead of the batch.
 --------------------------------------------------------- */
-async function runChild(seed) {
+async function runChild(seed, variant, variantSide) {
   const g = await loadGame();
   g.render = await import('../../js/render-board.js');
   g.menus  = await import('../../js/ui-menus.js');
   collapseTimers();
-  const r = await runOneMatch({ seed }, g);
+  const r = await runOneMatch({ seed, variant, variantSide }, g);
   process.stdout.write('\u0001RESULT' + JSON.stringify(r) + '\n');
   process.exit(0);
 }
@@ -237,7 +295,7 @@ async function runChild(seed) {
 export async function main() {
   const args = process.argv.slice(2);
   const childAt = args.indexOf('--child');
-  if (childAt > -1) return runChild(Number(args[childAt + 1]));
+  if (childAt > -1) return runChild(Number(args[childAt + 1]), args[childAt + 2], args[childAt + 3] || null);
 
   const { spawn } = await import('node:child_process');
   const n = Number(args.find(a => /^\d+$/.test(a)) || 5);
@@ -257,10 +315,11 @@ export async function main() {
   const jobs = Math.max(1, jobsAt > -1 ? Number(args[jobsAt + 1])
                                        : Math.min(8, (await import('node:os')).cpus().length || 4));
 
-  const runOne = seed => new Promise(resolve => {
+  const runOne = ({ seed, variant, variantSide }) => new Promise(resolve => {
     let out = '';
-    const child = spawn(process.execPath, [process.argv[1], '--child', String(seed)],
-                        { cwd: process.cwd() });
+    const child = spawn(process.execPath,
+      [process.argv[1], '--child', String(seed), variant, variantSide || ''],
+      { cwd: process.cwd() });
     child.stdout.on('data', d => { out += d; });
     child.stderr.on('data', () => {});   // game logging, not wanted in a batch
     child.on('close', code => {
@@ -268,26 +327,41 @@ export async function main() {
       if (line) { resolve(JSON.parse(line.slice(7))); return; }
       /* A CRASH IS A RESULT TOO, and the most interesting kind: it names a seed
          that breaks the game rather than merely stalling it. */
-      resolve({ seed, finished: 'crashed', winner: null, turns: 0, wallMs: 0,
-                exitCode: code, survivors: { red: 0, blue: 0 } });
+      resolve({ seed, variant, variantSide, variantWon: null, finished: 'crashed',
+                winner: null, turns: 0, wallMs: 0, exitCode: code,
+                survivors: { red: 0, blue: 0 } });
     });
   });
 
-  const seeds = Array.from({ length: n }, (_, i) => firstSeed + i);
+  const variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
+  /* SWAP THE SIDES, ALWAYS, when running a variant. Every seed is played twice,
+     once with the variant on Britain and once on France. Anything that makes a
+     side more willing to close advantages whoever is not first into contact, so
+     a one-sided run measures the side as much as the change. Reported split by
+     side as well as pooled, so a result that only appears on one side is visible
+     as the artefact it is rather than averaged into a verdict. */
+  const seeds = [];
+  for (let i = 0; i < n; i++) {
+    const seed = firstSeed + i;
+    if (!variant) { seeds.push({ seed, variant: 'control', variantSide: null }); continue; }
+    seeds.push({ seed, variant, variantSide: 'red' });
+    seeds.push({ seed, variant, variantSide: 'blue' });
+  }
   const results = [];
   let next = 0, done = 0;
-  console.log(`${n} matches, ${jobs} at a time\n`);
+  console.log(`${seeds.length} matches, ${jobs} at a time` +
+              (variant ? `  |  variant '${variant}' vs control, sides swapped` : '') + '\n');
   await Promise.all(Array.from({ length: Math.min(jobs, n) }, async () => {
     while (next < seeds.length) {
       const r = await runOne(seeds[next++]);
       results.push(r);
       done++;
       console.log(`  [${String(done).padStart(3)}/${n}] seed ${r.seed}  ${r.finished.padEnd(7)}` +
-                  ` winner=${String(r.winner).padEnd(5)} turns=${String(r.turns).padStart(3)}` +
+                  ` ${r.variantSide ? ('v=' + r.variantSide + ' ') : ''}winner=${String(r.winner).padEnd(5)} turns=${String(r.turns).padStart(3)}` +
                   `  survivors ${r.survivors.red}v${r.survivors.blue}  ${(r.wallMs / 1000).toFixed(1)}s`);
     }
   }));
-  results.sort((a, b) => a.seed - b.seed);
+  results.sort((a, b) => a.seed - b.seed || String(a.variantSide).localeCompare(String(b.variantSide)));
   console.log('\n' + summarise(results));
   if (jsonAt > -1) {
     fs.writeFileSync(args[jsonAt + 1], JSON.stringify(results, null, 2));
