@@ -22,6 +22,27 @@ export const VARIANTS = {
     COLUMN_BREAK_WEIGHT:    8,      // B4: was 4, at which a stacked pair one tile further is never chosen
     HEAVY_PAIR_BONUS:       2.00,   // B5: new, two heavy regiments within two tiles
   },
+
+  /* Part C: two logic additions. C2 is not here — see the README. */
+  c_logic: {
+    CAVALRY_MAY_RANGE:       true,   // C1: slip the leash for a fight worth taking
+    CAVALRY_RANGE_THRESHOLD: 3.0,
+    VOLLEY_SETUP:            true,   // C3: score a volley by its follow-up
+    VOLLEY_FLOOR:            1.0,
+  },
+
+  /* Parts B and C together, which is what the brief's run actually wants. */
+  bc: {
+    GUN_HOLDS_FIRE_BONUS:   3.00,
+    GUN_PENALTY_TOTAL_CAP:  2.00,
+    SCREENS_GUN_WEIGHT:     3.00,
+    COLUMN_TARGET_BONUS:    8,
+    HEAVY_PAIR_BONUS:       2.00,
+    CAVALRY_MAY_RANGE:      true,
+    CAVALRY_RANGE_THRESHOLD: 3.0,
+    VOLLEY_SETUP:           true,
+    VOLLEY_FLOOR:           1.0,
+  },
 };
 
 export function resolveVariant(name){

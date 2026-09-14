@@ -356,7 +356,7 @@ export async function main() {
       const r = await runOne(seeds[next++]);
       results.push(r);
       done++;
-      console.log(`  [${String(done).padStart(3)}/${n}] seed ${r.seed}  ${r.finished.padEnd(7)}` +
+      console.log(`  [${String(done).padStart(3)}/${seeds.length}] seed ${r.seed}  ${r.finished.padEnd(7)}` +
                   ` ${r.variantSide ? ('v=' + r.variantSide + ' ') : ''}winner=${String(r.winner).padEnd(5)} turns=${String(r.turns).padStart(3)}` +
                   `  survivors ${r.survivors.red}v${r.survivors.blue}  ${(r.wallMs / 1000).toFixed(1)}s`);
     }

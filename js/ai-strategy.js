@@ -1780,7 +1780,32 @@ export function aiDecideAndExecuteMove(u){
        A gun with neither takes the penalty like anyone else, because it is
        stranded rather than bold. */
     if(wasConnected && !connNow.has(u.id)){
-      if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', 2.4);
+      /* C1: RANGING CAVALRY. The brief named brigadierTrail, but that term only
+         exists on a Brigadier. The leash on a moving unit is cohesionLoss, so
+         the discount belongs here.
+
+         A cavalry unit with a fight worth having may leave command range for it;
+         below the threshold the leash holds at full weight. That preserves the
+         7e Hussards pattern (5 fights, 3 wins, 0 losses while disconnected)
+         without reopening general disconnection, which ran 1.5% to 8% to 11%
+         across three matches and is the reason cohesionLoss exists.
+
+         The fight is measured against enemies adjacent to the CANDIDATE square
+         rather than the full reachable set, because engage is not computed until
+         much later in this function and duplicating the reachability walk here
+         would cost more than the term is worth. Melee is at range 1 anyway, so
+         the two agree for everything except a charge run. */
+      const ranging = flag(side, 'CAVALRY_MAY_RANGE') && t.isCavalry;
+      let leash = 2.4;
+      if(ranging){
+        let bestFight = -Infinity;
+        for(const o of state.units){
+          if(o.removed || o.side===side || chebyshev(c, o) > 1) continue;
+          bestFight = Math.max(bestFight, estimateFightValue(u, o));
+        }
+        if(bestFight >= tune(side, 'CAVALRY_RANGE_THRESHOLD', 3.0)) leash *= 0.3;
+      }
+      if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', leash);
       /* S7: DISCONNECTING FOR NOTHING COSTS EXTRA.
 
          Disconnections ran 1.5% -> 8% -> 11% across three matches. cohesionLoss
@@ -2798,6 +2823,30 @@ function aiDoVolleyStep(){
     if(!targets.length){ step(); return; }
     const target = pickVolleyTarget(targets);
     if(!target){ step(); return; }
+    /* C3: A VOLLEY IS A SETUP, NOT A KILL.
+
+       Since a volley knocks back rather than destroys, its whole value is what
+       happens next. The AI found the combination once on its own (seed 44561174,
+       turn 20: the volley knocked 15th Hussars back, Carabiniers charged the
+       displaced unit into "Defender turned around" and killed it) and never
+       repeated it. Unscored, it either over-volleys for nothing or abandons the
+       weapon entirely.
+
+       Worth 1.5 when a friendly melee unit can reach the square the target is
+       knocked back to this turn, 0.3 otherwise. Below the floor the volley is
+       skipped, so the unit keeps its action for something that matters.
+
+       Gated off by default: with VOLLEY_SETUP unset this does not run and every
+       volley is taken exactly as before. */
+    if(flag(u.side, 'VOLLEY_SETUP')){
+      const dx = Math.sign(target.x - u.x), dy = Math.sign(target.y - u.y);
+      const land = { x: target.x + dx, y: target.y + dy };
+      const followUp = state.units.some(o => !o.removed && o.side===u.side && o.id!==u.id &&
+        !UNIT_TYPES[o.type].isArtillery && o.type!=='BRIGADIER' &&
+        chebyshev(o, land) <= unitBaseMove(o));
+      const value = followUp ? 1.5 : 0.3;
+      if(value < tune(u.side, 'VOLLEY_FLOOR', 1.0)){ step(); return; }
+    }
     logAiDebugMove(u.side, { unit: unitLabel(u), mission: missionFor(u), action:'Volley',
                              target: unitLabel(target), score: '—' });
     /* A volley is always at range 1, so this is close to a pure close-up: the
