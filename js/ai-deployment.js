@@ -1,6 +1,6 @@
 import { AI_UNIT_VALUE, terrainSeekBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
-import { isRoadLike, terrainAt, unitsAt } from './engine-rules.js';
+import { isRoadLike, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
 
 /* =========================================================
@@ -68,7 +68,7 @@ export function findBestHardDeployCell(zoneRows, colRange, typeKey, side, bIdx){
   let best=null, bestScore=-Infinity;
   for(const y of zoneRows){
     for(let x=colRange[0]; x<=colRange[1]; x++){
-      const s = scoreDeployCell(typeKey, x, y, side, bIdx) + Math.random()*0.05;
+      const s = scoreDeployCell(typeKey, x, y, side, bIdx) + seededRandom()*0.05;
       if(s>bestScore && s>-Infinity){ bestScore=s; best={x,y}; }
     }
   }
@@ -169,7 +169,7 @@ function pickCounterArmy(humanSide){
 
   const cavCount = humanUnits.filter(u=>u.type==='HEAVY_CAV'||u.type==='LIGHT_CAV').length;
   if(cavCount / humanUnits.length >= 0.35){
-    return Math.random()<0.5 ? 'grand_assault' : 'refused_flank';
+    return seededRandom()<0.5 ? 'grand_assault' : 'refused_flank';
   }
 
   const byBrigade = {};
@@ -186,10 +186,10 @@ function pickCounterArmy(humanSide){
        single most valuable thing on the board and it is worth aiming at. */
     const weak = weakestEnemyFlank(humanSide);
     if(weak) state._aiTargetFlankX = weak.avgX;
-    return Math.random()<0.5 ? 'vanguard' : 'cavalry_wing';
+    return seededRandom()<0.5 ? 'vanguard' : 'cavalry_wing';
   }
 
-  return Math.random()<0.5 ? 'twin_batteries' : 'balanced';
+  return seededRandom()<0.5 ? 'twin_batteries' : 'balanced';
 }
 
 /* DEPLOYING FIRST: read the ground and take the army that suits it.
@@ -236,7 +236,7 @@ export function aiDeployStepHard(side){
     const isGrand = state.boardMode==='grand';
     if(isGrand){
       const choices = (state._aiCompositionChoice || (state._aiCompositionChoice = {red:null, blue:null}));
-      if(choices[side] === null) choices[side] = Math.random() < (1/3) ? 'cavalryFocused' : 'standard';
+      if(choices[side] === null) choices[side] = seededRandom() < (1/3) ? 'cavalryFocused' : 'standard';
       const compositions = choices[side]==='cavalryFocused' ? TB_DATA.unitTypes.brigadeCompositionsCavalryFocusedGrand : TB_DATA.unitTypes.brigadeCompositionsGrand;
       for(const ty of (compositions[bIdx]||[])) if(ty!=='BRIGADIER') store[bIdx][ty] = (store[bIdx][ty]||0)+1;
     } else {

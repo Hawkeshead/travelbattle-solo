@@ -1,7 +1,7 @@
 import { showCampaignMenu } from './campaign.js';
 import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
-import { rollD6 } from './engine-rules.js';
+import { rollD6, seededRandom } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { canvas, ctx, draw, playBoardIntroAnimation, sizeCanvas, sy, terrainColor } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
@@ -396,9 +396,9 @@ export function showDifficultySelect(){
 export function beginBoardSetup(){
   setBoardMode('standard');
   AudioManager.playMusic('audio/music/field-of-austerlitz.mp3');
-  const keys = Math.random()<0.5 ? ['A','B'] : ['B','A'];
+  const keys = seededRandom()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
-  state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
+  state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
@@ -497,7 +497,7 @@ function runRotationPicks(eligibleSides, i){
   if(state.spectate) state.aiSide = side;
   const isHumanControlled = !FAST_DICE_MODE && !(state.mode==='ai' && side===state.aiSide);
   if(!isHumanControlled){
-    const chosen = Math.floor(Math.random()*4);
+    const chosen = Math.floor(seededRandom()*4);
     state.boardRotation[side] = chosen;
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
     state.grassStyles = assignGrassStyles(state.terrain);

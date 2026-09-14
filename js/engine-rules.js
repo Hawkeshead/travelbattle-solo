@@ -494,6 +494,20 @@ export function seedRng(seed){
 }
 export function currentRngSeed(){ return rngSeed; }
 
+/* THE SAME STREAM, FOR EVERYTHING A MATCH DEPENDS ON.
+
+   The dice were seeded so a reported log could be replayed. They were the only
+   thing that was. Which board is drawn, how each is rotated, which side deploys
+   first, which side moves first, which army the AI picks and where it jitters
+   its deployment were all on Math.random, so the same seed replayed the same
+   dice on a different battle, which is worth nothing.
+
+   Everything that decides what a match IS now comes from here. Cosmetic draws
+   (grass and building styles, the ambient sky, narration wording, audio track
+   choice) deliberately do NOT: they change nothing about play and putting them
+   on the stream would mean a purely visual tweak shifted every subsequent roll. */
+export function seededRandom(){ return nextRandom(); }
+
 function nextRandom(){
   rngState = (rngState + 0x6D2B79F5) >>> 0;
   let t = rngState;

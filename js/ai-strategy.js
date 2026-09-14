@@ -2,7 +2,7 @@ import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.j
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets } from './engine-rules.js';
+import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -2261,7 +2261,7 @@ export function aiDecideAndExecuteMove(u){
       if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
     }
 
-    s += addScore(parts, 'jitter', Math.random() * 0.03); // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
+    s += addScore(parts, 'jitter', seededRandom() * 0.03); // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
     scored.push({ x:c.x, y:c.y, stay:!!c.stay, total:s, parts });
     if(s>bestScore){ bestScore=s; best=c; }

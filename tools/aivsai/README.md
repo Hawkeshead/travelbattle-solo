@@ -38,13 +38,22 @@ whenever a new one appears), each match gets a clean process. It costs about a
 second of module loading and buys total isolation, and a crashed match now loses
 one result rather than the batch.
 
-### What a seed does and does not fix
+### A seed now fixes the whole match
 
-`seedRng(seed)` fixes the dice. It does NOT fix the map: `beginBoardSetup` draws
-board assignment and rotation from `Math.random` directly. Two runs of the same
-seed therefore play the same dice on different ground. The board drawn is
-recorded on each result so a match stays identifiable, but exact replay would
-need those two draws routed through the seeded generator.
+`seedRng(seed)` used to fix only the dice, so the same seed replayed the same
+rolls on a different battle. Everything that decides what a match IS now comes
+off the same stream: board assignment and both rotations, who deploys first, who
+moves first, the AI's army choice, its counter-army pick and its deploy-cell
+jitter, and the scoring tiebreak jitter. Verified by running seeds 900-902 twice
+and getting identical winners, turn counts and survivors.
+
+Cosmetic draws are deliberately left on `Math.random`: grass and building styles,
+the ambient sky, narration wording, audio track choice. They change nothing about
+play, and putting them on the stream would mean a purely visual tweak shifted
+every roll after it.
+
+This also fixes replay for real matches, which record `currentRngSeed()` in the
+export metadata but could never reproduce the board from it.
 
 ### Reported per match
 

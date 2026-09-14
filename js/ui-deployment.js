@@ -1,6 +1,6 @@
 import { aiDeployStep } from './ai-deployment.js';
 import { BRIGADE_COMPOSITIONS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
-import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
+import { inBounds, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
 import { cellFromClient, draw, sy } from './render-board.js';
 import { startBattle, unitLabel, updateHeader } from './ui-battle.js';
@@ -43,7 +43,7 @@ export function initDeployment(forcedFirstPlacement){
      deploy step and the Army picker are both scheduled from deployTurn at the
      bottom of this function, so the value has to be settled before then rather
      than corrected afterwards. */
-  state.deployTurn = forcedFirstPlacement || (Math.random()<0.5 ? SIDES.RED : SIDES.BLUE);
+  state.deployTurn = forcedFirstPlacement || (seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE);
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
   document.getElementById('sidebar').style.display='flex';

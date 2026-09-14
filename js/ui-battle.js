@@ -4,7 +4,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets } from './engine-rules.js';
+import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -21,7 +21,7 @@ export function startBattle(){
   document.getElementById('overlay').classList.remove('show');
   state.matchLog = [];
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
-  state.turn = Math.random()<0.5 ? SIDES.RED : SIDES.BLUE;
+  state.turn = seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE;
   log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
   document.getElementById('sidebar').style.display='none';
   document.getElementById('unitOverlay').classList.remove('hidden');
