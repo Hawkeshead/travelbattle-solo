@@ -50,6 +50,33 @@ export const VARIANTS = {
   gun_raid_hard: { GUN_RAID: true, GUN_RAID_PULL: 0.35 },
   adaptive:  { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 2.0 },
   adaptive_tight: { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 1.0 },
+
+  /* Aggression tuning, six values, no new terms.
+
+     T1 IS NOT HERE. It asked to restore the engage ceiling to +5.00 and the
+     ceiling is already +5.00: ENGAGE_CLAMP 5.0 x ENGAGE_WEIGHT 1.0. The -3.00
+     to +3.00 in the export is the range the term REACHED in that match, not the
+     range it is allowed. Raising anything would push it past a clamp that is
+     doing its job, so nothing is changed. */
+  aggression: {
+    THREAT_SCORE_MAX:       1.80,   // T2: from 2.50
+    TERRAIN_SEEK_MAX:       0.84,   // T3: from an effective 1.20 under defensive posture
+    MAIN_ATTACK_PULL_MUL:   1.26,   // T4: 3.57 -> 4.50, MAIN_ATTACK only
+    MAIN_ATTACK_RATIO:      1.00,   // T5: from 1.15, the gate on planning an attack at all
+    GUN_PENALTY_TOTAL_CAP:  2.00,   // T6: from a two-group sum of 3.50
+    GUN_HOLDS_FIRE_BONUS:   3.00,   // T6: from 2.50
+  },
+
+  /* The over-correction fallback named in the brief: step T2 back rather than
+     touching engage. Ready so it does not need writing mid-run. */
+  aggression_t2_back: {
+    THREAT_SCORE_MAX:       2.10,
+    TERRAIN_SEEK_MAX:       0.84,
+    MAIN_ATTACK_PULL_MUL:   1.26,
+    MAIN_ATTACK_RATIO:      1.00,
+    GUN_PENALTY_TOTAL_CAP:  2.00,
+    GUN_HOLDS_FIRE_BONUS:   3.00,
+  },
 };
 
 export function resolveVariant(name){

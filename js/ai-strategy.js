@@ -679,7 +679,15 @@ export function updateOperationalPlan(side, assessment){
     plan = { type:'WITHDRAWAL', mainEffortBrigadeId: rallyBrigadeId, targetBrigadeId:null };
   } else if(a.strengthRatio < 0.75){
     plan = { type:'DEFENSIVE', mainEffortBrigadeId: rallyBrigadeId, targetBrigadeId:null };
-  } else if(a.weakestEnemyBrigade && a.strengthRatio >= 1.15){
+  /* T5: THIS IS THE MISSION DISTRIBUTION LEVER, and it is a plan threshold
+     rather than a mission one. MAIN_ATTACK as a MISSION is only ever handed out
+     by a MAIN_ATTACK, BRIGADE_DESTRUCTION, CAVALRY_EXPLOITATION or
+     FINISHING_BLOW plan. Everything between 0.75 and this ratio falls through to
+     FIX_AND_FLANK, which assigns FLANK and FIX and no attack at all. That is the
+     whole of the reported 8 MAIN_ATTACK against 97 FLANK and 75 FIX: not a
+     reluctant mission pass, an army that is almost never quite strong enough to
+     be allowed to plan an attack. */
+  } else if(a.weakestEnemyBrigade && a.strengthRatio >= tune(side, 'MAIN_ATTACK_RATIO', 1.15)){
     plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
   } else if(a.weakestEnemyBrigade){
     plan = { type:'FIX_AND_FLANK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
@@ -905,8 +913,12 @@ export function missionMoveBonus(u, side, pos, mission, plan){
   switch(mission){
     case 'MAIN_ATTACK':
       // Push hard at the plan's actual target, not just the nearest enemy.
-      return nearestTargetDist!=null
-        ? -nearestTargetDist*APPROACH_PULL + Math.max(0, 6-nearestTargetDist)*0.18 : 0;
+      /* T4: MAIN_ATTACK ONLY. Multiplied here rather than at the missionPull
+         call site, which would scale FLANK, SUPPORT and FIX with it and change
+         nothing about their relative standing. Defaults to 1. */
+      return (nearestTargetDist!=null
+        ? -nearestTargetDist*APPROACH_PULL + Math.max(0, 6-nearestTargetDist)*0.18 : 0)
+        * tune(side, 'MAIN_ATTACK_PULL_MUL', 1);
     case 'FLANK':
       // Favour the weak-flank column band while closing, rather than a straight line in.
       if(!assessment) return nearestTargetDist!=null
@@ -1800,7 +1812,7 @@ export function aiDecideAndExecuteMove(u){
          immediate danger should still notice. What stops is the vague
          board-wide unease that was vetoing every advance. */
       let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
-            + addScore(parts, 'threat', Math.max(-THREAT_SCORE_MAX, -0.5*threatPenalty(u, side)));
+            + addScore(parts, 'threat', Math.max(-tune(side, 'THREAT_SCORE_MAX', THREAT_SCORE_MAX), -0.5*threatPenalty(u, side)));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
@@ -2462,7 +2474,14 @@ export function aiDecideAndExecuteMove(u){
     if(seekTactics){
       const defensivePosture = holdingReserve || preserving || currentlyThreatened ||
         mission==='HOLD' || mission==='FIX' || mission==='SCREEN' || mission==='WITHDRAW';
-      s += addScore(parts, 'terrainSeek', terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1));
+      /* T3: a ceiling, not a weight change. The defensive multiplier of 2.4 is
+         what takes this past 1.20, and scaling the multiplier would also weaken
+         it in the ordinary case where it is already the right size. Capping the
+         term leaves normal play alone and only trims the defensive peak.
+         Defaults to Infinity, so with no override nothing moves. */
+      s += addScore(parts, 'terrainSeek',
+        Math.min(tune(side, 'TERRAIN_SEEK_MAX', Infinity),
+                 terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1)));
 
       /* SHAPE, not distance. Every other term here is "how far am I from X", so
          two squares equidistant from everything score identically: a logged match
