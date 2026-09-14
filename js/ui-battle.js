@@ -1,6 +1,6 @@
 import { setFloatingTextEnabled } from './floating-text.js';
 const FCT_PREF_KEY = 'fc:floatingText';
-import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue, missionFor } from './ai-strategy.js';
+import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';

@@ -37,3 +37,7 @@ tmp/
 *.bak
 *.orig
 circuit-breaker-state.json
+
+# Simulator build artefacts: old AI versions materialised for a version-vs-version run
+js/ai-strategy__*.js
+js/ai-tactics__*.js

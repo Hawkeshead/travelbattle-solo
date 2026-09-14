@@ -21,6 +21,7 @@
 import { loadGame, collapseTimers } from './headless-env.mjs';
 import fs from 'fs';
 import { resolveVariant } from './variants.mjs';
+import { materialiseVersion, cleanVersions, describeRef } from './versions.mjs';
 
 /* Captured BEFORE collapseTimers replaces the global. The runner still needs a
    real clock to poll and to time out with; only the game's own pacing goes. */
@@ -45,7 +46,7 @@ const POLL_MS = 4;
 const MATCH_TURN_CAP = 400;
 const MATCH_TIMEOUT_MS = 45_000;
 
-export async function runOneMatch({ seed, variant = 'control', variantSide = null }, g) {
+export async function runOneMatch({ seed, variant = 'control', variantSide = null, oldEntry = null }, g) {
   const { data, dice, rules, render, menus } = g;
   const { state, SIDES } = data;
 
@@ -81,6 +82,17 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   state.aiConfig = { red: {}, blue: {} };
   if (variantSide) state.aiConfig[variantSide] = resolveVariant(variant);
 
+  /* VERSION vs VERSION. The variant side keeps the CURRENT AI and the other side
+     is handed the old one, so 'variant wins' means the new build beat the old
+     build. Registered per match rather than once per process because the swap
+     puts the old AI on the opposite side on the next match. */
+  if (oldEntry && variantSide) {
+    const older = await import(oldEntry);
+    const other = variantSide === 'red' ? 'blue' : 'red';
+    g.router.clearAiVersions();
+    g.router.registerAiVersion(other, older);
+  }
+
   const t0 = Date.now();
   menus.beginBoardSetup();
 
@@ -92,7 +104,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
 
   return {
     seed,
-    variant, variantSide, variantWon,
+    variant, variantSide, variantWon, vsRef: (oldEntry ? (process.env.SIM_VS_LABEL || 'older build') : null),
     finished,                       // 'win' | 'stalled' | 'hung'
     winner: state.winner || null,
     turns: state.turnNumber,
@@ -198,7 +210,14 @@ function verdict(results) {
   const played = results.filter(r => r.variantSide);
   if (!played.length) return null;
   const decided = played.filter(r => r.finished === 'win' && r.variantWon);
-  const lines = ['', '=== VARIANT vs CONTROL ==='];
+  /* Two runs wear the same shape and must not read the same. In a weight run the
+     opponent is the current build with no overrides; in a version run it is a
+     different build entirely, and calling that "control" would suggest the new
+     code losing to itself. */
+  const ref = played[0].vsRef;
+  const NEW = ref ? 'current build' : `variant '${played[0].variant}'`;
+  const OLD = ref ? ref : 'control';
+  const lines = ['', `=== ${NEW.toUpperCase()} vs ${OLD.toUpperCase()} ===`];
   const tally = set => {
     const w = set.filter(r => r.variantWon === 'variant').length;
     return { w, n: set.length, pct: set.length ? Math.floor((w / set.length) * 1000) / 10 : 0 };
@@ -206,10 +225,10 @@ function verdict(results) {
   const all = tally(decided);
   const asRed  = tally(decided.filter(r => r.variantSide === 'red'));
   const asBlue = tally(decided.filter(r => r.variantSide === 'blue'));
-  lines.push(`variant '${played[0].variant}'`);
+
   lines.push(`decided            ${decided.length} of ${played.length}` +
              `   (${played.length - decided.length} excluded: stalled, hung or crashed)`);
-  lines.push(`variant win rate   ${all.w}/${all.n}  ${all.pct}%`);
+  lines.push(`${NEW} win rate`.padEnd(18) + ` ${all.w}/${all.n}  ${all.pct}%`);
   lines.push(`  as Britain       ${asRed.w}/${asRed.n}  ${asRed.pct}%`);
   lines.push(`  as France        ${asBlue.w}/${asBlue.n}  ${asBlue.pct}%`);
   const bothSides = asRed.pct > 50 && asBlue.pct > 50;
@@ -217,7 +236,7 @@ function verdict(results) {
   lines.push(all.pct >= 60 && bothSides ? 'IMPROVEMENT: above 60% and present on both sides of the swap.'
     : all.pct >= 60 ? 'INCONCLUSIVE: above 60% overall but NOT on both sides. That is a side effect, not a change effect.'
     : all.pct > 55 ? 'WORTH A SECOND RUN: between 55% and 60%.'
-    : all.pct < 45 ? 'REGRESSION: the control is winning.'
+    : all.pct < 45 ? `REGRESSION: ${OLD} is winning.`
     : 'NOISE: within 55%, no effect detected.');
   return lines.join('\n');
 }
@@ -286,8 +305,9 @@ async function runChild(seed, variant, variantSide) {
   const g = await loadGame();
   g.render = await import('../../js/render-board.js');
   g.menus  = await import('../../js/ui-menus.js');
+  g.router = await import('../../js/ai-router.js');
   collapseTimers();
-  const r = await runOneMatch({ seed, variant, variantSide }, g);
+  const r = await runOneMatch({ seed, variant, variantSide, oldEntry: process.env.SIM_OLD_ENTRY || null }, g);
   process.stdout.write('\u0001RESULT' + JSON.stringify(r) + '\n');
   process.exit(0);
 }
@@ -333,7 +353,23 @@ export async function main() {
     });
   });
 
-  const variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
+  let variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
+
+  /* --vs <ref> plays the CURRENT build against the AI as it was at that commit.
+     The old files are materialised once here and the children just import them,
+     so git is touched a single time per run rather than once per match. */
+  const vsAt = args.indexOf('--vs');
+  let vs = null;
+  if (vsAt > -1) {
+    cleanVersions();
+    vs = materialiseVersion(args[vsAt + 1]);
+    process.env.SIM_OLD_ENTRY = vs.entry;
+    /* Short hash only. The full subject line is useful in the header above and
+               absurd inside a table column and a verdict sentence. */
+            process.env.SIM_VS_LABEL = describeRef(args[vsAt + 1]).split(' ')[0];
+    if (!variant) variant = 'control';   // current build, no overrides, versus the old one
+    console.log(`current build  vs  ${describeRef(args[vsAt + 1])}`);
+  }
   /* SWAP THE SIDES, ALWAYS, when running a variant. Every seed is played twice,
      once with the variant on Britain and once on France. Anything that makes a
      side more willing to close advantages whoever is not first into contact, so
@@ -363,6 +399,7 @@ export async function main() {
   }));
   results.sort((a, b) => a.seed - b.seed || String(a.variantSide).localeCompare(String(b.variantSide)));
   console.log('\n' + summarise(results));
+  if (vs) cleanVersions();
   if (jsonAt > -1) {
     fs.writeFileSync(args[jsonAt + 1], JSON.stringify(results, null, 2));
     console.log(`\nwritten to ${args[jsonAt + 1]}`);
