@@ -1,5 +1,11 @@
 /* =========================================================
    AUDIO CATALOG
+
+   NOT LOADED BY ANYTHING. Nothing imports this file. Every sound that actually
+   plays is called directly by name from the game code (AudioManager.playEffect
+   in ai-strategy, render-board and ui-battle; playMusic in boot and ui-menus).
+   Kept because the mapping is still the right idea and the sound effects should
+   come back through it, but do not add a sound here and expect to hear it.
    Maps each game event to its sound file(s). Populated as assets are
    sourced — see AUDIO_CREDITS.txt for what's confirmed vs. still
    needed. Everything here is CC0 (Kenney) or will be documented with
@@ -7,7 +13,11 @@
 ========================================================= */
 const AUDIO = {
   music: {
-    // battle: null,      // A — main battlefield/deployment music: NOT YET SOURCED (see AUDIO_CREDITS.txt)
+    /* A — battlefield/deployment music: SOURCED. Not listed here because it is a
+       SEQUENCE of two tracks rather than a single file, and this catalogue maps
+       one event to one sound. It lives in ui-menus as BATTLE_SCORE and is played
+       through AudioManager.playMusicSequence. Noted rather than left blank so
+       the next person does not source it again. */
     // victory: null,     // B — victory fanfare: NOT YET SOURCED
     // defeat: null,      // C — defeat cue: NOT YET SOURCED
   },

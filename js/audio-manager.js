@@ -35,6 +35,8 @@ export const AudioManager = (function(){
     volumes: { master: 1.0, music: 0.55, effects: 1.0, ambience: 0.75 },
     liveEffectGains: new Set(),   // gain nodes of effects currently sounding; see applyVolumes
     musicSrc: null,               // what the music element is playing, so the same track is not restarted
+    musicSequence: null,          // the running multi-track score, if any
+    musicSequenceNext: 0,         // which track the NEXT sequence opens on, so battles do not all start alike
     musicEl: null,
     ambienceEl: null,
     activeEffects: new Map(), // key -> count of currently-playing copies
@@ -262,6 +264,9 @@ export const AudioManager = (function(){
         return;
       }
       stopMusicEl();
+      /* A plain playMusic call outside a sequence ends the sequence, so going
+         back to the menu mid-battle does not leave a track queued to barge in. */
+      if(opts.loop !== false && state.musicSequence) state.musicSequence = null;
       const audio = new Audio(src);
       audio.loop = opts.loop !== false;
       audio.volume = effectiveVolume('music');
@@ -270,7 +275,47 @@ export const AudioManager = (function(){
       if(state.unlocked) audio.play().catch(()=>{});
     } catch(_e) { /* silent failure */ }
   }
-  function stopMusic(){ stopMusicEl(); state.musicSrc = null; }
+  function stopMusic(){ stopMusicEl(); state.musicSequence = null; state.musicSrc = null; }
+
+  /* A SCORE OF SEVERAL TRACKS, PLAYED IN TURN.
+
+     playMusic loops one file forever, which is right for the menu and wrong for
+     a battle score: a three-minute piece on repeat for a forty-turn match is
+     noticeable in a way the piece itself is not. This plays the tracks in order,
+     each once, and moves to the next when it ends, cycling for as long as the
+     battle lasts.
+
+     WHICH TRACK OPENS ROTATES between calls, so starting a second battle does
+     not open with the same bars as the first. It is deliberately not random:
+     random would repeat the same opener often enough to be noticed, and with two
+     tracks alternating is what was asked for.
+
+     Reuses playMusic's element handling rather than managing its own, so the
+     volume slider, the mute toggle and the ducking in applyVolumes all keep
+     working without knowing a sequence exists. The double-play bug that
+     stopMusicEl guards against would be easy to reintroduce here, which is why
+     advancing goes back through playMusic rather than touching the element. */
+  function playMusicSequence(srcs){
+    if(!srcs || !srcs.length) return;
+    if(srcs.length === 1) return playMusic(srcs[0]);
+    /* Already running this exact sequence: leave it alone. Restarting on every
+       call would cut the score off whenever a menu function re-ran. */
+    if(state.musicSequence && state.musicSequence.key === srcs.join('|')) return;
+    const start = state.musicSequenceNext || 0;
+    state.musicSequenceNext = (start + 1) % srcs.length;
+    const seq = { key: srcs.join('|'), srcs, i: start };
+    state.musicSequence = seq;
+    const advance = () => {
+      if(state.musicSequence !== seq) return;   // a different score took over
+      seq.i = (seq.i + 1) % seq.srcs.length;
+      step();
+    };
+    const step = () => {
+      playMusic(seq.srcs[seq.i], { loop: false });
+      if(state.musicEl) state.musicEl.addEventListener('ended', advance, { once: true });
+    };
+    step();
+  }
 
   function playAmbience(src, opts){
     opts = opts || {};
@@ -345,7 +390,7 @@ export const AudioManager = (function(){
   loadPrefs();
 
   return {
-    unlock, playEffect, playMusic, stopMusic, playAmbience, stopAmbience,
+    unlock, playEffect, playMusic, playMusicSequence, stopMusic, playAmbience, stopAmbience,
     setMuted, setVolume, getPrefs, panForBoardX, preloadEffects,
     startLoop, stopLoop,
     /* Read-only handles for audio-lab.html. The lab compares what the mixer

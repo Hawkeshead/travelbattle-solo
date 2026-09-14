@@ -10,6 +10,13 @@ import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
 import { initDeployment } from './ui-deployment.js';
 
+/* THE BATTLE SCORE. Two tracks, played in turn rather than one on repeat, and
+   the opening track rotates between battles so two matches in a row do not start
+   with the same bars. Declared once here because both entry points into a battle
+   (standard and grand) must use the same score; two literals drifted apart is
+   exactly how the menu ends up playing something the battle does not. */
+const BATTLE_SCORE = ['audio/music/battle-score-1.m4a', 'audio/music/battle-score-2.m4a'];
+
 export function showOverlay(title, html, btnLabel, onClick){
   const b = document.querySelector('#overlay .box');
   if(b) b.classList.remove('as-folio');
@@ -395,7 +402,7 @@ export function showDifficultySelect(){
 ========================================================= */
 export function beginBoardSetup(){
   setBoardMode('standard');
-  AudioManager.playMusic('audio/music/field-of-austerlitz.mp3');
+  AudioManager.playMusicSequence(BATTLE_SCORE);
   const keys = seededRandom()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
@@ -603,7 +610,7 @@ export function beginGrandBoardSetup(){
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');
-  AudioManager.playMusic('audio/music/field-of-austerlitz.mp3');
+  AudioManager.playMusicSequence(BATTLE_SCORE);
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);

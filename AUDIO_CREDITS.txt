@@ -37,6 +37,12 @@ Candidates identified, pending download:
 Whichever source a sound comes from, record it here when you add the file,
 so this list doesn't drift out of date.
 
-NOTE: the audio system is currently switched off in the game — it was
+BATTLE SCORE (A). audio/music/battle-score-1.m4a and battle-score-2.m4a.
+  Two tracks played in turn, replacing field-of-austerlitz.mp3. Supplied by
+  Matthew; SOURCE AND LICENCE STILL TO BE RECORDED HERE. If these came from a
+  generative music service, note the service and the terms it grants, since
+  that is what this file exists for.
+
+OUTDATED NOTE BELOW, left for the record: the audio system is switched off — it was
 unplugged in 9ea94c2. Adding a sound file today will not make a sound until
 it's reconnected. See AUDIO_SYSTEM.md for what that takes.
