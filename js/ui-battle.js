@@ -14,6 +14,16 @@ import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './u
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
 
+/* The four volley takes. Listed once so the set cannot drift between the place
+   that plays them and the place that preloads them, which is how a take ends up
+   fetched on first use and arriving a second late. */
+export const MUSKET_VOLLEY_TAKES = [
+  'audio/effects/musket-volley-1.m4a',
+  'audio/effects/musket-volley-2.m4a',
+  'audio/effects/musket-volley-3.m4a',
+  'audio/effects/musket-volley-4.m4a',
+];
+
 /* =========================================================
    MAIN GAME FLOW
 ========================================================= */
@@ -1270,10 +1280,26 @@ export function resolveVolley(shooter, target, onComplete){
        number the effect table has no row for. */
     const effRoll = Math.max(1, Math.min(6, rawRoll + turnedBonus - coverPenalty));
 
-    /* NO SOUND YET. The audio catalogue has no musket volley and inventing an
-       asset path fails check-assets, which is exactly how this was caught. Hook
-       here when one exists: it wants a ragged crackle, panned to the SHOOTER
-       like artillery-fire is, not to the target. */
+    /* FOUR TAKES OF AN OFFICER CALLING FIRE AND HIS SQUAD VOLLEYING, one picked
+       at random. playEffect's own pickVariant does the choosing and will not
+       play the same take twice running, which matters more here than usual: a
+       four-second line of dialogue repeating back to back is far more obvious
+       than a repeated crack of musketry would be.
+
+       PLAYED ON THE ROLL PRESS, not on the result. This sits inside the
+       presentRollTrigger callback, so it fires the instant the player commits
+       and runs underneath the dice animation rather than after it. The shout
+       comes before the volley in every take, so the sound and the moment line up
+       on their own without any sequencing here.
+
+       Panned to the SHOOTER, not the target, exactly as artillery-fire is: the
+       noise happens where the muskets are.
+
+       Category 'musketVolley' rather than 'cannon', which is its own priority
+       tier in the ducking system and correctly sits below cannon and major
+       combat. */
+    AudioManager.playEffect('musket-volley', MUSKET_VOLLEY_TAKES, 'musketVolley',
+      { pan: AudioManager.panForBoardX(shooter.x) });
 
     /* V1: THE VOLLEY LADDER NO LONGER MATCHES THE ARTILLERY LADDER.
 

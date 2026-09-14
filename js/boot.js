@@ -5,6 +5,7 @@ import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
+import { MUSKET_VOLLEY_TAKES } from './ui-battle.js';
 
 /* =========================================================
    BOOT
@@ -55,6 +56,11 @@ export function start(){
       'audio/effects/artillery-select.wav', 'audio/effects/artillery-move.wav',
       'audio/effects/artillery-fire.wav', 'audio/effects/artillery-impact.wav',
       'audio/effects/unit-destroyed.wav',
+      /* The volley takes are four seconds each and much the largest effects in
+         the set, so they are the ones that would most obviously arrive late if
+         fetched on first use. Imported rather than listed again, so the preload
+         set cannot drift from what actually plays. */
+      ...MUSKET_VOLLEY_TAKES,
     ]);
   }, { once:true });
 

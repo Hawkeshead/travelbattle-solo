@@ -17,6 +17,12 @@ export const AudioManager = (function(){
   const PRIORITY = { cannon:1, majorCombat:2, cavalryCharge:3, musketVolley:4, movement:5, ui:6, ambient:7 };
   const MAX_CONCURRENT = {
     default: 4,   // cap on simultaneous copies of the same effect, so a busy turn doesn't turn into noise
+    /* ONE VOLLEY AT A TIME. Each take is four seconds and opens with an officer
+       shouting a line, and overlapping speech is the one thing in this set that
+       turns into mush rather than texture. A volley is also a deliberate player
+       action taken one at a time, so a second should never be underway while the
+       first is still calling fire. */
+    'musket-volley': 1,
     /* The death cry is 3.5s and carries. A single fight can destroy two units,
        and a Column break takes both halves at once, so four of these overlapping
        would be a wall of screaming rather than a battle. Two reads as a volley's
