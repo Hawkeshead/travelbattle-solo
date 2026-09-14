@@ -1943,9 +1943,16 @@ export function aiDecideAndExecuteMove(u){
       /* ONE TERM, NOT TWO, and it keeps the old name so a term-spread comparison
          against earlier match exports still lines up. What changed is which
          units it fires for and how hard it pulls, both readable from the value. */
+      /* TWO DIFFERENT ERRANDS, TWO DIFFERENT NAMES, and they were sharing one.
+
+         freeStrandedUnit is a Brigadier going to un-freeze a unit that cannot
+         move at all until he arrives. collectStrandedGun is him picking up a
+         battery that can still move and is merely out of position. They were
+         both logged as 'collectStrandedGun', so the export could not say which
+         was doing the work, exactly as cavalryConcentration could not. */
       if(recovering){
-        s -= subScore(parts, 'collectStrandedGun',
-          chebyshev(c, recovering) * STRANDED_RECOVERY_PULL);
+        s -= subScore(parts, 'freeStrandedUnit',
+          chebyshev(c, recovering) * tune(side, 'STRANDED_RECOVERY_PULL', STRANDED_RECOVERY_PULL));
       } else if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
         s -= subScore(parts, 'collectStrandedGun',
           chebyshev(c, strandedGun) * GUN_RECOVERY_PULL);
@@ -1989,6 +1996,10 @@ export function aiDecideAndExecuteMove(u){
            leaves the unit exactly as frozen as before. Watched Murat do it,
            walking to within two of a stranded Grenadier and settling there for
            two hundred turns. While recovering the band is 0 to 1. */
+        /* The adjacency band is what makes recovery WORK (the chain is built
+           from adjacency, so stopping two squares short frees nobody), so it is
+           not tunable. The PULL is, because that is what decides how much else
+           the Brigadier abandons on the way. */
         const trailMin = recovering ? 0 : BRIGADIER_TRAIL_MIN;
         const trailMax = recovering ? 1 : BRIGADIER_TRAIL_MAX;
         const off = gap < trailMin ? (trailMin - gap)

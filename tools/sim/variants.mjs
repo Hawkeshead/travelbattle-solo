@@ -77,6 +77,22 @@ export const VARIANTS = {
     GUN_PENALTY_TOTAL_CAP:  2.00,
     GUN_HOLDS_FIRE_BONUS:   3.00,
   },
+
+  /* Aggression, with the Brigadier's rescue errand toned down. 0.9 was set to
+     match BRIGADIER_TRAIL_WEIGHT because recovery REPLACES trailing; 0.45 keeps
+     it decisive when nothing else is urgent and lets a real fight outbid it.
+     The risk is measured, not assumed: too low and permanently frozen units come
+     back, and with them the unendable matches. Watch the stall rate, not the
+     win rate. */
+  aggression_calm_rescue: {
+    THREAT_SCORE_MAX:       1.80,
+    TERRAIN_SEEK_MAX:       0.84,
+    MAIN_ATTACK_PULL_MUL:   1.26,
+    MAIN_ATTACK_RATIO:      1.00,
+    GUN_PENALTY_TOTAL_CAP:  2.00,
+    GUN_HOLDS_FIRE_BONUS:   3.00,
+    STRANDED_RECOVERY_PULL: 0.45,
+  },
 };
 
 export function resolveVariant(name){
