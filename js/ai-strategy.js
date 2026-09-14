@@ -2345,21 +2345,19 @@ export function aiDecideAndExecuteMove(u){
          weigh almost nothing else on the way. Same destination, same behaviour,
          less frantic about the route. */
       const tempoMul = mission === 'PRESERVE' ? 1 : (TEMPO_PULL[tempoPhase(side)] ?? 1);
-      /* A RECOVERING BRIGADIER HAS NO OTHER MISSION.
+      /* MEASURED AND REVERTED: suppressing missionPull for a recovering
+         Brigadier. The reasoning was sound (there is no version of his mission
+         worth anything while a third of his Brigade cannot move) and the local
+         effect was exactly as intended: Thomas Graham stopped oscillating and
+         advanced on his cut-off unit.
 
-         The recovery pull and the trail anchor were both already pointing him at
-         the cut-off unit and he still would not go, because missionPull is much
-         the largest term on a Brigadier: measured at +3.06 against a 1.8 recovery
-         gain, so the mission simply outbid it. Watched Thomas Graham oscillate
-         between two squares for four hundred turns with two of his three units
-         frozen two squares away.
-
-         Suppressed rather than reduced, because there is no version of his
-         mission worth anything while a third of his Brigade cannot move at all.
-         It comes straight back the turn the chain is restored. */
-      if(!brigadierRecoveryTarget(u)){
-        s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
-      }
+         The aggregate went the other way, hard. Stall rate over forty matches
+         went from 6 in 40 to 14 in 39. A Brigadier with no mission pull stops
+         holding the Brigade together in the ways the mission was quietly doing,
+         so he frees one unit and strands the next. Left as a comment because the
+         idea reads as obviously right and should not be re-derived from scratch
+         in six months. It is not right. */
+      s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
