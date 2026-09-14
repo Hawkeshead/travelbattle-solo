@@ -49,6 +49,27 @@ MUSKET VOLLEY. audio/effects/musket-volley-1.m4a through -4.m4a.
   128k for size (1.5 MB each to 64 KB, no audible loss at four seconds).
   SOURCE AND LICENCE STILL TO BE RECORDED HERE.
 
+UNIT ACKNOWLEDGEMENT, BRITISH. audio/effects/ack-british-1.m4a through -4.m4a.
+  Plays on selecting a British INFANTRY or GUARD unit, replacing the
+  piece-placed click. -1 is Freesound 402020 "Yes Sir (British male)" by
+  theuncertainman — CHECK AND RECORD THE LICENCE AT
+  https://freesound.org/s/402020/ , since Freesound is per-sound and is either
+  CC0 or CC-BY depending on the upload. If it is CC-BY it needs an attribution
+  line in the game, not just in this file. -2 to -4 appear to be pitch and pace
+  variants of the same recording and inherit whatever -1 carries.
+  Re-encoded from WAV to AAC 128k (1.5 MB each to about 22 KB).
+
+UNIT ACKNOWLEDGEMENT, FRENCH. audio/effects/ack-french-1.m4a through -4.m4a.
+  Plays on selecting a French INFANTRY or GUARD unit. -1 is Freesound 575724
+  "Oui (yes, French male)" by iceofdoom — CHECK AND RECORD THE LICENCE AT
+  https://freesound.org/s/575724/ . -2 to -4 appear to be pitch and pace
+  variants of the same recording and inherit whatever -1 carries.
+  Re-encoded from WAV to AAC 128k.
+
+  BOTH Freesound sounds above need their licence confirmed before release. If
+  either is CC-BY rather than CC0 it needs an attribution line visible IN THE
+  GAME, not only in this file.
+
 OUTDATED NOTE BELOW, left for the record: the audio system is switched off — it was
 unplugged in 9ea94c2. Adding a sound file today will not make a sound until
 it's reconnected. See AUDIO_SYSTEM.md for what that takes.
