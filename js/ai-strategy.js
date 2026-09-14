@@ -1,5 +1,5 @@
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
-import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
@@ -1193,11 +1193,48 @@ export const TEMPO_HOLD_FROM = 6;     // no pause before this: the armies are no
 export const TEMPO_COMMIT_TURN = 14;  // hard ceiling on the pause
 export const TEMPO_PULL = { BUILD: 1.0, HOLD: 0.4, COMMIT: 1.7 };
 
+/* F1: IN-MATCH ADAPTATION — posture from how the battle is actually going.
+
+   Everything that decides tempo today is a clock: BUILD until turn 6, HOLD until
+   contact or turn 14, COMMIT after. It never once asks whether the army is
+   winning. So an AI three units down presses on the same schedule as one three
+   units up, which is the wrong way round on both counts.
+
+   AHEAD ON MATERIAL: commit. A lead is a wasting asset in a game decided by
+   Brigade breaks, and the side that is ahead wants the match resolved while the
+   advantage exists.
+
+   BEHIND ON MATERIAL: hold. Not retreat, and not PRESERVE, which is a separate
+   and much later judgement about a specific Brigade. Simply refuse the even
+   fight that a losing side cannot afford, and wait for a better one.
+
+   Measured from evaluateState, which is already the AI's own view of the
+   position, rather than a unit count: it weighs a Guard against a battery
+   properly and counts terrain and command chains, which a headcount does not.
+
+   NOT AN ESCALATION. A previous attempt raised mission pull as a match went
+   stale and measured 15% stalls to 27%, because forcing both sides forward hands
+   the match to whoever is not first into contact. This changes WHICH side
+   presses rather than pressing both, so it cannot produce that failure: the two
+   sides cannot both be ahead.
+
+   Off unless ADAPT_TO_MATERIAL is set. */
+function materialPosture(side){
+  if(!flag(side, 'ADAPT_TO_MATERIAL')) return null;
+  const margin = evaluateState(side);
+  const threshold = tune(side, 'ADAPT_MARGIN', 2.0);
+  if(margin >= threshold) return 'COMMIT';
+  if(margin <= -threshold) return 'HOLD';
+  return null;   // level enough that the clock knows better
+}
+
 function tempoPhase(side){
   const cache = state._aiTempoCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.phase;
   let phase;
-  if(state.turnNumber >= TEMPO_COMMIT_TURN) phase = 'COMMIT';
+  const posture = materialPosture(side);
+  if(posture) phase = posture;
+  else if(state.turnNumber >= TEMPO_COMMIT_TURN) phase = 'COMMIT';
   else if(state._aiPlan[side] && state._aiPlan[side].type==='FINISHING_BLOW') phase = 'COMMIT';
   else if(state.turnNumber < TEMPO_HOLD_FROM) phase = 'BUILD';
   else if(contactPoint(side)) phase = 'COMMIT';   // they came to us; the pause is over
@@ -1722,7 +1759,14 @@ export function aiDecideAndExecuteMove(u){
      still rallies, but nothing pays it to look for a fight, because the whole
      value of the Brigade now lies in continuing to exist. */
   const preserving = mission === 'PRESERVE';
-  const boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
+  /* C5: the bogged gun stays exactly as it was. The raid flag widens the search
+     to any UNESCORTED battery, which is the common case the bogged test cannot
+     see, and gives it its own weight so the two can be told apart in the export. */
+  let boggedTarget = (state.aiDifficulty==='hard' && t.isCavalry) ? findBoggedEnemyGun(side) : null;
+  let raidTarget = null;
+  if(!boggedTarget && t.isCavalry && flag(side, 'GUN_RAID')){
+    raidTarget = findRaidableEnemyGun(side, u);
+  }
   const wasConnected = connectedBefore; // captured before any candidate is tried, at the unit's real starting position
   const currentlyThreatened = threatPenalty(u, side) >= 1.2; // at the unit's real starting position, before any candidate is tried
   const selfPreservation = seekTactics && isIsolatedAndThreatened(u, side); // also at the real starting position
@@ -2441,6 +2485,8 @@ export function aiDecideAndExecuteMove(u){
       screensGunBonus(u, side, c) * tune(side, 'SCREENS_GUN_WEIGHT', 1));
     // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
     if(boggedTarget) s -= subScore(parts, 'boggedGun', chebyshev(c, boggedTarget) * 0.15);
+    else if(raidTarget) s -= subScore(parts, 'gunRaid',
+      chebyshev(c, raidTarget) * tune(side, 'GUN_RAID_PULL', 0.15));
     // Operations: pull toward whatever the active scenario's objective actually rewards.
     if(state.scenario) s += addScore(parts, 'scenario', scenarioMoveBonus(u, side, c));
     // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,

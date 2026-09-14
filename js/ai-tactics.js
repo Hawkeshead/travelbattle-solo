@@ -316,6 +316,30 @@ export function findBoggedEnemyGun(side){
     terrainAt(o.x,o.y).plough && brigadeCavalryCount(o)===0);
 }
 
+/* C5: AN EXPOSED BATTERY IS AN OPPORTUNITY, not just a bogged one.
+
+   findBoggedEnemyGun only answers for a gun stuck in plough with no cavalry in
+   its Brigade. That is one way a battery becomes takeable and not the common
+   one: the usual way is that its escort has been drawn off or killed, which the
+   old test cannot see at all.
+
+   A gun is raidable when nothing of its own side that can fight in melee is
+   adjacent to it. Artillery cannot defend itself in contact, so an unescorted
+   battery is a free kill for anything that can reach it, and it is worth more
+   than its material value because losing it removes the enemy's reach.
+
+   Returns the NEAREST such gun to the raider, so two cavalry do not set off for
+   opposite ends of the board after one gun each. */
+export function findRaidableEnemyGun(side, from){
+  const enemy = otherSide(side);
+  const guns = state.units.filter(o => !o.removed && o.side===enemy && UNIT_TYPES[o.type].isArtillery)
+    .filter(o => !state.units.some(f => !f.removed && f.side===enemy && f.id!==o.id &&
+      !UNIT_TYPES[f.type].isArtillery && f.type!=='BRIGADIER' && chebyshev(f,o) <= 1));
+  if(!guns.length) return null;
+  if(!from) return guns[0];
+  return guns.sort((a,b) => chebyshev(from,a) - chebyshev(from,b))[0];
+}
+
 // Operations: how much a candidate position or fight target actually serves the
 // active scenario's objective — generalizes brigadeBreakBonus to whatever the
 // real win condition is, rather than always assuming "break 2 of 3 Brigades."

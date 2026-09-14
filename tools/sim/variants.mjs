@@ -43,6 +43,13 @@ export const VARIANTS = {
     VOLLEY_SETUP:           true,
     VOLLEY_FLOOR:           1.0,
   },
+
+  /* Part E items, each on its own so they can be tested one at a time as the
+     brief intended rather than landing as one confounded block. */
+  gun_raid:  { GUN_RAID: true, GUN_RAID_PULL: 0.15 },
+  gun_raid_hard: { GUN_RAID: true, GUN_RAID_PULL: 0.35 },
+  adaptive:  { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 2.0 },
+  adaptive_tight: { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 1.0 },
 };
 
 export function resolveVariant(name){
