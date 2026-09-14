@@ -56,6 +56,56 @@ cleanly with the command to reproduce each.
 Note `turns` counts SIDE ACTIVATIONS, not full rounds. Halve it to compare with
 a played match.
 
+## First real run: 60 matches
+
+    51 completed, 9 never resolved (15%)
+    Britain 29, France 22 of the 51 decided (56.9% / 43.1%)
+    turns: shortest 27, median 72, longest 252   (SIDE ACTIVATIONS, halve for rounds)
+    mean survivors: Britain 6, France 5.6
+
+The win split is not evidence of a biased side. 29-22 on 51 matches is well
+inside chance, which is a useful result in itself: with identical scoring on both
+sides, the board, the deployment and the rules come out symmetric.
+
+### The 15% that never end
+
+A standard match has NO TURN LIMIT. Only scenarios do (checkScenarioTurnLimit).
+In a played match that never matters, because the human always commits eventually
+and breaks the symmetry. Two identical cautious AIs do not. All nine ran past
+turn 1500 with both armies still on the board, and they fall into two shapes.
+
+**Frozen standoff, full armies.** Seed 21, turn 1807, no brigade broken on either
+side, fifteen units alive. The entire log tail is two British Brigadiers
+oscillating between (10,5), (10,6) and (10,7) while every other unit on both
+sides does nothing at all. France logs "turn complete" with no action for
+hundreds of turns.
+
+**Endgame attrition stall.** Seeds 8, 54, 55, 57. Both sides down to four or five
+units, one brigade broken each, and what is left is Brigadiers and guns. Seed 55
+is the clearest: France has two Artillery and two Brigadiers and NOTHING that can
+attack, Britain has a Guard eleven squares away, and neither moves for two
+thousand turns. Britain only has to walk over and take one gun to break the
+second brigade and win.
+
+Brigadiers are 42 of the 108 units alive across the nine stalls, about 39%,
+against roughly 18% of a full army. They escort rather than engage by design, so
+a brigade reduced to its Brigadier plus a gun has nothing that will start a
+fight and nothing the enemy is drawn to attack.
+
+Both shapes say the same thing: there is no pressure that rises with time. Left
+to itself the scoring has a stable do-nothing equilibrium. Not a bug in any one
+term, and not fixable by nudging weights, because the two sides are running the
+SAME weights.
+
+### Also worth noting
+
+The oscillating Brigadier in seed 21 is a smaller defect in its own right: moving
+to (10,5) apparently makes (10,7) score best and vice versa, so the escort
+position has no stable optimum and the unit shuffles forever.
+
+Which side deploys first is not currently recorded per match. Worth adding before
+drawing any conclusion about first-move advantage.
+
 ## What running it found
 
 Three places stop the game and ask a question only a person can answer: the
