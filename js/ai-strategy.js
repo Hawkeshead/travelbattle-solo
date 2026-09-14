@@ -1421,6 +1421,32 @@ export const GUN_RECOVERY_RANGE = 6;
 // Below APPROACH_PULL (0.16) on purpose: an errand, not a mission.
 export const GUN_RECOVERY_PULL = 0.13;
 
+/* RECOVERING A UNIT THAT IS NOT A GUN IS NOT AN ERRAND.
+
+   A gun off the cohesion chain may still be doing its job, which is why
+   gunIsStranded exempts an established battery and why the pull that collects
+   one is deliberately weak.
+
+   Nothing else has that defence. movableUnitsForSide gates a unit on where it
+   IS, and moving is the only way back onto the chain, so an Infantry or Cavalry
+   unit that loses its link is frozen for the rest of the match: it cannot move,
+   cannot rejoin, and cannot be freed by anything it does itself. It still counts
+   as a live unit, so its Brigade never breaks. A hundred-match run found matches
+   running past turn 2000 for exactly this reason, with the board static except a
+   Brigadier shuffling between two squares.
+
+   So for anything but a gun the recovery is the mission, not an errand:
+   ANYWHERE on the board, and a pull above APPROACH_PULL so it outweighs the
+   general advance. Nothing the Brigade can do is worth more than getting a
+   frozen unit moving again, and nothing else will. */
+export const STRANDED_RECOVERY_RANGE = 99;   // the whole board — distance is not the test
+/* Deliberately BRIGADIER_TRAIL_WEIGHT, not a number picked for this. Recovery
+   REPLACES trailing the line rather than competing with it (see the Brigadier
+   block below), so it wants the same magnitude as the term it stands in for.
+   Tried at 0.30 first and it lost: Uxbridge sat still with three of his own
+   units frozen because closing one square gained 0.30 and cost 0.41 of trail. */
+export const STRANDED_RECOVERY_PULL = 0.9;
+
 
 /* A gun the Brigadier should come and collect: cut off, nothing to shoot, and
    no ground worth denying. */
@@ -1433,6 +1459,42 @@ export function gunIsStranded(gun){
      below two sustained targets it stops being established, and the Brigadier
      comes for it. */
   return !gunIsEstablished(gun);
+}
+
+/* THE ONE UNIT A BRIGADIER SHOULD DROP EVERYTHING FOR, or null.
+
+   Factored out because three separate places need the same answer and they must
+   agree: the pull that draws him toward it, the trail anchor it replaces, and
+   the mission pull it overrides. Two of those live in a different function from
+   the third, and an earlier version computed it twice with slightly different
+   rules, which produced a Brigadier who was pulled toward a stranded unit by one
+   term and held in place by another.
+
+   NON-GUNS FIRST, then nearest. A gun off the chain may be doing its job and
+   gunIsStranded already exempts an established battery. Anything else off the
+   chain is frozen for the rest of the match, so it always outranks a gun. */
+export function brigadierRecoveryTarget(brig){
+  if(brig.type!=='BRIGADIER') return null;
+  const mates = state.units.filter(o => !o.removed && o.side===brig.side &&
+    o.brigadeId===brig.brigadeId && o.id!==brig.id && unitIsStranded(o));
+  if(mates.length===0) return null;
+  mates.sort((a,b) => {
+    const ga = UNIT_TYPES[a.type].isArtillery ? 1 : 0;
+    const gb = UNIT_TYPES[b.type].isArtillery ? 1 : 0;
+    return ga !== gb ? ga - gb : chebyshev(brig,a) - chebyshev(brig,b);
+  });
+  const best = mates[0];
+  if(UNIT_TYPES[best.type].isArtillery) return null;   // a gun stays the errand it always was
+  return best;
+}
+
+/* Cut off from the Brigadier's chain, and therefore unable to move at all until
+   he comes. Artillery keeps its exemption: an established battery is where it
+   should be. Everything else is simply frozen. */
+export function unitIsStranded(u){
+  if(UNIT_TYPES[u.type].isArtillery) return gunIsStranded(u);
+  if(u.type==='BRIGADIER') return false;   // the chain starts from him; he is connected by definition
+  return !movableUnitsForSide(u.side).has(u.id);
 }
 
 function cavalrySchwerpunkt(side){
@@ -1740,9 +1802,19 @@ export function aiDecideAndExecuteMove(u){
 
          A gun with a field of fire is NOT collected: it is where it should be,
          and gunIsEstablished already keeps it there. */
+      /* The gun errand, unchanged: weak, range-limited, and only when there is
+         no frozen unit to go to instead (brigadierRecoveryTarget returns null
+         when the best candidate is a gun). */
       const strandedGun = state.units.find(o => !o.removed && o.side===side &&
         o.brigadeId===u.brigadeId && gunIsStranded(o));
-      if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
+      const recovering = brigadierRecoveryTarget(u);
+      /* ONE TERM, NOT TWO, and it keeps the old name so a term-spread comparison
+         against earlier match exports still lines up. What changed is which
+         units it fires for and how hard it pulls, both readable from the value. */
+      if(recovering){
+        s -= subScore(parts, 'collectStrandedGun',
+          chebyshev(c, recovering) * STRANDED_RECOVERY_PULL);
+      } else if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
         s -= subScore(parts, 'collectStrandedGun',
           chebyshev(c, strandedGun) * GUN_RECOVERY_PULL);
       }
@@ -1761,11 +1833,34 @@ export function aiDecideAndExecuteMove(u){
            Brigadiers wander onto independent axes while Wellington, Graham and
            Uxbridge sit where they are needed. Now he is held a short distance
            behind whichever of his units is furthest forward. */
-        const forwardMost = brigadeMates.reduce((best,o)=>
+        /* RECOVERY REPLACES TRAILING, it does not compete with it.
+
+           Trailing the forward-most unit is the Brigadier's job only while the
+           line can move. With a Brigade-mate cut off the chain, that unit is
+           frozen for the rest of the match unless he goes to it, and trailing is
+           the exact term that keeps him from going: it holds him one to two
+           squares behind the advance, which is usually the opposite direction.
+           Observed directly, with Uxbridge stationary while three of his own
+           units sat immobile five and six squares away.
+
+           So while he is recovering, the unit he trails IS the cut-off one. Same
+           weight, same band, same machinery; only the anchor changes. A gun does
+           NOT do this: an established battery is where it should be, and
+           collecting it stays the errand it always was. */
+        const anchor = recovering || brigadeMates.reduce((best,o)=>
           nearestEnemyDist(o, side) < nearestEnemyDist(best, side) ? o : best, brigadeMates[0]);
-        const gap = chebyshev(c, forwardMost);
-        const off = gap < BRIGADIER_TRAIL_MIN ? (BRIGADIER_TRAIL_MIN - gap)
-                  : gap > BRIGADIER_TRAIL_MAX ? (gap - BRIGADIER_TRAIL_MAX) : 0;
+        const gap = chebyshev(c, anchor);
+        /* RECOVERY NEEDS ADJACENCY, NOT PROXIMITY. The normal band holds him one
+           to two squares behind the line, which is right for a Brigadier
+           following an advance and useless for freeing a cut-off unit: the
+           cohesion chain is built from ADJACENCY, so stopping at two squares
+           leaves the unit exactly as frozen as before. Watched Murat do it,
+           walking to within two of a stranded Grenadier and settling there for
+           two hundred turns. While recovering the band is 0 to 1. */
+        const trailMin = recovering ? 0 : BRIGADIER_TRAIL_MIN;
+        const trailMax = recovering ? 1 : BRIGADIER_TRAIL_MAX;
+        const off = gap < trailMin ? (trailMin - gap)
+                  : gap > trailMax ? (gap - trailMax) : 0;
         s -= subScore(parts, 'brigadierTrail', off * BRIGADIER_TRAIL_WEIGHT);
 
         // Never in contact. He cannot be attacked, but standing in the enemy's
@@ -2250,7 +2345,21 @@ export function aiDecideAndExecuteMove(u){
          weigh almost nothing else on the way. Same destination, same behaviour,
          less frantic about the route. */
       const tempoMul = mission === 'PRESERVE' ? 1 : (TEMPO_PULL[tempoPhase(side)] ?? 1);
-      s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
+      /* A RECOVERING BRIGADIER HAS NO OTHER MISSION.
+
+         The recovery pull and the trail anchor were both already pointing him at
+         the cut-off unit and he still would not go, because missionPull is much
+         the largest term on a Brigadier: measured at +3.06 against a 1.8 recovery
+         gain, so the mission simply outbid it. Watched Thomas Graham oscillate
+         between two squares for four hundred turns with two of his three units
+         frozen two squares away.
+
+         Suppressed rather than reduced, because there is no version of his
+         mission worth anything while a third of his Brigade cannot move at all.
+         It comes straight back the turn the chain is restored. */
+      if(!brigadierRecoveryTarget(u)){
+        s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
+      }
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit

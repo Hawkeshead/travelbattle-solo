@@ -35,13 +35,13 @@ rules.seedRng(Number(process.argv[2]||6));
 menus.beginBoardSetup();
 for(let k=0;k<4;k++){
   await new Promise(r=>realSetTimeout(r, 4000));
-  const f = state.units.filter(u=>!u.removed).map(u=>`${(u.historicalName||u.type).slice(0,14)}@${u.x},${u.y}${u.formation==='line'?'':'/'+u.formation}${u.rallying?'/RALLY':''}${u.turnOnly?'/TURN':''}`);
+  const f = state.units.filter(u=>!u.removed).map(u=>`${(u.historicalName||u.type).slice(0,14)}@${u.x},${u.y}${u.formation==='line'?'':'/'+u.formation}[b${u.brigadeId}]${u.rallying?'/RALLY':''}${u.turnOnly?'/TURN':''}`);
   console.log(`t=${state.turnNumber} ` + f.join(' '));
   if(k===3){
     for(const u of state.units.filter(x=>!x.removed)){
       let lm='err';
       try { lm = (er.legalMoves(u)||[]).length; } catch(e){ lm='throw:'+e.message.slice(0,40); }
-      console.log(`   ${(u.historicalName||u.type).padEnd(30)} ${u.side} @${u.x},${u.y} ${u.formation} rally=${!!u.rallying} turnOnly=${!!u.turnOnly} legalMoves=${lm}`);
+      console.log(`   ${(u.historicalName||u.type).padEnd(30)} ${u.side} b${u.brigadeId} @${u.x},${u.y} connected=${er.movableUnitsForSide(u.side).has(u.id)} legalMoves=${lm}`);
     }
   }
 }
@@ -62,7 +62,8 @@ for(const side of ['red','blue']){
     const dec = m.decision||{};
     const alts = dec.alternatives||[];
     console.log(`    ${String(m.unit).padEnd(32)} ${String(m.mission).padEnd(12)} ${String(m.action).padEnd(8)} score ${m.score}  alts=${alts.length} considered=${dec.considered===undefined?'-':dec.considered}`);
-    for(const a of alts.slice(0,3)) console.log(`        alt (${a.x},${a.y}) total ${Number(a.total).toFixed(2)}`);
+    if(dec.chosen) console.log('        chosen parts:', JSON.stringify(dec.chosen.parts));
+    for(const a of alts.slice(0,2)) console.log(`        alt (${a.x},${a.y}) total ${Number(a.total).toFixed(2)} ${JSON.stringify(a.parts||{})}`);
   }
 }
 process.exit(0);

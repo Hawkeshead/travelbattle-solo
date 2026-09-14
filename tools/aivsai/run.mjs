@@ -182,7 +182,7 @@ export function summarise(results) {
                  (r.stall ? `  survivors ${r.survivors.red}v${r.survivors.blue}` +
                             `  closest units ${r.stall.minGap} apart, ${r.stall.contacts} in contact` : ''));
     }
-    lines.push('  (the seed does not fix the map, so these do not replay — use --json for the board snapshot)');
+    lines.push('  (seeds reproduce exactly — stall-probe.mjs takes the same seed)');
   }
   return lines.join('\n');
 }
