@@ -66,7 +66,15 @@ UNIT ACKNOWLEDGEMENT, FRENCH. audio/effects/ack-french-1.m4a through -4.m4a.
   variants of the same recording and inherit whatever -1 carries.
   Re-encoded from WAV to AAC 128k.
 
-  BOTH Freesound sounds above need their licence confirmed before release. If
+RALLY CALL, BRITISH. audio/effects/rally-british-1.m4a.
+  Plays when a unit on a side the PLAYER is commanding rallies successfully.
+  Freesound 397302 "I need to fall back at once" by theuncertainman — CHECK AND
+  RECORD THE LICENCE AT https://freesound.org/s/397302/ . Same uploader as the
+  British acknowledgement, so confirming one likely settles both.
+  Re-encoded from WAV to AAC 128k. French take to come; the blue list in
+  engine-rules RALLY_CALL is empty until then and stays silent.
+
+  ALL THREE Freesound sounds above need their licence confirmed before release. If
   either is CC-BY rather than CC0 it needs an attribution line visible IN THE
   GAME, not only in this file.
 

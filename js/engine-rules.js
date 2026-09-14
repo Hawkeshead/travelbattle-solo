@@ -1,4 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
+import { AudioManager } from './audio-manager.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
@@ -1173,6 +1174,41 @@ export function pushBack(loser, winner){
   log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
 }
 
+/* =========================================================
+   THE RALLY CALL
+
+   A line from the unit itself when it pulls itself together and falls back.
+
+   ONLY FOR A SIDE THE PLAYER IS ACTUALLY COMMANDING. Against the AI that is the
+   side the AI is not on; in hotseat both sides are the player's; watching two
+   AIs play, neither is, and the board stays quiet. A voice answering for an army
+   nobody is commanding is narration, not feedback, and the rest of the audio in
+   this game is feedback.
+
+   KEYED BY SIDE, like FOOT_ACK, because the line is spoken English. A side with
+   no take is silent rather than borrowing the other's, which would put a British
+   voice in a French battalion's mouth. Drop a French take into blue and it
+   works with no other change.
+========================================================= */
+export const RALLY_CALL = {
+  red: ['audio/effects/rally-british-1.m4a'],
+  blue: [],   // French take to come
+};
+
+function playerCommands(side){
+  if(state.spectate) return false;                 // nobody is commanding either army
+  if(state.mode === 'ai') return side !== state.aiSide;
+  return true;                                     // hotseat: both sides are played
+}
+
+function playRallyCall(unit){
+  if(!playerCommands(unit.side)) return;
+  const takes = RALLY_CALL[unit.side];
+  if(!takes || !takes.length) return;
+  AudioManager.playEffect(`rally-call-${unit.side}`, takes, 'ui',
+    { pan: AudioManager.panForBoardX(unit.x) });
+}
+
 export function retreatAndRally(loser, onComplete){
   onComplete = onComplete || function(){};
   const brig = state.units.find(u=>!u.removed && u.side===loser.side && u.type==='BRIGADIER' && u.brigadeId===loser.brigadeId);
@@ -1229,6 +1265,12 @@ export function retreatAndRally(loser, onComplete){
     showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
         logNarration('rally_success');
+        /* Played on the SUCCESS branch, before the outcome splits, so it covers
+           both the ordinary fall-back and the unit pinned against the board edge.
+           The line names falling back and the pinned unit cannot, which is a
+           small mismatch in a rare case; the alternative is silence on a rally
+           that did succeed, which reads worse. */
+        playRallyCall(loser);
         if(nowhereToGo){
           log(`${unitLabel(loser)} is driven against the board edge with nowhere to go — ` +
               `it holds the square, turned about, and RALLIES (rolled ${r}).`, 'combat');

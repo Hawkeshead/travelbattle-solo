@@ -6,6 +6,7 @@ import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { FOOT_ACK, MUSKET_VOLLEY_TAKES } from './ui-battle.js';
+import { RALLY_CALL } from './engine-rules.js';
 
 /* =========================================================
    BOOT
@@ -65,6 +66,7 @@ export function start(){
          nothing, so this is already correct for the French takes arriving later
          without anyone having to remember to come back here. */
       ...Object.values(FOOT_ACK).flat(),
+      ...Object.values(RALLY_CALL).flat(),
     ]);
   }, { once:true });
 
