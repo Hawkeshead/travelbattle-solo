@@ -204,3 +204,42 @@ time: the intro takes ten and a half seconds and the sample ran for eight.
 - **The turn loop lives in `ui-battle.js`**, not the engine, which is why a DOM
   shim is needed at all rather than the harness simply importing the rules.
 - **`FAST_DICE_MODE` already existed** in `dice.js`, documented as harness-only.
+
+## Escalating tempo: built, measured, discarded
+
+The idea was the obvious one and it does not work. Recorded here so it is not
+rebuilt.
+
+TEMPO_PULL.COMMIT is 1.7 and is reached at turn 14, after which it never changes.
+Every stall examined had been in COMMIT since turn 14 and static for a thousand
+turns after, so the plateau looked like the cause. The build added pressure that
+rose with TURNS SINCE THE LAST CASUALTY (not raw turn number, which cannot tell a
+grinding match from a staring contest), stamped in removeUnit, applied as a
+rising multiplier on missionPull, capped at 3.6 and decaying the moment anything
+died.
+
+    stalls       8 of 30 (27%)   against a 6 of 40 (15%) baseline
+    side split   France 13, Britain 5 of the 18 decided
+
+Worse on both counts, so it is out. Two reasons it fails, and the second is the
+useful one:
+
+**It scales the wrong term.** missionPull is large on a Brigadier and small or
+absent on the units that are actually frozen. Multiplying it presses the men who
+were already moving and does nothing for the ones that were not. In a 1788-turn
+stall the multiplier sits at its 3.6 ceiling for essentially the whole match and
+the board still does not change.
+
+**Forcing both sides forward hands the match to whoever moves second.** The side
+to act first closes into contact and takes the first blow. The escalation is
+symmetric, so this should have been predictable and was not: it is the clearest
+explanation for a 13-5 split from a scoring layer that is identical on both sides.
+
+### The lever that looks right instead
+
+Do not raise the pull to advance. Lower the avoidance. The blocking terms in
+every stalled decision dump are `killPull`, `vulnerablePull` and `threat`, and
+they are what make a level fight look not worth having. Decaying THOSE as a match
+goes stale attacks "nobody will risk anything" directly, and it does not push a
+unit onto ground it has no reason to want, which is what the mission multiplier
+was doing.
