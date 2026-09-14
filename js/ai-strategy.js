@@ -161,6 +161,22 @@ export const CONVERGE_PULL = 0.10;
    flag() is the same idea for behaviour rather than magnitude: a variant that
    adds a rule needs to add it for one side only. Defaults false, so an unset
    flag is the current game. */
+/* B2: A CAP ACROSS BOTH gunPositioning GROUPS, not within each.
+
+   GUN_PENALTY_GROUP_CAP is 1.75 and there are two separately capped groups, so
+   the term reaches 3.50 in total. That is the figure reported as it having
+   "grown to the size of the five terms it replaced", and lowering the group cap
+   would halve each group rather than bound the sum. This bounds the sum.
+
+   Defaults to Infinity, so with no override the two groups behave exactly as
+   before and nothing in the played game moves. */
+function cappedGunPenalty(parts, side, v){
+  const cap = tune(side, 'GUN_PENALTY_TOTAL_CAP', Infinity);
+  if(cap === Infinity) return v;
+  const already = Math.abs(parts.gunPositioning || 0);
+  return Math.max(0, Math.min(v, cap - already));
+}
+
 export function tune(side, name, fallback){
   const c = state.aiConfig && state.aiConfig[side];
   return (c && c[name] !== undefined) ? c[name] : fallback;
@@ -1792,7 +1808,7 @@ export function aiDecideAndExecuteMove(u){
        battery could never move to a better position that was off the chain. */
       // Reported as gunPositioning so the export shows the two groups rather than a
       // third name for the same concern: a gun with no field of fire is badly placed.
-      else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunPositioning', Math.min(2.4, GUN_PENALTY_GROUP_CAP));
+      else if(!vantageScore(u, c.x, c.y)) s -= subScore(parts, 'gunPositioning', cappedGunPenalty(parts, side, Math.min(2.4, GUN_PENALTY_GROUP_CAP)));
     }
     if(t.isArtillery && !connNow.has(u.id) && vantageScore(u, c.x, c.y) > 0){
       /* Range-scaled for the same reason as gunGoodGround: this exists to let a
@@ -2000,7 +2016,7 @@ export function aiDecideAndExecuteMove(u){
 
         // Capped as groups, so no combination of the rules above can veto a move.
         if(exposure > 0)    s -= subScore(parts, 'gunExposure',    Math.min(exposure, GUN_PENALTY_GROUP_CAP));
-        if(positioning > 0) s -= subScore(parts, 'gunPositioning', Math.min(positioning, GUN_PENALTY_GROUP_CAP));
+        if(positioning > 0) s -= subScore(parts, 'gunPositioning', cappedGunPenalty(parts, side, Math.min(positioning, GUN_PENALTY_GROUP_CAP)));
 
         /* SEEKING A VANTAGE POINT. The old logic only rewarded STAYING somewhere
            good, never GOING somewhere good, so where a battery finished up was an
@@ -2093,7 +2109,8 @@ export function aiDecideAndExecuteMove(u){
                  not be propped up by a minimum. */
               for(const t2 of targets) best = Math.max(best, hitChance(chebyshev(u, t2)));
               s += addScore(parts, 'gunHasShot',
-                (GUN_HOLDS_FIRE_BONUS + Math.min(shots, 3) * 0.2) * best);
+                (tune(side, 'GUN_HOLDS_FIRE_BONUS', GUN_HOLDS_FIRE_BONUS) +
+                 Math.min(shots, 3) * 0.2) * best);
             }
           }
         }
@@ -2181,6 +2198,31 @@ export function aiDecideAndExecuteMove(u){
           if(massed >= 1) s += addScore(parts, 'cavalryMass', Math.min(2, massed) * 0.6);
         }
         else s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
+        /* B5: THE TWO HEAVIES ARE A PAIR, not two cavalry.
+
+           cavalryConcentration and cavalryMass treat all four horse alike, which
+           is right for arriving together and wrong for the thing the dataset
+           actually shows: every AI success had the heavy regiments operating
+           together, every collapse had them split. That is a bond between two
+           specific units, not a general proximity reward, so it is its own term
+           and reads as its own line in the export.
+
+           Defaults to 0, so it does not exist unless a variant turns it on.
+
+           PLACED AFTER the if(point)/else chain, not between them. The first
+           attempt sat between the closing brace and the else, which is valid
+           JavaScript and silently rebound that else to THIS if: every light
+           cavalry started collecting vulnerablePull on top of the rally-point
+           logic, and seeds 1 to 3 went from resolving to stalling. node --check
+           and eslint both passed it. Only the simulator caught it. */
+        if(UNIT_TYPES[u.type].key === 'HEAVY_CAV'){
+          const pairBonus = tune(side, 'HEAVY_PAIR_BONUS', 0);
+          if(pairBonus){
+            const partner = state.units.find(o => !o.removed && o.side===side && o.id!==u.id &&
+              UNIT_TYPES[o.type].key === 'HEAVY_CAV');
+            if(partner && chebyshev(c, partner) <= 2) s += addScore(parts, 'heavyPair', pairBonus);
+          }
+        }
       } else {
         s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
       }
@@ -2370,7 +2412,8 @@ export function aiDecideAndExecuteMove(u){
       }
     }
     // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
-    if(seekTactics) s += addScore(parts, 'screensGun', screensGunBonus(u, side, c));
+    if(seekTactics) s += addScore(parts, 'screensGun',
+      screensGunBonus(u, side, c) * tune(side, 'SCREENS_GUN_WEIGHT', 1));
     // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
     if(boggedTarget) s -= subScore(parts, 'boggedGun', chebyshev(c, boggedTarget) * 0.15);
     // Operations: pull toward whatever the active scenario's objective actually rewards.
@@ -2668,7 +2711,7 @@ export function aiFireDecision(gun, onComplete){
        Weighted by the chance of hitting, like the other terms, so a stacked pair
        at extreme range does not outrank a certain hit on a lone gun. */
     if(state.aiDifficulty!=='easy' && stackPartner(t)){
-      score += pHit * COLUMN_TARGET_BONUS;
+      score += pHit * tune(gun.side, 'COLUMN_TARGET_BONUS', COLUMN_TARGET_BONUS);
     }
     // Manoeuvre #11, Grand Battery (Hard): concentrate onto a target another
     // friendly gun already hit this phase, while still within effective range.

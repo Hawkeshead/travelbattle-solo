@@ -18,7 +18,7 @@ export const VARIANTS = {
   b_weights: {
     GUN_HOLDS_FIRE_BONUS:   3.00,   // B1: was reaching 1.55-2.07, sat at 3.10 when guns performed
     GUN_PENALTY_TOTAL_CAP:  2.00,   // B2: two groups at 1.75 each currently sum to 3.50
-    SCREENS_GUN_WEIGHT:     1.50,   // B3: was 0.50, the weakest gun term, escorts do not stay
+    SCREENS_GUN_WEIGHT:     3.00,   // B3: a MULTIPLIER on a 0.50 bonus, so the term reads +1.50
     COLUMN_BREAK_WEIGHT:    8,      // B4: was 4, at which a stacked pair one tile further is never chosen
     HEAVY_PAIR_BONUS:       2.00,   // B5: new, two heavy regiments within two tiles
   },
