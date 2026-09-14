@@ -5,7 +5,7 @@ import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
-import { MUSKET_VOLLEY_TAKES } from './ui-battle.js';
+import { FOOT_ACK, MUSKET_VOLLEY_TAKES } from './ui-battle.js';
 
 /* =========================================================
    BOOT
@@ -61,6 +61,10 @@ export function start(){
          fetched on first use. Imported rather than listed again, so the preload
          set cannot drift from what actually plays. */
       ...MUSKET_VOLLEY_TAKES,
+      /* Both sides' acknowledgements, flattened. An empty side contributes
+         nothing, so this is already correct for the French takes arriving later
+         without anyone having to remember to come back here. */
+      ...Object.values(FOOT_ACK).flat(),
     ]);
   }, { once:true });
 

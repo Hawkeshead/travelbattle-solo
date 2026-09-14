@@ -14,6 +14,41 @@ import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './u
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
 
+/* ACKNOWLEDGEMENTS ON SELECT, one per side.
+
+   Foot infantry and Guards answer when picked, rather than making the
+   piece-placed click every other unit makes. Cavalry keep the sabre, artillery
+   keep their own, and a Brigadier still calls for attention: rank and arm are
+   audible before anything is read off the screen.
+
+   A SIDE WITH NO TAKES FALLS BACK TO THE CLICK rather than going silent, which
+   is what makes this safe to land half-built. French takes drop into the blue
+   list and nothing else changes.
+
+   Deliberately keyed by side rather than by nationality: `state` knows red and
+   blue, and a nationality lookup would be a second source of truth for something
+   the board already decides. */
+export const FOOT_ACK = {
+  red: [
+    'audio/effects/ack-british-1.m4a',
+    'audio/effects/ack-british-2.m4a',
+    'audio/effects/ack-british-3.m4a',
+    'audio/effects/ack-british-4.m4a',
+  ],
+  blue: [],   // French takes to come
+};
+
+/* The acknowledgement list for this unit, or null if it should click instead.
+   INFANTRY and GUARD only: these are men on foot being given an order, and a
+   gun crew or a squadron answering the same way would flatten the distinction
+   the other select sounds exist to draw. */
+export function footAckFor(u){
+  const key = UNIT_TYPES[u.type].key;
+  if(key !== 'INFANTRY' && key !== 'GUARD') return null;
+  const list = FOOT_ACK[u.side];
+  return (list && list.length) ? list : null;
+}
+
 /* The four volley takes. Listed once so the set cannot drift between the place
    that plays them and the place that preloads them, which is how a take ends up
    fetched on first use and arriving a second late. */
@@ -780,6 +815,13 @@ export function selectUnit(id){
       AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui');
     } else if(selT.isCavalry){
       AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui');
+    } else if(footAckFor(u)){
+      /* Foot infantry and Guards answer their officer instead of clicking. The
+         KEY IS PER SIDE, not one shared 'foot-ack': pickVariant's no-repeat
+         memory is keyed on it, and a single key would let a British take and a
+         French one count as the same sound, so the two languages could alternate
+         in a way that reads as one voice changing accent. */
+      AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui');
     } else {
       AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
     }
