@@ -21,9 +21,9 @@ import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-a
    keep their own, and a Brigadier still calls for attention: rank and arm are
    audible before anything is read off the screen.
 
-   A SIDE WITH NO TAKES FALLS BACK TO THE CLICK rather than going silent, which
-   is what makes this safe to land half-built. French takes drop into the blue
-   list and nothing else changes.
+   A SIDE WITH NO TAKES FALLS BACK TO THE CLICK rather than going silent. Both
+   sides are filled now, but the fallback stays: it is what made this safe to
+   land half-built, and it is what a third army would land against.
 
    Deliberately keyed by side rather than by nationality: `state` knows red and
    blue, and a nationality lookup would be a second source of truth for something
@@ -35,7 +35,12 @@ export const FOOT_ACK = {
     'audio/effects/ack-british-3.m4a',
     'audio/effects/ack-british-4.m4a',
   ],
-  blue: [],   // French takes to come
+  blue: [
+    'audio/effects/ack-french-1.m4a',
+    'audio/effects/ack-french-2.m4a',
+    'audio/effects/ack-french-3.m4a',
+    'audio/effects/ack-french-4.m4a',
+  ],
 };
 
 /* The acknowledgement list for this unit, or null if it should click instead.
