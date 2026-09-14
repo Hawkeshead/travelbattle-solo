@@ -51,7 +51,20 @@ export const VARIANTS = {
   adaptive:  { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 2.0 },
   adaptive_tight: { ADAPT_TO_MATERIAL: true, ADAPT_MARGIN: 1.0 },
 
-  /* Aggression tuning, six values, no new terms.
+  /* THE PRE-AGGRESSION AI, kept so the change can still be run against what it
+     replaced now that the new values are the defaults. Without this the old
+     behaviour is only reachable by checking out an old commit. */
+  pre_aggression: {
+    THREAT_SCORE_MAX:       2.50,
+    TERRAIN_SEEK_MAX:       Infinity,
+    MAIN_ATTACK_PULL_MUL:   1,
+    MAIN_ATTACK_RATIO:      1.15,
+    GUN_PENALTY_TOTAL_CAP:  Infinity,
+    GUN_HOLDS_FIRE_BONUS:   2.5,
+  },
+
+  /* Aggression tuning, six values, no new terms. NOW THE DEFAULTS, so this is
+     identical to control and kept only as a record of what was changed.
 
      T1 IS NOT HERE. It asked to restore the engage ceiling to +5.00 and the
      ceiling is already +5.00: ENGAGE_CLAMP 5.0 x ENGAGE_WEIGHT 1.0. The -3.00

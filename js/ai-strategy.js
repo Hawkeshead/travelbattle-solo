@@ -170,8 +170,13 @@ export const CONVERGE_PULL = 0.10;
 
    Defaults to Infinity, so with no override the two groups behave exactly as
    before and nothing in the played game moves. */
+/* T6, measured: two gunPositioning groups capped at 1.75 each summed to 3.50,
+   which is the size of the five terms the consolidation replaced. This bounds
+   the SUM rather than halving each group. */
+export const GUN_PENALTY_TOTAL_CAP = 2.00;
+
 function cappedGunPenalty(parts, side, v){
-  const cap = tune(side, 'GUN_PENALTY_TOTAL_CAP', Infinity);
+  const cap = tune(side, 'GUN_PENALTY_TOTAL_CAP', GUN_PENALTY_TOTAL_CAP);
   if(cap === Infinity) return v;
   const already = Math.abs(parts.gunPositioning || 0);
   return Math.max(0, Math.min(v, cap - already));
@@ -214,7 +219,33 @@ export const ENGAGE_CLAMP = 5.0;
    >= 1.0, exposed-artillery detection at >= 1, and others), every one of them
    below 1.5. Capping the functions themselves would leave those thresholds
    intact today and silently entangle them the next time one moves. */
-export const THREAT_SCORE_MAX  = 2.50;   // was effectively 5.00, uncapped
+/* T2, measured: 2.50 let threat decide the most moves in three consecutive
+   matches and win the widest-spread comparison against terms worth a tenth of
+   it. At 1.80 it fell from first place to fourth (11.0% of moves) and the
+   variant carrying it won 58.1% across a swapped run. Still well inside
+   engage's +5.00 ceiling, so the invariant holds. */
+/* T3, measured: the 2.4 defensive-posture multiplier took terrainSeek to 1.20
+   and it was deciding the second-most moves, with units choosing cover over
+   contact. Capped at the 0.84 it sat at during the better matches, it now
+   decides 1.6%. A CEILING rather than a lower multiplier, so ordinary play,
+   where the term is already the right size, is untouched. */
+/* T4, measured: MAIN_ATTACK's pull reached 3.57 and the mission was assigned so
+   rarely that it barely registered. At 1.26x it reaches about 4.50 and
+   missionPull is now the top decider at 25.5%. MAIN_ATTACK only: applied inside
+   that case rather than at the call site, which would scale FLANK, SUPPORT and
+   FIX with it and change nothing about their relative standing. */
+/* T5, measured, and the largest single change here. This gates whether the AI
+   may PLAN an attack at all: below it, everything falls through to FIX_AND_FLANK,
+   which assigns FLANK and FIX and no attack. At 1.15 an army needed a 15% edge
+   before it was allowed to attack, which produced 8 MAIN_ATTACK assignments
+   against 97 FLANK and 75 FIX in one match. At 1.00 parity is enough. */
+export const MAIN_ATTACK_RATIO = 1.00;
+
+export const MAIN_ATTACK_PULL_MUL = 1.26;
+
+export const TERRAIN_SEEK_MAX = 0.84;
+
+export const THREAT_SCORE_MAX  = 1.80;   // was 2.50; before that effectively 5.00, uncapped
 export const RETREAT_SCORE_MAX = 2.00;   // was effectively 4.50, uncapped
 
 /* R1: WHAT ACTUALLY KEPT THE FRENCH ARMY AT HOME.
@@ -371,7 +402,7 @@ export const BRIGADIER_CONTACT_PENALTY = 2.5;
 
 // Staying put when there is a shot to take. A gun may move OR fire, so moving
 // with a target in view throws the shot away.
-export const GUN_HOLDS_FIRE_BONUS = 2.5;
+export const GUN_HOLDS_FIRE_BONUS = 3.0;   // T6, measured: was 2.5
 
 // Pull toward the side's chosen cavalry point. Slightly stronger than the
 // per-unit vulnerable pull it replaces (0.22), because the whole value of the
@@ -687,7 +718,7 @@ export function updateOperationalPlan(side, assessment){
      whole of the reported 8 MAIN_ATTACK against 97 FLANK and 75 FIX: not a
      reluctant mission pass, an army that is almost never quite strong enough to
      be allowed to plan an attack. */
-  } else if(a.weakestEnemyBrigade && a.strengthRatio >= tune(side, 'MAIN_ATTACK_RATIO', 1.15)){
+  } else if(a.weakestEnemyBrigade && a.strengthRatio >= tune(side, 'MAIN_ATTACK_RATIO', MAIN_ATTACK_RATIO)){
     plan = { type:'MAIN_ATTACK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
   } else if(a.weakestEnemyBrigade){
     plan = { type:'FIX_AND_FLANK', mainEffortBrigadeId: strongestOwn?strongestOwn.id:null, targetBrigadeId: a.weakestEnemyBrigade.id };
@@ -918,7 +949,7 @@ export function missionMoveBonus(u, side, pos, mission, plan){
          nothing about their relative standing. Defaults to 1. */
       return (nearestTargetDist!=null
         ? -nearestTargetDist*APPROACH_PULL + Math.max(0, 6-nearestTargetDist)*0.18 : 0)
-        * tune(side, 'MAIN_ATTACK_PULL_MUL', 1);
+        * tune(side, 'MAIN_ATTACK_PULL_MUL', MAIN_ATTACK_PULL_MUL);
     case 'FLANK':
       // Favour the weak-flank column band while closing, rather than a straight line in.
       if(!assessment) return nearestTargetDist!=null
@@ -2491,7 +2522,7 @@ export function aiDecideAndExecuteMove(u){
          term leaves normal play alone and only trims the defensive peak.
          Defaults to Infinity, so with no override nothing moves. */
       s += addScore(parts, 'terrainSeek',
-        Math.min(tune(side, 'TERRAIN_SEEK_MAX', Infinity),
+        Math.min(tune(side, 'TERRAIN_SEEK_MAX', TERRAIN_SEEK_MAX),
                  terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1)));
 
       /* SHAPE, not distance. Every other term here is "how far am I from X", so
