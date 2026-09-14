@@ -25,7 +25,24 @@ import fs from 'fs';
    real clock to poll and to time out with; only the game's own pacing goes. */
 const realSetInterval = globalThis.setInterval;
 const POLL_MS = 4;
-const MATCH_TIMEOUT_MS = 60_000;
+
+/* A STALLED MATCH IS CAPPED ON TURNS, NOT ON THE CLOCK.
+
+   A wall-clock timeout was costing sixty seconds per stall, which at a 15% rate
+   was most of the running time of every batch: forty matches took fifteen
+   minutes, of which nine were spent watching armies not move.
+
+   400 side activations is 200 full rounds. The longest match that has ever
+   DECIDED is 252 activations, so the cap cannot cut a real game short, and a
+   stall reaches it in about two seconds instead of sixty. Same information,
+   twenty times faster, and it is deterministic rather than dependent on how busy
+   the machine was.
+
+   The wall-clock limit stays as a backstop for a match that hangs rather than
+   stalls (a frozen callback chain stops advancing turnNumber at all, so the turn
+   cap would never fire). It should never be the thing that trips. */
+const MATCH_TURN_CAP = 400;
+const MATCH_TIMEOUT_MS = 45_000;
 
 export async function runOneMatch({ seed }, g) {
   const { data, dice, rules, render, menus } = g;
@@ -67,7 +84,7 @@ export async function runOneMatch({ seed }, g) {
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
     survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
     brokenBrigades: countBrokenBrigades(state, SIDES),
-    stall: finished === 'timeout' ? snapshotStall(state, SIDES) : null,
+    stall: finished === 'win' ? null : snapshotStall(state, SIDES),
   };
 }
 
@@ -136,7 +153,12 @@ function waitForEnd(state, timeoutMs) {
     const t0 = Date.now();
     const poll = realSetInterval(() => {
       if (state.gameOver) { clearInterval(poll); resolve('win'); return; }
-      if (Date.now() - t0 > timeoutMs) { clearInterval(poll); resolve('timeout'); return; }
+      /* 'stalled' and 'hung' are different results and are reported separately.
+         A stall is two armies that will not commit and is a finding about the
+         AI; a hang is the game not advancing at all and is a bug. Collapsing
+         them into one 'timeout' hid that distinction for three batches. */
+      if (state.turnNumber > MATCH_TURN_CAP) { clearInterval(poll); resolve('stalled'); return; }
+      if (Date.now() - t0 > timeoutMs) { clearInterval(poll); resolve('hung'); return; }
     }, POLL_MS);
   });
 }
@@ -159,7 +181,8 @@ export function summarise(results) {
   const lines = [];
   lines.push(`matches            ${results.length}`);
   lines.push(`completed          ${done.length} (${pct(done.length)}%)`);
-  lines.push(`timed out          ${results.filter(r => r.finished === 'timeout').length}`);
+  lines.push(`stalled            ${results.filter(r => r.finished === 'stalled').length} (${pct(results.filter(r => r.finished === 'stalled').length)}%)`);
+  lines.push(`hung               ${results.filter(r => r.finished === 'hung').length}`);
   lines.push(`crashed            ${results.filter(r => r.finished === 'crashed').length}`);
   lines.push('');
   lines.push(`Britain (red) wins ${wins.red} (${pct(wins.red)}%)`);
@@ -222,29 +245,49 @@ export async function main() {
   const seedAt = args.indexOf('--seed');
   const firstSeed = seedAt > -1 ? Number(args[seedAt + 1]) : 1;
 
-  const results = [];
-  for (let i = 0; i < n; i++) {
-    const seed = firstSeed + i;
-    const r = await new Promise(resolve => {
-      let out = '';
-      const child = spawn(process.execPath, [process.argv[1], '--child', String(seed)],
-                          { cwd: process.cwd() });
-      child.stdout.on('data', d => { out += d; });
-      child.stderr.on('data', () => {});   // game logging, not wanted in a batch
-      child.on('close', code => {
-        const line = out.split('\n').find(l => l.startsWith('\u0001RESULT'));
-        if (line) { resolve(JSON.parse(line.slice(7))); return; }
-        /* A CRASH IS A RESULT TOO, and the most interesting kind: it names a
-           seed that breaks the game rather than merely stalling it. */
-        resolve({ seed, finished: 'crashed', winner: null, turns: 0, wallMs: 0,
-                  exitCode: code, survivors: { red: 0, blue: 0 } });
-      });
+  /* RUN THEM IN PARALLEL. Each match is already its own process for isolation,
+     so concurrency is free: they share nothing. Sequentially a forty-match batch
+     was most of ten minutes, which is long enough that it stops being something
+     you run after a change and starts being something you put off.
+
+     Defaults to the machine's core count capped at 8. Results are collected by
+     seed and sorted afterwards, so the printed order is stable and a batch is
+     reproducible however the scheduler interleaves it. */
+  const jobsAt = args.indexOf('--jobs');
+  const jobs = Math.max(1, jobsAt > -1 ? Number(args[jobsAt + 1])
+                                       : Math.min(8, (await import('node:os')).cpus().length || 4));
+
+  const runOne = seed => new Promise(resolve => {
+    let out = '';
+    const child = spawn(process.execPath, [process.argv[1], '--child', String(seed)],
+                        { cwd: process.cwd() });
+    child.stdout.on('data', d => { out += d; });
+    child.stderr.on('data', () => {});   // game logging, not wanted in a batch
+    child.on('close', code => {
+      const line = out.split('\n').find(l => l.startsWith('\u0001RESULT'));
+      if (line) { resolve(JSON.parse(line.slice(7))); return; }
+      /* A CRASH IS A RESULT TOO, and the most interesting kind: it names a seed
+         that breaks the game rather than merely stalling it. */
+      resolve({ seed, finished: 'crashed', winner: null, turns: 0, wallMs: 0,
+                exitCode: code, survivors: { red: 0, blue: 0 } });
     });
-    results.push(r);
-    console.log(`  seed ${r.seed}  ${r.finished.padEnd(7)} winner=${String(r.winner).padEnd(5)}` +
-                ` turns=${String(r.turns).padStart(3)}  survivors ${r.survivors.red}v${r.survivors.blue}` +
-                `  ${(r.wallMs / 1000).toFixed(1)}s`);
-  }
+  });
+
+  const seeds = Array.from({ length: n }, (_, i) => firstSeed + i);
+  const results = [];
+  let next = 0, done = 0;
+  console.log(`${n} matches, ${jobs} at a time\n`);
+  await Promise.all(Array.from({ length: Math.min(jobs, n) }, async () => {
+    while (next < seeds.length) {
+      const r = await runOne(seeds[next++]);
+      results.push(r);
+      done++;
+      console.log(`  [${String(done).padStart(3)}/${n}] seed ${r.seed}  ${r.finished.padEnd(7)}` +
+                  ` winner=${String(r.winner).padEnd(5)} turns=${String(r.turns).padStart(3)}` +
+                  `  survivors ${r.survivors.red}v${r.survivors.blue}  ${(r.wallMs / 1000).toFixed(1)}s`);
+    }
+  }));
+  results.sort((a, b) => a.seed - b.seed);
   console.log('\n' + summarise(results));
   if (jsonAt > -1) {
     fs.writeFileSync(args[jsonAt + 1], JSON.stringify(results, null, 2));

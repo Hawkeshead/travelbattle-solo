@@ -133,6 +133,13 @@ export function collapseTimers(){
   return () => { globalThis.setTimeout = realSetTimeout; };
 }
 
+/* NOT THE BOTTLENECK, tried and removed: capping the #log element and stubbing
+   scrollHeight. log() appends a DOM node per line and reads scrollHeight, which
+   forces a jsdom layout, so it looked like the obvious cost in a long match. It
+   is not: capping it changed a twenty-match batch by four seconds in two hundred
+   and twenty. The time is in the AI scoring, which evaluates twenty-odd candidate
+   squares per unit per activation. Noted so it is not tried again. */
+
 export async function loadGame(){
   const data   = await import('../../js/data-core.js');
   const dice   = await import('../../js/dice.js');
