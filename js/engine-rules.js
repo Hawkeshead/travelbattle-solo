@@ -1360,6 +1360,14 @@ export function removeUnit(u, reason){
       const remaining = state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type!=='BRIGADIER');
       if(remaining.length===0){
         brig.removed = true; // withdraws, not killed — no death effect for a non-combat unit
+        /* HE LEAVES THE BOARD AND THE EXPORT NEVER SAID SO. Every other unit
+           that is removed emits a status event; this one only wrote a log line,
+           so a Brigadier withdrawal was invisible to anything counting from the
+           event stream. Emitted as 'Withdrawn' rather than 'Destroyed' because
+           he is not killed, and counted on its own line in the summary for the
+           same reason. */
+        logReplay('status', { unitId:brig.id, side:brig.side, x:brig.x, y:brig.y,
+          newStatus:'Withdrawn', reason:'Brigade broken' });
         log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws — the Brigade is broken.`, 'system');
       }
     }

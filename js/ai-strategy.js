@@ -2127,11 +2127,23 @@ export function aiDecideAndExecuteMove(u){
            reach the same enemy this turn, it goes positive, which is the
            concentration the term was always supposed to buy. */
         if(point){
+          /* TWO TERMS, NOT ONE LABEL.
+
+             These used to share the name 'cavalryConcentration', so the export
+             showed only their NET and the two cancelled. That produced three
+             separate reports of the term "regressing to negative-only" and one
+             of it vanishing, none of which were regressions: they were matches
+             where the horse were not massed, read through a label that could not
+             say so. It was nearly patched a fourth time.
+
+             Split, the log answers the actual question: cavalryMass is what
+             massing PAYS, cavalryConcentration is what being scattered COSTS.
+             The scoring is byte-identical, only the reporting changes. */
           const gap = chebyshev(c, point);
           if(gap > 0) s -= subScore(parts, 'cavalryConcentration', gap * CAVALRY_CONCENTRATION_PULL);
           const massed = state.units.filter(o=>!o.removed && o.side===side && o.id!==u.id &&
             UNIT_TYPES[o.type].isCavalry && chebyshev(o, point) <= 2).length;
-          if(massed >= 1) s += addScore(parts, 'cavalryConcentration', Math.min(2, massed) * 0.6);
+          if(massed >= 1) s += addScore(parts, 'cavalryMass', Math.min(2, massed) * 0.6);
         }
         else s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
       } else {

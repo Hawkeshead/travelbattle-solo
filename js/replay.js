@@ -248,15 +248,28 @@ function sectionSummary(log, label){
   const fires  = log.filter(e=>e.type==='fire');
   const status = log.filter(e=>e.type==='status');
 
-  // Casualties by cause, taken from the status stream rather than recounted.
-  const lost = {};
+  /* Casualties by cause, taken from the status stream rather than recounted.
+
+     COUNTS 'Destroyed' ONLY. It used to match /destroy|Lost/i, and a unit that
+     fails to rally emits BOTH: 'Lost' where it stood, then 'Destroyed' from
+     removeUnit a line later. So every failed-rally death was counted twice and
+     the summary disagreed with the turn log by exactly the number of them.
+     Reported as France 15 lost against 13 destruction events; 13 deaths, 2 of
+     them failed rallies. 'Lost' is a narrative marker for the moment, not a
+     second casualty. */
+  const lost = {}, withdrawn = {};
   for(const e of status){
-    if(!e.newStatus || !/destroy|Lost/i.test(e.newStatus)) continue;
-    (lost[e.side] = lost[e.side] || []).push(e);
+    if(e.newStatus === 'Destroyed') (lost[e.side] = lost[e.side] || []).push(e);
+    else if(e.newStatus === 'Withdrawn') (withdrawn[e.side] = withdrawn[e.side] || []).push(e);
   }
   out.push('Casualties');
   for(const side of [SIDES.RED, SIDES.BLUE]){
-    out.push(`  ${SIDE_LABEL[side]}: ${(lost[side]||[]).length} lost`);
+    const w = (withdrawn[side]||[]).length;
+    /* Brigadiers are listed separately rather than folded in: a Brigadier leaves
+       the board when his Brigade breaks, but he is not a casualty and adding him
+       to the count would make the losses disagree with the fighting. */
+    out.push(`  ${SIDE_LABEL[side]}: ${(lost[side]||[]).length} lost` +
+             (w ? ` (plus ${w} Brigadier${w>1?'s':''} withdrawn)` : ''));
   }
   out.push('');
 
