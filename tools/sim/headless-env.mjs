@@ -123,7 +123,7 @@ global.fetch = async (u) => ({ ok:true, json: async()=>JSON.parse(fs.readFileSyn
    is modified and no timing logic is bypassed; the same callbacks run in the
    same sequence, just without the pauses that exist for human eyes.
 
-   Installed by the harness, never by the game. */
+   Installed by the simulator, never by the game. */
 export function collapseTimers(){
   const realSetTimeout = globalThis.setTimeout;
   globalThis.setTimeout = (fn, _ms, ...args) => realSetTimeout(fn, 0, ...args);

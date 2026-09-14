@@ -12,7 +12,7 @@
    but to hold. That distinction is the whole diagnosis: the first is a weighting
    problem, the second is not.
 
-   Usage:  node tools/aivsai/stall-probe.mjs <seed>
+   Usage:  node tools/sim/stall-probe.mjs <seed>
 
    Seeds reproduce exactly, so a seed the runner reports as a timeout can be
    handed straight to this.

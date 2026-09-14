@@ -1,4 +1,4 @@
-# AI-vs-AI harness — status
+# The simulator — status
 
 ## Done
 
@@ -15,7 +15,7 @@ property rather than asserting it.
 
 ## Runner: complete, and it now runs Spectate rather than its own driver
 
-`node tools/aivsai/run.mjs 40 --json out.json`
+`node tools/sim/run.mjs 40 --json out.json`
 
 A full match runs headless in five to nine seconds and forty in about five
 minutes. What it plays is Spectate mode from `js/`, unchanged: `state.spectate`
@@ -25,7 +25,7 @@ the result.
 
 The old runner's turn driver and its two kicks (re-arm the deploy chain, press
 Start Battle) are gone. They existed because there was no in-game path to an
-unattended match, and Spectate is that path. The harness now tests what the phone
+unattended match, and Spectate is that path. The simulator now tests what the phone
 runs instead of a parallel imitation of it.
 
 ### One match per process
@@ -202,7 +202,7 @@ time: the intro takes ten and a half seconds and the sample ran for eight.
   contain zero DOM references and address sides only through `state.aiSide` and
   `SIDES`. No France-specific assumption exists in the scoring layer.
 - **The turn loop lives in `ui-battle.js`**, not the engine, which is why a DOM
-  shim is needed at all rather than the harness simply importing the rules.
+  shim is needed at all rather than the simulator simply importing the rules.
 - **`FAST_DICE_MODE` already existed** in `dice.js`, documented as harness-only.
 
 ## Escalating tempo: built, measured, discarded

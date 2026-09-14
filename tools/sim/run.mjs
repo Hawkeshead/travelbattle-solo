@@ -1,5 +1,5 @@
 /* =========================================================
-   AI-VS-AI RUNNER
+   THE SIMULATOR
 
    Plays full matches with the same AI on both sides, headless, and aggregates
    the results.
@@ -16,7 +16,7 @@
    the phone, which is the only way a batch result says anything about the game
    that is actually played.
 
-   Usage:  node tools/aivsai/run.mjs [matches] [--seed N] [--json out.json]
+   Usage:  node tools/sim/run.mjs [matches] [--seed N] [--json out.json]
 ========================================================= */
 import { loadGame, collapseTimers } from './headless-env.mjs';
 import fs from 'fs';
@@ -199,7 +199,7 @@ export function summarise(results) {
   const stuck = results.filter(r => r.finished !== 'win');
   if (stuck.length) {
     lines.push('');
-    lines.push('SEEDS THAT DID NOT FINISH CLEANLY (reproduce with: node tools/aivsai/run.mjs 1 --seed N)');
+    lines.push('SEEDS THAT DID NOT FINISH CLEANLY (reproduce with: node tools/sim/run.mjs 1 --seed N)');
     for (const r of stuck) {
       lines.push(`  seed ${r.seed} ${r.finished} at turn ${r.turns}` +
                  (r.stall ? `  survivors ${r.survivors.red}v${r.survivors.blue}` +

@@ -1,5 +1,5 @@
 /* Confirms the headless environment still loads the whole game. Run after any
-   change to module imports: if this breaks, the harness cannot run. */
+   change to module imports: if this breaks, the simulator cannot run. */
 import { loadGame } from './headless-env.mjs';
 const g = await loadGame();
 const counts = Object.entries(g).filter(([k])=>k!=='dom')
