@@ -728,11 +728,6 @@ export function updateOperationalPlan(side, assessment){
   plan.createdOnTurn = state.turnNumber;
   plan.turnsHeld = 0;
   plan.reasons = reasons;
-  /* Driven from here because this is the one place that runs exactly once per
-     side per turn AND already has the assessment the triggers need. Called
-     before missions are assigned, so a COMMIT this turn shapes this turn's
-     orders rather than next turn's. */
-  if(flag(side, 'TEMPO_V2')) advanceTempo(side, assessment);
   state._aiPlan[side] = plan;
   return plan;
 }
@@ -907,6 +902,13 @@ export function assignBrigadeMissions(side, plan, assessment){
 export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
+  /* DRIVEN HERE, NOT FROM THE PLAN CHOOSER. It was called from inside the plan
+     chooser first, which looked like the same thing and is not: hysteresis makes
+     that function early-return whenever the previous plan is kept, so the tempo
+     machine only advanced on turns the PLAN changed. The army sat in BUILD past
+     turn 13 with an 8-turn cap that never fired, and half of all sides never
+     reached COMMIT at all. aiPlanTurn runs once per side per turn regardless. */
+  if(flag(side, 'TEMPO_V2')) advanceTempo(side, assessment);
   const plan = updateOperationalPlan(side, assessment);
   const missions = assignBrigadeMissions(side, plan, assessment);
   state._aiMissions[side] = missions;
@@ -1306,6 +1308,18 @@ export const TEMPO_CONTACT_DISTANCE  = 4;   // centroid separation that counts a
 export const TEMPO_GUNS_FIRED_TURNS  = 4;   // guns firing this long with no answer means go
 export const TEMPO_COMMIT_LOSSES     = 4;   // cumulative losses after COMMIT that send the army back to HOLD
 export const TEMPO_COMMIT_DRY_TURNS  = 3;   // turns with no contact after COMMIT before resetting
+/* HOW CLOSED UP THE ARMY MUST BE BEFORE IT IS ALLOWED TO GO.
+
+   Aiming every Brigade at one sector is not the same as them arriving there
+   together. Without this the army commits on the first opportunity whatever
+   shape it is in, a Brigade five squares back sets off anyway, and it turns up
+   late and alone: measured at 8.6 units going 0 from 1 per match, worse than
+   doing nothing at all.
+
+   Measured as the widest separation between Brigade centroids. The hard HOLD cap
+   deliberately OVERRIDES this, because an army that waits for a formation it can
+   never achieve is the never-commit failure again wearing a different hat. */
+export const TEMPO_READY_SPREAD = 6;
 
 /* Per-phase multipliers on terms that already exist. 1 means untouched.
    threat at 0.6 in COMMIT is the one to watch: it is what carries an advance
@@ -1384,7 +1398,21 @@ function advanceTempo(side, assessment){
       sector = a && a.weakestEnemyBrigade ? (a.weakestEnemyBrigade.centroid||null) : null;
       why = `HOLD capped at ${TEMPO_HOLD_MAX_TURNS} turns`;
     }
-    if(why){ t.commitSector = sector || foe; to('COMMIT', why); }
+    /* The widest gap between this side's Brigade centroids. */
+    const brigCentroids = [...new Set(live(side).map(u=>u.brigadeId))]
+      .map(b => centroidOf(live(side).filter(u=>u.brigadeId===b))).filter(Boolean);
+    let spread = 0;
+    for(const a1 of brigCentroids) for(const b1 of brigCentroids){
+      spread = Math.max(spread, Math.max(Math.abs(a1.x-b1.x), Math.abs(a1.y-b1.y)));
+    }
+    const ready = spread <= TEMPO_READY_SPREAD;
+    const forced = turnsIn >= TEMPO_HOLD_MAX_TURNS;
+    if(why && (ready || forced)){
+      t.commitSector = sector || foe;
+      to('COMMIT', ready ? why : `${why} (committed unready: HOLD capped)`);
+    } else if(why){
+      t.reason = `waiting to close up (Brigades ${spread} apart)`;
+    }
   } else if(t.phase === 'COMMIT'){
     if(inContact) t.dryTurns = 0; else t.dryTurns++;
     if(t.lossesSinceCommit >= TEMPO_COMMIT_LOSSES) to('HOLD', `${TEMPO_COMMIT_LOSSES} losses since COMMIT`);
@@ -1967,7 +1995,7 @@ export function aiDecideAndExecuteMove(u){
          immediate danger should still notice. What stops is the vague
          board-wide unease that was vetoing every advance. */
       let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
-            + addScore(parts, 'threat', Math.max(-tune(side, 'THREAT_SCORE_MAX', THREAT_SCORE_MAX), -0.5*threatPenalty(u, side)));
+            + addScore(parts, 'threat', Math.max(-tune(side, 'THREAT_SCORE_MAX', THREAT_SCORE_MAX), -0.5*threatPenalty(u, side)) * tempoMultiplier(side, 'threat'));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
@@ -2357,12 +2385,12 @@ export function aiDecideAndExecuteMove(u){
               for(const t2 of targets) best = Math.max(best, hitChance(chebyshev(u, t2)));
               s += addScore(parts, 'gunHasShot',
                 (tune(side, 'GUN_HOLDS_FIRE_BONUS', GUN_HOLDS_FIRE_BONUS) +
-                 Math.min(shots, 3) * 0.2) * best);
+                 Math.min(shots, 3) * 0.2) * best * tempoMultiplier(side, 'gunHasShot'));
             }
           }
         }
       } else {
-        s -= subScore(parts, 'advancePull', nearestEnemyDist(c, side) * ADVANCE_PULL_WEIGHT);
+        s -= subScore(parts, 'advancePull', nearestEnemyDist(c, side) * ADVANCE_PULL_WEIGHT * tempoMultiplier(side, 'advancePull'));
         // Core Tactic: prefer the road network while actually closing distance
         // — the real +1 movement bonus for starting and ending on road, and
         // the same reason a human player uses roads to move quickly into the
@@ -2618,7 +2646,7 @@ export function aiDecideAndExecuteMove(u){
            PAID to start anything, which lets retreatToSupport and threat carry
            it back without a new term fighting them for control. */
         const beaten = (u.lossStreak || 0) >= 3;
-        s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT);
+        s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT * tempoMultiplier(side, 'engage'));
         if(beaten) s += addScore(parts, 'disengage', -0.5 * Math.min(5, u.lossStreak));
         if(!beaten && bestTarget && best > KILL_VALUE_ENGAGE_FLOOR){
           s += addScore(parts, 'brigadeKillValue', brigadeKillValue(bestTarget));
@@ -2647,7 +2675,8 @@ export function aiDecideAndExecuteMove(u){
          Defaults to Infinity, so with no override nothing moves. */
       s += addScore(parts, 'terrainSeek',
         Math.min(tune(side, 'TERRAIN_SEEK_MAX', TERRAIN_SEEK_MAX),
-                 terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1)));
+                 terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1))
+        * tempoMultiplier(side, 'terrainSeek'));
 
       /* SHAPE, not distance. Every other term here is "how far am I from X", so
          two squares equidistant from everything score identically: a logged match
@@ -2661,7 +2690,7 @@ export function aiDecideAndExecuteMove(u){
          off its mission. Brigadiers are excluded from both, since they neither
          support a fight nor hold ground. */
       if(t.key !== 'BRIGADIER'){
-        s += addScore(parts, 'mutualSupport', mutualSupportBonus(side, c, u.id));
+        s += addScore(parts, 'mutualSupport', mutualSupportBonus(side, c, u.id) * tempoMultiplier(side, 'mutualSupport'));
         s += addScore(parts, 'groundDenial', groundDenialBonus(side, c));
       }
     }
@@ -2690,7 +2719,11 @@ export function aiDecideAndExecuteMove(u){
          twelve squares from safety wanted to reach it so badly that it would
          weigh almost nothing else on the way. Same destination, same behaviour,
          less frantic about the route. */
-      const tempoMul = mission === 'PRESERVE' ? 1 : (TEMPO_PULL[tempoPhase(side)] ?? 1);
+      /* PRESERVE is exempt from the tempo layer entirely, as the brief
+         requires: a Brigade pulling out is not part of the army's pacing.
+         tempoMultiplier itself returns the old single missionPull value when
+         TEMPO_V2 is off, so this one line covers both worlds. */
+      const tempoMul = mission === 'PRESERVE' ? 1 : tempoMultiplier(side, 'missionPull');
       /* MEASURED AND REVERTED: suppressing missionPull for a recovering
          Brigadier. The reasoning was sound (there is no version of his mission
          worth anything while a third of his Brigade cannot move) and the local

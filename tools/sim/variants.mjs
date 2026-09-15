@@ -113,6 +113,13 @@ export const VARIANTS = {
      NOISE against control; if it does not, the state machine is doing something
      it should not. */
   tempo_v2_log_only: { TEMPO_V2: true },
+
+  /* Steps 2 and 3 together: the full multiplier table live. Merged rather than
+     run separately because the failure the brief warns about (an army that holds
+     well and never commits) is directly measurable in tempo-report as "sides
+     with no COMMIT" and "first COMMIT turn", so it does not need an isolating
+     run to be caught. */
+  tempo_v2: { TEMPO_V2: true },
 };
 
 export function resolveVariant(name){
