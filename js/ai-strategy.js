@@ -728,6 +728,11 @@ export function updateOperationalPlan(side, assessment){
   plan.createdOnTurn = state.turnNumber;
   plan.turnsHeld = 0;
   plan.reasons = reasons;
+  /* Driven from here because this is the one place that runs exactly once per
+     side per turn AND already has the assessment the triggers need. Called
+     before missions are assigned, so a COMMIT this turn shapes this turn's
+     orders rather than next turn's. */
+  if(flag(side, 'TEMPO_V2')) advanceTempo(side, assessment);
   state._aiPlan[side] = plan;
   return plan;
 }
@@ -1271,7 +1276,126 @@ function materialPosture(side){
   return null;   // level enough that the clock knows better
 }
 
+/* =========================================================
+   PHASED TEMPO — the army arrives together or not at all
+
+   BUILD, HOLD and COMMIT already existed as a TURN CLOCK: build until 6, hold
+   until 14 or contact, commit thereafter, with one multiplier on missionPull.
+   That is a schedule, not a tempo. It cannot tell an army that has closed up
+   from one still strung out, so units reach contact at their own pace and fight
+   one at a time, which is how five units go 0 from 1 in a single match.
+
+   This keeps the three phases and replaces the clock with triggers, so the phase
+   describes what the army IS doing rather than what turn it is.
+
+   IT ADDS NO SCORING. Every phase effect is a multiplier on a term that already
+   exists, applied in tempoMultipliers below. The tempo layer decides WHEN engage
+   is allowed to matter; the existing scoring decides everything else.
+
+   Gated behind TEMPO_V2, so with the flag unset the clock runs exactly as before.
+
+   NOTE FOR THE SIMULATOR: this is written as a fix for France arriving
+   piecemeal, but the AI is side-agnostic and a spectated match gives BOTH armies
+   the same code. Two armies that both hold and both commit may simply cancel, so
+   a variant-vs-control run is the only measurement that means anything here. A
+   self-play run will not show it.
+========================================================= */
+export const TEMPO_BUILD_MAX_TURNS   = 8;   // BUILD cannot run for ever on a wide board
+export const TEMPO_HOLD_MAX_TURNS    = 6;   // nor can HOLD: hard cap, always commit eventually
+export const TEMPO_CONTACT_DISTANCE  = 4;   // centroid separation that counts as "at contact distance"
+export const TEMPO_GUNS_FIRED_TURNS  = 4;   // guns firing this long with no answer means go
+export const TEMPO_COMMIT_LOSSES     = 4;   // cumulative losses after COMMIT that send the army back to HOLD
+export const TEMPO_COMMIT_DRY_TURNS  = 3;   // turns with no contact after COMMIT before resetting
+
+/* Per-phase multipliers on terms that already exist. 1 means untouched.
+   threat at 0.6 in COMMIT is the one to watch: it is what carries an advance
+   through rather than stalling it on the first bad tile, and it is also the
+   most likely thing to make the AI walk into a wall. */
+export const TEMPO_MULTIPLIERS = {
+  BUILD:  { engage:0.2, missionPull:1.0, mutualSupport:1.5, advancePull:1.0, threat:1.0, gunHasShot:1.0, terrainSeek:1.0 },
+  HOLD:   { engage:0.2, missionPull:0.3, mutualSupport:1.5, advancePull:0.0, threat:1.0, gunHasShot:1.5, terrainSeek:1.5 },
+  COMMIT: { engage:1.0, missionPull:1.5, mutualSupport:1.0, advancePull:1.5, threat:0.6, gunHasShot:1.0, terrainSeek:0.5 },
+};
+
+export function tempoMultiplier(side, term){
+  if(!flag(side, 'TEMPO_V2')) return term==='missionPull' ? (TEMPO_PULL[tempoPhase(side)] ?? 1) : 1;
+  const m = TEMPO_MULTIPLIERS[tempoPhase(side)];
+  return (m && m[term] !== undefined) ? m[term] : 1;
+}
+
+function centroidOf(units){
+  if(!units.length) return null;
+  return { x: units.reduce((t,u)=>t+u.x,0)/units.length, y: units.reduce((t,u)=>t+u.y,0)/units.length };
+}
+
+/* The tempo record for a side, created on first use and carried on state so it
+   survives undo and cannot leak between matches. */
+function tempoState(side){
+  if(!state._tempo) state._tempo = {};
+  if(!state._tempo[side]) state._tempo[side] = {
+    phase: 'BUILD', since: state.turnNumber, gunsFiredTurns: 0,
+    commitSector: null, lossesSinceCommit: 0, dryTurns: 0, lastTurn: -1,
+  };
+  return state._tempo[side];
+}
+
+/* Evaluated once per side per turn. Returns the phase and records the reason, so
+   the log can say WHY rather than only what. */
+function advanceTempo(side, assessment){
+  const t = tempoState(side);
+  if(t.lastTurn === state.turnNumber) return t;
+  t.lastTurn = state.turnNumber;
+  const turnsIn = state.turnNumber - t.since;
+  const live = s2 => state.units.filter(u=>!u.removed && u.side===s2);
+  const own = centroidOf(live(side)), foe = centroidOf(live(side==='red'?'blue':'red'));
+  const gap = (own && foe) ? Math.max(Math.abs(own.x-foe.x), Math.abs(own.y-foe.y)) : 99;
+  const inContact = !!contactPoint(side);
+  if(inContact) t.gunsFiredTurns++; else t.gunsFiredTurns = 0;
+
+  const to = (phase, reason) => {
+    if(t.phase !== phase){
+      logReplay('tempo', { side, from:t.phase, to:phase, reason, turn:state.turnNumber,
+                           commitSector:t.commitSector });
+      log(`TEMPO: ${t.phase} -> ${phase}  reason="${reason}"`, 'system');
+      t.phase = phase; t.since = state.turnNumber;
+      t.lossesSinceCommit = 0; t.dryTurns = 0;
+    }
+    t.reason = reason;
+  };
+
+  if(t.phase === 'BUILD'){
+    if(gap <= TEMPO_CONTACT_DISTANCE) to('HOLD', `army within ${TEMPO_CONTACT_DISTANCE} of the enemy mass`);
+    else if(turnsIn >= TEMPO_BUILD_MAX_TURNS) to('HOLD', `BUILD capped at ${TEMPO_BUILD_MAX_TURNS} turns`);
+  } else if(t.phase === 'HOLD'){
+    /* Opportunity triggers first, so a real opening beats the timeout and the
+       sector it happened in becomes the commit axis rather than a fallback. */
+    const a = assessment;
+    let sector = null, why = null;
+    if(a && a.weakestEnemyBrigade && a.weakestEnemyBrigade.remaining <= 2){
+      sector = a.weakestEnemyBrigade.centroid || null; why = 'an enemy Brigade is below half';
+    } else if(a && a.exposedEnemyArtillery && a.exposedEnemyArtillery.length){
+      sector = a.exposedEnemyArtillery[0]; why = 'enemy artillery is unescorted';
+    } else if(inContact){
+      sector = contactPoint(side); why = 'the enemy came into the held line';
+    } else if(t.gunsFiredTurns >= TEMPO_GUNS_FIRED_TURNS){
+      sector = a && a.weakestEnemyBrigade ? (a.weakestEnemyBrigade.centroid||null) : null;
+      why = `guns have fired for ${TEMPO_GUNS_FIRED_TURNS} turns and the enemy is not coming`;
+    } else if(turnsIn >= TEMPO_HOLD_MAX_TURNS){
+      sector = a && a.weakestEnemyBrigade ? (a.weakestEnemyBrigade.centroid||null) : null;
+      why = `HOLD capped at ${TEMPO_HOLD_MAX_TURNS} turns`;
+    }
+    if(why){ t.commitSector = sector || foe; to('COMMIT', why); }
+  } else if(t.phase === 'COMMIT'){
+    if(inContact) t.dryTurns = 0; else t.dryTurns++;
+    if(t.lossesSinceCommit >= TEMPO_COMMIT_LOSSES) to('HOLD', `${TEMPO_COMMIT_LOSSES} losses since COMMIT`);
+    else if(t.dryTurns >= TEMPO_COMMIT_DRY_TURNS) to('HOLD', `no contact for ${TEMPO_COMMIT_DRY_TURNS} turns after COMMIT`);
+  }
+  log(`TEMPO: phase=${t.phase} turn_in_phase=${state.turnNumber - t.since}`, 'system');
+  return t;
+}
+
 function tempoPhase(side){
+  if(flag(side, 'TEMPO_V2')) return tempoState(side).phase;
   const cache = state._aiTempoCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.phase;
   let phase;

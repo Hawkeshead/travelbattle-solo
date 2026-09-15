@@ -106,6 +106,13 @@ export const VARIANTS = {
     GUN_HOLDS_FIRE_BONUS:   3.00,
     STRANDED_RECOVERY_PULL: 0.45,
   },
+
+  /* Phased tempo, step 1 of the build order: state machine and logging only, no
+     multipliers. This is the validity check — confirm the transitions fire when
+     expected before they are allowed to affect anything. It should measure as
+     NOISE against control; if it does not, the state machine is doing something
+     it should not. */
+  tempo_v2_log_only: { TEMPO_V2: true },
 };
 
 export function resolveVariant(name){
