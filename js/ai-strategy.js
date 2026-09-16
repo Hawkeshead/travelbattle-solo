@@ -1385,6 +1385,44 @@ export const HEAVY_PAIR_BONUS = 2.00;
    largest single pull in the game and stops it deciding fights on its own. */
 export const MISSION_PULL_FLOOR = -4.00;
 
+/* CAUTION THAT WEARS OFF WHEN NOTHING IS HAPPENING.
+
+   Four attempts on the stalls have failed, and every one pushed on the wrong
+   side: Brigadier recovery, mission suppression, tempo escalation and letting
+   cut-off units move all tried to make the army GO. The term data says the
+   problem is the opposite. killPull, vulnerablePull and threat are what block
+   every stalled decision dumped so far: an even fight looks not worth having, so
+   nobody takes it, and two armies that both decline every even fight sit still
+   for two thousand turns.
+
+   So this decays the AVOIDANCE rather than raising the pull. The difference
+   matters and is not cosmetic: raising the pull pushes both sides forward and
+   hands the match to whoever is not first into contact, which is exactly how the
+   tempo escalation measured 15% stalls to 27%. Making a fight look less
+   frightening does not create that asymmetry, because the side that takes the
+   fight is the side that had the better one available.
+
+   MEASURED IN CASUALTIES, NOT TURNS. A grinding, bloody match should never feel
+   this; a staring contest should feel it hard. Turns since anything died says
+   exactly that, where raw turn number cannot tell the two apart. It resets the
+   moment a unit falls, so the army presses, resolves something, and settles
+   again rather than ratcheting to reckless and staying there. */
+export const STALE_FROM = 12;    // side activations without a casualty before caution loosens
+export const STALE_STEP = 0.04;  // fraction of caution shed per activation beyond that
+export const STALE_FLOOR = 0.35; // never below this: a decayed AI is not a suicidal one
+
+export function turnsSinceKill(){
+  return state.turnNumber - (state._lastKillTurn ?? 1);
+}
+
+/* 1.0 normally, falling toward STALE_FLOOR the longer nothing dies. */
+export function cautionDecay(side){
+  if(!flag(side, 'STALE_DECAY')) return 1;
+  const stale = turnsSinceKill() - STALE_FROM;
+  if(stale <= 0) return 1;
+  return Math.max(STALE_FLOOR, 1 - stale * STALE_STEP);
+}
+
 /* Per-phase multipliers on terms that already exist. 1 means untouched.
    threat at 0.6 in COMMIT is the one to watch: it is what carries an advance
    through rather than stalling it on the first bad tile, and it is also the
@@ -2064,7 +2102,7 @@ export function aiDecideAndExecuteMove(u){
          immediate danger should still notice. What stops is the vague
          board-wide unease that was vetoing every advance. */
       let s = addScore(parts, 'baseState', evaluateState(side) * BASE_STATE_WEIGHT)
-            + addScore(parts, 'threat', Math.max(-tune(side, 'THREAT_SCORE_MAX', THREAT_SCORE_MAX), -0.5*threatPenalty(u, side)) * tempoMultiplier(side, 'threat'));
+            + addScore(parts, 'threat', Math.max(-tune(side, 'THREAT_SCORE_MAX', THREAT_SCORE_MAX), -0.5*threatPenalty(u, side)) * tempoMultiplier(side, 'threat') * cautionDecay(side));
     // A currently-cohesive unit stranding itself is worse than evaluateState's flat
     // per-unit disconnection penalty alone accounts for — that penalty also applies
     // to a unit that was ALREADY stuck, so on its own it's nowhere near enough to
@@ -2605,7 +2643,13 @@ export function aiDecideAndExecuteMove(u){
           // Would anyone else be able to join this fight this turn?
           if(supportCountFor(target, side, u.id) === 0) solo += SOLO_ATTACK_PENALTY;
         }
-        if(solo > 0) s -= subScore(parts, 'soloAttackPenalty', Math.min(solo, SOLO_ATTACK_PENALTY_MAX));
+        /* Decayed alongside threat. These two are the genuine avoidance terms in
+           a stalled decision. killPull and vulnerablePull look like blockers in a
+           parts dump because they read negative, but both are -distance x worth,
+           so they get LESS negative as a unit closes: they are pulls toward a
+           target, and decaying them would make the AI more timid, not less. */
+        if(solo > 0) s -= subScore(parts, 'soloAttackPenalty',
+          Math.min(solo, SOLO_ATTACK_PENALTY_MAX) * cautionDecay(side));
       }
     }
 

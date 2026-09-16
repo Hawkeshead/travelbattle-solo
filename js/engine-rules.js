@@ -107,7 +107,7 @@ export function neighbors8(x,y){
    Computed per-Brigade — a side fields 3 independent Brigades, each
    with its own Brigadier and its own chain.
 ========================================================= */
-export /* AN EXPERIMENT, OFF UNLESS A VARIANT TURNS IT ON.
+/* AN EXPERIMENT, OFF UNLESS A VARIANT TURNS IT ON.
 
    The cohesion chain is an ABSORBING state: a unit off it cannot move, and
    moving is the only way back. The agreed answer was that the Brigadier goes and
@@ -130,7 +130,7 @@ function strandedMayRejoin(side){
   return !!(c && c.STRANDED_MAY_REJOIN);
 }
 
-function movableUnitsForSide(side){
+export function movableUnitsForSide(side){
   const mine = state.units.filter(u=>!u.removed && u.side===side);
   if(strandedMayRejoin(side)) return new Set(mine.map(u=>u.id));
   const brigadeIds = [...new Set(mine.map(u=>u.brigadeId))];
@@ -1417,6 +1417,11 @@ export function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 export function removeUnit(u, reason){
   u.removed = true;
+  /* WHEN ANYTHING LAST LEFT THE BOARD. Read by the AI's staleness decay, which
+     loosens caution the longer a match goes without a casualty. Stamped here
+     because this is the one place a unit actually goes, and it lives on state so
+     it is carried through undo like everything else. */
+  state._lastKillTurn = state.turnNumber;
   logReplay('status', { unitId:u.id, side:u.side, x:u.x, y:u.y, newStatus:'Destroyed', reason });
   addDeathEffect(u.x, u.y);
   log(`${unitLabel(u)} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');

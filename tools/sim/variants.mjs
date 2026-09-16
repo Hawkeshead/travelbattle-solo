@@ -129,6 +129,10 @@ export const VARIANTS = {
      cohesion terms pull it home. A RULES change, so it is measured before it is
      discussed, never landed quietly. */
   stranded_may_rejoin: { STRANDED_MAY_REJOIN: true },
+
+  /* Caution that wears off while nothing dies. Decays the avoidance rather than
+     raising the pull, which is the side four previous attempts pushed on. */
+  stale_decay: { STALE_DECAY: true },
 };
 
 export function resolveVariant(name){
