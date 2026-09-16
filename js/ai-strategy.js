@@ -1371,6 +1371,20 @@ export const TEMPO_V2_DEFAULT = false;
    still points at the stranded unit; if it stops working, this is why. */
 export const AVOIDANCE_CEILING = 2.50;
 
+/* THE TWO HEAVIES ARE A PAIR. Built earlier and left at 0, so it has never run.
+   Turned on now because the case is specific: across one match the Carabiniers
+   and Cuirassiers fought six times between them and were never once adjacent to
+   each other, going 1 from 6, while the British heavies went 9 from 12 operating
+   together. cavalryConcentration treats all four horse alike, which is right for
+   arriving together and wrong for this: the bond is between two named regiments. */
+export const HEAVY_PAIR_BONUS = 2.00;
+
+/* A FLOOR ON missionPull, which is a pull and should not behave like a wall.
+   It reached -6.30, which is past engage's whole ceiling, so a unit could refuse
+   a winning fight because the mission disliked the square. -4.00 leaves it the
+   largest single pull in the game and stops it deciding fights on its own. */
+export const MISSION_PULL_FLOOR = -4.00;
+
 /* Per-phase multipliers on terms that already exist. 1 means untouched.
    threat at 0.6 in COMMIT is the one to watch: it is what carries an advance
    through rather than stalling it on the first bad tile, and it is also the
@@ -2548,7 +2562,7 @@ export function aiDecideAndExecuteMove(u){
            logic, and seeds 1 to 3 went from resolving to stalling. node --check
            and eslint both passed it. Only the simulator caught it. */
         if(UNIT_TYPES[u.type].key === 'HEAVY_CAV'){
-          const pairBonus = tune(side, 'HEAVY_PAIR_BONUS', 0);
+          const pairBonus = tune(side, 'HEAVY_PAIR_BONUS', HEAVY_PAIR_BONUS);
           if(pairBonus){
             const partner = state.units.find(o => !o.removed && o.side===side && o.id!==u.id &&
               UNIT_TYPES[o.type].key === 'HEAVY_CAV');
@@ -2793,7 +2807,9 @@ export function aiDecideAndExecuteMove(u){
          so he frees one unit and strands the next. Left as a comment because the
          idea reads as obviously right and should not be re-derived from scratch
          in six months. It is not right. */
-      s += addScore(parts, 'missionPull', missionMoveBonus(u, side, c, mission, plan) * tempoMul);
+      s += addScore(parts, 'missionPull',
+        Math.max(tune(side, 'MISSION_PULL_FLOOR', MISSION_PULL_FLOOR),
+                 missionMoveBonus(u, side, c, mission, plan) * tempoMul));
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
@@ -2860,8 +2876,29 @@ export function aiDecideAndExecuteMove(u){
   const columnPartner = state.units.some(o=>!o.removed && o.side===side && o.id!==u.id &&
     (UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') &&
     o.formation!=='square' && isAdjacent(o, u));
+  /* HEAVY CAVALRY WITH NOTHING TO ANSWER IT is its own reason to form, and it
+     bypasses the threat threshold rather than adding to it.
+
+     The trigger was tightened to stop over-forming and it worked, but it now
+     under-forms against the one thing square exists for: Britain took fifteen
+     "Cavalry vs non-Square Infantry" bonuses in a match where France formed
+     square barely at all. HEAVY specifically, because the light regiments are
+     what the tightened trigger is correctly ignoring and the heavies are what
+     does the killing.
+
+     The "no friendly cavalry within 2" clause is the important half. Square is
+     the answer when there is no better one; with your own horse alongside, the
+     better answer is to let them meet the charge and keep the infantry mobile.
+
+     The three gates above still apply. Forming square next to enemy line
+     infantry is a mistake whatever the cavalry is doing. */
+  const enemyHeavyNear = state.units.some(o=>!o.removed && o.side!==side &&
+    UNIT_TYPES[o.type].key==='HEAVY_CAV' && chebyshev(o, u) <= 3);
+  const ownHorseNear = state.units.some(o=>!o.removed && o.side===side && o.id!==u.id &&
+    UNIT_TYPES[o.type].isCavalry && chebyshev(o, u) <= 2);
+  const heavyThreat = enemyHeavyNear && !ownHorseNear;
   if(canSquare && !enemyLineNear && !coverNear && !columnPartner &&
-     cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4){
+     (heavyThreat || (cavalryThreatWithinCharge(u, side) && threatPenalty(u, side) >= 1.4))){
     const origForm = u.formation;
     u.formation = 'square';
     /* NOT logged here. This square is hypothetical: it is set only to score the
