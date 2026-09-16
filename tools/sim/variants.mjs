@@ -120,6 +120,10 @@ export const VARIANTS = {
      with no COMMIT" and "first COMMIT turn", so it does not need an isolating
      run to be caught. */
   tempo_v2: { TEMPO_V2: true },
+
+  /* The old turn clock, for running the tempo system against what it replaced
+     now that it is the default. */
+  no_tempo: { TEMPO_V2: false },
 };
 
 export function resolveVariant(name){

@@ -914,7 +914,7 @@ export function aiPlanTurn(side){
      machine only advanced on turns the PLAN changed. The army sat in BUILD past
      turn 13 with an 8-turn cap that never fired, and half of all sides never
      reached COMMIT at all. aiPlanTurn runs once per side per turn regardless. */
-  if(flag(side, 'TEMPO_V2')) advanceTempo(side, assessment);
+  if(tempoV2(side)) advanceTempo(side, assessment);
   const plan = updateOperationalPlan(side, assessment);
   const missions = assignBrigadeMissions(side, plan, assessment);
   state._aiMissions[side] = missions;
@@ -1327,6 +1327,31 @@ export const TEMPO_COMMIT_DRY_TURNS  = 3;   // turns with no contact after COMMI
    never achieve is the never-commit failure again wearing a different hat. */
 export const TEMPO_READY_SPREAD = 6;
 
+/* PHASED TEMPO STAYS OFF BY DEFAULT, on the evidence rather than on doubt.
+
+   It was measured twice, in opposite directions, and neither result is strong
+   enough to act on:
+
+     tempo ON as the variant, old clock as control   60.0% on 25 decided
+     old clock as the variant, tempo ON as control   57.5% on 33 decided
+
+   Those cannot both be right. The second is the mirror of the first and should
+   have come back near 40% if the first were real. Two readings in the 55-60 band
+   pointing opposite ways is not a close call, it is no evidence, and the honest
+   conclusion is that the 60% was small-sample noise that happened to land the
+   flattering side of the line.
+
+   The system is not reverted, because the tempo report shows it doing what it
+   was built to do on the measures that are not win rate: contact spread 49.8
+   turns to 17.5, units dying alone 7.0 to 3.8, fighting after COMMIT nearly six
+   times the fighting before. Those are real and they are not visible in a win
+   rate, because both armies get the change and the advantage cancels.
+
+   So it stays available and off. Turning it on is a variant away. What it needs
+   before it becomes the default is a run large enough to separate 55% from 50%,
+   which at the current stall rate means several hundred matches. */
+export const TEMPO_V2_DEFAULT = false;
+
 /* THE AVOIDANCE CEILING.
 
    No avoidance term may outweigh the best fight on the board. brigadierTrail
@@ -1356,8 +1381,13 @@ export const TEMPO_MULTIPLIERS = {
   COMMIT: { engage:1.0, missionPull:1.5, mutualSupport:1.0, advancePull:1.5, threat:0.6, gunHasShot:1.0, terrainSeek:0.5 },
 };
 
+/* ON unless a variant explicitly turns it off. tune() rather than flag(),
+   because flag() defaults false and this now defaults true: a variant sets
+   TEMPO_V2 to false to get the old turn clock back as a control. */
+function tempoV2(side){ return tune(side, 'TEMPO_V2', TEMPO_V2_DEFAULT) !== false; }
+
 export function tempoMultiplier(side, term){
-  if(!flag(side, 'TEMPO_V2')) return term==='missionPull' ? (TEMPO_PULL[tempoPhase(side)] ?? 1) : 1;
+  if(!tempoV2(side)) return term==='missionPull' ? (TEMPO_PULL[tempoPhase(side)] ?? 1) : 1;
   const m = TEMPO_MULTIPLIERS[tempoPhase(side)];
   return (m && m[term] !== undefined) ? m[term] : 1;
 }
@@ -1448,7 +1478,7 @@ function advanceTempo(side, assessment){
 }
 
 function tempoPhase(side){
-  if(flag(side, 'TEMPO_V2')) return tempoState(side).phase;
+  if(tempoV2(side)) return tempoState(side).phase;
   const cache = state._aiTempoCache;
   if(cache && cache.side===side && cache.turn===state.turnNumber) return cache.phase;
   let phase;
