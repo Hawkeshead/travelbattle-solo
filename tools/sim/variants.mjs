@@ -124,6 +124,11 @@ export const VARIANTS = {
   /* The old turn clock, for running the tempo system against what it replaced
      now that it is the default. */
   no_tempo: { TEMPO_V2: false },
+
+  /* The stall experiment: let a cut-off unit move again and let the existing
+     cohesion terms pull it home. A RULES change, so it is measured before it is
+     discussed, never landed quietly. */
+  stranded_may_rejoin: { STRANDED_MAY_REJOIN: true },
 };
 
 export function resolveVariant(name){

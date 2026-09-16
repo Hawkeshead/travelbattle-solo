@@ -107,8 +107,32 @@ export function neighbors8(x,y){
    Computed per-Brigade — a side fields 3 independent Brigades, each
    with its own Brigadier and its own chain.
 ========================================================= */
-export function movableUnitsForSide(side){
+export /* AN EXPERIMENT, OFF UNLESS A VARIANT TURNS IT ON.
+
+   The cohesion chain is an ABSORBING state: a unit off it cannot move, and
+   moving is the only way back. The agreed answer was that the Brigadier goes and
+   collects it, and that was built. It fixes individual cases and has not moved
+   the stall rate in three attempts, and the probe shows why: one Soult had FOUR
+   cut-off units in his Brigade at once. One Brigadier cannot collect four. The
+   Brigade is finished in every practical sense and every unit in it is still
+   alive, so it never breaks and the match cannot end.
+
+   This lets a cut-off unit move again, and nothing else: the existing cohesion
+   terms (cohesionGain, cohesionLoss, cohesionDrift) already pull it back toward
+   the chain, so it does not need a special rule about which way to walk.
+
+   It is a RULES change, which is why it is a flag rather than a default, and why
+   it reads state.aiConfig: only the simulator sets that, so a played game is
+   untouched no matter what. If it measures well, it is a conversation about the
+   rule rather than something to land quietly. */
+function strandedMayRejoin(side){
+  const c = state.aiConfig && state.aiConfig[side];
+  return !!(c && c.STRANDED_MAY_REJOIN);
+}
+
+function movableUnitsForSide(side){
   const mine = state.units.filter(u=>!u.removed && u.side===side);
+  if(strandedMayRejoin(side)) return new Set(mine.map(u=>u.id));
   const brigadeIds = [...new Set(mine.map(u=>u.brigadeId))];
   const connected = new Set();
   for(const bId of brigadeIds){
