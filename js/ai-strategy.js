@@ -402,6 +402,12 @@ export const BRIGADIER_CONTACT_PENALTY = 2.5;
 
 // Staying put when there is a shot to take. A gun may move OR fire, so moving
 // with a target in view throws the shot away.
+/* A4: screensGun was NOT absent, which the export's own term table shows at
+   0.00 to 0.50. It was present and too small to matter, which reads the same in
+   a decider list and is a different problem. screensGunBonus returns 0.50, so a
+   weight of 3 gives the +1.50 asked for. */
+export const SCREENS_GUN_WEIGHT = 3.0;
+
 export const GUN_HOLDS_FIRE_BONUS = 3.0;   // T6, measured: was 2.5
 
 // Pull toward the side's chosen cavalry point. Slightly stronger than the
@@ -1321,6 +1327,25 @@ export const TEMPO_COMMIT_DRY_TURNS  = 3;   // turns with no contact after COMMI
    never achieve is the never-commit failure again wearing a different hat. */
 export const TEMPO_READY_SPREAD = 6;
 
+/* THE AVOIDANCE CEILING.
+
+   No avoidance term may outweigh the best fight on the board. brigadierTrail
+   reached -6.30 and freeStrandedUnit -7.20 in one match, against an engage that
+   only reached +3.00, so a Brigadier faced -13.50 for doing anything other than
+   reconnecting and would decline a winning fight to go and tidy up.
+
+   NEITHER WAS A WEIGHT BLOWOUT, which matters for the fix. Both are
+   distance-proportional: trail is off x 0.9 and recovery is chebyshev x 0.9, so
+   at eight squares they read -6.30 and -7.20 from a weight of 0.9 that has not
+   moved. Capping the TERM is therefore right and lowering the weight would be
+   wrong: the weight is what gives the Brigadier a gradient to follow.
+
+   The cost, stated because it is real: beyond about three squares the cap
+   flattens the gradient, so a distant Brigadier sees the same score everywhere
+   and has nothing to walk down. Recovery survives that because the trail anchor
+   still points at the stranded unit; if it stops working, this is why. */
+export const AVOIDANCE_CEILING = 2.50;
+
 /* Per-phase multipliers on terms that already exist. 1 means untouched.
    threat at 0.6 in COMMIT is the one to watch: it is what carries an advance
    through rather than stalling it on the first bad tile, and it is also the
@@ -2135,7 +2160,8 @@ export function aiDecideAndExecuteMove(u){
          was doing the work, exactly as cavalryConcentration could not. */
       if(recovering){
         s -= subScore(parts, 'freeStrandedUnit',
-          chebyshev(c, recovering) * tune(side, 'STRANDED_RECOVERY_PULL', STRANDED_RECOVERY_PULL));
+          Math.min(tune(side,'AVOIDANCE_CEILING',AVOIDANCE_CEILING),
+                   chebyshev(c, recovering) * tune(side, 'STRANDED_RECOVERY_PULL', STRANDED_RECOVERY_PULL)));
       } else if(strandedGun && chebyshev(u, strandedGun) <= GUN_RECOVERY_RANGE){
         s -= subScore(parts, 'collectStrandedGun',
           chebyshev(c, strandedGun) * GUN_RECOVERY_PULL);
@@ -2187,7 +2213,8 @@ export function aiDecideAndExecuteMove(u){
         const trailMax = recovering ? 1 : BRIGADIER_TRAIL_MAX;
         const off = gap < trailMin ? (trailMin - gap)
                   : gap > trailMax ? (gap - trailMax) : 0;
-        s -= subScore(parts, 'brigadierTrail', off * BRIGADIER_TRAIL_WEIGHT);
+        s -= subScore(parts, 'brigadierTrail',
+          Math.min(tune(side,'AVOIDANCE_CEILING',AVOIDANCE_CEILING), off * BRIGADIER_TRAIL_WEIGHT));
 
         // Never in contact. He cannot be attacked, but standing in the enemy's
         // face puts the Brigade's only Leadership Roll where the line will move
@@ -2696,7 +2723,7 @@ export function aiDecideAndExecuteMove(u){
     }
     // Core Tactic #2, The Gunner's Creed: value screening an unguarded friendly gun.
     if(seekTactics) s += addScore(parts, 'screensGun',
-      screensGunBonus(u, side, c) * tune(side, 'SCREENS_GUN_WEIGHT', 1));
+      screensGunBonus(u, side, c) * tune(side, 'SCREENS_GUN_WEIGHT', SCREENS_GUN_WEIGHT));
     // Manoeuvre #20, The Bogged Column (Hard): close on a stuck, unescorted enemy gun.
     if(boggedTarget) s -= subScore(parts, 'boggedGun', chebyshev(c, boggedTarget) * 0.15);
     else if(raidTarget) s -= subScore(parts, 'gunRaid',
