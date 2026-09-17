@@ -32,7 +32,7 @@ const VARIANT = process.argv[3] || 'control';
 
 const spreads = [], commitTurns = [], holdOverruns = [], noCommit = [];
 const fightsBefore = [], fightsAfter = [];
-let soloLosses = 0, matches = 0, totalFights = 0;
+let soloLosses = 0, matches = 0, totalFights = 0, stalled = 0;
 
 const g = await loadGame();
 const render = await import('../../js/render-board.js');
@@ -41,7 +41,10 @@ collapseTimers();
 const { data, dice, rules } = g; const { state, SIDES } = data;
 const cheb = (a,b) => Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y));
 
-for (let seed = 1; seed <= N; seed++) {
+const CHILD = process.argv.includes('--child');
+const SEEDS = CHILD ? [Number(process.argv[process.argv.indexOf('--child') + 1])]
+                    : Array.from({ length: N }, (_, i) => i + 1);
+for (const seed of (CHILD ? SEEDS : [])) {
   dice.setFastDiceMode(true); render.setFastAnimationMode(true);
   state.scenario = null; state.campaign = null; state.mode = 'ai';
   state.spectate = true; state.aiDifficulty = 'hard';
@@ -64,6 +67,7 @@ for (let seed = 1; seed <= N; seed++) {
     }, 4);
   });
   matches++;
+  if (state.turnNumber > 400) stalled++;
 
   for (const side of ['red', 'blue']) {
     const turns = Object.entries(firstContact).filter(([k]) => k.startsWith(side + ':')).map(([, v]) => v);
@@ -95,6 +99,55 @@ for (let seed = 1; seed <= N; seed++) {
   process.stderr.write(`  seed ${seed} done (turn ${state.turnNumber})\n`);
 }
 
+/* ONE MATCH PER PROCESS, for the same reason run.mjs does it and which this file
+   did NOT do until now: the game's state is a module singleton and a finished
+   match leaves residue behind it, so a second match in the same process starts
+   part-played. It was producing matches that "ended" at turn 1. Every number
+   this tool reported before this change is therefore only trustworthy for the
+   first match of each run, which is to say not trustworthy.
+
+   The child prints its tallies as JSON and the parent sums them. */
+if (CHILD) {
+  process.stdout.write('\u0001TALLY' + JSON.stringify({
+    spreads, commitTurns, noCommit: noCommit.length, fightsBefore, fightsAfter,
+    soloLosses, totalFights, stalled, matches,
+  }) + '\n');
+  process.exit(0);
+}
+
+/* PARENT: spawn one child per match and sum their tallies. */
+{
+  const { spawn } = await import('node:child_process');
+  const os = await import('node:os');
+  const jobs = Math.max(1, Math.min(8, os.cpus().length || 4));
+  const runOne = seed => new Promise(resolve => {
+    let out = '';
+    const c = spawn(process.execPath, [process.argv[1], '1', VARIANT, '--child', String(seed)],
+                    { cwd: process.cwd() });
+    c.stdout.on('data', d => { out += d; });
+    c.stderr.on('data', () => {});
+    c.on('close', () => {
+      const line = out.split('\n').find(l => l.startsWith('\u0001TALLY'));
+      resolve(line ? JSON.parse(line.slice(6)) : null);
+    });
+  });
+  const seeds = Array.from({ length: N }, (_, i) => i + 1);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(jobs, N) }, async () => {
+    while (next < seeds.length) {
+      const seed = seeds[next++];
+      const r = await runOne(seed);
+      if (!r) { process.stderr.write(`  seed ${seed} CRASHED\n`); continue; }
+      spreads.push(...r.spreads); commitTurns.push(...r.commitTurns);
+      fightsBefore.push(...r.fightsBefore); fightsAfter.push(...r.fightsAfter);
+      for (let i = 0; i < r.noCommit; i++) noCommit.push('x');
+      soloLosses += r.soloLosses; totalFights += r.totalFights;
+      stalled += r.stalled; matches += r.matches;
+      process.stderr.write(`  seed ${seed} done\n`);
+    }
+  }));
+}
+
 const avg = a => a.length ? (a.reduce((t, v) => t + v, 0) / a.length) : null;
 const fmt = v => v === null ? 'n/a' : v.toFixed(1);
 console.log(`\n=== TEMPO REPORT — variant '${VARIANT}', ${matches} matches ===\n`);
@@ -106,4 +159,11 @@ console.log(`Fights 5 turns BEFORE    ${fmt(avg(fightsBefore))}`);
 console.log(`Fights 5 turns AFTER     ${fmt(avg(fightsAfter))}   (target: higher than before)`);
 console.log(`Units 0 from 1           ${(soloLosses / matches).toFixed(1)} per match   (target under 2)`);
 console.log(`Fights per match         ${(totalFights / matches).toFixed(1)}`);
+/* THE STALL RATE, MEASURED WITH THE CHANGE ON BOTH SIDES.
+
+   run.mjs puts a variant on ONE side, which is right for a win rate and wrong
+   for this: a stall needs BOTH armies to refuse to commit, so a one-sided test
+   can only ever half-fix it and will understate any real effect. This report
+   applies the variant to both, which is the only way to read a stall rate. */
+console.log(`Matches that stalled     ${stalled} of ${matches}  (${(stalled/matches*100).toFixed(0)}%)`);
 process.exit(0);
