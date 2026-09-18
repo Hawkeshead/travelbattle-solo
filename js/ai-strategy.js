@@ -1082,14 +1082,54 @@ export function orderAiUnitsForMove(side){
   for(const bId of new Set(units.map(u=>u.brigadeId))){
     brigadierOf[bId] = units.find(u=>u.brigadeId===bId && u.type==='BRIGADIER') || null;
   }
+  /* THE BRIGADIER GOES IN THE MIDDLE WHEN PART OF HIS BRIGADE IS CUT OFF.
+
+     Brigadier first is right for a Brigade that is all in one piece: the rest
+     get a freshly-moved anchor to path toward. It is wrong the moment the
+     Brigade is in two pieces, and that is how a Brigade usually ends up, because
+     the enemy kills the unit in the middle of the chain on purpose. Severing a
+     Brigade is a real tactic and the AI should answer it rather than have the
+     rule bent for it.
+
+     A person answers it by ORDERING the turn. Move the group that can already
+     move, then walk the Brigadier across to bridge the group that cannot, then
+     move those as well. One Brigadier serves two clusters in a single turn.
+
+     The AI could not do that for one reason: the Brigadier always moved first,
+     so his new position could only ever help NEXT turn. Everything else needed
+     was already in place, because legalMoves recomputes the chain for every unit
+     as it moves, so a Brigadier who repositions mid-phase unlocks units behind
+     him immediately.
+
+     So when a Brigade has a cut-off member, the order becomes:
+        connected members (outermost first)  ->  Brigadier  ->  cut-off members
+     and when it does not, it stays exactly as it was.
+
+     ARTILLERY IS NOT COUNTED as cut off for this. A battery parked on a vantage
+     point and deliberately left off the chain is normal play, not an accident,
+     and rearranging a whole Brigade's turn to go and collect one would be the AI
+     misreading a good position as a problem. */
+  const connected = movableUnitsForSide(side);
+  const strandedMates = {};
+  for(const bId of Object.keys(brigadierOf)){
+    strandedMates[bId] = units.some(u => u.brigadeId===bId && u.type!=='BRIGADIER' &&
+      !UNIT_TYPES[u.type].isArtillery && !connected.has(u.id));
+  }
+  const PHASE_CONNECTED = 0, PHASE_BRIGADIER = 1, PHASE_CUTOFF = 2;
+  const phaseOf = u => {
+    if(!strandedMates[u.brigadeId]) return PHASE_CONNECTED;   // unchanged ordering
+    if(u.type==='BRIGADIER') return PHASE_BRIGADIER;
+    return connected.has(u.id) ? PHASE_CONNECTED : PHASE_CUTOFF;
+  };
   const chainDepth = u => {
     if(u.type==='BRIGADIER') return -Infinity;
     const brig = brigadierOf[u.brigadeId];
     return brig ? -chebyshev(u, brig) : 0;   // negated, so furthest sorts first
   };
-  
+
   return units
     .sort((a,b)=> (brigadeX[a.brigadeId]-brigadeX[b.brigadeId])
+               || (phaseOf(a)-phaseOf(b))
                || (chainDepth(a)-chainDepth(b))
                || (pri[a.type]-pri[b.type]))
     .map(u=>u.id);
