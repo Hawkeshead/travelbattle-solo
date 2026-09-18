@@ -914,6 +914,17 @@ export function aiPlanTurn(side){
      machine only advanced on turns the PLAN changed. The army sat in BUILD past
      turn 13 with an 8-turn cap that never fired, and half of all sides never
      reached COMMIT at all. aiPlanTurn runs once per side per turn regardless. */
+  /* Stamp how long each unit has been off the chain, once per side per turn.
+     Cleared the moment it reconnects, so the count is "stuck since", not "ever
+     stuck". Lives on the unit, so undo carries it like everything else. */
+  {
+    const conn = movableUnitsForSide(side);
+    for(const u of state.units){
+      if(u.removed || u.side!==side || u.type==='BRIGADIER') continue;
+      if(conn.has(u.id)) delete u._strandedSince;
+      else if(u._strandedSince === undefined) u._strandedSince = state.turnNumber;
+    }
+  }
   if(tempoV2(side)) advanceTempo(side, assessment);
   const plan = updateOperationalPlan(side, assessment);
   const missions = assignBrigadeMissions(side, plan, assessment);
@@ -1908,10 +1919,30 @@ export function brigadierRecoveryTarget(brig){
   const mates = state.units.filter(o => !o.removed && o.side===brig.side &&
     o.brigadeId===brig.brigadeId && o.id!==brig.id && unitIsStranded(o));
   if(mates.length===0) return null;
+  /* LONGEST WAITING FIRST, then nearest. This is the rotation.
+
+     Nearest alone makes a Brigadier fixate: he bridges the closest group, they
+     move, they are closest again next turn, and a Brigade split three ways gets
+     the same cluster freed over and over while the others sit for the whole
+     match. Which is exactly what the probe found, with four units cut off in one
+     Brigade and only ever one of them collected.
+
+     A person does not play it that way. He bridges one group, then the other,
+     then back, so every cluster gets its turn across two or three moves. Sorting
+     by how long a unit has been stuck reproduces that without needing a rota:
+     the group just freed resets to zero and drops to the back of the queue, and
+     whoever has waited longest comes to the front on its own.
+
+     Distance still breaks the tie inside a wait band, so he does not cross the
+     board past a nearer group to reach one that has been stuck a turn longer. */
   mates.sort((a,b) => {
     const ga = UNIT_TYPES[a.type].isArtillery ? 1 : 0;
     const gb = UNIT_TYPES[b.type].isArtillery ? 1 : 0;
-    return ga !== gb ? ga - gb : chebyshev(brig,a) - chebyshev(brig,b);
+    if(ga !== gb) return ga - gb;
+    const wa = state.turnNumber - (a._strandedSince ?? state.turnNumber);
+    const wb = state.turnNumber - (b._strandedSince ?? state.turnNumber);
+    if(wa !== wb) return wb - wa;                       // longest wait first
+    return chebyshev(brig,a) - chebyshev(brig,b);
   });
   const best = mates[0];
   if(UNIT_TYPES[best.type].isArtillery) return null;   // a gun stays the errand it always was
