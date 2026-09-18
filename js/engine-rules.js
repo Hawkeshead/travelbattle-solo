@@ -127,8 +127,14 @@ export function neighbors8(x,y){
    rule rather than something to land quietly. */
 function strandedMayRejoin(side){
   const c = state.aiConfig && state.aiConfig[side];
-  return !!(c && c.STRANDED_MAY_REJOIN);
+  /* Defaults OFF still; the simulator sets it either way so the experiment can
+     be run in both directions. A result that only appears one way round is the
+     thing that caught the tempo false positive. */
+  if(c && c.STRANDED_MAY_REJOIN !== undefined) return !!c.STRANDED_MAY_REJOIN;
+  return !!STRANDED_REJOIN_DEFAULT;
 }
+let STRANDED_REJOIN_DEFAULT = false;
+export function setStrandedRejoinDefault(v){ STRANDED_REJOIN_DEFAULT = !!v; }
 
 export function movableUnitsForSide(side){
   const mine = state.units.filter(u=>!u.removed && u.side===side);

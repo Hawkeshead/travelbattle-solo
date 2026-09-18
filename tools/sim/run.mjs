@@ -80,6 +80,9 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
      doctrine and the same everything else, which is the only way the win rate
      isolates the change. */
   state.aiConfig = { red: {}, blue: {} };
+  /* SIM_REVERSE flips which side of an experiment is the control, so a result
+     can be checked by running it backwards. */
+  if (process.env.SIM_REVERSE) { g.rules.setStrandedRejoinDefault(true); }
   if (variantSide) state.aiConfig[variantSide] = resolveVariant(variant);
 
   /* VERSION vs VERSION. The variant side keeps the CURRENT AI and the other side

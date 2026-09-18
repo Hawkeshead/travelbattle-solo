@@ -133,6 +133,11 @@ export const VARIANTS = {
   /* Caution that wears off while nothing dies. Decays the avoidance rather than
      raising the pull, which is the side four previous attempts pushed on. */
   stale_decay: { STALE_DECAY: true },
+
+  /* The reverse of stranded_may_rejoin: run with SIM_REVERSE=1 so the default
+     is ON and this variant is the OLD behaviour. A real effect should lose here
+     by about as much as it won the other way round. */
+  no_rejoin: { STRANDED_MAY_REJOIN: false },
 };
 
 export function resolveVariant(name){
