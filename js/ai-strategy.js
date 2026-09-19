@@ -3418,6 +3418,41 @@ export function pickVolleyTarget(candidates){
     if(remaining === 0) continue;
     let sc = 3.0 / remaining;                       // last unit in a Brigade scores 3.0
     if(t.turnOnly || t.rallying) sc += 0.5;         // already wounded, and cannot reply
+    /* VOLLEY TO MAKE THE OPENING, not merely to do damage.
+
+       A volley that lands turns its target around, and a turned-around defender
+       hands every attacker +1 for the rest of the turn. So the volley's real
+       value is usually not the hit, it is the fight that comes after it, and the
+       AI had no way to see that: this function scored Brigade attrition and
+       nothing else, so it shot at whatever was nearest to breaking rather than
+       at whatever its own cavalry was about to charge.
+
+       The Sep 19 match is the gap in one line. Britain took 20 "Defender turned
+       around" bonuses in 42 fights. France took 4. Nearly half of every British
+       attack landed on a unit that had already been turned, and almost none of
+       France's did.
+
+       THE TARGET DOES NOT HAVE TO BE DISPLACED for this to work, which is where
+       the existing VOLLEY_SETUP experiment went wrong: it scored the square the
+       target would be knocked BACK to and then looked for someone who could
+       reach it. A plain disrupt moves nobody and still confers the bonus. So the
+       question is just: can one of ours fight this unit afterwards, where it
+       already stands.
+
+       Cavalry counts double. It has the reach to convert an opening from further
+       out and the dice to make the +1 decisive, and pairing the volley with the
+       charge is the combination the player uses. */
+    let followUp = 0;
+    for(const o of state.units){
+      if(o.removed || o.side===t.side) continue;
+      if(o.side!==state.aiSide) continue;
+      if(UNIT_TYPES[o.type].isArtillery || o.type==='BRIGADIER') continue;
+      if(o.turnOnly) continue;
+      const horse = o.type==='HEAVY_CAV' || o.type==='LIGHT_CAV';
+      const reach = horse ? unitBaseMove(o) : 1;
+      if(chebyshev(o, t) <= reach) followUp = Math.max(followUp, horse ? 2.0 : 1.0);
+    }
+    sc += followUp * tune(state.aiSide, 'VOLLEY_OPENING', 1.0);
     if(sc > bestScore){ bestScore = sc; best = t; }
   }
   return best;
