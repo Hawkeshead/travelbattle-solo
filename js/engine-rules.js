@@ -436,6 +436,43 @@ export function isFootInfantry(u){
   return !!t.canFight && !t.isCavalry && !t.isArtillery;
 }
 
+
+/* MOVEMENT AUDIO, including the moves a unit does not choose to make.
+
+   Falling back is still marching, riding or hauling a gun, and until now it was
+   silent: the movement sounds were wired only into the player's own click
+   handler, so a pushback, a rout to the board edge and a rally all played
+   nothing at all. The animation was there, the sound was not, and a squadron
+   streaming three squares backwards in silence is the one moment the board
+   most obviously stops feeling like men on a field.
+
+   Same clips and same loop-and-cut treatment as a voluntary move, so a retreat
+   sounds like the unit it belongs to rather than getting its own vocabulary.
+   The profile is passed through because a rout covers more ground than a march
+   and the sound has to last as long as the animation does, however far it runs.
+
+   Keyed per unit type: Brigadiers get the single rider rather than the squadron,
+   and the test is on the type key because isCavalry is false for them. */
+export function playMovementAudio(u, steps, profile){
+  if(!u) return;
+  const n = Math.max(1, steps|0);
+  /* A rout is capped at 3000ms however far the unit runs (the Sep 19 export has
+     five squares and seven squares both landing on 3000), so the sound is capped
+     with it. Without this a seven-square flight would keep galloping for two
+     seconds after the unit had stopped. */
+  const ms = profile === 'rout' ? Math.min(3000, moveAnimationMs(n)) : moveAnimationMs(n);
+  const T = UNIT_TYPES[u.type];
+  if(T.key==='INFANTRY' || T.key==='GUARD'){
+    AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement', { durationMs: ms });
+  } else if(T.key==='BRIGADIER'){
+    AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement', { durationMs: ms, loop: true });
+  } else if(T.isCavalry){
+    AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement', { durationMs: ms, loop: true });
+  } else if(T.isArtillery){
+    AudioManager.playEffect('artillery-move', 'audio/effects/artillery-move.wav', 'movement', { durationMs: ms, loop: true });
+  }
+}
+
 export function volleyTargets(u){
   if(u.removed || !isFootInfantry(u)) return [];
   if(u.turnOnly) return [];                                   // turned around: cannot fire
@@ -1162,13 +1199,18 @@ export function pushBack(loser, winner){
       const bx = nx+dx, by = ny+dy;
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
         animateUnitTo(blocker, bx, by, 'pushback');   // shoved aside by the unit being pushed into it
+        playMovementAudio(blocker, Math.max(Math.abs(bx-blocker.x), Math.abs(by-blocker.y)) || 1, 'pushback');
         blocker.turnOnly = true;
         log(`${unitLabel(blocker)} is shoved back by the retreat.`, 'combat');
       } else {
         landingClear = false; // nowhere for the blocker to go — loser can't retreat into it either
       }
     }
-    if(landingClear){ animateUnitTo(loser, nx, ny, 'pushback'); }
+    if(landingClear){
+      const st = Math.max(Math.abs(nx-loser.x), Math.abs(ny-loser.y)) || 1;
+      animateUnitTo(loser, nx, ny, 'pushback');
+      playMovementAudio(loser, st, 'pushback');
+    }
   } else if(!inBounds(nx,ny)){
     /* Back to the board edge with nowhere further to give. The house rule is that
        the unit bolts along its own edge rather than standing still.
@@ -1191,7 +1233,7 @@ export function pushBack(loser, winner){
     for(const tx of options){
       if(tx < 0 || tx >= COLS) continue;
       if(unitsAt(tx, loser.y).some(o=>o.id!==loser.id)) continue;
-      animateUnitTo(loser, tx, loser.y, 'pushback');
+      { const st = Math.abs(tx-loser.x) || 1; animateUnitTo(loser, tx, loser.y, 'pushback'); playMovementAudio(loser, st, 'pushback'); }
       log(`${unitLabel(loser)} has nowhere left to give and edges along the board edge.`, 'combat');
       moved = true;
       break;
@@ -1313,7 +1355,9 @@ export function retreatAndRally(loser, onComplete){
            board: through square centres, above the map, below the ambient clouds
            and birds, in the same style as any other move. */
         log(`${unitLabel(loser)} RALLIES (rolled ${r}) and falls back to the board edge.`, 'combat');
-        animateUnitTo(loser, cell.x, cell.y, 'rout');
+        { const st = Math.max(Math.abs(cell.x-loser.x), Math.abs(cell.y-loser.y)) || 1;
+          animateUnitTo(loser, cell.x, cell.y, 'rout');
+          playMovementAudio(loser, st, 'rout'); }
         logReplay('status', { unitId:loser.id, side:loser.side, x:cell.x, y:cell.y, newStatus:'Rallied' });
         // Hand back only once the run has finished, so the next fight cannot open
         // a panel over a unit that is still moving.
