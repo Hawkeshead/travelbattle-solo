@@ -2563,9 +2563,33 @@ export function aiDecideAndExecuteMove(u){
                  is gone with it: a shot so poor it is not worth a move should
                  not be propped up by a minimum. */
               for(const t2 of targets) best = Math.max(best, hitChance(chebyshev(u, t2)));
-              s += addScore(parts, 'gunHasShot',
-                (tune(side, 'GUN_HOLDS_FIRE_BONUS', GUN_HOLDS_FIRE_BONUS) +
-                 Math.min(shots, 3) * 0.2) * best * tempoMultiplier(side, 'gunHasShot'));
+              /* C2: HOLD FIRE AND WALK TO A BETTER ANGLE.
+
+                 Scaling the hold bonus by hit chance was the soft version of this
+                 and it is not enough on its own. A gun with a 1-in-3 shot at range
+                 5 still scores something for staying, and something beats nothing
+                 when the alternative tile has no target in view at all until the
+                 gun arrives. The Sep 19 match fired thirteen times at range 5 for
+                 two hits while range 3 went five for five.
+
+                 So when the shot in hand is poor and a genuinely better one is
+                 within this turn's move, the bonus for staying is withdrawn
+                 outright rather than merely discounted. The gun is then free to
+                 reposition on gunVantage, which already knows where the good
+                 ground is.
+
+                 BUILT IN THE MOVE PHASE, WHICH IS THE ONLY PLACE IT CAN WORK. A
+                 gun cannot move and fire in the same turn, so a Fire-phase version
+                 of this rule declines the shot and then has nothing to spend the
+                 turn on: it just loses the shot. The decision is a movement
+                 decision and has to be taken while movement is still available. */
+              const poorNow  = best <= HOLD_FIRE_POOR;
+              const betterEls = poorNow && bestReachableHitChance(u) >= HOLD_FIRE_GOOD;
+              if(!betterEls){
+                s += addScore(parts, 'gunHasShot',
+                  (tune(side, 'GUN_HOLDS_FIRE_BONUS', GUN_HOLDS_FIRE_BONUS) +
+                   Math.min(shots, 3) * 0.2) * best * tempoMultiplier(side, 'gunHasShot'));
+              }
             }
           }
         }
@@ -3368,6 +3392,38 @@ function aiDoVolleyStep(){
    prefers to kill the more valuable thing. */
 export const DIE_WEIGHT = 3.0;
 export const BONUS_WEIGHT = 1.0;
+
+/* C2 support. The best hit chance this gun could have from anywhere it can reach
+   this turn, target visibility recomputed from each tile rather than assumed.
+
+   Memoised per unit per turn: it is asked once per candidate square inside the
+   scoring loop, and it walks every reachable tile and every enemy, so without the
+   cache a single battery would pay for that scan a dozen times over for an answer
+   that cannot change within the turn.
+
+   The unit is moved onto each tile and put back, because artilleryTargets reads
+   the gun's own position for range and line of sight. Restored in a finally, so
+   an exception cannot leave a battery parked somewhere it never went. */
+export const HOLD_FIRE_POOR = 0.34;   // 1-in-3 or worse (range 5+) counts as a poor shot
+export const HOLD_FIRE_GOOD = 0.50;   // 1-in-2 or better (range 4 or nearer) is worth walking to
+let _reachHitCache = { turn: -1, side: null, by: new Map() };
+export function bestReachableHitChance(u){
+  if(_reachHitCache.turn !== state.turnNumber || _reachHitCache.side !== u.side){
+    _reachHitCache = { turn: state.turnNumber, side: u.side, by: new Map() };
+  }
+  if(_reachHitCache.by.has(u.id)) return _reachHitCache.by.get(u.id);
+  const ox = u.x, oy = u.y;
+  let best = 0;
+  try {
+    for(const c of legalMoves(u)){
+      if(c.x===ox && c.y===oy) continue;
+      u.x = c.x; u.y = c.y;
+      for(const t of artilleryTargets(u)) best = Math.max(best, hitChance(chebyshev(u, t)));
+    }
+  } finally { u.x = ox; u.y = oy; }
+  _reachHitCache.by.set(u.id, best);
+  return best;
+}
 
 export function estimateFightValue(a, t){
   /* S2/S4: a square CAN attack now, so the -9 sentinel is gone. combatBonuses
