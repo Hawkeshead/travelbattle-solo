@@ -1,0 +1,709 @@
+{
+  "filters": [
+    "LINE",
+    "GUARD",
+    "CAVALRY",
+    "ARTILLERY",
+    "COMBINED"
+  ],
+  "unitTypes": [
+    "INFANTRY",
+    "GUARD",
+    "LIGHT_CAV",
+    "HEAVY_CAV",
+    "ARTILLERY"
+  ],
+  "pool": {
+    "INFANTRY": 6,
+    "GUARD": 2,
+    "LIGHT_CAV": 2,
+    "HEAVY_CAV": 2,
+    "ARTILLERY": 2
+  },
+  "brigadeSize": {
+    "min": 2,
+    "max": 6
+  },
+  "brigadesPerSide": 3,
+  "brigades": [
+    {
+      "id": "picket",
+      "name": "The Picket",
+      "filters": [
+        "LINE"
+      ],
+      "size": 2,
+      "breaksAt": 2,
+      "units": [
+        "INFANTRY",
+        "INFANTRY"
+      ],
+      "threat": [
+        "HOLD"
+      ],
+      "horseArtillery": false,
+      "blurb": "Sits in a wood or village and refuses to move."
+    },
+    {
+      "id": "old-guard",
+      "name": "The Old Guard",
+      "filters": [
+        "GUARD"
+      ],
+      "size": 2,
+      "breaksAt": 2,
+      "units": [
+        "GUARD",
+        "GUARD"
+      ],
+      "threat": [
+        "ELITE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Two re-rolls and nothing else. Expensive to shift, trivial to break."
+    },
+    {
+      "id": "line-detachment",
+      "name": "Line Detachment",
+      "filters": [
+        "LINE"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+      ],
+      "threat": [
+        "HOLD"
+      ],
+      "horseArtillery": false,
+      "blurb": "Cheap ground-holder with a chain short enough to turn corners."
+    },
+    {
+      "id": "grenadier-detachment",
+      "name": "Grenadier Detachment",
+      "filters": [
+        "LINE",
+        "GUARD"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+      ],
+      "threat": [
+        "HOLD",
+        "ELITE"
+      ],
+      "horseArtillery": false,
+      "blurb": "A line with one steady man in it."
+    },
+    {
+      "id": "forlorn-hope",
+      "name": "Forlorn Hope",
+      "filters": [
+        "GUARD"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+      ],
+      "threat": [
+        "ELITE",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "Elite spearhead with a single escort."
+    },
+    {
+      "id": "flying-battery",
+      "name": "Flying Battery",
+      "filters": [
+        "CAVALRY",
+        "ARTILLERY"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "MOBILE_FIRE",
+        "SCREEN"
+      ],
+      "horseArtillery": true,
+      "blurb": "A gun that repositions to wherever the fight went."
+    },
+    {
+      "id": "imperial-battery",
+      "name": "Imperial Battery",
+      "filters": [
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Both Guard and a gun. Tiny, and very hard to shift off a hill."
+    },
+    {
+      "id": "horse-battery",
+      "name": "Horse Battery",
+      "filters": [
+        "CAVALRY",
+        "ARTILLERY"
+      ],
+      "size": 3,
+      "breaksAt": 3,
+      "units": [
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "MOBILE_FIRE",
+        "SHOCK"
+      ],
+      "horseArtillery": true,
+      "blurb": "Shock and fire support at the same speed."
+    },
+    {
+      "id": "line-brigade",
+      "name": "Line Brigade",
+      "filters": [
+        "LINE"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+      ],
+      "threat": [
+        "HOLD",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "The honest workhorse. Can stack two Attack Columns."
+    },
+    {
+      "id": "grenadier-line",
+      "name": "Grenadier Line",
+      "filters": [
+        "LINE",
+        "GUARD"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+      ],
+      "threat": [
+        "HOLD",
+        "ASSAULT",
+        "ELITE"
+      ],
+      "horseArtillery": false,
+      "blurb": "A working line brigade with an anchor on one flank."
+    },
+    {
+      "id": "gun-line",
+      "name": "The Gun Line",
+      "filters": [
+        "ARTILLERY"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "FIRE",
+        "HOLD"
+      ],
+      "horseArtillery": false,
+      "blurb": "Manoeuvre No. 11. Both guns, and the other two brigades go blind."
+    },
+    {
+      "id": "guard-brigade",
+      "name": "Guard Brigade",
+      "filters": [
+        "GUARD"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+      ],
+      "threat": [
+        "ELITE",
+        "HOLD"
+      ],
+      "horseArtillery": false,
+      "blurb": "The ideal hinge. The re-roll stacks with a building die."
+    },
+    {
+      "id": "combined-arms",
+      "name": "Combined Arms Brigade",
+      "filters": [
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "INFANTRY",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ASSAULT",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "One of each job. The default all-rounder."
+    },
+    {
+      "id": "cavalry-brigade",
+      "name": "Cavalry Brigade",
+      "filters": [
+        "CAVALRY"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+      ],
+      "threat": [
+        "SHOCK",
+        "SCREEN"
+      ],
+      "horseArtillery": false,
+      "blurb": "Lights screen, Heavies charge, all four move at 2."
+    },
+    {
+      "id": "escort",
+      "name": "The Escort",
+      "filters": [
+        "COMBINED",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "size": 4,
+      "breaksAt": 4,
+      "units": [
+        "GUARD",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Fast, elite and blind to nothing. No staying power at all."
+    },
+    {
+      "id": "heavy-line",
+      "name": "Heavy Line",
+      "filters": [
+        "LINE"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+      ],
+      "threat": [
+        "HOLD",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "Slow and blind, but very hard to finish off."
+    },
+    {
+      "id": "grenadier-column",
+      "name": "Grenadier Column",
+      "filters": [
+        "LINE",
+        "GUARD"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+      ],
+      "threat": [
+        "ASSAULT",
+        "HOLD",
+        "ELITE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Mass with a re-roll at the point of the column."
+    },
+    {
+      "id": "guard-assault",
+      "name": "Guard Assault",
+      "filters": [
+        "GUARD"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+      ],
+      "threat": [
+        "ELITE",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "Both Guard leading three Line. Takes ground and keeps it."
+    },
+    {
+      "id": "grenadier-battery",
+      "name": "Grenadier Battery",
+      "filters": [
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "ASSAULT",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "An anchor that brings its own fire support."
+    },
+    {
+      "id": "echelon",
+      "name": "The Echelon",
+      "filters": [
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ASSAULT",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Built for Manoeuvre No. 7. The gun softens, the Heavy charges."
+    },
+    {
+      "id": "vanguard",
+      "name": "The Vanguard",
+      "filters": [
+        "COMBINED",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "INFANTRY",
+        "GUARD",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "SCREEN",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Screened advance with an elite core."
+    },
+    {
+      "id": "cavalry-corps",
+      "name": "Cavalry Corps",
+      "filters": [
+        "CAVALRY",
+        "ARTILLERY"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "SHOCK",
+        "SCREEN",
+        "MOBILE_FIRE"
+      ],
+      "horseArtillery": true,
+      "blurb": "Every unit moves at 2, including the gun."
+    },
+    {
+      "id": "imperial-escort",
+      "name": "Imperial Escort",
+      "filters": [
+        "GUARD",
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 5,
+      "breaksAt": 5,
+      "units": [
+        "GUARD",
+        "GUARD",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Both Guard, escorted and supported. No Line to absorb losses."
+    },
+    {
+      "id": "the-wall",
+      "name": "The Wall",
+      "filters": [
+        "LINE"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+      ],
+      "threat": [
+        "HOLD",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "All six Line, forcing both other brigades to be entirely elite."
+    },
+    {
+      "id": "guard-corps",
+      "name": "Guard Corps",
+      "filters": [
+        "LINE",
+        "GUARD"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+      ],
+      "threat": [
+        "ELITE",
+        "HOLD",
+        "ASSAULT"
+      ],
+      "horseArtillery": false,
+      "blurb": "Four Line and both Guard. The sturdiest thing you can field."
+    },
+    {
+      "id": "grand-brigade",
+      "name": "Grand Brigade",
+      "filters": [
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ASSAULT",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Self-sufficient, but struggles to hold its chain over broken ground."
+    },
+    {
+      "id": "combined-corps",
+      "name": "Combined Corps",
+      "filters": [
+        "COMBINED",
+        "GUARD",
+        "ARTILLERY"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "ASSAULT",
+        "SHOCK"
+      ],
+      "horseArtillery": false,
+      "blurb": "Everything except a second gun."
+    },
+    {
+      "id": "iron-corps",
+      "name": "The Iron Corps",
+      "filters": [
+        "GUARD",
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "GUARD",
+        "GUARD",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "SHOCK",
+        "FIRE"
+      ],
+      "horseArtillery": false,
+      "blurb": "Both Guard and both Heavies. Hits harder than anything on the board."
+    },
+    {
+      "id": "imperial-corps",
+      "name": "Imperial Corps",
+      "filters": [
+        "GUARD",
+        "COMBINED",
+        "ARTILLERY"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "INFANTRY",
+        "GUARD",
+        "GUARD",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "ELITE",
+        "SHOCK",
+        "SCREEN"
+      ],
+      "horseArtillery": false,
+      "blurb": "The sanctuary brigade. Put it where it will not be the cheapest break."
+    },
+    {
+      "id": "flying-corps",
+      "name": "The Flying Corps",
+      "filters": [
+        "CAVALRY",
+        "ARTILLERY"
+      ],
+      "size": 6,
+      "breaksAt": 6,
+      "units": [
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY",
+        "ARTILLERY"
+      ],
+      "threat": [
+        "SHOCK",
+        "SCREEN",
+        "MOBILE_FIRE"
+      ],
+      "horseArtillery": true,
+      "blurb": "Six units, all at speed 2, both guns among them."
+    }
+  ]
+}

@@ -99,6 +99,27 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   const t0 = Date.now();
   menus.beginBoardSetup();
 
+  /* SIM_MIRROR=1 FLIPS THE BOARD TOP TO BOTTOM AND LEAVES THE ARMIES WHERE THEY
+     ARE. France still deploys on rows 0-1 and Britain on rows 8-9; only the
+     terrain moves, so whatever ground France was sitting on is now Britain's.
+
+     This exists to answer one question. Across 96 matches France won 61% of
+     decided games no matter which build was playing it, which means the per-side
+     halves of every head-to-head verdict this project has produced are partly
+     reading the board rather than the change under test. If the advantage
+     follows the terrain when the terrain moves, it is the board. If France keeps
+     winning on mirrored ground, it is something else and the deployment rows or
+     the turn order are the next place to look.
+
+     state.terrain is indexed [y][x], so reversing the outer array is the flip.
+     Applied after setup, which means deployment chose its squares on the
+     unmirrored board. That is a known impurity and an acceptable one: deployment
+     is confined to each side's own two rows either way, and the terrain a unit
+     FIGHTS over is what the run is measuring. */
+  if (process.env.SIM_MIRROR === '1' && Array.isArray(state.terrain)) {
+    state.terrain.reverse();
+  }
+
   const finished = await waitForEnd(state, MATCH_TIMEOUT_MS);
   const living = side => state.units.filter(u => !u.removed && u.side === side).length;
 

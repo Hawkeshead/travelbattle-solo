@@ -1,0 +1,37 @@
+{
+  "beatenBy": {
+    "SHOCK": [
+      "HOLD",
+      "FIRE"
+    ],
+    "SCREEN": [
+      "SCREEN",
+      "FIRE"
+    ],
+    "FIRE": [
+      "SHOCK",
+      "SCREEN"
+    ],
+    "MOBILE_FIRE": [
+      "SHOCK"
+    ],
+    "ASSAULT": [
+      "FIRE",
+      "ELITE"
+    ],
+    "HOLD": [
+      "FIRE",
+      "ASSAULT"
+    ],
+    "ELITE": [
+      "ASSAULT",
+      "SHOCK"
+    ]
+  },
+  "aiCounterChance": {
+    "easy": 0.35,
+    "normal": 0.6,
+    "hard": 0.85
+  },
+  "maxStars": 2
+}
