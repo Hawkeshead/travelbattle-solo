@@ -83,6 +83,78 @@ export const AudioManager = (function(){
     if(state.musicEl){ state.musicEl.play().catch(()=>{}); }
     if(state.ambienceEl){ state.ambienceEl.play().catch(()=>{}); }
     getAudioContext().resume().catch(()=>{});
+    wireInterruptionRecovery();
+  }
+
+  /* COMING BACK FROM AN INTERRUPTION.
+
+     Leave the app, take a call, or start Spotify, and the OS takes audio focus.
+     Come back and the effects work but the score and the ambience are gone for
+     the rest of the match. That is not one bug, it is the two halves of this
+     manager failing differently:
+
+       EFFECTS are Web Audio. The context gets suspended, but every playEffect
+       spins up a fresh source node, and the first one after the interruption
+       nudges the context back to running. They recover by accident.
+
+       MUSIC AND AMBIENCE are HTMLAudioElements. iOS PAUSES them and never
+       resumes them, because resuming someone's background music without asking
+       would be rude. Nothing in here was listening for the moment it became
+       reasonable to ask again, so they stayed paused forever.
+
+     Worse for the battle score specifically: it is a sequence that advances on
+     each track's 'ended' event. A track paused two minutes in never ends, so
+     even once something else woke the element the sequence had no way to move
+     on. It is not just silent, it is stuck.
+
+     So: resume the context, and restart whichever elements were meant to be
+     playing and are not. state.musicSrc is the record of intent, cleared by
+     stopMusic, so a score deliberately stopped is not dragged back to life.
+
+     THREE EVENTS, because no single one is reliable across browsers.
+     visibilitychange is the main one and covers backgrounding the app.
+     focus covers returning to the tab on desktop without a visibility change.
+     The context's own statechange covers the case where audio focus is lost and
+     regained while the page never went anywhere, which is what a Spotify track
+     starting and stopping in the background looks like.
+
+     All three land in the same idempotent function, so firing two or three times
+     over costs a pair of no-op play() calls on elements already playing.
+
+     Mute is not checked here on purpose: muting sets the volume to zero and
+     leaves the elements running, so a muted score still has to be playing or it
+     will not be there when the volume comes back up. */
+  let recoveryWired = false;
+  function resumeAfterInterruption(){
+    if(!state.unlocked) return;
+    try { getAudioContext().resume().catch(()=>{}); } catch(_e) { /* no context yet */ }
+    if(state.musicEl && state.musicSrc && state.musicEl.paused){
+      state.musicEl.play().catch(()=>{
+        /* The element can come back unusable rather than merely paused. If a
+           score is running, rebuilding the current track from scratch is the
+           way back; playMusic makes a new element and the sequence re-attaches
+           its 'ended' listener to it. */
+        const seq = state.musicSequence;
+        if(seq){ state.musicSequence = null; playMusicSequence(seq.srcs); }
+      });
+    }
+    if(state.ambienceEl && state.ambienceEl.paused){ state.ambienceEl.play().catch(()=>{}); }
+  }
+  function wireInterruptionRecovery(){
+    if(recoveryWired) return;
+    recoveryWired = true;
+    try {
+      document.addEventListener('visibilitychange', ()=>{
+        if(!document.hidden) resumeAfterInterruption();
+      });
+      window.addEventListener('focus', resumeAfterInterruption);
+      const ctx = getAudioContext();
+      if(ctx && typeof ctx.addEventListener === 'function'){
+        ctx.addEventListener('statechange', ()=>{
+          if(ctx.state === 'running') resumeAfterInterruption();
+        });
+      }
+    } catch(_e) { /* no DOM or no context: nothing to recover to */ }
   }
 
   // Lazily created — some browsers refuse to even construct an AudioContext
@@ -392,12 +464,13 @@ export const AudioManager = (function(){
     }
   }
   function getPrefs(){ return { muted: state.muted, volumes: {...state.volumes} }; }
+  function resumeAudio(){ resumeAfterInterruption(); }
 
   loadPrefs();
 
   return {
     unlock, playEffect, playMusic, playMusicSequence, stopMusic, playAmbience, stopAmbience,
-    setMuted, setVolume, getPrefs, panForBoardX, preloadEffects,
+    setMuted, setVolume, getPrefs, resumeAudio, panForBoardX, preloadEffects,
     startLoop, stopLoop,
     /* Read-only handles for audio-lab.html. The lab compares what the mixer
        THINKS a stream's volume should be against what the element is really
