@@ -11,6 +11,11 @@
 ========================================================= */
 
 export const VARIANTS = {
+  plan_tier1:  { PLAN_TIER1: 1 },
+  plan_tier2:  { PLAN_TIER1: 1, PLAN_TIER2: 1 },
+  plan_tier3:  { PLAN_TIER3: 1 },
+  plan_all:    { PLAN_TIER1: 1, PLAN_TIER2: 1, PLAN_TIER3: 1 },
+
   control: {},
 
   /* Part B of the AI behaviour brief: five weight changes in one pass.

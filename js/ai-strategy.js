@@ -809,7 +809,25 @@ export function assignBrigadeMissions(side, plan, assessment){
     for(const id of brigadeIds) missions[id] = (id===plan.mainEffortBrigadeId) ? 'HOLD' : 'SCREEN';
   } else if(plan.type==='MAIN_ATTACK' || plan.type==='BRIGADE_DESTRUCTION' || plan.type==='CAVALRY_EXPLOITATION'){
     if(plan.mainEffortBrigadeId!=null) missions[plan.mainEffortBrigadeId] = 'MAIN_ATTACK';
-    others.forEach((id,i)=>{ missions[id] = i===0 ? 'SUPPORT' : 'RESERVE'; });
+    /* TIER 1: THE THIRD BRIGADE GETS A JOB.
+
+       It was RESERVE, and RESERVE with nothing to release it means idle. The
+       Sep 19 match is the clearest case in the dataset: Murat's Brigade held
+       position from turn 11 to turn 25 while the Carabiniers fought eighteen
+       times on their own three squares away.
+
+       An army with three Brigades and one enemy worth attacking has a spare
+       formation, and the use of a spare formation is to stop the enemy's other
+       Brigades from joining in. That is what FIX means and the mission already
+       exists; nothing was ever routed to it outside the two flanking plans.
+
+       Only when there IS a second enemy Brigade to pin. With one enemy Brigade
+       left there is nothing to fix and RESERVE is honest. */
+    others.forEach((id,i)=>{
+      if(i===0){ missions[id] = 'SUPPORT'; return; }
+      const spare = tier(side, 1) && (assessment.liveEnemyBrigades||[]).some(b=>b.id!==plan.targetBrigadeId);
+      missions[id] = spare ? 'FIX' : 'RESERVE';
+    });
   } else if(plan.type==='FIX_AND_FLANK' || plan.type==='FLANK_ATTACK'){
     if(plan.mainEffortBrigadeId!=null) missions[plan.mainEffortBrigadeId] = 'FLANK';
     others.forEach((id,i)=>{ missions[id] = i===0 ? 'FIX' : 'RESERVE'; });
@@ -929,6 +947,8 @@ export function aiPlanTurn(side){
   const plan = updateOperationalPlan(side, assessment);
   const missions = assignBrigadeMissions(side, plan, assessment);
   state._aiMissions[side] = missions;
+  if(!state._aiObjectives) state._aiObjectives = {};
+  state._aiObjectives[side] = assignBrigadeObjectives(side, plan, assessment, missions);
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
 
@@ -957,11 +977,108 @@ function getDefensiveRallyPoint(side, nearPos){
   return point;
 }
 
+/* ============================ PLANNING HIERARCHY ============================
+   Three tiers, each with its own off switch so a measurement can attribute a
+   result to one of them instead of to all three at once.
+
+     tier 1  ARMY      which Brigade does what (roles across the army)
+     tier 2  BRIGADE   what each Brigade's own objective is
+     tier 3  GROUPING  sub-Brigade clusters, re-formed every turn
+
+   DEFAULT OFF, after measurement. Built ON, measured at 44% over 28 matches
+   losing on BOTH sides (41.6% / 46.1%), which is the shape of a real change
+   effect rather than a side artefact, so it does not ship on. With all three off
+   the scoring is byte-identical to the build before them.
+
+   Turn one on at a time in the simulator to find which tier costs:
+     node tools/sim/run.mjs 30 plan_tier1   (and plan_tier2, plan_tier3) */
+export function tier(side, n){ return tune(side, 'PLAN_TIER'+n, 0) > 0; }
+
+/* TIER 2. Each Brigade's own target. The main effort and its supporter go at the
+   plan's target; anything on FIX pins a DIFFERENT enemy Brigade, chosen as the
+   nearest one that is not already being attacked, so the spare formation holds
+   the reinforcements rather than joining the queue. Computed once per side per
+   turn in aiPlanTurn and read from the cache here. */
+export function objectiveTargetFor(side, brigadeId, plan){
+  const obj = state._aiObjectives && state._aiObjectives[side];
+  if(obj && obj[brigadeId] !== undefined) return obj[brigadeId];
+  return plan ? plan.targetBrigadeId : null;
+}
+
+export function assignBrigadeObjectives(side, plan, assessment, missions){
+  const out = {};
+  const enemyBrigades = assessment.liveEnemyBrigades || [];
+  for(const id of Object.keys(missions)){
+    const bid = Number(id);
+    if(missions[id] !== 'FIX'){ out[bid] = plan ? plan.targetBrigadeId : null; continue; }
+    const own = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===bid);
+    let best = null, bestD = Infinity;
+    for(const eb of enemyBrigades){
+      if(eb.id === (plan ? plan.targetBrigadeId : null)) continue;
+      const foes = state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===eb.id);
+      if(!foes.length || !own.length) continue;
+      let d = Infinity;
+      for(const a of own) for(const f of foes) d = Math.min(d, chebyshev(a,f));
+      if(d < bestD){ bestD = d; best = eb.id; }
+    }
+    out[bid] = best!=null ? best : (plan ? plan.targetBrigadeId : null);
+  }
+  return out;
+}
+
+/* TIER 3. SUB-BRIGADE CLUSTERS, re-formed every turn.
+
+   A Brigade is not reliably one body. It arrives as one, gets cut in half by a
+   dead unit in the middle of the chain, and then fights as two groups whether
+   the AI models that or not. Until now it did not: every unit was pulled toward
+   the Brigade as a whole, which for a split Brigade means pulled toward the
+   average of two places it is not, so both halves drift inward and neither
+   arrives anywhere.
+
+   Clusters are transitive at chebyshev <= 2 and rebuilt from scratch each turn,
+   so there is no membership to maintain and no stale group to go wrong: two
+   halves that reunite are simply one cluster again next turn.
+
+   Memoised per side per turn because the scoring loop asks once per candidate
+   square. */
+export const CLUSTER_RADIUS = 2;
+export const CLUSTER_COHESION_PULL = 0.22;
+let _clusterCache = { turn: -1, side: null, byUnit: null };
+export function clusterOf(u){
+  if(_clusterCache.turn !== state.turnNumber || _clusterCache.side !== u.side){
+    const byUnit = new Map();
+    const pool = state.units.filter(o=>!o.removed && o.side===u.side && o.type!=='BRIGADIER');
+    const seen = new Set();
+    for(const seed of pool){
+      if(seen.has(seed.id)) continue;
+      const group = [seed]; seen.add(seed.id);
+      for(let i=0; i<group.length; i++){
+        for(const o of pool){
+          if(seen.has(o.id) || o.brigadeId !== seed.brigadeId) continue;
+          if(chebyshev(group[i], o) <= CLUSTER_RADIUS){ group.push(o); seen.add(o.id); }
+        }
+      }
+      for(const m of group) byUnit.set(m.id, group);
+    }
+    _clusterCache = { turn: state.turnNumber, side: u.side, byUnit };
+  }
+  return _clusterCache.byUnit.get(u.id) || null;
+}
+
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
-  const targetBrigade = plan && plan.targetBrigadeId!=null
-    ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===plan.targetBrigadeId)
+  /* TIER 2: THE BRIGADE'S OWN OBJECTIVE, not the army's.
+
+     Every Brigade used to aim at plan.targetBrigadeId, so a FIX Brigade pinned
+     the same enemy the main effort was already attacking. That is not fixing,
+     it is queueing: two Brigades converge on one target while the enemy's other
+     Brigades walk to wherever they like. Tier 2 gives each Brigade its own
+     target and the fallback is the old army-wide one, so with the tier off the
+     behaviour is byte-identical. */
+  const objTargetId = tier(side, 2) ? objectiveTargetFor(side, u.brigadeId, plan) : (plan ? plan.targetBrigadeId : null);
+  const targetBrigade = objTargetId!=null
+    ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===objTargetId)
     : [];
   const nearestTargetDist = targetBrigade.length ? Math.min(...targetBrigade.map(o=>chebyshev(pos,o))) : null;
 
@@ -2700,6 +2817,30 @@ export function aiDecideAndExecuteMove(u){
             const partner = state.units.find(o => !o.removed && o.side===side && o.id!==u.id &&
               UNIT_TYPES[o.type].key === 'HEAVY_CAV');
             if(partner && chebyshev(c, partner) <= 2) s += addScore(parts, 'heavyPair', pairBonus);
+          }
+        }
+        /* TIER 3: FIGHT AS THE GROUP YOU ARE IN, not the one on the roster.
+
+           Pull toward this unit's own cluster's centre rather than the Brigade's.
+           For an intact Brigade the two are the same place and this changes
+           nothing. For a Brigade cut in two it is the whole difference: the old
+           behaviour pulled both halves toward the average of two positions, which
+           is a point neither half occupies and often one no unit can reach, so
+           both drifted and neither concentrated.
+
+           Zero for a cluster of one. A lone unit is not a group and should be
+           free to go where the rest of its scoring sends it rather than be taxed
+           for standing alone, which threat and soloAttackPenalty already handle
+           and handle better. */
+        if(tier(side, 3)){
+          const group = clusterOf(u);
+          if(group && group.length > 1){
+            let cx = 0, cy = 0, n = 0;
+            for(const m of group){ if(m.id===u.id) continue; cx += m.x; cy += m.y; n++; }
+            if(n){
+              const gap = chebyshev(c, { x: cx/n, y: cy/n });
+              if(gap > CLUSTER_RADIUS) s -= subScore(parts, 'clusterCohesion', (gap-CLUSTER_RADIUS) * CLUSTER_COHESION_PULL);
+            }
           }
         }
       } else {
