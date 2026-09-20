@@ -2031,6 +2031,22 @@ export function gunIsStranded(gun){
    NON-GUNS FIRST, then nearest. A gun off the chain may be doing its job and
    gunIsStranded already exempts an established battery. Anything else off the
    chain is frozen for the rest of the match, so it always outranks a gun. */
+/* The per-turn pin. brigadierRecoveryTarget answers "who should he go to from
+   where he is standing", which is a question about the Brigadier's real
+   position, not about a square being considered. Cached per unit per turn so
+   every candidate is scored against the same man. */
+export function brigadierRecoveryTargetForTurn(brig){
+  if(brig.type!=='BRIGADIER') return null;
+  if(brig._recoveryPinTurn !== state.turnNumber){
+    brig._recoveryPinTurn = state.turnNumber;
+    brig._recoveryPin = brigadierRecoveryTarget(brig);
+  }
+  /* A pin survives the turn, not the target's death or rescue. */
+  const t = brig._recoveryPin;
+  if(t && (t.removed || !unitIsStranded(t))) return null;
+  return t;
+}
+
 export function brigadierRecoveryTarget(brig){
   if(brig.type!=='BRIGADIER') return null;
   const mates = state.units.filter(o => !o.removed && o.side===brig.side &&
@@ -2417,7 +2433,25 @@ export function aiDecideAndExecuteMove(u){
          when the best candidate is a gun). */
       const strandedGun = state.units.find(o => !o.removed && o.side===side &&
         o.brigadeId===u.brigadeId && gunIsStranded(o));
-      const recovering = brigadierRecoveryTarget(u);
+      /* PINNED FOR THE TURN, AT HIS REAL POSITION.
+
+         This used to be recomputed on every candidate square, and the scorer
+         teleports the unit to the candidate before scoring, so who counted as
+         stranded changed from square to square. The result was the exact
+         opposite of the intended behaviour: the moment a step WOULD reconnect
+         the man he was going to, that man stopped being stranded, the target
+         switched to the next casualty further away, and the penalty went UP.
+
+         Measured in a stalled match, seed 1. Thomas Graham two squares from the
+         Scots Greys, who had zero legal moves: holding scored the term at 1.80,
+         stepping to 16,6 and actually freeing them scored 2.50, because from
+         there the term had moved on to the 10th Hussars three squares away. He
+         held. All three Brigadiers held, in armies where ten of eighteen units
+         could not move at all, for eighteen hundred turns.
+
+         He was being punished for succeeding. Pinning the target for the turn
+         is what makes the distance a gradient he can walk down. */
+      const recovering = brigadierRecoveryTargetForTurn(u);
       /* ONE TERM, NOT TWO, and it keeps the old name so a term-spread comparison
          against earlier match exports still lines up. What changed is which
          units it fires for and how hard it pulls, both readable from the value. */
