@@ -26,7 +26,7 @@ const BASE_STATE_WEIGHT = 0.35;
 ========================================================= */
 export const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
   'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL','FINISHING_BLOW'];
-export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP','PRESERVE'];
+export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP','PRESERVE','REUNITE','FETCH'];
 export const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
 
 /* Re-escalation. Every reassessment trigger below MAX_PLAN_TURNS_UNCHANGED used to
@@ -946,6 +946,10 @@ export function aiPlanTurn(side){
   if(tempoV2(side)) advanceTempo(side, assessment);
   const plan = updateOperationalPlan(side, assessment);
   const missions = assignBrigadeMissions(side, plan, assessment);
+  /* Recovery errands override the army's mission for at most one Brigade, and
+     outrank a plan refresh for their duration: the plan may change around the
+     Brigadier, it may not call him back halfway. */
+  updateRecoveryErrands(side, missions);
   state._aiMissions[side] = missions;
   if(!state._aiObjectives) state._aiObjectives = {};
   state._aiObjectives[side] = assignBrigadeObjectives(side, plan, assessment, missions);
@@ -1098,6 +1102,20 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       { const towardFlank = assessment.weakFlank==='left' ? (COLS-pos.x)*0.02 : pos.x*0.02;
         return (nearestTargetDist!=null
           ? -nearestTargetDist*APPROACH_PULL + Math.max(0,6-nearestTargetDist)*0.12 : 0) + towardFlank; }
+    case 'REUNITE':
+    case 'FETCH': {
+      const errand = brigadeErrand(side, u.brigadeId);
+      const rally = errand ? errandRallyPoint(errand) : null;
+      if(!rally) return 0;
+      const d = chebyshev(pos, rally);
+      /* He is the one going. The close-range sweetener is what stops him
+         stopping two squares short, which frees nobody. */
+      if(u.type==='BRIGADIER') return -d*APPROACH_PULL + Math.max(0, 4-d)*0.20;
+      /* REUNITE brings the Brigade back with him. FETCH leaves it where it
+         stands, which is the entire point of FETCH: the ground it holds is
+         worth more than closing the gap. */
+      return mission==='REUNITE' ? -d*APPROACH_PULL*0.6 : 0;
+    }
     case 'FIX':
       // Reward staying in contact with the target Brigade without overextending past it.
       return nearestTargetDist!=null ? Math.max(0, 3-Math.abs(nearestTargetDist-1))*0.15 : 0;
@@ -2031,6 +2049,205 @@ export function gunIsStranded(gun){
    NON-GUNS FIRST, then nearest. A gun off the chain may be doing its job and
    gunIsStranded already exempts an established battery. Anything else off the
    chain is frozen for the rest of the match, so it always outranks a gun. */
+/* =========================================================
+   BRIGADE RECOVERY ERRANDS — REUNITE and FETCH
+
+   Reconnecting a scattered Brigade is a CAMPAIGN, not a step. It can take the
+   Brigadier several turns to reach a cut-off group, and for those turns a large
+   part of the Brigade is either walking backwards or unable to move at all. So
+   it has to be a decision he commits to and sees through, not something
+   re-litigated every turn by whichever square happens to score best.
+
+   TWO ERRANDS, because there are two situations and they want opposite things
+   from the units that are still connected:
+
+     REUNITE  the Brigade falls back onto the cut-off group. Used when the
+              units he would otherwise leave behind are under pressure, so
+              splitting the Brigade further is how you lose both halves.
+
+     FETCH    the connected units hold the ground they are on, and he goes and
+              collects the strays alone. He is the fastest thing on the board,
+              two squares minimum and no terrain penalty, so he can make the
+              round trip while the rest keep their position. Used when nothing
+              can reach the units he is leaving.
+
+   THE TRIGGER is more than 40% of the Brigade's remaining units off the chain.
+   Below that he leaves them and the Brigade keeps doing its job, which is the
+   right answer: going back for one straggler while the other five are winning
+   a fight is how a Brigade loses the fight.
+
+   HE COMMITS TO A GROUP, NOT A UNIT. Cut-off units cluster, and the chain is
+   built from adjacency, so arriving beside two of them frees two. Committing to
+   the group is also what stops him dithering between individuals.
+
+   THE COMMITMENT RUNS UP TO FOUR TURNS and is released early only by success or
+   death, never by the trigger ratio moving. That matters because the ratio is a
+   proportion of REMAINING units, so a single casualty can flip it without
+   anybody moving, and an errand cancelled halfway is worse than one never
+   started. The one exception is a FETCH upgrading to a REUNITE when the units
+   left behind come under threat, which is the failsafe rather than a reversal.
+
+   ONE BRIGADE AT A TIME per side. Three Brigadiers all walking backwards at
+   once is an army in retreat, and the other two Brigades have work to do
+   holding the enemy's attention while this one sorts itself out.
+
+   Move ordering needs nothing added: orderAiUnitsForMove already runs connected
+   members, then the Brigadier, then the cut-off group whenever a Brigade is
+   split, which is exactly the fall-back order a person plays. Because he moves
+   after his own units and is pulled toward the strays, he ends up stepping back
+   behind the line on the diagonal without any notion of "backwards" having to
+   be hard-coded, which would have read wrong the moment a Brigade wheels.
+========================================================= */
+export const ERRAND_TRIGGER_RATIO = 0.40;
+export const ERRAND_MAX_TURNS = 4;
+export const ERRAND_GROUP_RADIUS = 2;
+export const FETCH_THREAT_RADIUS = 2;     // one move plus contact for most things
+export const FETCH_THREAT_RATIO = 0.50;
+
+/* NOT AI_UNIT_VALUE, which rates artillery highest at 6. That is right for what
+   a gun is worth and wrong for who to walk to: a battery parked on a vantage
+   point and deliberately left off the chain is normal play, not an accident. */
+const RECOVERY_VALUE = { HEAVY_CAV:5, GUARD:4.5, LIGHT_CAV:4, INFANTRY:3, ARTILLERY:0.5 };
+
+function errandsEnabled(side){ return tune(side, 'BRIGADE_ERRANDS', 1) > 0; }
+
+function brigadeMembers(side, bId){
+  return state.units.filter(o => !o.removed && o.side===side &&
+    o.brigadeId===bId && o.type!=='BRIGADIER');
+}
+
+/* Transitive clustering at ERRAND_GROUP_RADIUS, so a string of cut-off units
+   reads as one errand rather than three. */
+function strandedGroups(side, bId){
+  const stray = brigadeMembers(side, bId).filter(unitIsStranded);
+  const groups = [], seen = new Set();
+  for(const u of stray){
+    if(seen.has(u.id)) continue;
+    const g = [u]; seen.add(u.id);
+    for(let i=0; i<g.length; i++){
+      for(const o of stray){
+        if(seen.has(o.id)) continue;
+        if(chebyshev(g[i], o) <= ERRAND_GROUP_RADIUS){ g.push(o); seen.add(o.id); }
+      }
+    }
+    groups.push(g);
+  }
+  return groups;
+}
+
+/* VALUE AND PROXIMITY WEIGH THE SAME, deliberately: a line unit back in the
+   fight this turn can be worth more than heavy cavalry back next turn. Longest
+   wait breaks a tie, which keeps the rotation that stops him fixating on the
+   same group; a coin flip breaks what is left, on the SEEDED stream so a match
+   still replays exactly. */
+function chooseErrandGroup(brig, groups){
+  if(!groups.length) return null;
+  if(groups.length === 1) return groups[0];
+  const val  = g => g.reduce((s,u) => s + (RECOVERY_VALUE[u.type] ?? 3), 0);
+  const dist = g => Math.min(...g.map(u => chebyshev(brig, u)));
+  const vals = groups.map(val), dists = groups.map(dist);
+  const vLo = Math.min(...vals), vHi = Math.max(...vals);
+  const dLo = Math.min(...dists), dHi = Math.max(...dists);
+  const norm = (x, lo, hi) => hi > lo ? (x - lo) / (hi - lo) : 1;
+  let best = -Infinity, ties = [];
+  groups.forEach((g, i) => {
+    const score = norm(vals[i], vLo, vHi) + (1 - norm(dists[i], dLo, dHi));
+    if(score > best + 1e-9){ best = score; ties = [g]; }
+    else if(Math.abs(score - best) <= 1e-9) ties.push(g);
+  });
+  if(ties.length === 1) return ties[0];
+  const waited = g => Math.max(...g.map(u => state.turnNumber - (u._strandedSince ?? state.turnNumber)));
+  const longest = Math.max(...ties.map(waited));
+  const still = ties.filter(g => waited(g) === longest);
+  return still[Math.floor(seededRandom() * still.length)] || still[0];
+}
+
+export function brigadeErrand(side, bId){
+  const book = state._aiErrands && state._aiErrands[side];
+  return book ? (book[bId] || null) : null;
+}
+
+/* The rally point is the centroid of the group he is going to, recomputed each
+   turn from whoever is still alive. They cannot move, so it barely shifts; it
+   moves when one of them dies, which is the right time for it to move. */
+export function errandRallyPoint(errand){
+  const live = errand.ids.map(id => state.units.find(o => o.id===id)).filter(o => o && !o.removed);
+  if(!live.length) return null;
+  return { x: Math.round(live.reduce((s,o)=>s+o.x,0) / live.length),
+           y: Math.round(live.reduce((s,o)=>s+o.y,0) / live.length) };
+}
+
+function pressingEnemies(side, units){
+  if(!units.length) return 0;
+  /* Flat headcount, no weighting for cavalry: infantry form square against
+     horse and already do so under the existing tactics. */
+  return state.units.filter(o => !o.removed && o.side!==side && o.type!=='BRIGADIER' &&
+    units.some(f => chebyshev(o, f) <= FETCH_THREAT_RADIUS)).length;
+}
+
+/* Called once per side per turn, straight after missions are assigned, and it
+   OVERRIDES the mission for at most one Brigade. */
+export function updateRecoveryErrands(side, missions){
+  if(!state._aiErrands) state._aiErrands = {};
+  if(!state._aiErrands[side]) state._aiErrands[side] = {};
+  const book = state._aiErrands[side];
+  if(!errandsEnabled(side)){
+    for(const k of Object.keys(book)) delete book[k];
+    return missions;
+  }
+
+  /* Running errands are settled BEFORE any ratio is recomputed, so a casualty
+     moving the denominator cannot cancel one in flight. */
+  for(const key of Object.keys(book)){
+    const e = book[key], bId = Number(key);
+    const live = e.ids.filter(id => {
+      const o = state.units.find(x => x.id===id);
+      return o && !o.removed && unitIsStranded(o);
+    });
+    const hasBrigadier = state.units.some(o => !o.removed && o.side===side &&
+      o.brigadeId===bId && o.type==='BRIGADIER');
+    if(!live.length || !hasBrigadier || state.turnNumber - e.startedTurn >= ERRAND_MAX_TURNS){
+      delete book[key];
+      continue;
+    }
+    e.ids = live;
+    /* The threat failsafe: a FETCH becomes a REUNITE the moment the units he
+       left behind are pressed. Never the reverse, which would be a reversal
+       rather than a failsafe. */
+    if(e.kind === 'FETCH'){
+      const held = brigadeMembers(side, bId).filter(o => !e.ids.includes(o.id) && !unitIsStranded(o));
+      if(held.length && pressingEnemies(side, held) >= held.length * FETCH_THREAT_RATIO) e.kind = 'REUNITE';
+    }
+    if(missions[bId] != null) missions[bId] = e.kind;
+  }
+
+  if(Object.keys(book).length) return missions;    // one Brigade at a time
+
+  let pick = null, pickGroup = null, pickRatio = ERRAND_TRIGGER_RATIO;
+  for(const key of Object.keys(missions)){
+    const bId = Number(key);
+    if(missions[key]==='WITHDRAW' || missions[key]==='PRESERVE') continue;
+    const brig = state.units.find(o => !o.removed && o.side===side &&
+      o.brigadeId===bId && o.type==='BRIGADIER');
+    if(!brig) continue;
+    const members = brigadeMembers(side, bId);
+    if(members.length < 2) continue;
+    const groups = strandedGroups(side, bId);
+    const ratio = groups.reduce((s,g)=>s+g.length, 0) / members.length;
+    if(ratio <= pickRatio) continue;
+    const g = chooseErrandGroup(brig, groups);
+    if(g){ pickRatio = ratio; pick = bId; pickGroup = g; }
+  }
+  if(pick == null) return missions;
+
+  const held = brigadeMembers(side, pick).filter(o => !pickGroup.includes(o) && !unitIsStranded(o));
+  const kind = (held.length && pressingEnemies(side, held) >= held.length * FETCH_THREAT_RATIO)
+    ? 'REUNITE' : 'FETCH';
+  book[pick] = { kind, ids: pickGroup.map(u => u.id), startedTurn: state.turnNumber };
+  missions[pick] = kind;
+  return missions;
+}
+
 /* The per-turn pin. brigadierRecoveryTarget answers "who should he go to from
    where he is standing", which is a question about the Brigadier's real
    position, not about a square being considered. Cached per unit per turn so
