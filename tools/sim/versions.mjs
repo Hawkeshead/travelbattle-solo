@@ -56,3 +56,15 @@ export function describeRef(ref){
       { cwd: process.cwd(), encoding: 'utf8' }).trim();
   } catch { return ref; }
 }
+
+/* NAMED BASELINES. A tag is a frozen opponent: `git show <tag>:js/ai-strategy.js`
+   returns that commit's AI forever, whatever main becomes. So --vs cerberus needs
+   no table of its own, only a label, because reporting a run against a named
+   baseline as a bare hash loses the one thing the name was created to carry. */
+export function labelFor(ref){
+  try {
+    const tags = execFileSync('git', ['tag', '--list', ref], { cwd: process.cwd(), encoding: 'utf8' }).trim();
+    if(tags) return ref;
+  } catch { /* not a tag, fall through to the hash */ }
+  return describeRef(ref).split(' ')[0];
+}

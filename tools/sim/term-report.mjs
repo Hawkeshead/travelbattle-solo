@@ -11,6 +11,19 @@
    rest decides that move. So each term is scored by (max - min) across the
    candidates considered, and the widest spread is credited with the decision.
 
+   SECOND CAVEAT, and the larger one, found while recording the Cerberus
+   baseline. The poll samples _aiDebugLog on a 4ms REAL-time interval while the
+   game's own timers are collapsed, so turns can be overwritten before they are
+   ever seen. A match that ran 401 turns contributed 349 sampled moves; one that
+   ran 47 turns contributed 21, which is far short of its real move count. Long
+   matches are therefore over-represented twice over: they last longer AND they
+   sample more densely. Since long matches are usually STALLED matches, the
+   totals lean toward the terms that dominate a stall (brigadierTrail,
+   freeStrandedUnit) and understate the terms that decide a fighting match.
+   Reading a rank table across mixed matches is safe; reading it as "this is how
+   the AI decides a battle" is not. Fixing this properly means sampling on the
+   activation itself rather than polling.
+
    CAVEAT, stated because it changes how the numbers should be read: the AI's
    debug record keeps the chosen square plus its best three alternatives, not
    every candidate. Spread is therefore measured across four squares rather than
@@ -22,13 +35,24 @@
    read off the same run.
 
    Usage:  node tools/sim/term-report.mjs [matches] [variant]
+                                          [--from N] [--json out.json]
 ========================================================= */
 import { loadGame, collapseTimers } from './headless-env.mjs';
 import { resolveVariant } from './variants.mjs';
 
 const realSetInterval = globalThis.setInterval;
-const N = Number(process.argv[2] || 6);
-const VARIANT = process.argv[3] || 'control';
+const args = process.argv.slice(2);
+const N = Number(args.find(a => /^\d+$/.test(a)) || 6);
+const VARIANT = args.find(a => !/^[-\d]/.test(a)) || 'control';
+
+/* --from lets a long baseline be built across several runs and merged, which
+   matters because a single match can run to the 400-turn cap and a batch of
+   four will outlast most timeouts. --json writes the raw tallies so separate
+   runs can be summed rather than eyeballed. */
+const fromAt = args.indexOf('--from');
+const FROM = fromAt > -1 ? Number(args[fromAt + 1]) : 1;
+const jsonAt = args.indexOf('--json');
+const JSON_OUT = jsonAt > -1 ? args[jsonAt + 1] : null;
 
 const decides = new Map();      // term -> moves it decided
 const appears = new Map();      // term -> moves it was present on
@@ -61,7 +85,7 @@ const menus  = await import('../../js/ui-menus.js');
 collapseTimers();
 const { data, dice, rules } = g; const { state, SIDES } = data;
 
-for (let seed = 1; seed <= N; seed++) {
+for (let seed = FROM; seed < FROM + N; seed++) {
   dice.setFastDiceMode(true); render.setFastAnimationMode(true);
   state.scenario = null; state.campaign = null; state.mode = 'ai';
   state.spectate = true; state.aiDifficulty = 'hard';
@@ -114,3 +138,13 @@ for (const [r, v] of ranges) console.log(`  range ${r}  ${String(v).padStart(4)}
 const far = ranges.filter(([r]) => r >= 5).reduce((t, [, v]) => t + v, 0);
 console.log(`\n  at range 5-6: ${far} of ${shots}  (${shots ? (far / shots * 100).toFixed(1) : 0}%)`);
 process.exit(0);
+
+if (JSON_OUT) {
+  const obj = {
+    variant: VARIANT, from: FROM, matches, moves,
+    decides: Object.fromEntries(decides), appears: Object.fromEntries(appears),
+    fireRange: Object.fromEntries(fireRange)
+  };
+  (await import('node:fs')).writeFileSync(JSON_OUT, JSON.stringify(obj, null, 2));
+  process.stderr.write(`  wrote ${JSON_OUT}\n`);
+}

@@ -1,0 +1,30 @@
+FIELD COMMAND — REFERENCE SEEDS
+Recorded 20 September 2026, alongside the `cerberus` tag.
+
+  551846676    Parity match. Bonus parity (Britain 20, France 20), dice parity
+               (3.43 v 3.41), France leading "Defender turned around" 10 to 9,
+               5e Cuirassiers unbeaten across 7 fights, 7e Hussards 6 from 8,
+               result 12:8. The Cerberus reference match.
+
+  615784546    Withdrawal match, ran to 60 turns.
+
+  3295188260   The only AI win on record, on an older build than Cerberus.
+
+  690306556    Sep 19 export. 12 French to 7 British over 36 turns.
+               Carabiniers-a-Cheval 11 wins from 18. Britain took 20 "Defender
+               turned around" bonuses in 42 fights against France's 4.
+
+  887383163    Regression seed.
+  499086477    Regression seed.
+  3460471751   Regression seed. Britain 9-vs-10 casualty mismatch, unresolved.
+
+READ THIS BEFORE TREATING A SEED AS A FIXTURE
+
+The seed fixes the DICE, not the MAP. Terrain comes from a separate source, so
+re-running a seed plays a different battle on different ground. A seed
+reproduces a run within a batch; it does not reproduce a past match. Seed 5
+timed out at turn 2380 in one batch and finished at turn 82 in the next.
+
+This is why the Cerberus term profile beside this file is a multi-match average
+rather than a single-seed capture. A one-seed term table would not reproduce,
+and a baseline that cannot be re-derived is not a baseline.

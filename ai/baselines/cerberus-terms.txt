@@ -1,0 +1,92 @@
+CERBERUS — TERM PROFILE
+AI baseline as of 20 September 2026. Git tag `cerberus`, commit 044ac88.
+
+Reproduce with:
+  node tools/sim/term-report.mjs 1 control --from 1
+  node tools/sim/term-report.mjs 1 control --from 2
+  node tools/sim/term-report.mjs 1 control --from 3
+
+WHAT THIS IS, AND WHAT IT IS NOT
+
+This is a simulator-derived profile over seeds 1 to 3, not the Section 4 table
+from the seed 551846676 match export. It cannot be that, for two reasons worth
+stating rather than quietly working around.
+
+The seed fixes the dice, not the map. Terrain comes from a separate source, so
+re-running 551846676 plays a different battle on different ground. A single-seed
+term table is not reproducible and would be a baseline that cannot be
+re-derived, which is no baseline at all.
+
+To preserve the actual numbers from the 551846676 export, paste the Section 4
+list in and it gets appended below as a separate, clearly labelled block.
+
+AGGREGATE, SEEDS 1 TO 3, 687 SAMPLED MOVES
+
+  rank  term                  decided    % of sampled moves
+     1  missionPull               205    29.8%
+     2  brigadierTrail            155    22.5%
+     3  vulnerablePull            150    21.8%
+     4  freeStrandedUnit          129    18.7%
+     5  threat                     12     1.7%
+     6  killPull                   10     1.4%
+     7  brigadierContact            9     1.3%
+     8  cohesionGain                9     1.3%
+     9  terrainSeek                 6     0.8%
+    10  collectStrandedGun          1     0.1%
+    11  screensGun                  1     0.1%
+
+  engage: never decided a move, in any of the three matches.
+
+PER MATCH, BECAUSE THE SPREAD BETWEEN THEM IS THE POINT
+
+  seed 1   401 turns (hit the cap)   349 moves
+           missionPull 171 (49.0%), vulnerablePull 150 (43.0%),
+           brigadierTrail 17 (4.9%), everything else under 1%
+
+  seed 2   401 turns (hit the cap)   317 moves
+           brigadierTrail 137 (43.2%), freeStrandedUnit 122 (38.5%),
+           missionPull 30 (9.5%), everything else under 2%
+
+  seed 3    47 turns (finished)       21 moves
+           freeStrandedUnit 5 (23.8%), cohesionGain 5 (23.8%),
+           missionPull 4 (19.0%), threat 3 (14.2%)
+
+Seeds 1 and 2 are the same build on the same settings and they do not resemble
+each other. Seed 1 is an army manoeuvring toward contact; seed 2 is an army
+coming apart, with the Brigadier chasing stranded units. Treat any single-match
+term table as one battle rather than as the AI's character.
+
+ARTILLERY BY RANGE, SEEDS 1 TO 3
+
+  range 2     6    3.0%
+  range 3    11    5.6%
+  range 4    63   32.3%
+  range 5    54   27.6%
+  range 6    61   31.2%
+
+  at range 5-6: 115 of 195 (58.9%)
+
+TWO THINGS THAT BEAR ON READING ANY FUTURE COMPARISON
+
+Long matches are over-represented twice over. The report polls the debug log on
+a real-time interval while the game's timers are collapsed, so a fast match has
+turns overwritten before they are sampled: 401 turns gave 349 moves, 47 turns
+gave 21. Long matches also simply last longer. Since long matches are usually
+STALLED matches, these totals lean toward the terms that dominate a stall
+(brigadierTrail, freeStrandedUnit) and understate the terms that decide a
+fighting match. A like-for-like comparison against this baseline is still valid,
+because the same bias applies to both sides of it.
+
+Two of three sample matches stalled at the 400-turn cap. That is the known
+absorbing-state problem (a unit off the chain cannot move, and moving is the
+only way back), and it is the dominant fact about this build's simulator
+behaviour, whatever the term ranks say.
+
+MISSIONPULL IS THE MOST DECISIVE TERM IN THE ARMY
+
+At 29.8% of sampled moves overall and 49.0% in the manoeuvring match, missionPull
+separates more moves than anything else. This matters for what comes next: the
+army-level plan sets missions and missionPull targets and nothing below that, so
+it acts directly on the single largest lever in the scoring. That cuts both ways.
+It is why an army plan can be expected to change behaviour at all, and it is why
+a wrong target choice will be expensive rather than merely inert.
