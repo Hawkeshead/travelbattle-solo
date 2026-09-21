@@ -66,7 +66,7 @@ export function addDeathEffect(x, y){
   // Panned to where the unit fell. panForBoardX is the coarse three-zone helper
   // the other positional effects use.
   AudioManager.playEffect('unit-destroyed', 'audio/effects/unit-destroyed.wav', 'majorCombat',
-    { pan: AudioManager.panForBoardX(x) });
+    { pan: AudioManager.panForBoardX(x), volumeScale: 1.2 });   // 20% louder, on request
   ensureAnimationLoopRunning();
 }
 export function addCrater(x, y){

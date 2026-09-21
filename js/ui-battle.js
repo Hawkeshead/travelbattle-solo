@@ -4,7 +4,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFight
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
-import { artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
+import { SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, sy } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -397,10 +397,13 @@ export function beginMovePhase(){
      during setup. A Web Audio effect rather than music: it plays over the score
      instead of replacing it, and effects recover on their own after an iOS
      interruption. */
-  /* 1.5x, asked for after hearing it in play. Safe from clipping: the file
-     peaks at -6.6 dB, so 1.5x lands around -3 dB. Web Audio gain, which iOS
-     honours, unlike volume on a music element. */
-  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui', { volumeScale: 1.5 });
+  /* 1.95x (1.5, then another 30%), asked for after hearing it in play. The file
+     peaks at -6.6 dB, so this lands at about -0.8 dB: as loud as it can go
+     without clipping, so any further increase needs the file re-mastered rather
+     than more gain. Web Audio gain, which iOS honours, unlike volume on a music
+     element. The whole 9.5s plays: effects only stop early when given a
+     durationMs, and this one is not. */
+  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui', { volumeScale: 1.95 });
   state.moved = new Set();
   state.turnComboTarget = null;
   enforceAmbushWoodsInvariant();
@@ -829,20 +832,20 @@ export function selectUnit(id){
        click. Ordering it this way means the sound follows the rank rather than
        depending on that flag staying false. */
     if(selT.key === 'BRIGADIER'){
-      AudioManager.playEffect('brigadier-select', 'audio/effects/brigadier-select-attention.wav', 'ui');
+      AudioManager.playEffect('brigadier-select', 'audio/effects/brigadier-select-attention.wav', 'ui', SELECT_CUE);
     } else if(selT.isArtillery){
-      AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui');
+      AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui', SELECT_CUE);
     } else if(selT.isCavalry){
-      AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui');
+      AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui', SELECT_CUE);
     } else if(footAckFor(u)){
       /* Foot infantry and Guards answer their officer instead of clicking. The
          KEY IS PER SIDE, not one shared 'foot-ack': pickVariant's no-repeat
          memory is keyed on it, and a single key would let a British take and a
          French one count as the same sound, so the two languages could alternate
          in a way that reads as one voice changing accent. */
-      AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui');
+      AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui', SELECT_CUE);
     } else {
-      AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
+      AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui', SELECT_CUE);
     }
   }
   renderUnitInfo(u);
@@ -1017,6 +1020,7 @@ export function onCellClick(x,y){
       const chargeSteps = Math.max(Math.abs(x-sel.x), Math.abs(y-sel.y));
       AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
         { durationMs: moveAnimationMs(Math.max(1, chargeSteps)) * MOVE_PROFILES.charge.speed, loop: true });
+      playChargeSabres(sel);
       animateUnitTo(sel, x, y, 'charge');
       sel.charged = true;
       state.moved.add(sel.id);

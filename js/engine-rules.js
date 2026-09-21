@@ -1262,6 +1262,19 @@ export function pushBack(loser, winner){
    voice in a French battalion's mouth. Drop a French take into blue and it
    works with no other change.
 ========================================================= */
+/* Every unit-selection cue plays at this level: 1.2x, raised 20% on request. */
+export const SELECT_CUE = { volumeScale: 1.2 };
+
+/* THE SABRES ON A CHARGE. The same drawn-sword clip cavalry make when selected,
+   played as the charge starts, so a charge sounds like an attack and not just a
+   fast ride. For every side and in spectate too: it is the sound of the unit,
+   not a voice answering its commander. Its own key, so it never competes with
+   the selection cue for a playback slot. */
+export function playChargeSabres(u){
+  AudioManager.playEffect('cavalry-charge-sabres', 'audio/effects/cavalry-select-sword.wav', 'ui',
+    { ...SELECT_CUE, pan: AudioManager.panForBoardX(u.x) });
+}
+
 export const RALLY_CALL = {
   red: ['audio/effects/rally-british-1.m4a'],
   blue: [],   // French take to come

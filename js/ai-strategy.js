@@ -2,10 +2,10 @@ import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.j
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
-import { CAMERA_ACTION_PAN_MS, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
+import { CAMERA_ACTION_PAN_MS, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
 import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, owesAFight, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
@@ -3762,8 +3762,12 @@ export function aiDecideAndExecuteMove(u){
     if(t.isCavalry){
       // Loops to cover the whole ride: the clip is 4s and a three-square move
       // is 5.04s. Same distance measurement as the infantry march above.
+      /* A charge animates on the quicker charge profile, so its hooves are cut
+         to match; timed as a walk they ran on after the horse had arrived. */
+      const ms = moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY))));
       AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
-        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+        { durationMs: isCharge ? ms * MOVE_PROFILES.charge.speed : ms, loop: true });
+      if(isCharge) playChargeSabres(u);
     }
     // A Brigadier is one rider, so a single horse rather than the squadron.
     // Keyed on the type: isCavalry is false for Brigadiers.
