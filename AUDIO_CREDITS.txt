@@ -74,6 +74,11 @@ RALLY CALL, BRITISH. audio/effects/rally-british-1.m4a.
   Re-encoded from WAV to AAC 128k. French take to come; the blue list in
   engine-rules RALLY_CALL is empty until then and stays silent.
 
+BRIGADIER SELECT, BRITISH. audio/effects/brigadier-select-british.mp3 (3.4s).
+  Plays when the player selects a British Brigadier. The original
+  brigadier-select-attention.wav is now French only. Supplied by Matthew on
+  22 Sep 2026 as British_brigadier_audio.mp3. SOURCE AND LICENCE NOT RECORDED.
+
 FRANCE TURN THEME. audio/effects/france-turn-theme.m4a (9.5s).
   Plays at the start of every French turn once deployment is over, in every
   mode. Supplied by Matthew on 21 Sep 2026 as France_turn_theme.m4a. SOURCE AND

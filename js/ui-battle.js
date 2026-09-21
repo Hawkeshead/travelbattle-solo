@@ -386,6 +386,13 @@ export function renderAiDebugPanel(){
 /* KEYED BY SIDE. A side with no file is silent. volumeScale is per file, set
    by measuring its peak so it sits as loud as it can without clipping: France's
    take peaks at -6.6 dB, so 1.95x lands near -0.8 dB. */
+/* Brigadier selection call, by side. The two takes measure within 0.1 dB of each
+   other on average loudness, so both share SELECT_CUE. */
+export const BRIGADIER_SELECT = {
+  red:  'audio/effects/brigadier-select-british.mp3',
+  blue: 'audio/effects/brigadier-select-attention.wav',
+};
+
 export const TURN_THEME = {
   blue: { file: 'audio/effects/france-turn-theme.m4a', volumeScale: 1.95 },
   red:  null,   // British theme to come
@@ -840,7 +847,7 @@ export function selectUnit(id){
        click. Ordering it this way means the sound follows the rank rather than
        depending on that flag staying false. */
     if(selT.key === 'BRIGADIER'){
-      AudioManager.playEffect('brigadier-select', 'audio/effects/brigadier-select-attention.wav', 'ui', SELECT_CUE);
+      AudioManager.playEffect(`brigadier-select-${u.side}`, BRIGADIER_SELECT[u.side], 'ui', SELECT_CUE);
     } else if(selT.isArtillery){
       AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui', SELECT_CUE);
     } else if(selT.isCavalry){
