@@ -97,6 +97,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   }
 
   const t0 = Date.now();
+  const reach = installReachTracker(state, g, SIDES);
   menus.beginBoardSetup();
 
   /* SIM_MIRROR=1 FLIPS THE BOARD TOP TO BOTTOM AND LEAVES THE ARMIES WHERE THEY
@@ -137,6 +138,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
     brokenBrigades: countBrokenBrigades(state, SIDES),
     stall: finished === 'win' ? null : snapshotStall(state, SIDES),
+    remnants: remnantsOf(state, SIDES),
+    reach: reach.result(),
   };
 }
 
@@ -200,6 +203,90 @@ function snapshotStall(state, SIDES) {
    A TIMEOUT IS A RESULT, NOT AN ERROR. A match that will not end is exactly the
    thing a long run exists to find, so it is recorded against its seed rather
    than crashing the batch. */
+/* WHEN A UNIT COULD HAVE GONE FOR A REMNANT, DID IT?
+
+   The remnant survival time mixes two different things: remnants nobody could
+   reach, and remnants somebody could reach and did not. Only the second is a
+   decision. This isolates it.
+
+   A snapshot at every turn boundary brackets exactly one side's moves. For the
+   side that just moved, every enemy Brigade that was at its last fighting unit
+   at the start of that turn, and every one of the mover's units that COULD move
+   and was in reach of it:
+     cavalry and infantry within 4 tiles   closed / held / opened
+     guns with line of sight at range 5+   closed to 4 or less / stayed out
+   Positions only, from shared engine code, so it is the same measurement
+   whichever build is playing either side. */
+function installReachTracker(state, g, SIDES) {
+  const { movableUnitsForSide, chebyshev, hasLOS } = g.rules;
+  const T = g.data.UNIT_TYPES;
+  const tally = {};
+  for (const s of [SIDES.RED, SIDES.BLUE]) tally[s] = { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 };
+  let prev = null;
+  globalThis.__fcTurnHook = st => {
+    const mover = st.turn === SIDES.RED ? SIDES.BLUE : SIDES.RED;   // the side that just finished
+    if (prev && prev.side === mover) {
+      const byId = new Map(st.units.map(u => [u.id, u]));
+      for (const r of prev.remnants) {
+        const R = byId.get(r.id);
+        if (!R || R.removed) continue;
+        for (const m of prev.units) {
+          if (!prev.movable.has(m.id)) continue;
+          const U = byId.get(m.id);
+          if (!U || U.removed) continue;
+          const d0 = Math.max(Math.abs(m.x - r.x), Math.abs(m.y - r.y));
+          const d1 = chebyshev(U, R);
+          const tl = tally[mover];
+          if (T[m.type].isArtillery) {
+            if (d0 > 4 && m.los[r.id]) { tl.gunsFar++; if (d1 <= 4) tl.gunsClosed++; }
+          } else if (d0 <= 4) {
+            tl.near++;
+            if (d1 < d0 || d1 <= 1) tl.closed++; else if (d1 === d0) tl.held++; else tl.opened++;
+          }
+        }
+      }
+    }
+    const next = st.turn;                                              // about to move
+    const enemy = next === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    const remnants = [];
+    for (let b = 0; b < 3; b++) {
+      const alive = st.units.filter(u => !u.removed && u.side === enemy && u.brigadeId === b && u.type !== 'BRIGADIER');
+      if (alive.length === 1) remnants.push({ id: alive[0].id, x: alive[0].x, y: alive[0].y });
+    }
+    const movable = new Set([...movableUnitsForSide(next)].filter(id => {
+      const u = st.units.find(x => x.id === id); return u && !u.turnOnly;
+    }));
+    const units = st.units.filter(u => !u.removed && u.side === next && u.type !== 'BRIGADIER').map(u => {
+      const los = {};
+      if (T[u.type].isArtillery) for (const r of remnants) los[r.id] = hasLOS(u, st.units.find(x => x.id === r.id));
+      return { id: u.id, type: u.type, x: u.x, y: u.y, los };
+    });
+    prev = remnants.length ? { side: next, remnants, units, movable } : null;
+  };
+  return { result: () => tally };
+}
+
+/* EVERY BRIGADE THAT SPENT TIME AT ITS LAST FIGHTING UNIT, and for how long.
+   From the removal turn stamped on each unit, not from polling, so it is exact
+   and it is the same measurement whichever build is playing either side. A
+   remnant starts when its second-last unit dies and ends when its last one does;
+   to is null if the match ended with it still standing. */
+function remnantsOf(state, SIDES) {
+  const out = [];
+  for (const side of [SIDES.RED, SIDES.BLUE]) {
+    for (let bId = 0; bId < 3; bId++) {
+      const members = state.units.filter(u => u.side === side && u.brigadeId === bId && u.type !== 'BRIGADIER');
+      if (members.length < 2) continue;
+      const deaths = members.filter(u => u.removed).map(u => u.removedTurn ?? 0).sort((a, b) => a - b);
+      if (deaths.length < members.length - 1) continue;          // never got down to one
+      const from = deaths[members.length - 2];
+      const to = deaths.length === members.length ? deaths[members.length - 1] : null;
+      out.push({ side, brigadeId: bId, from, to, endTurn: state.turnNumber });
+    }
+  }
+  return out;
+}
+
 function waitForEnd(state, timeoutMs) {
   return new Promise(resolve => {
     const t0 = Date.now();
@@ -262,6 +349,47 @@ function verdict(results) {
     : all.pct > 55 ? 'WORTH A SECOND RUN: between 55% and 60%.'
     : all.pct < 45 ? `REGRESSION: ${OLD} is winning.`
     : 'NOISE: within 55%, no effect detected.');
+
+  /* FINISHING. How long an enemy Brigade survives at its last fighting unit,
+     split by WHO WAS HUNTING it. Measured from death turns on the units, so it
+     is the same measurement for both builds. */
+  const hunts = { [NEW]: [], [OLD]: [] };
+  for (const r of played) {
+    if (!r.variantSide || !r.remnants) continue;
+    for (const m of r.remnants) hunts[m.side === r.variantSide ? OLD : NEW].push(m);
+  }
+  const fmt = x => (Math.floor(x * 10) / 10).toFixed(1);
+  const median = xs => { const a = [...xs].sort((p, q) => p - q); return a.length % 2 ? a[(a.length - 1) / 2] : Math.floor((a[a.length / 2 - 1] + a[a.length / 2]) / 2); };
+  lines.push('');
+  lines.push('REMNANTS (enemy Brigade down to its last fighting unit), by the side hunting it');
+  for (const who of [NEW, OLD]) {
+    const set = hunts[who];
+    const done = set.filter(m => m.to != null);
+    const open = set.length - done.length;
+    const mean = done.length ? done.reduce((a, m) => a + (m.to - m.from), 0) / done.length : 0;
+    const slow = done.filter(m => m.to - m.from >= 6).length;
+    lines.push(`  hunted by ${who}`.padEnd(30) + ` ${set.length} remnants, ${done.length} finished` +
+      (done.length ? ` in mean ${fmt(mean)} / median ${median(done.map(m => m.to - m.from))} turns (${slow} took 6+)` : '') +
+      `, ${open} still standing at match end`);
+  }
+  /* Within reach: the part of finishing that is actually a decision. */
+  const reachBy = { [NEW]: { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 },
+                    [OLD]: { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 } };
+  for (const r of played) {
+    if (!r.variantSide || !r.reach) continue;
+    for (const side of Object.keys(r.reach)) {
+      const who = side === r.variantSide ? NEW : OLD;
+      for (const k of Object.keys(reachBy[who])) reachBy[who][k] += r.reach[side][k] || 0;
+    }
+  }
+  const pc = (a, b) => b ? `${Math.floor(a * 1000 / b) / 10}%` : '-';
+  lines.push('');
+  lines.push('WITHIN REACH OF A REMNANT (unit able to move, cav/inf within 4, guns with LOS at 5+)');
+  for (const who of [NEW, OLD]) {
+    const x = reachBy[who];
+    lines.push(`  ${who}`.padEnd(30) + ` units in reach ${x.near}: closed ${pc(x.closed, x.near)}, held ${pc(x.held, x.near)}, opened ${pc(x.opened, x.near)}` +
+      `  |  guns out at 5+ ${x.gunsFar}: closed to 4 ${pc(x.gunsClosed, x.gunsFar)}`);
+  }
   return lines.join('\n');
 }
 

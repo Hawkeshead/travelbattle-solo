@@ -1467,6 +1467,10 @@ export function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 export function removeUnit(u, reason){
   u.removed = true;
+  /* The turn it went, on the unit itself. Lets the simulator measure how long a
+     Brigade survives at its last unit exactly, from events rather than from a
+     poll that misses turns. */
+  u.removedTurn = state.turnNumber;
   /* WHEN ANYTHING LAST LEFT THE BOARD. Read by the AI's staleness decay, which
      loosens caution the longer a match goes without a casualty. Stamped here
      because this is the one place a unit actually goes, and it lives on state so

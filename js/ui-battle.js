@@ -776,6 +776,10 @@ export function endFightPhase(){
   setTimeout(()=>{
     state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
     state.turnNumber++;
+    /* Simulator only: a turn boundary it can observe on EVERY turn, where polling
+       misses some. Undefined in the browser, so this is a no-op in play. Lives
+       on globalThis rather than state so undo snapshots never carry a function. */
+    if(typeof globalThis.__fcTurnHook === 'function') globalThis.__fcTurnHook(state);
     if(state.scenario && !state.gameOver) checkScenarioTurnLimit();
     if(!state.gameOver) beginMovePhase();
   }, 300);
