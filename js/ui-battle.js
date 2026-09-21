@@ -397,7 +397,10 @@ export function beginMovePhase(){
      during setup. A Web Audio effect rather than music: it plays over the score
      instead of replacing it, and effects recover on their own after an iOS
      interruption. */
-  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui');
+  /* 1.5x, asked for after hearing it in play. Safe from clipping: the file
+     peaks at -6.6 dB, so 1.5x lands around -3 dB. Web Audio gain, which iOS
+     honours, unlike volume on a music element. */
+  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui', { volumeScale: 1.5 });
   state.moved = new Set();
   state.turnComboTarget = null;
   enforceAmbushWoodsInvariant();
