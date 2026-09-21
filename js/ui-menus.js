@@ -15,7 +15,11 @@ import { initDeployment } from './ui-deployment.js';
    with the same bars. Declared once here because both entry points into a battle
    (standard and grand) must use the same score; two literals drifted apart is
    exactly how the menu ends up playing something the battle does not. */
-const BATTLE_SCORE = ['audio/music/battle-score-1.m4a', 'audio/music/battle-score-2.m4a'];
+/* Back to the original single battle track, which loops. The two-track score
+   (battle-score-1/2.m4a) stays on disk: to bring it back, list both files here
+   again. playMusicSequence with one file hands straight to playMusic, which
+   loops, so nothing else needs to change. */
+const BATTLE_SCORE = ['audio/music/field-of-austerlitz.mp3'];
 
 export function showOverlay(title, html, btnLabel, onClick){
   const b = document.querySelector('#overlay .box');

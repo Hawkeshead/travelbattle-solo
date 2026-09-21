@@ -1277,8 +1277,10 @@ function playRallyCall(unit){
   if(!playerCommands(unit.side)) return;
   const takes = RALLY_CALL[unit.side];
   if(!takes || !takes.length) return;
+  /* 1.6x: the recorded take sits well below the rest of the effects and was
+     barely audible over the score. */
   AudioManager.playEffect(`rally-call-${unit.side}`, takes, 'ui',
-    { pan: AudioManager.panForBoardX(unit.x) });
+    { pan: AudioManager.panForBoardX(unit.x), volumeScale: 1.6 });
 }
 
 export function retreatAndRally(loser, onComplete){
