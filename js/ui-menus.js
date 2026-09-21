@@ -15,11 +15,11 @@ import { initDeployment } from './ui-deployment.js';
    with the same bars. Declared once here because both entry points into a battle
    (standard and grand) must use the same score; two literals drifted apart is
    exactly how the menu ends up playing something the battle does not. */
-/* Back to the original single battle track, which loops. The two-track score
-   (battle-score-1/2.m4a) stays on disk: to bring it back, list both files here
-   again. playMusicSequence with one file hands straight to playMusic, which
-   loops, so nothing else needs to change. */
-const BATTLE_SCORE = ['audio/music/field-of-austerlitz.mp3'];
+/* NO BATTLE SCORE. Battles are played without music, by request. Starting a
+   battle stops the menu tune rather than replacing it. The tracks are still on
+   disk (field-of-austerlitz.mp3, battle-score-1/2.m4a): to bring a score back,
+   replace stopMusic() at both battle starts below with
+   playMusicSequence([...files]). */
 
 export function showOverlay(title, html, btnLabel, onClick){
   const b = document.querySelector('#overlay .box');
@@ -406,7 +406,7 @@ export function showDifficultySelect(){
 ========================================================= */
 export function beginBoardSetup(){
   setBoardMode('standard');
-  AudioManager.playMusicSequence(BATTLE_SCORE);
+  AudioManager.stopMusic();
   const keys = seededRandom()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
@@ -614,7 +614,7 @@ export function beginGrandBoardSetup(){
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');
-  AudioManager.playMusicSequence(BATTLE_SCORE);
+  AudioManager.stopMusic();
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
