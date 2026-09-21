@@ -108,6 +108,7 @@ export function showModeSelect(isSplash){
      Harmless when it is already playing: playMusic only replaces the element if
      the source has changed, so moving between the mode, side and difficulty
      screens never interrupts the track. */
+  AudioManager.fadeOutEffects('turn-theme-', 800);   // leaving a battle mid-theme
   AudioManager.playMusic('audio/music/menu-musket-tango.mp3');
   const box = document.querySelector('#overlay .box');
   // The folio backing is start-screen only. Every other overlay reuses this

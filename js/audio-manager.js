@@ -15,6 +15,7 @@ import { COLS } from './data-core.js';
 
 export const AudioManager = (function(){
   const PRIORITY = { cannon:1, majorCombat:2, cavalryCharge:3, musketVolley:4, movement:5, ui:6, ambient:7 };
+  const liveHandles = new Map();   // effect key -> Set of handles still playing or decoding
   const MAX_CONCURRENT = {
     default: 4,   // cap on simultaneous copies of the same effect, so a busy turn doesn't turn into noise
     /* ONE VOLLEY AT A TIME. Each take is four seconds and opens with an officer
@@ -247,8 +248,34 @@ export const AudioManager = (function(){
     if(current >= cap) return; // already plenty of this sound playing — drop it rather than pile on
     state.activeEffects.set(key, current+1); // reserve the slot now, not after the (async) decode resolves
 
+    /* A HANDLE ON THIS ONE PLAY, so it can be faded out early. It fades only
+       its own gain node: every play gets a fresh node at full level, so fading
+       one out can never leave the next one quiet or muted. Faded before it has
+       even started (still decoding), it simply never starts. */
+    const handle = { key, cancelled: false, done: false, source: null, gain: null, liveGain: null,
+      fadeOut(ms){
+        if(handle.done) return;
+        handle.cancelled = true;
+        if(!handle.source) return;
+        handle.done = true;
+        // Out of the live set first, or a volume-slider move mid-fade would
+        // snap it back to full.
+        state.liveEffectGains.delete(handle.liveGain);
+        try {
+          const ctx = getAudioContext(), now = ctx.currentTime, end = now + Math.max(0.05, ms/1000);
+          const g = handle.gain.gain;
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(g.value, now);
+          g.linearRampToValueAtTime(0.0001, end);
+          handle.source.stop(end + 0.02);
+        } catch(_e) { /* already stopped */ }
+      } };
+    if(!liveHandles.has(key)) liveHandles.set(key, new Set());
+    liveHandles.get(key).add(handle);
+
     let settled = false;
     const release = ()=>{ if(settled) return; settled = true; state.activeEffects.set(key, Math.max(0,(state.activeEffects.get(key)||1)-1)); };
+    const forget = ()=>{ handle.done = true; const set = liveHandles.get(key); if(set) set.delete(handle); };
 
     loadBuffer(chosen).then(buffer => {
       if(settled) return; // e.g. the safety-net timeout already fired while this was still decoding
@@ -259,6 +286,8 @@ export const AudioManager = (function(){
         const gain = ctx.createGain();
         gain.gain.value = effectiveVolume('effects') * (opts.volumeScale ?? 1);
         const liveGain = { node: gain, scale: (opts.volumeScale ?? 1) };
+        if(handle.cancelled){ forget(); release(); return; }   // faded out while still decoding
+        handle.source = source; handle.gain = gain; handle.liveGain = liveGain;
         state.liveEffectGains.add(liveGain);
         source.connect(gain);
         if(opts.pan != null && ctx.createStereoPanner){
@@ -269,7 +298,7 @@ export const AudioManager = (function(){
         } else {
           gain.connect(ctx.destination);
         }
-        source.onended = ()=>{ state.liveEffectGains.delete(liveGain); release(); };
+        source.onended = ()=>{ state.liveEffectGains.delete(liveGain); forget(); release(); };
         /* opts.loop repeats the clip rather than letting it run out. Paired with
            durationMs this covers any length of action from a short sample: the
            gallop is 4s and a three-square cavalry move is 5.04s, so it wraps once
@@ -299,10 +328,21 @@ export const AudioManager = (function(){
           source.stop(stopAt + 0.02);
         }
       } catch(_e) { release(); }
-    }).catch(release);
+    }).catch(()=>{ forget(); release(); });
     // Safety net: if decode stalls or onended never fires for some reason,
     // don't let one stuck reservation silently cap out this key forever.
     setTimeout(release, 8000);
+    return handle;
+  }
+
+  /* Fade out every playing effect whose key starts with prefix. Used for the
+     turn themes: a turn that ends before its theme does fades it rather than
+     letting it run into the next side's turn. */
+  function fadeOutEffects(prefix, ms){
+    for(const [k, set] of liveHandles){
+      if(!k.startsWith(prefix)) continue;
+      for(const h of [...set]) h.fadeOut(ms);
+    }
   }
 
   // Simple left/centre/right stereo positioning based on board x-position (0..COLS).
@@ -469,7 +509,7 @@ export const AudioManager = (function(){
   loadPrefs();
 
   return {
-    unlock, playEffect, playMusic, playMusicSequence, stopMusic, playAmbience, stopAmbience,
+    unlock, playEffect, fadeOutEffects, playMusic, playMusicSequence, stopMusic, playAmbience, stopAmbience,
     setMuted, setVolume, getPrefs, resumeAudio, panForBoardX, preloadEffects,
     startLoop, stopLoop,
     /* Read-only handles for audio-lab.html. The lab compares what the mixer

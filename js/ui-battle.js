@@ -383,9 +383,6 @@ export function renderAiDebugPanel(){
   el.innerHTML = html;
 }
 
-/* KEYED BY SIDE. A side with no file is silent. volumeScale is per file, set
-   by measuring its peak so it sits as loud as it can without clipping: France's
-   take peaks at -6.6 dB, so 1.95x lands near -0.8 dB. */
 /* Brigadier selection call, by side. The two takes measure within 0.1 dB of each
    other on average loudness, so both share SELECT_CUE. */
 export const BRIGADIER_SELECT = {
@@ -393,12 +390,23 @@ export const BRIGADIER_SELECT = {
   blue: 'audio/effects/brigadier-select-attention.wav',
 };
 
+/* TURN THEMES, KEYED BY SIDE. volumeScale is per file, set by measuring its
+   peak so it sits as loud as it can without clipping:
+     France  9.5s, peaks -6.6 dB -> 1.95x, about -0.8 dB
+     Britain 29.3s (longer, for a human choosing moves), peaks -2.4 dB -> 1.2x,
+             about -0.8 dB. On average it still sits about 2.5 dB under France;
+             matching them exactly needs the British file re-mastered. */
 export const TURN_THEME = {
-  blue: { file: 'audio/effects/france-turn-theme.m4a', volumeScale: 1.95 },
-  red:  null,   // British theme to come
+  blue: { file: 'audio/effects/france-turn-theme.m4a',  volumeScale: 1.95 },
+  red:  { file: 'audio/effects/britain-turn-theme.mp3', volumeScale: 1.2 },
 };
+export const TURN_THEME_FADE_MS = 800;
 
+/* A turn that ends before its theme does fades the theme out as the next turn
+   begins, so the two never overlap. The fade acts on that one play-through only;
+   the new turn's theme starts on a fresh gain at full level every time. */
 function playTurnTheme(side){
+  AudioManager.fadeOutEffects('turn-theme-', TURN_THEME_FADE_MS);
   const theme = TURN_THEME[side];
   if(!theme) return;
   AudioManager.playEffect(`turn-theme-${side}`, theme.file, 'ui', { volumeScale: theme.volumeScale });

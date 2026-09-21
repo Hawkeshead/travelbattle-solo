@@ -1,4 +1,5 @@
 import { exportAiMoveLog } from './ai-strategy.js';
+import { AudioManager } from './audio-manager.js';
 import { saveCampaignProgress } from './campaign.js';
 import { SIDES, SIDE_LABEL, state } from './data-core.js';
 import { unitsAt } from './engine-rules.js';
@@ -106,6 +107,8 @@ export function checkScenarioTurnLimit(){
 
 export function endGame(winner){
   state.gameOver = true;
+  // A turn theme still playing when the match ends fades rather than running on.
+  AudioManager.fadeOutEffects('turn-theme-', 800);
   /* Recorded on state as well as shown on screen. The victory screen is the only
      place the result existed, which is fine for a person reading it and no use
      to anything that needs the outcome without a DOM (the AI-vs-AI runner, a

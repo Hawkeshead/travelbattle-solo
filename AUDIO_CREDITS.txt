@@ -79,6 +79,12 @@ BRIGADIER SELECT, BRITISH. audio/effects/brigadier-select-british.mp3 (3.4s).
   brigadier-select-attention.wav is now French only. Supplied by Matthew on
   22 Sep 2026 as British_brigadier_audio.mp3. SOURCE AND LICENCE NOT RECORDED.
 
+BRITAIN TURN THEME. audio/effects/britain-turn-theme.mp3 (29.3s).
+  Plays at the start of every British turn once deployment is over. Longer than
+  the French theme because Britain is usually the human side. Supplied by
+  Matthew on 22 Sep 2026 as British_turn_audio.mp3. SOURCE AND LICENCE NOT
+  RECORDED.
+
 FRANCE TURN THEME. audio/effects/france-turn-theme.m4a (9.5s).
   Plays at the start of every French turn once deployment is over, in every
   mode. Supplied by Matthew on 21 Sep 2026 as France_turn_theme.m4a. SOURCE AND
