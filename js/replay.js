@@ -698,6 +698,11 @@ export function exportFullMatchLog(){
     const hist = (state._aiMoveHistory && state._aiMoveHistory[side]) || [];
     if(!hist.length) continue;
     lines.push(`--- ${SIDE_LABEL[side]} ---`);
+    /* Finishing events first: when a Brigade is one kill from breaking, whether
+       the AI went for it is the single most important thing in the section. */
+    const fin = (state._aiFinishingLog && state._aiFinishingLog[side]) || [];
+    for(const e of fin) lines.push(`  T${e.turn} ${e.text}`);
+    if(fin.length) lines.push('');
     lines.push(...formatAiDecisionSummary(side, SIDE_LABEL[side]));
     lines.push('');
 

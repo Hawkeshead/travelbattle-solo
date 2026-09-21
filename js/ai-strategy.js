@@ -459,6 +459,210 @@ export function brigadeKillValue(target){
   if(brigadeBrokenStatus(target.side).filter(Boolean).length === 1) v *= 2.0;
   return v;
 }
+/* =========================================================
+   THE FINISHING RULE
+
+   Seed 1526369304: from turn 21 to turn 44 Britain had one Brigade at
+   Brigadier plus a single battery, cornered at (1,7). One kill won the match.
+   France fired at it nine times, every one from range 5 needing a 5+, while its
+   own battery sat five rows away and never moved, and the 5e Cuirassiers sat
+   four tiles off and never closed. Twenty-two turns.
+
+   THE VALUE WAS ALREADY THERE. brigadeKillValue gives a Brigade's last unit
+   3.00, doubled to 6.00 once one enemy Brigade is broken, which is exactly this
+   case. It never mattered, because it is only applied in the FIGHT step, to
+   targets a unit can reach this turn. Nothing four tiles away can, so the one
+   number that knew the match was on the line never pulled anybody across the
+   board. What did pull was killPull at 0.34 per tile, which ordinary cohesion
+   and threat terms outweigh, and artillery is excluded from that entirely, while
+   gun positioning measures range to the NEAREST enemy rather than to the
+   remnant. A gun with any shot keeps gunHasShot, so it stayed at range 5.
+
+   So the rule acts on MOVEMENT, which is where the problem was:
+
+     cavalry within 6 tiles and infantry within 4 converge on the remnant,
+       if the fight estimator does not already rate that fight as bad
+     guns with line of fire at range 5+ give up the long shot and close to
+       range 3-4, where a battery hits most of the time
+     in the fight itself the remnant is worth +6.00, or +8.00 if it wins
+
+   GUARDS, so this cannot turn into suicide charges:
+     - Nobody is pulled toward, or paid to attack, a fight estimateFightValue
+       rates below zero. A gun in a building is a bad fight for horse and stays
+       one: the finishing value is added to a fight worth having, it never
+       rescues a fight that is not. Infantry, for whom the same building may be
+       a fair fight, still come.
+     - squareTrap and the fight estimator are untouched.
+     - A unit fleeing for its own life (selfPreservation) is not recruited.
+     - EIGHT TURNS. A remnant that cannot be reached must not absorb the whole
+       army. On expiry the target goes on an eight-turn cooldown, otherwise
+       "revert and re-evaluate" would re-select it at once and it would never
+       expire.
+
+   This is the mirror of the player's own PRESERVE play. Reduce a Brigade to a
+   Brigadier and one unit, hide it, and grind with the intact Brigades while the
+   AI shoots at 5+. The player hunts the AI's remnants with cavalry every time;
+   now the AI has the same instinct.
+
+   Brigadiers are never the target (a Brigadier alone is already broken) and are
+   never recruited (they are the chain, not a striking unit).
+========================================================= */
+export const FINISH_MAX_TURNS = 8;
+export const FINISH_KILL_VALUE = 6.0;
+export const FINISH_KILL_VALUE_WINS = 8.0;
+export const FINISH_CAV_RADIUS = 6;
+export const FINISH_INF_RADIUS = 4;
+export const FINISH_PULL = 1.0;             // per tile; killPull is 0.34
+export const FINISH_GUN_BAND_BONUS = 3.0;   // a square at range 3-4 with line of fire
+
+/* OFF BY DEFAULT. Measured over 104 matches against saladin: 48.9% of decided
+   matches, remnants finished in a median of 6 to 10 turns either way, and
+   undecided matches up from 1 in 26 to 12 in 104. Kept, switched off, until the
+   within-reach measurement says whether it does its job where it can. With it
+   off, killCreditFor falls straight through to brigadeKillValue on the -1.5
+   floor, which is Saladin's behaviour exactly. The 'finishing' variant turns it
+   on. */
+function finishingEnabled(side){ return tune(side, 'FINISHING_RULE', 0) > 0; }
+
+function finishNote(side, text){
+  if(!state._aiFinishingLog) state._aiFinishingLog = {};
+  if(!state._aiFinishingLog[side]) state._aiFinishingLog[side] = [];
+  state._aiFinishingLog[side].push({ turn: state.turnNumber, text });
+}
+
+function fightingMembers(side, bId){
+  return state.units.filter(o => !o.removed && o.side===side &&
+    o.brigadeId===bId && o.type!=='BRIGADIER');
+}
+
+/* Read-only: the target this side is finishing this turn, or null. */
+export function currentFinishing(side){
+  if(!finishingEnabled(side)) return null;
+  const f = state._aiFinishing && state._aiFinishing[side];
+  if(!f) return null;
+  const t = state.units.find(o => o.id===f.targetId);
+  return (t && !t.removed) ? { ...f, unit: t } : null;
+}
+
+/* Once per side per turn, from aiPlanTurn: resolve, expire, or select. */
+export function updateFinishing(side){
+  if(!state._aiFinishing) state._aiFinishing = {};
+  if(!state._aiFinishCooldown) state._aiFinishCooldown = {};
+  if(!state._aiFinishCooldown[side]) state._aiFinishCooldown[side] = {};
+  const cooldown = state._aiFinishCooldown[side];
+  if(!finishingEnabled(side)){ delete state._aiFinishing[side]; return null; }
+  const enemy = otherSide(side);
+  const cur = state._aiFinishing[side];
+
+  if(cur){
+    const t = state.units.find(o => o.id===cur.targetId);
+    if(!t || t.removed){
+      finishNote(side, `FINISHING resolved: ${cur.label} destroyed T${state.turnNumber}, ` +
+        `${state.turnNumber - cur.startedTurn} turns after the rule fired. Enemy Bde ${cur.brigadeId+1} broken.`);
+      delete state._aiFinishing[side];
+    } else if(state.turnNumber - cur.startedTurn >= FINISH_MAX_TURNS){
+      finishNote(side, `FINISHING expired: ${FINISH_MAX_TURNS} turns, ${cur.label} not reached. Reverting.`);
+      cooldown[t.id] = state.turnNumber + FINISH_MAX_TURNS;
+      delete state._aiFinishing[side];
+    } else if(fightingMembers(enemy, t.brigadeId).length !== 1){
+      delete state._aiFinishing[side];   // no longer a remnant; nothing to report
+    } else {
+      return cur;
+    }
+  }
+
+  const broken = brigadeBrokenStatus(enemy).filter(Boolean).length;
+  const own = state.units.filter(o => !o.removed && o.side===side && o.type!=='BRIGADIER');
+  if(!own.length) return null;
+  let pick = null, pickDist = Infinity;
+  for(const bId of brigadeIdsForSide(enemy)){
+    const members = fightingMembers(enemy, bId);
+    if(members.length !== 1) continue;
+    const t = members[0];
+    if((cooldown[t.id] || 0) > state.turnNumber) continue;
+    if(isConcealedFromEnemy(t)) continue;
+    const d = Math.min(...own.map(o => chebyshev(o, t)));
+    if(d < pickDist){ pickDist = d; pick = t; }
+  }
+  if(!pick) return null;
+
+  const wins = broken >= 1;
+  const label = pick.historicalName || pick.type;
+  const f = { targetId: pick.id, brigadeId: pick.brigadeId, startedTurn: state.turnNumber, wins, label };
+  state._aiFinishing[side] = f;
+
+  const near = [], far = [], guns = [];
+  for(const o of own){
+    const d = chebyshev(o, pick), ot = UNIT_TYPES[o.type];
+    const name = o.historicalName || o.type;
+    if(ot.isArtillery){
+      if(d > 4 && hasLOS(o, pick)) guns.push(`${name} repositioning from range ${d}`);
+    } else {
+      /* The log names only who is actually committed, by the same test the
+         movement term uses, so it can be read as "who went" rather than "who
+         was nearby". A unit held back by the fight estimator says so. */
+      const radius = ot.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
+      if(d > radius){ if(ot.isCavalry) far.push(`${name} (${d} tiles, out of range)`); }
+      else if((fv => finishFloor(o) === 0 ? fv < 0 : fv <= finishFloor(o))(estimateFightValue(o, pick)))
+        far.push(`${name} (${d} tiles, held back: bad fight)`);
+      else near.push(`${name} (${d} tiles)`);
+    }
+  }
+  finishNote(side, `FINISHING: enemy Bde ${pick.brigadeId+1} at Brigadier + 1 (${label} at (${pick.x},${pick.y})). ` +
+    `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
+    `Converging: ${[...near, ...far].join(', ') || 'none in reach'}.` +
+    (guns.length ? ` ${guns.join('; ')}.` : ''));
+  return f;
+}
+
+/* What this unit does about the remnant this turn, from its REAL position, not
+   the candidate square it is being scored on. Cached per unit per turn. */
+function finishRoleFor(u, startX, startY){
+  if(u._finRoleTurn === state.turnNumber) return u._finRole;
+  u._finRoleTurn = state.turnNumber;
+  u._finRole = null;
+  const f = currentFinishing(u.side);
+  if(!f || u.type==='BRIGADIER') return null;
+  const tgt = f.unit, ut = UNIT_TYPES[u.type];
+  const d = Math.max(Math.abs(startX - tgt.x), Math.abs(startY - tgt.y));
+  if(ut.isArtillery){
+    const ox = u.x, oy = u.y;
+    let los = false;
+    try { u.x = startX; u.y = startY; los = hasLOS(u, tgt); } finally { u.x = ox; u.y = oy; }
+    if(los && d > 4) u._finRole = { kind: 'gun', f };
+    return u._finRole;
+  }
+  const radius = ut.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
+  if(d > radius) return null;
+  { const fv = estimateFightValue(u, tgt), floor = finishFloor(u);
+    if(floor === 0 ? fv < 0 : fv <= floor) return null; }   // a bad fight stays a bad fight
+  u._finRole = { kind: ut.isCavalry ? 'cav' : 'inf', f };
+  return u._finRole;
+}
+
+/* The fight-step win-condition credit, with the finishing target folded in.
+   Every site that added brigadeKillValue goes through here so the three agree. */
+/* The fight floor a unit must clear before the remnant's value counts. Cavalry
+   must face a fight worth having (>= 0): a gun in a building is a bad fight for
+   horse and the finishing value must not talk it in. Everyone else keeps the
+   floor brigadeKillValue already used (-1.5). Applying the cavalry test to
+   infantry as well was measured and made finishing SLOWER than Saladin, since
+   it withdrew the +6 Saladin already paid for exactly the fights infantry take
+   against a remnant in cover. */
+function finishFloor(attacker){
+  return attacker && UNIT_TYPES[attacker.type].isCavalry ? 0 : KILL_VALUE_ENGAGE_FLOOR;
+}
+
+export function killCreditFor(side, target, fv, attacker){
+  const f = currentFinishing(side);
+  if(f && f.targetId === target.id){
+    const floor = finishFloor(attacker);
+    if(floor === 0 ? fv < 0 : fv <= floor) return 0;
+    return f.wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE;
+  }
+  return fv > KILL_VALUE_ENGAGE_FLOOR ? brigadeKillValue(target) : 0;
+}
+
 // An enemy off its Brigadier's chain or with no support within two squares.
 // Below the wounded bonus on purpose: isolation is an opportunity, a unit that
 // cannot fight back is a certainty.
@@ -950,6 +1154,7 @@ export function aiPlanTurn(side){
      outrank a plan refresh for their duration: the plan may change around the
      Brigadier, it may not call him back halfway. */
   updateRecoveryErrands(side, missions);
+  updateFinishing(side);
   state._aiMissions[side] = missions;
   if(!state._aiObjectives) state._aiObjectives = {};
   state._aiObjectives[side] = assignBrigadeObjectives(side, plan, assessment, missions);
@@ -2953,7 +3158,10 @@ export function aiDecideAndExecuteMove(u){
                  decision and has to be taken while movement is still available. */
               const poorNow  = best <= HOLD_FIRE_POOR;
               const betterEls = poorNow && bestReachableHitChance(u) >= HOLD_FIRE_GOOD;
-              if(!betterEls){
+              /* A closing gun gives up the long shot: moving to range 3-4 on
+                 the remnant beats a 5+ roll at it, every turn it is available. */
+              const closing = (finishRoleFor(u, startX, startY) || {}).kind === 'gun';
+              if(!betterEls && !closing){
                 s += addScore(parts, 'gunHasShot',
                   (tune(side, 'GUN_HOLDS_FIRE_BONUS', GUN_HOLDS_FIRE_BONUS) +
                    Math.min(shots, 3) * 0.2) * best * tempoMultiplier(side, 'gunHasShot'));
@@ -3002,6 +3210,19 @@ export function aiDecideAndExecuteMove(u){
        by holdingReserve: a reserve exists precisely for the moment the battle can
        be won, and sitting it out while a Brigade is one hit from breaking is the
        reserve doctrine misfiring. */
+    /* FINISHING: converge on the remnant. Not gated on seekTactics or
+       holdingReserve for the same reason as killPull, and far stronger than it,
+       because this is the one move that ends the match. */
+    if(!selfPreservation){
+      const role = finishRoleFor(u, startX, startY);
+      if(role && (role.kind==='cav' || role.kind==='inf')){
+        s -= subScore(parts, 'finishing', chebyshev(c, role.f.unit) * FINISH_PULL * (role.kind==='inf' ? 0.6 : 1));
+      } else if(role && role.kind==='gun'){
+        const d = chebyshev(c, role.f.unit);
+        if(d >= 3 && d <= 4 && hasLOS(u, role.f.unit)) s += addScore(parts, 'finishing', FINISH_GUN_BAND_BONUS);
+        else s -= subScore(parts, 'finishing', Math.max(0, d - 4) * 0.5);
+      }
+    }
     if(seekTactics && !selfPreservation && !t.isArtillery){
       const kill = killTarget(side);
       if(kill) s -= subScore(parts, 'killPull', chebyshev(c, kill.unit) * kill.worth);
@@ -3235,7 +3456,7 @@ export function aiDecideAndExecuteMove(u){
         let bestTarget = null, raw = -Infinity;
         for(const o of reachable){
           const fv = estimateFightValue(u, o);
-          const combined = fv + (fv > KILL_VALUE_ENGAGE_FLOOR ? brigadeKillValue(o) : 0);
+          const combined = fv + killCreditFor(side, o, fv, u);
           if(combined > raw){ raw = combined; bestTarget = o; }
         }
         const rawEngage = bestTarget ? estimateFightValue(u, bestTarget) : 0;
@@ -3250,8 +3471,10 @@ export function aiDecideAndExecuteMove(u){
         const beaten = (u.lossStreak || 0) >= 3;
         s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT * tempoMultiplier(side, 'engage'));
         if(beaten) s += addScore(parts, 'disengage', -0.5 * Math.min(5, u.lossStreak));
-        if(!beaten && bestTarget && best > KILL_VALUE_ENGAGE_FLOOR){
-          s += addScore(parts, 'brigadeKillValue', brigadeKillValue(bestTarget));
+        if(!beaten && bestTarget){
+          const credit = killCreditFor(side, bestTarget, rawEngage, u);
+          const fin = currentFinishing(side);
+          if(credit) s += addScore(parts, fin && fin.targetId===bestTarget.id ? 'finishing' : 'brigadeKillValue', credit);
         }
       }
     }
@@ -4030,7 +4253,7 @@ export function aiDoFightPhase(){
            applies: a fight the estimator rates below the floor gets no
            win-condition credit, so a protected last unit cannot draw an attack
            that engage alone would refuse. */
-        if(estimateFightValue(a, t) > KILL_VALUE_ENGAGE_FLOOR) s += brigadeKillValue(t);
+        s += killCreditFor(a.side, t, estimateFightValue(a, t), a);
 
         // Cut off from its Brigadier, or with no friendly unit within two
         // squares. It cannot be reinforced and, if disconnected, cannot even
