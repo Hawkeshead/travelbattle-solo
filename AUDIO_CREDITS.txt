@@ -74,6 +74,11 @@ RALLY CALL, BRITISH. audio/effects/rally-british-1.m4a.
   Re-encoded from WAV to AAC 128k. French take to come; the blue list in
   engine-rules RALLY_CALL is empty until then and stays silent.
 
+FRANCE TURN THEME. audio/effects/france-turn-theme.m4a (9.5s).
+  Plays at the start of every French turn once deployment is over, in every
+  mode. Supplied by Matthew on 21 Sep 2026 as France_turn_theme.m4a. SOURCE AND
+  LICENCE NOT RECORDED: note where it came from before release.
+
   ALL THREE Freesound sounds above need their licence confirmed before release. If
   either is CC-BY rather than CC0 it needs an attribution line visible IN THE
   GAME, not only in this file.

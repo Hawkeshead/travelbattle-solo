@@ -391,6 +391,13 @@ export function beginMovePhase(){
   // they were looking.
   if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
   logReplay('turnStart', { side: state.turn });
+  /* France's turn theme, at the start of every French turn once the battle is
+     under way. beginMovePhase is only reached after deployment, and it is the
+     one place both the first turn and every later one begin, so nothing plays
+     during setup. A Web Audio effect rather than music: it plays over the score
+     instead of replacing it, and effects recover on their own after an iOS
+     interruption. */
+  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui');
   state.moved = new Set();
   state.turnComboTarget = null;
   enforceAmbushWoodsInvariant();
