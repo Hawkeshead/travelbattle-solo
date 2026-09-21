@@ -218,10 +218,10 @@ function snapshotStall(state, SIDES) {
    Positions only, from shared engine code, so it is the same measurement
    whichever build is playing either side. */
 function installReachTracker(state, g, SIDES) {
-  const { movableUnitsForSide, chebyshev, hasLOS } = g.rules;
+  const { movableUnitsForSide, chebyshev, hasLOS, legalMoves } = g.rules;
   const T = g.data.UNIT_TYPES;
   const tally = {};
-  for (const s of [SIDES.RED, SIDES.BLUE]) tally[s] = { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 };
+  for (const s of [SIDES.RED, SIDES.BLUE]) tally[s] = { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0, heldNoWay: 0, heldCould: 0, recruited: 0, recruitedClosed: 0 };
   let prev = null;
   globalThis.__fcTurnHook = st => {
     const mover = st.turn === SIDES.RED ? SIDES.BLUE : SIDES.RED;   // the side that just finished
@@ -241,7 +241,39 @@ function installReachTracker(state, g, SIDES) {
             if (d0 > 4 && m.los[r.id]) { tl.gunsFar++; if (d1 <= 4) tl.gunsClosed++; }
           } else if (d0 <= 4) {
             tl.near++;
-            if (d1 < d0 || d1 <= 1) tl.closed++; else if (d1 === d0) tl.held++; else tl.opened++;
+            /* Diagnostic, current build only: did the finishing rule actually
+               give this unit a role against THIS remnant on that turn? Read from
+               the per-turn cache finishRoleFor leaves on the unit; absent in
+               older builds, where it simply never counts. */
+            const role = U._finRoleTurn === prev.turn && U._finRole && U._finRole.f && U._finRole.f.targetId === r.id;
+            if (role) { tl.recruited++; if (d1 < d0 || d1 <= 1) tl.recruitedClosed++; }
+            /* WHAT BEAT THE PULL. For a recruited unit that did not close, find
+               the runner-up in its own decision log that WAS closer, and credit
+               each term by how much it favoured the square chosen instead. */
+            if (role && !(d1 < d0 || d1 <= 1)) {
+              const hist = (st._aiMoveHistory && st._aiMoveHistory[mover]) || [];
+              const h = [...hist].reverse().find(e => e.turn === prev.turn && e.type === U.type &&
+                e.brigadeId === U.brigadeId && e.decision && e.decision.chosen &&
+                e.decision.chosen.x === U.x && e.decision.chosen.y === U.y);
+              const alt = h && (h.decision.alternatives || []).find(a =>
+                Math.max(Math.abs(a.x - R.x), Math.abs(a.y - R.y)) < d0);
+              if (alt) {
+                tl.beaten = (tl.beaten || 0) + 1;
+                tl.by = tl.by || {};
+                const keys = new Set([...Object.keys(h.decision.chosen.parts), ...Object.keys(alt.parts)]);
+                for (const k of keys) {
+                  const diff = (h.decision.chosen.parts[k] || 0) - (alt.parts[k] || 0);
+                  if (diff > 0) tl.by[k] = (tl.by[k] || 0) + diff;
+                }
+              } else if (h) tl.noCloserAlt = (tl.noCloserAlt || 0) + 1;
+            }
+            if (d1 < d0 || d1 <= 1) tl.closed++;
+            else {
+              if (d1 === d0) tl.held++; else tl.opened++;
+              /* Could it have closed? A closer legal square at the start of the
+                 turn separates "no way to get there" from "chose not to". */
+              if ((m.closer || {})[r.id]) tl.heldCould++; else tl.heldNoWay++;
+            }
           }
         }
       }
@@ -257,11 +289,19 @@ function installReachTracker(state, g, SIDES) {
       const u = st.units.find(x => x.id === id); return u && !u.turnOnly;
     }));
     const units = st.units.filter(u => !u.removed && u.side === next && u.type !== 'BRIGADIER').map(u => {
-      const los = {};
-      if (T[u.type].isArtillery) for (const r of remnants) los[r.id] = hasLOS(u, st.units.find(x => x.id === r.id));
-      return { id: u.id, type: u.type, x: u.x, y: u.y, los };
+      const los = {}, closer = {};
+      for (const r of remnants) {
+        const R = st.units.find(x => x.id === r.id);
+        if (T[u.type].isArtillery) { los[r.id] = hasLOS(u, R); continue; }
+        const d0 = chebyshev(u, R);
+        if (d0 > 4 || !movable.has(u.id)) continue;
+        let moves = [];
+        try { moves = legalMoves(u) || []; } catch { moves = []; }
+        closer[r.id] = moves.some(c => Math.max(Math.abs(c.x - R.x), Math.abs(c.y - R.y)) < d0);
+      }
+      return { id: u.id, type: u.type, x: u.x, y: u.y, los, closer };
     });
-    prev = remnants.length ? { side: next, remnants, units, movable } : null;
+    prev = remnants.length ? { side: next, turn: st.turnNumber, remnants, units, movable } : null;
   };
   return { result: () => tally };
 }
@@ -373,13 +413,17 @@ function verdict(results) {
       `, ${open} still standing at match end`);
   }
   /* Within reach: the part of finishing that is actually a decision. */
-  const reachBy = { [NEW]: { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 },
-                    [OLD]: { near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0 } };
+  const blank = () => ({ near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0, heldNoWay: 0, heldCould: 0, recruited: 0, recruitedClosed: 0 });
+  const reachBy = { [NEW]: blank(), [OLD]: blank() };
   for (const r of played) {
     if (!r.variantSide || !r.reach) continue;
     for (const side of Object.keys(r.reach)) {
       const who = side === r.variantSide ? NEW : OLD;
-      for (const k of Object.keys(reachBy[who])) reachBy[who][k] += r.reach[side][k] || 0;
+      for (const k of Object.keys(blank())) reachBy[who][k] += r.reach[side][k] || 0;
+      const src = r.reach[side], dst = reachBy[who];
+      dst.beaten = (dst.beaten || 0) + (src.beaten || 0);
+      dst.noCloserAlt = (dst.noCloserAlt || 0) + (src.noCloserAlt || 0);
+      for (const [k, v] of Object.entries(src.by || {})) { dst.by = dst.by || {}; dst.by[k] = (dst.by[k] || 0) + v; }
     }
   }
   const pc = (a, b) => b ? `${Math.floor(a * 1000 / b) / 10}%` : '-';
@@ -389,6 +433,16 @@ function verdict(results) {
     const x = reachBy[who];
     lines.push(`  ${who}`.padEnd(30) + ` units in reach ${x.near}: closed ${pc(x.closed, x.near)}, held ${pc(x.held, x.near)}, opened ${pc(x.opened, x.near)}` +
       `  |  guns out at 5+ ${x.gunsFar}: closed to 4 ${pc(x.gunsClosed, x.gunsFar)}`);
+    const notClosed = x.heldNoWay + x.heldCould;
+    lines.push(`    of the ${notClosed} that did not close: ${x.heldCould} had a closer legal square (chose not to), ${x.heldNoWay} had none`);
+    if (x.beaten || x.noCloserAlt) {
+      const top = Object.entries(x.by || {}).sort((a, b) => b[1] - a[1]).slice(0, 8)
+        .map(([k, v]) => `${k} ${(Math.floor(v * 100 / Math.max(1, x.beaten)) / 100).toFixed(2)}`).join(', ');
+      lines.push(`    recruited, held, closer square in its top 4: ${x.beaten || 0}; closer square not even in its top 4: ${x.noCloserAlt || 0}`);
+      if (x.beaten) lines.push(`    terms favouring the square it chose, mean per case: ${top}`);
+    }
+    if (x.recruited) lines.push(`    recruited by the finishing rule: ${x.recruited}, of which closed ${pc(x.recruitedClosed, x.recruited)}; ` +
+      `not recruited: ${x.near - x.recruited}, closed ${pc(x.closed - x.recruitedClosed, x.near - x.recruited)}`);
   }
   return lines.join('\n');
 }
