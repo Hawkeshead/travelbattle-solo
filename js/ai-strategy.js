@@ -507,22 +507,45 @@ export function brigadeKillValue(target){
    Brigadiers are never the target (a Brigadier alone is already broken) and are
    never recruited (they are the chain, not a striking unit).
 ========================================================= */
-export const FINISH_MAX_TURNS = 8;
+/* VERSION 2: COMMIT TO THE KILL, measured into existence.
+
+   Version 1 pulled units toward ONE remnant at a time, 1.0 per tile, for eight
+   turns, then rested for eight. Over 104 matches it did not move the win rate,
+   and the within-reach measurement said why:
+     - only 99 of 264 units in reach were ever recruited, because the rule was
+       usually pointing at a different remnant or resting;
+     - recruited units closed 45% of the time, and when they did not, the closer
+       square was not even in their top four options in 43 of 49 cases. Staying
+       tight with the Brigade (cohesionLoss, cohesionDrift) and fights elsewhere
+       outvoted it by a margin no gentle pull would bridge.
+
+   So now:
+     EVERY REMNANT is tracked at once, not one at a time.
+     A recruited unit that has a legal square closer to its remnant gets a flat
+       COMMIT bonus for taking one, on top of the distance gradient. That is a
+       decision, the way the Brigadier's errands are a decision, rather than a
+       weight hoping to win a vote.
+     EXPIRY IS ON PROGRESS, NOT A CLOCK. A remnant stops being hunted after
+       four turns in which nobody got closer or into contact, then rests six. A
+       remnant being fought every turn and surviving on dice never expires; one
+       nobody can reach stops absorbing the army within four turns.
+     Guns closing to range 3-4 get the same commit value: at +3.00 only one in
+       five closed.
+
+   Guards unchanged: cavalry never into a fight rated below 0, infantry keep the
+   -1.5 floor, fleeing units are not recruited, and cavalry get no commit bonus
+   for a square beside an enemy infantry square (squareTrap still applies). */
+export const FINISH_STALL_TURNS = 4;
+export const FINISH_COOLDOWN_TURNS = 6;
 export const FINISH_KILL_VALUE = 6.0;
 export const FINISH_KILL_VALUE_WINS = 8.0;
 export const FINISH_CAV_RADIUS = 6;
 export const FINISH_INF_RADIUS = 4;
-export const FINISH_PULL = 1.0;             // per tile; killPull is 0.34
-export const FINISH_GUN_BAND_BONUS = 3.0;   // a square at range 3-4 with line of fire
+export const FINISH_PULL = 1.0;             // per tile, the gradient under the commit
+export const FINISH_COMMIT = 4.0;           // taking a closer square
+export const FINISH_COMMIT_WINS = 6.0;      // ...when that kill wins the match
 
-/* OFF BY DEFAULT. Measured over 104 matches against saladin: 48.9% of decided
-   matches, remnants finished in a median of 6 to 10 turns either way, and
-   undecided matches up from 1 in 26 to 12 in 104. Kept, switched off, until the
-   within-reach measurement says whether it does its job where it can. With it
-   off, killCreditFor falls straight through to brigadeKillValue on the -1.5
-   floor, which is Saladin's behaviour exactly. The 'finishing' variant turns it
-   on. */
-function finishingEnabled(side){ return tune(side, 'FINISHING_RULE', 0) > 0; }
+function finishingEnabled(side){ return tune(side, 'FINISHING_RULE', 1) > 0; }
 
 function finishNote(side, text){
   if(!state._aiFinishingLog) state._aiFinishingLog = {};
@@ -535,113 +558,119 @@ function fightingMembers(side, bId){
     o.brigadeId===bId && o.type!=='BRIGADIER');
 }
 
-/* Read-only: the target this side is finishing this turn, or null. */
-export function currentFinishing(side){
-  if(!finishingEnabled(side)) return null;
-  const f = state._aiFinishing && state._aiFinishing[side];
-  if(!f) return null;
-  const t = state.units.find(o => o.id===f.targetId);
-  return (t && !t.removed) ? { ...f, unit: t } : null;
+function badFightFor(u, tgt){
+  const fv = estimateFightValue(u, tgt);
+  return finishFloor(u) === 0 ? fv < 0 : fv <= finishFloor(u);
 }
 
-/* Once per side per turn, from aiPlanTurn: resolve, expire, or select. */
+/* The remnant hunt this side has running for a target, with its unit, or null. */
+function activeHunt(side, targetId){
+  if(!finishingEnabled(side)) return null;
+  const book = state._aiFinishing && state._aiFinishing[side];
+  const h = book && book[targetId];
+  if(!h) return null;
+  const t = state.units.find(o => o.id===h.targetId);
+  return (t && !t.removed) ? { ...h, unit: t } : null;
+}
+
+/* Every hunt running for this side, for the export and for the debugger. */
+export function currentFinishing(side){
+  if(!finishingEnabled(side)) return [];
+  const book = (state._aiFinishing && state._aiFinishing[side]) || {};
+  /* By the stored targetId, never by the key: unit ids are not numbers, and
+     Number(key) once turned every lookup into NaN, so the rule logged its hunts
+     and then recruited nobody for a whole measurement run. */
+  return Object.values(book).map(h => activeHunt(side, h.targetId)).filter(Boolean);
+}
+
+/* Once per side per turn, from aiPlanTurn: resolve, expire, progress, select. */
 export function updateFinishing(side){
   if(!state._aiFinishing) state._aiFinishing = {};
   if(!state._aiFinishCooldown) state._aiFinishCooldown = {};
+  if(!state._aiFinishing[side]) state._aiFinishing[side] = {};
   if(!state._aiFinishCooldown[side]) state._aiFinishCooldown[side] = {};
-  const cooldown = state._aiFinishCooldown[side];
-  if(!finishingEnabled(side)){ delete state._aiFinishing[side]; return null; }
+  const book = state._aiFinishing[side], cooldown = state._aiFinishCooldown[side];
+  if(!finishingEnabled(side)){ for(const k of Object.keys(book)) delete book[k]; return; }
   const enemy = otherSide(side);
-  const cur = state._aiFinishing[side];
+  const own = state.units.filter(o => !o.removed && o.side===side && o.type!=='BRIGADIER');
+  const wins = brigadeBrokenStatus(enemy).filter(Boolean).length >= 1;
+  const reachOf = t => own.length ? Math.min(...own.map(o => chebyshev(o, t))) : Infinity;
 
-  if(cur){
-    const t = state.units.find(o => o.id===cur.targetId);
+  for(const key of Object.keys(book)){
+    const h = book[key];
+    const t = state.units.find(o => o.id===h.targetId);
     if(!t || t.removed){
-      finishNote(side, `FINISHING resolved: ${cur.label} destroyed T${state.turnNumber}, ` +
-        `${state.turnNumber - cur.startedTurn} turns after the rule fired. Enemy Bde ${cur.brigadeId+1} broken.`);
-      delete state._aiFinishing[side];
-    } else if(state.turnNumber - cur.startedTurn >= FINISH_MAX_TURNS){
-      finishNote(side, `FINISHING expired: ${FINISH_MAX_TURNS} turns, ${cur.label} not reached. Reverting.`);
-      cooldown[t.id] = state.turnNumber + FINISH_MAX_TURNS;
-      delete state._aiFinishing[side];
-    } else if(fightingMembers(enemy, t.brigadeId).length !== 1){
-      delete state._aiFinishing[side];   // no longer a remnant; nothing to report
-    } else {
-      return cur;
+      finishNote(side, `FINISHING resolved: ${h.label} destroyed T${state.turnNumber}, ` +
+        `${state.turnNumber - h.startedTurn} turns after the hunt began. Enemy Bde ${h.brigadeId+1} broken.`);
+      delete book[key]; continue;
+    }
+    if(fightingMembers(enemy, t.brigadeId).length !== 1){ delete book[key]; continue; }
+    h.wins = wins;
+    const d = reachOf(t);
+    if(d < h.bestDist || d <= 1){ h.bestDist = Math.min(h.bestDist, d); h.lastProgressTurn = state.turnNumber; }
+    if(state.turnNumber - h.lastProgressTurn >= FINISH_STALL_TURNS){
+      finishNote(side, `FINISHING expired: ${h.label}, no progress for ${FINISH_STALL_TURNS} turns. ` +
+        `Resting ${FINISH_COOLDOWN_TURNS}.`);
+      cooldown[t.id] = state.turnNumber + FINISH_COOLDOWN_TURNS;
+      delete book[key];
     }
   }
 
-  const broken = brigadeBrokenStatus(enemy).filter(Boolean).length;
-  const own = state.units.filter(o => !o.removed && o.side===side && o.type!=='BRIGADIER');
-  if(!own.length) return null;
-  let pick = null, pickDist = Infinity;
   for(const bId of brigadeIdsForSide(enemy)){
     const members = fightingMembers(enemy, bId);
     if(members.length !== 1) continue;
     const t = members[0];
-    if((cooldown[t.id] || 0) > state.turnNumber) continue;
-    if(isConcealedFromEnemy(t)) continue;
-    const d = Math.min(...own.map(o => chebyshev(o, t)));
-    if(d < pickDist){ pickDist = d; pick = t; }
-  }
-  if(!pick) return null;
-
-  const wins = broken >= 1;
-  const label = pick.historicalName || pick.type;
-  const f = { targetId: pick.id, brigadeId: pick.brigadeId, startedTurn: state.turnNumber, wins, label };
-  state._aiFinishing[side] = f;
-
-  const near = [], far = [], guns = [];
-  for(const o of own){
-    const d = chebyshev(o, pick), ot = UNIT_TYPES[o.type];
-    const name = o.historicalName || o.type;
-    if(ot.isArtillery){
-      if(d > 4 && hasLOS(o, pick)) guns.push(`${name} repositioning from range ${d}`);
-    } else {
-      /* The log names only who is actually committed, by the same test the
-         movement term uses, so it can be read as "who went" rather than "who
-         was nearby". A unit held back by the fight estimator says so. */
+    if(book[t.id] || (cooldown[t.id] || 0) > state.turnNumber || isConcealedFromEnemy(t)) continue;
+    const label = t.historicalName || t.type;
+    const d = reachOf(t);
+    book[t.id] = { targetId: t.id, brigadeId: t.brigadeId, startedTurn: state.turnNumber,
+                   lastProgressTurn: state.turnNumber, bestDist: d, wins, label };
+    const near = [], held = [], guns = [];
+    for(const o of own){
+      const od = chebyshev(o, t), ot = UNIT_TYPES[o.type], name = o.historicalName || o.type;
+      if(ot.isArtillery){ if(od > 4 && hasLOS(o, t)) guns.push(`${name} closing from range ${od}`); continue; }
       const radius = ot.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
-      if(d > radius){ if(ot.isCavalry) far.push(`${name} (${d} tiles, out of range)`); }
-      else if((fv => finishFloor(o) === 0 ? fv < 0 : fv <= finishFloor(o))(estimateFightValue(o, pick)))
-        far.push(`${name} (${d} tiles, held back: bad fight)`);
-      else near.push(`${name} (${d} tiles)`);
+      if(od > radius) continue;
+      (badFightFor(o, t) ? held : near).push(`${name} (${od} tiles)`);
     }
+    finishNote(side, `FINISHING: enemy Bde ${bId+1} at Brigadier + 1 (${label} at (${t.x},${t.y})). ` +
+      `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
+      `Committed: ${near.join(', ') || 'none in reach'}.` +
+      (held.length ? ` Held back, bad fight: ${held.join(', ')}.` : '') +
+      (guns.length ? ` ${guns.join('; ')}.` : ''));
   }
-  finishNote(side, `FINISHING: enemy Bde ${pick.brigadeId+1} at Brigadier + 1 (${label} at (${pick.x},${pick.y})). ` +
-    `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
-    `Converging: ${[...near, ...far].join(', ') || 'none in reach'}.` +
-    (guns.length ? ` ${guns.join('; ')}.` : ''));
-  return f;
 }
 
-/* What this unit does about the remnant this turn, from its REAL position, not
-   the candidate square it is being scored on. Cached per unit per turn. */
+/* What this unit does about the remnants this turn, judged from its REAL
+   position rather than the candidate square being scored. Nearest remnant it
+   qualifies for. Cached per unit per turn. */
 function finishRoleFor(u, startX, startY){
   if(u._finRoleTurn === state.turnNumber) return u._finRole;
   u._finRoleTurn = state.turnNumber;
   u._finRole = null;
-  const f = currentFinishing(u.side);
-  if(!f || u.type==='BRIGADIER') return null;
-  const tgt = f.unit, ut = UNIT_TYPES[u.type];
-  const d = Math.max(Math.abs(startX - tgt.x), Math.abs(startY - tgt.y));
-  if(ut.isArtillery){
-    const ox = u.x, oy = u.y;
-    let los = false;
-    try { u.x = startX; u.y = startY; los = hasLOS(u, tgt); } finally { u.x = ox; u.y = oy; }
-    if(los && d > 4) u._finRole = { kind: 'gun', f };
-    return u._finRole;
-  }
-  const radius = ut.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
-  if(d > radius) return null;
-  { const fv = estimateFightValue(u, tgt), floor = finishFloor(u);
-    if(floor === 0 ? fv < 0 : fv <= floor) return null; }   // a bad fight stays a bad fight
-  u._finRole = { kind: ut.isCavalry ? 'cav' : 'inf', f };
+  if(u.type==='BRIGADIER') return null;
+  const hunts = currentFinishing(u.side);
+  if(!hunts.length) return null;
+  const ut = UNIT_TYPES[u.type];
+  const ox = u.x, oy = u.y;
+  try {
+    u.x = startX; u.y = startY;
+    let best = null;
+    for(const f of hunts){
+      const tgt = f.unit, d = chebyshev(u, tgt);
+      if(ut.isArtillery){
+        if(d > 4 && hasLOS(u, tgt) && (!best || d < best.d0)) best = { kind: 'gun', f, d0: d };
+        continue;
+      }
+      const radius = ut.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
+      if(d > radius || badFightFor(u, tgt)) continue;
+      if(!best || d < best.d0) best = { kind: ut.isCavalry ? 'cav' : 'inf', f, d0: d };
+    }
+    u._finRole = best;
+  } finally { u.x = ox; u.y = oy; }
   return u._finRole;
 }
 
-/* The fight-step win-condition credit, with the finishing target folded in.
-   Every site that added brigadeKillValue goes through here so the three agree. */
 /* The fight floor a unit must clear before the remnant's value counts. Cavalry
    must face a fight worth having (>= 0): a gun in a building is a bad fight for
    horse and the finishing value must not talk it in. Everyone else keeps the
@@ -654,11 +683,11 @@ function finishFloor(attacker){
 }
 
 export function killCreditFor(side, target, fv, attacker){
-  const f = currentFinishing(side);
-  if(f && f.targetId === target.id){
+  const h = activeHunt(side, target.id);
+  if(h){
     const floor = finishFloor(attacker);
     if(floor === 0 ? fv < 0 : fv <= floor) return 0;
-    return f.wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE;
+    return h.wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE;
   }
   return fv > KILL_VALUE_ENGAGE_FLOOR ? brigadeKillValue(target) : 0;
 }
@@ -3210,17 +3239,22 @@ export function aiDecideAndExecuteMove(u){
        by holdingReserve: a reserve exists precisely for the moment the battle can
        be won, and sitting it out while a Brigade is one hit from breaking is the
        reserve doctrine misfiring. */
-    /* FINISHING: converge on the remnant. Not gated on seekTactics or
-       holdingReserve for the same reason as killPull, and far stronger than it,
-       because this is the one move that ends the match. */
+    /* FINISHING: commit to the kill. Not gated on seekTactics or holdingReserve,
+       for the same reason killPull is not. */
     if(!selfPreservation){
       const role = finishRoleFor(u, startX, startY);
-      if(role && (role.kind==='cav' || role.kind==='inf')){
-        s -= subScore(parts, 'finishing', chebyshev(c, role.f.unit) * FINISH_PULL * (role.kind==='inf' ? 0.6 : 1));
-      } else if(role && role.kind==='gun'){
-        const d = chebyshev(c, role.f.unit);
-        if(d >= 3 && d <= 4 && hasLOS(u, role.f.unit)) s += addScore(parts, 'finishing', FINISH_GUN_BAND_BONUS);
-        else s -= subScore(parts, 'finishing', Math.max(0, d - 4) * 0.5);
+      if(role){
+        const tgt = role.f.unit, d = chebyshev(c, tgt);
+        const commit = role.f.wins ? FINISH_COMMIT_WINS : FINISH_COMMIT;
+        if(role.kind === 'gun'){
+          if(d >= 3 && d <= 4 && hasLOS(u, tgt)) s += addScore(parts, 'finishing', commit);
+          else s -= subScore(parts, 'finishing', Math.max(0, d - 4) * 0.5);
+        } else {
+          s -= subScore(parts, 'finishing', d * FINISH_PULL * (role.kind === 'inf' ? 0.6 : 1));
+          const besideSquare = role.kind === 'cav' && state.units.some(o => !o.removed &&
+            o.side !== side && o.formation === 'square' && isAdjacent(c, o));
+          if(d < role.d0 && !besideSquare) s += addScore(parts, 'finishing', commit);
+        }
       }
     }
     if(seekTactics && !selfPreservation && !t.isArtillery){

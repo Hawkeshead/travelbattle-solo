@@ -13,8 +13,8 @@
 export const VARIANTS = {
   /* Recovery errands are ON by default, so the experiment is turning them OFF. */
   no_errands:  { BRIGADE_ERRANDS: 0 },
-  /* The finishing rule is OFF by default, so the experiment turns it ON. */
-  finishing:   { FINISHING_RULE: 1 },
+  /* The finishing rule is ON by default, so the experiment turns it OFF. */
+  no_finishing: { FINISHING_RULE: 0 },
   plan_tier1:  { PLAN_TIER1: 1 },
   plan_tier2:  { PLAN_TIER1: 1, PLAN_TIER2: 1 },
   plan_tier3:  { PLAN_TIER3: 1 },
