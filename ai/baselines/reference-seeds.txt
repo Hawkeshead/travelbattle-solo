@@ -1,6 +1,10 @@
 FIELD COMMAND — REFERENCE SEEDS
 Recorded 20 September 2026, alongside the `cerberus` tag.
 
+  1526369304   Saladin reference match (21 Sep). France broke Graham's Brigade by
+               T19, reduced Wellington's to Brigadier + 1 battery by T21, then
+               spent 22 turns failing to finish it.
+
   551846676    Parity match. Bonus parity (Britain 20, France 20), dice parity
                (3.43 v 3.41), France leading "Defender turned around" 10 to 9,
                5e Cuirassiers unbeaten across 7 fights, 7e Hussards 6 from 8,
@@ -20,11 +24,13 @@ Recorded 20 September 2026, alongside the `cerberus` tag.
 
 READ THIS BEFORE TREATING A SEED AS A FIXTURE
 
-The seed fixes the DICE, not the MAP. Terrain comes from a separate source, so
-re-running a seed plays a different battle on different ground. A seed
-reproduces a run within a batch; it does not reproduce a past match. Seed 5
-timed out at turn 2380 in one batch and finished at turn 82 in the next.
+A HUMAN MATCH CANNOT BE REPLAYED by the simulator: the human's moves are not in
+the seed. Simulator batches DO reproduce exactly (a run.mjs batch repeated on
+21 Sep gave identical stalls and turn counts). Earlier notes here claimed the
+seed did not fix the map; matches are now seeded throughout.
+
+term-report.mjs must run ONE seed per process. Several in one process
+contaminate each other (a match "finished" on turn 1 in one batched run).
 
 This is why the Cerberus term profile beside this file is a multi-match average
-rather than a single-seed capture. A one-seed term table would not reproduce,
-and a baseline that cannot be re-derived is not a baseline.
+rather than a single match.

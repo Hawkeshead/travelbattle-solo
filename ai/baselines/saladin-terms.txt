@@ -1,0 +1,123 @@
+SALADIN — TERM PROFILE AND MISSION NOTES
+AI baseline as of 21 September 2026. Git tag `saladin`, commit 18f49ae.
+Cerberus plus the Brigadier recovery fix and the FETCH and REUNITE missions.
+
+Load as a fixed opponent:   node tools/sim/run.mjs 100 --vs saladin
+
+------------------------------------------------------------------------
+PART 1. THE TWO MISSIONS
+------------------------------------------------------------------------
+
+Both are Brigadier recovery errands. They exist because reconnecting a
+scattered Brigade can take several turns, and a decision that takes several
+turns has to be committed to rather than re-scored every turn.
+
+WHEN EITHER IS ASSIGNED
+  More than 40% of a Brigade's remaining units are off the chain (cannot move
+  because they are out of reach of the Brigadier). At or below 40% he leaves
+  them and the Brigade keeps doing its job.
+
+  Only ONE Brigade per side can be on an errand at once. The other two keep
+  their army-level missions.
+
+  WITHDRAW and PRESERVE Brigades are never given an errand.
+
+WHICH OF THE TWO
+  Count the enemy units within 2 tiles of the connected units he would leave
+  behind (flat headcount, cavalry not weighted, since infantry form square).
+    that count >= half the connected units   ->  REUNITE
+    otherwise                                ->  FETCH
+
+  REUNITE  the whole Brigade falls back onto the cut-off group.
+  FETCH    the connected units hold their ground; the Brigadier goes alone.
+
+WHAT HE GOES TO
+  A group, not a single unit: cut-off units within 2 tiles of each other are
+  one group, because arriving beside two frees two.
+  Groups are ranked on value and proximity with EQUAL weight (a line unit back
+  this turn can beat heavy cavalry back next turn). Longest wait breaks a tie;
+  a coin flip from the seeded dice breaks what is left, so matches replay.
+  Recovery value is its own table, not AI_UNIT_VALUE:
+    HEAVY_CAV 5, GUARD 4.5, LIGHT_CAV 4, INFANTRY 3, ARTILLERY 0.5
+  Artillery is deliberately last: a gun left off the chain on a vantage point
+  is normal play, not an accident.
+
+HOW LONG
+  Up to 4 turns. Ended early only by success (all targets reconnected) or
+  death (targets destroyed, or the Brigadier lost). A casualty changing the
+  40% ratio cannot cancel one in flight, because running errands are settled
+  before the ratio is recomputed.
+  One failsafe: a FETCH upgrades to a REUNITE if the units left behind come
+  under pressure. Never the reverse.
+  An errand outranks the army plan while it runs.
+
+missionPull TARGET
+  The rally point is the centroid of the cut-off group still alive, recomputed
+  each turn (it only moves when one of them dies).
+    Brigadier, both missions:   -distance * APPROACH_PULL
+                                + max(0, 4 - distance) * 0.20
+                                (the close-range term stops him halting two
+                                squares short, which frees nobody)
+    Other units, REUNITE:       -distance * APPROACH_PULL * 0.6
+    Other units, FETCH:          0  (they hold where they stand)
+
+MOVE ORDER
+  Unchanged from before: when a Brigade is split, connected units move first,
+  then the Brigadier, then the cut-off group. Because he moves after his men
+  and is pulled toward the strays, he steps back behind the line on the
+  diagonal without any hard-coded idea of "backwards".
+
+In the reference match: FETCH assigned 38 times, REUNITE 12.
+
+------------------------------------------------------------------------
+PART 2. TERM PROFILE
+------------------------------------------------------------------------
+
+Simulator-derived, seeds 1 to 3, each run in its OWN process:
+  node tools/sim/term-report.mjs 1 control --from N --json out.json
+
+Not the Section 4 table from the 1526369304 export, which was a human match
+and cannot be replayed by the simulator.
+
+ONE PROCESS PER SEED IS REQUIRED. Several matches in one term-report process
+contaminate each other: batched, seed 2 "finished" on turn 1 and seed 3 ran
+54 turns; run alone they are 58 and 75. The Cerberus profile was recorded one
+seed per process and is unaffected.
+
+  seed 1   41 turns   19 sampled moves
+  seed 2   58 turns   35 sampled moves
+  seed 3   75 turns   33 sampled moves
+
+  rank  term                  decided    % of sampled moves
+     1  missionPull                22    25.2%
+     2  threat                     18    20.6%
+     3  freeStrandedUnit           12    13.7%
+     4  brigadierTrail             10    11.4%
+     5  cohesionGain               10    11.4%
+     6  terrainSeek                 8     9.1%
+     7  brigadierContact            4     4.5%
+     8  killPull                    3     3.4%
+
+  engage: never decided a move.
+
+  ARTILLERY BY RANGE (211 shots)
+    range 2    10    4.7%
+    range 3    18    8.5%
+    range 4    83   39.3%
+    range 5    32   15.1%
+    range 6    68   32.2%
+    at range 5-6: 100 of 211 (47.3%)
+
+READ WITH CARE
+  87 sampled moves is thin. Matches no longer stall, so they are short, and the
+  report samples on a timer that misses turns in fast matches (see the caveat
+  in term-report.mjs). Against Cerberus (687 moves, two of three matches
+  stalled) the comparison that holds up is the SHAPE, not the percentages:
+    - stall terms fell from the top: brigadierTrail 22.5% -> 11.4%,
+      freeStrandedUnit 18.7% -> 13.7%
+    - threat rose from 1.7% to 20.6%: the armies are now close enough to each
+      other for danger to decide moves, which in Cerberus it almost never did
+    - guns firing from range 5-6: 58.9% -> 47.3%
+
+  Nearly half of all artillery fire is still from range 5 or 6, which bears
+  directly on the finishing-rule work that follows this tag.

@@ -137,8 +137,6 @@ const shots = ranges.reduce((t, [, v]) => t + v, 0);
 for (const [r, v] of ranges) console.log(`  range ${r}  ${String(v).padStart(4)}  ${(v / shots * 100).toFixed(1)}%`);
 const far = ranges.filter(([r]) => r >= 5).reduce((t, [, v]) => t + v, 0);
 console.log(`\n  at range 5-6: ${far} of ${shots}  (${shots ? (far / shots * 100).toFixed(1) : 0}%)`);
-process.exit(0);
-
 if (JSON_OUT) {
   const obj = {
     variant: VARIANT, from: FROM, matches, moves,
@@ -148,3 +146,7 @@ if (JSON_OUT) {
   (await import('node:fs')).writeFileSync(JSON_OUT, JSON.stringify(obj, null, 2));
   process.stderr.write(`  wrote ${JSON_OUT}\n`);
 }
+
+/* The JSON write MUST come before this. It was once appended after it and so
+   never ran, silently, for a whole baseline recording. */
+process.exit(0);
