@@ -383,6 +383,20 @@ export function renderAiDebugPanel(){
   el.innerHTML = html;
 }
 
+/* KEYED BY SIDE. A side with no file is silent. volumeScale is per file, set
+   by measuring its peak so it sits as loud as it can without clipping: France's
+   take peaks at -6.6 dB, so 1.95x lands near -0.8 dB. */
+export const TURN_THEME = {
+  blue: { file: 'audio/effects/france-turn-theme.m4a', volumeScale: 1.95 },
+  red:  null,   // British theme to come
+};
+
+function playTurnTheme(side){
+  const theme = TURN_THEME[side];
+  if(!theme) return;
+  AudioManager.playEffect(`turn-theme-${side}`, theme.file, 'ui', { volumeScale: theme.volumeScale });
+}
+
 export function beginMovePhase(){
   if(state.gameOver) return;
   state.phase = 'move';
@@ -391,19 +405,13 @@ export function beginMovePhase(){
   // they were looking.
   if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
   logReplay('turnStart', { side: state.turn });
-  /* France's turn theme, at the start of every French turn once the battle is
-     under way. beginMovePhase is only reached after deployment, and it is the
-     one place both the first turn and every later one begin, so nothing plays
-     during setup. A Web Audio effect rather than music: it plays over the score
-     instead of replacing it, and effects recover on their own after an iOS
-     interruption. */
-  /* 1.95x (1.5, then another 30%), asked for after hearing it in play. The file
-     peaks at -6.6 dB, so this lands at about -0.8 dB: as loud as it can go
-     without clipping, so any further increase needs the file re-mastered rather
-     than more gain. Web Audio gain, which iOS honours, unlike volume on a music
-     element. The whole 9.5s plays: effects only stop early when given a
-     durationMs, and this one is not. */
-  if(state.turn === SIDES.BLUE) AudioManager.playEffect('france-turn-theme', 'audio/effects/france-turn-theme.m4a', 'ui', { volumeScale: 1.95 });
+  /* TURN THEMES, at the start of every turn once the battle is under way.
+     beginMovePhase is only reached after deployment, and it is the one place
+     both the first turn and every later one begin, so nothing plays during
+     setup. Web Audio effects rather than music: they play over anything else
+     and recover on their own after an iOS interruption. The whole clip plays;
+     effects only stop early when given a durationMs. */
+  playTurnTheme(state.turn);
   state.moved = new Set();
   state.turnComboTarget = null;
   enforceAmbushWoodsInvariant();
