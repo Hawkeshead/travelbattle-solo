@@ -392,12 +392,13 @@ export const BRIGADIER_SELECT = {
 
 /* TURN THEMES, KEYED BY SIDE. volumeScale is per file, set by measuring its
    peak so it sits as loud as it can without clipping:
-     France  9.5s, peaks -6.6 dB -> 1.95x, about -0.8 dB
+     France  32.3s, peaks -5.5 dB -> 1.5x, about -2 dB. Set to match the
+             loudness settled on for the earlier 9.5s take (1.95x on a quieter
+             file) rather than to the ceiling, which is about 1.7x.
      Britain 29.3s (longer, for a human choosing moves), peaks -2.4 dB -> 1.2x,
-             about -0.8 dB. On average it still sits about 2.5 dB under France;
-             matching them exactly needs the British file re-mastered. */
+             about -0.8 dB. On average it sits about 3.5 dB under France. */
 export const TURN_THEME = {
-  blue: { file: 'audio/effects/france-turn-theme.m4a',  volumeScale: 1.95 },
+  blue: { file: 'audio/effects/france-turn-theme-long.m4a', volumeScale: 1.5 },
   red:  { file: 'audio/effects/britain-turn-theme.mp3', volumeScale: 1.2 },
 };
 export const TURN_THEME_FADE_MS = 800;

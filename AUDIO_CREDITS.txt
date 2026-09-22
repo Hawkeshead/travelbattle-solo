@@ -85,10 +85,11 @@ BRITAIN TURN THEME. audio/effects/britain-turn-theme.mp3 (29.3s).
   Matthew on 22 Sep 2026 as British_turn_audio.mp3. SOURCE AND LICENCE NOT
   RECORDED.
 
-FRANCE TURN THEME. audio/effects/france-turn-theme.m4a (9.5s).
-  Plays at the start of every French turn once deployment is over, in every
-  mode. Supplied by Matthew on 21 Sep 2026 as France_turn_theme.m4a. SOURCE AND
-  LICENCE NOT RECORDED: note where it came from before release.
+FRANCE TURN THEME. audio/effects/france-turn-theme-long.m4a (32.3s).
+  Plays at the start of every French turn once deployment is over, and fades
+  out if the turn ends first. Replaces the earlier 9.5s take. Supplied by
+  Matthew on 22 Sep 2026 as French_turn_audio_long_.m4a. SOURCE AND LICENCE NOT
+  RECORDED.
 
   ALL THREE Freesound sounds above need their licence confirmed before release. If
   either is CC-BY rather than CC0 it needs an attribution line visible IN THE
