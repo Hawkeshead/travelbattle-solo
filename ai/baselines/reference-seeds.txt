@@ -1,6 +1,9 @@
 FIELD COMMAND — REFERENCE SEEDS
 Recorded 20 September 2026, alongside the `cerberus` tag.
 
+  4, 7, 8       Stall seeds. Armies with nobody willing to attack; 4 and 7 now
+               resolve, 8 is the units-will-not-close fault.
+
   1526369304   Saladin reference match (21 Sep). France broke Graham's Brigade by
                T19, reduced Wellington's to Brigadier + 1 battery by T21, then
                spent 22 turns failing to finish it.

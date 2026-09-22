@@ -1451,7 +1451,10 @@ export function updateArmyPlan(side){
    the Brigades that are actually available.
 
    OFF BY DEFAULT until measured. The army_plan variant turns it on. */
-export function armyPlanActs(side){ return tune(side, 'ARMY_PLAN_ACTS', 0) > 0; }
+/* ON as of Alexander. Measured plan-on against the same build plan-off, sides
+   swapped, 50 matches: 65.2% of 46 decided (95% range 51 to 79). The
+   no_army_plan variant turns it off. */
+export function armyPlanActs(side){ return tune(side, 'ARMY_PLAN_ACTS', 1) > 0; }
 
 const ARMY_PLAN_ROLE_MISSION = { STRIKE: 'MAIN_ATTACK', SUPPORT: 'SUPPORT', FIX: 'FIX' };
 const ARMY_PLAN_EXEMPT = new Set(['PRESERVE','SHELTER','WITHDRAW','REUNITE','FETCH']);

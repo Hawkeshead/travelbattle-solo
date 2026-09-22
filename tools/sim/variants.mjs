@@ -16,8 +16,8 @@ export const VARIANTS = {
   /* The finishing rule is ON by default, so the experiment turns it OFF. */
   no_finishing: { FINISHING_RULE: 0 },
   no_shelter:  { SHELTER_MISSION: 0 },
-  /* Stage B: the army plan sets missions and per-Brigade targets. */
-  army_plan:   { ARMY_PLAN_ACTS: 1 },
+  /* Stage B is ON as of Alexander, so the experiment turns it OFF. */
+  no_army_plan: { ARMY_PLAN_ACTS: 0 },
   /* The old behaviour: an army with no attacking Brigade stands there. */
   no_stall_break: { STALL_BREAK: 0 },
   /* The first settings tried: shelters at 40% and only on clearly favourable

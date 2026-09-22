@@ -1,0 +1,92 @@
+ALEXANDER — BASELINE NOTES
+AI baseline as of 22 September 2026. Git tag `alexander`.
+Saladin plus the army plan, SHELTER, the finishing rule and two stall breaks.
+
+Load as a fixed opponent:   node tools/sim/run.mjs 100 --vs alexander
+
+------------------------------------------------------------------------
+WHAT IS NEW SINCE SALADIN
+------------------------------------------------------------------------
+
+THE ARMY PLAN (on). The army decides which two enemy Brigades it intends to
+break and what each of its own Brigades is for, rather than coordinating by
+coincidence.
+  - difficulty = their toughness (numbers, with Guard, Heavy Cavalry and guns
+    counting extra) less the best superiority any ONE of our Brigades has over
+    them, in numbers AND in type. Type comes from estimateFightValue, the same
+    estimator the fight phase uses.
+  - the two easiest become primary and secondary; the third is deliberately not
+    attacked. Strongest Brigade STRIKES the primary, next SUPPORTS, the third
+    FIXES the non-target. The strongest is never sent to FIX.
+  - revised only when a Brigade breaks or a Brigadier is lost.
+  - Brigades on PRESERVE, SHELTER, WITHDRAW, REUNITE or FETCH are exempt and
+    keep their own mission.
+  Measured plan-on against the same build plan-off, sides swapped, 50 matches:
+  65.2% of 46 decided (95% range 51 to 79).
+
+SHELTER (on). A Brigade down to 30% or fewer of the units it started with falls
+back beside the strongest healthy Brigade, prefers cover, keeps firing and takes
+favourable fights. Below two fighters PRESERVE takes over as before.
+  Measured against saladin: 45% over 46 matches, so not a win-rate gain. It is
+  the behaviour asked for at roughly no cost: the losing side takes an enemy
+  Brigade down with it in 37% of its losses, against 12% before.
+
+THE FINISHING RULE (on). Cavalry within 6 and infantry within 4 converge on an
+enemy Brigade reduced to its last fighting unit; guns with line of sight at 5+
+close to range 3-4; the kill is worth +6, or +8 when it wins the match. Expires
+after four turns without progress, then rests six.
+  Measured against saladin: 50% over 26 matches. Recruited units close 46% of
+  the time against 24% for units it does not recruit.
+
+TWO STALL BREAKS (on).
+  - An army cannot preserve its way to victory: when every surviving Brigade is
+    at PRESERVE, the strongest stops hiding.
+  - When no Brigade has had a mission that initiates for twenty turns, the
+    strongest attacks.
+  Stalls fell from 8 of 50 to 4 of 50 with the plan acting.
+
+------------------------------------------------------------------------
+ALEXANDER AGAINST SALADIN
+------------------------------------------------------------------------
+
+  49 decided matches, sides swapped:  26 wins, 53%
+
+Read that honestly. The army plan is clearly better than no army plan within the
+same build (65%), but Alexander overall is only slightly ahead of Saladin,
+because SHELTER costs a little and the finishing rule is level. The plan is the
+gain; the other two are behaviour changes that were asked for and paid for.
+
+------------------------------------------------------------------------
+TERM PROFILE, seeds 1 to 2, one seed per process
+------------------------------------------------------------------------
+
+  node tools/sim/term-report.mjs 1 control --from N --json out.json
+
+  61 sampled moves (a thin sample: matches are short now, and the report
+  samples on a timer that misses turns in fast matches)
+
+    freeStrandedUnit   10   16.3%
+    cohesionGain       10   16.3%
+    missionPull        10   16.3%
+    brigadierTrail      8   13.1%
+    threat              7   11.4%
+    terrainSeek         6    9.8%
+    killPull            5    8.1%
+    brigadierContact    5    8.1%
+
+  artillery at range 5-6: 43 of 81 (53.0%)
+
+------------------------------------------------------------------------
+KNOWN AND UNFIXED
+------------------------------------------------------------------------
+
+UNITS WILL NOT CLOSE. The largest remaining fault, and the cause of every
+stall left. A Brigade ordered to attack can sit six squares from the enemy for
+250 turns (seed 4). Measured during the finishing work: of units able to move
+and within four tiles of a cornered enemy, only about 30% closed, and in four
+cases out of five a closer legal square was available and was not taken. The
+closer square is usually not even in the unit's top four options, so this is not
+a weight that wants nudging.
+
+Also open: brigade-level plans (where each Brigade takes and holds ground), the
+brigade deployment UI, and the mute and volume controls.
