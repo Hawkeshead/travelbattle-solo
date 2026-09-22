@@ -19,10 +19,6 @@ export const VARIANTS = {
   /* The first settings tried: shelters at 40% and only on clearly favourable
      odds. Measured 13 points of win rate worse than the defaults. */
   shelter_early: { SHELTER_RATIO: 0.4, SHELTER_ENGAGE_FLOOR: 1.0 },
-  plan_tier1:  { PLAN_TIER1: 1 },
-  plan_tier2:  { PLAN_TIER1: 1, PLAN_TIER2: 1 },
-  plan_tier3:  { PLAN_TIER3: 1 },
-  plan_all:    { PLAN_TIER1: 1, PLAN_TIER2: 1, PLAN_TIER3: 1 },
 
   control: {},
 

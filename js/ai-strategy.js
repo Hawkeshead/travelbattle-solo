@@ -1136,7 +1136,10 @@ export function assignBrigadeMissions(side, plan, assessment){
        left there is nothing to fix and RESERVE is honest. */
     others.forEach((id,i)=>{
       if(i===0){ missions[id] = 'SUPPORT'; return; }
-      const spare = tier(side, 1) && (assessment.liveEnemyBrigades||[]).some(b=>b.id!==plan.targetBrigadeId);
+      /* A third Brigade with a second enemy Brigade to pin takes FIX rather than
+         idling in RESERVE. This was the whole of the old Tier 1, the one part of
+         that scheme that measured well, so it stays while the rest goes. */
+      const spare = (assessment.liveEnemyBrigades||[]).some(b=>b.id!==plan.targetBrigadeId);
       missions[id] = spare ? 'FIX' : 'RESERVE';
     });
   } else if(plan.type==='FIX_AND_FLANK' || plan.type==='FLANK_ATTACK'){
@@ -1235,6 +1238,159 @@ export function assignBrigadeMissions(side, plan, assessment){
 // Called once per AI move phase, before any per-unit decisions — Section 2's
 // three-level command hierarchy in practice: army plan, then Brigade mission,
 // then (in aiDecideAndExecuteMove) individual unit execution of that mission.
+/* =========================================================
+   THE ARMY PLAN — STAGE A: COMPUTE AND LOG, ACT ON NOTHING
+
+   Three Brigades currently coordinate by coincidence. Each gets a mission from
+   the army's plan type, and when two of those missions happen to suit each
+   other they cooperate; nothing decides WHICH two enemy Brigades the army is
+   trying to break, or what each of its own Brigades is for.
+
+   WHAT REPLACED WHAT. The earlier three-tier scheme is gone. Re-measured on the
+   current build, the pieces separated cleanly: its Tier 1 (a spare Brigade
+   pinning rather than idling) scored 54.5% and is kept, now always on; Tier 2
+   scored ten points worse than Tier 1 alone and is deleted, because it sent the
+   spare Brigade at the NEAREST enemy Brigade, which is often the enemy's
+   strongest; Tier 3 read positive but is unused on main, so it went for parts.
+
+   HOW TARGETS ARE CHOSEN. Easiest to break, and "easy" is measured against what
+   we can bring, not in the abstract: a Brigade's own toughness (its numbers,
+   with Guard, Heavy Cavalry and guns each counting extra) less the best
+   superiority any one of our Brigades has over it, in NUMBERS and in TYPE. Type
+   superiority is read from estimateFightValue, the same estimator the fight
+   phase uses, so there is no second opinion about what beats what. The two
+   easiest become the primary and secondary targets; the third is the one the
+   army deliberately does not attack.
+
+   ROLES. Strongest Brigade STRIKES the primary, the next SUPPORTS it, and the
+   weakest FIXES the non-target so it cannot reinforce. The weakest takes FIX
+   regardless of rank if it is the one already facing the non-target, because
+   marching it across the board to swap jobs wastes the turns the plan exists to
+   save.
+
+   STAGE A LOGS AND NOTHING ELSE. No mission, target or score changes here. The
+   plan is written to the export so its choices can be read against the match
+   before anything is allowed to act on them, which is the opposite of how the
+   three-tier scheme was built.
+========================================================= */
+export const ARMY_PLAN_TOUGHNESS = { HEAVY_CAV: 2, GUARD: 1, ARTILLERY: 1 };
+
+function armyPlanLog(side, text){
+  if(!state._aiArmyPlanLog) state._aiArmyPlanLog = {};
+  if(!state._aiArmyPlanLog[side]) state._aiArmyPlanLog[side] = [];
+  state._aiArmyPlanLog[side].push({ turn: state.turnNumber, text });
+}
+
+function brigadeFighters(side, bId){
+  return state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===bId && o.type!=='BRIGADIER');
+}
+
+/* Their toughness, before anything of ours is considered. */
+function brigadeToughness(units){
+  return units.reduce((n,o)=> n + 1 + (ARMY_PLAN_TOUGHNESS[o.type] || 0), 0);
+}
+
+/* The best superiority any ONE of our Brigades has over theirs: numbers, plus
+   the average of our units' best matchup against theirs. One Brigade beating
+   them decisively is what matters, not the army's average. */
+function bestSuperiorityOver(side, foes){
+  let best = -Infinity, bestId = null;
+  for(const bId of brigadeIdsForSide(side)){
+    const own = brigadeFighters(side, bId);
+    if(!own.length) continue;
+    const numbers = own.length - foes.length;
+    let type = 0;
+    for(const a of own) type += Math.max(...foes.map(f => estimateFightValue(a, f)));
+    const score = numbers + (type / own.length);
+    if(score > best){ best = score; bestId = bId; }
+  }
+  return { score: best === -Infinity ? 0 : best, brigadeId: bestId };
+}
+
+export function computeArmyPlan(side){
+  const enemy = otherSide(side);
+  const ranked = [];
+  for(const bId of brigadeIdsForSide(enemy)){
+    const foes = brigadeFighters(enemy, bId);
+    if(!foes.length) continue;
+    const sup = bestSuperiorityOver(side, foes);
+    ranked.push({ id: bId, units: foes.length, toughness: brigadeToughness(foes),
+                  superiority: sup.score, ourBest: sup.brigadeId,
+                  difficulty: brigadeToughness(foes) - sup.score });
+  }
+  if(!ranked.length) return null;
+  ranked.sort((a,b)=> a.difficulty - b.difficulty);       // easiest first
+  const targets = ranked.slice(0, 2);
+  const nonTarget = ranked[2] || null;
+
+  const own = brigadeIdsForSide(side)
+    .map(id => ({ id, strength: effectiveStrength(side, id) }))
+    .filter(b => b.strength > 0)
+    .sort((a,b)=> b.strength - a.strength);
+  if(!own.length) return null;
+
+  const roles = {};
+  let pool = [...own];
+  /* A Brigade already facing the non-target takes FIX ahead of its rank:
+     marching it across the board to swap jobs spends the turns the plan exists
+     to save. NEVER THE STRONGEST, though. Allowing that sent a 6.5-strength
+     Brigade to pin while a 4.5 made the main attack, which is the plan choosing
+     to hit softly on purpose. The override picks among everything below the
+     top, which is what "the weakest, if it is the one already opposite" means
+     once there are three Brigades and ties. */
+  if(nonTarget && pool.length > 2){
+    const foes = brigadeFighters(enemy, nonTarget.id);
+    let facing = null, bestD = Infinity;
+    for(const b of pool.slice(1)){
+      const units = brigadeFighters(side, b.id);
+      if(!units.length) continue;
+      let d = Infinity;
+      for(const a of units) for(const f of foes) d = Math.min(d, chebyshev(a, f));
+      if(d < bestD){ bestD = d; facing = b; }
+    }
+    if(facing){ roles[facing.id] = { role: 'FIX', target: nonTarget.id }; pool = pool.filter(b=>b!==facing); }
+  }
+  if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id };
+  if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id };
+  if(pool[2]) roles[pool[2].id] = { role: 'FIX', target: nonTarget ? nonTarget.id : (targets[1] ? targets[1].id : targets[0].id) };
+
+  return { turn: state.turnNumber, targets: targets.map(t=>t.id), nonTarget: nonTarget ? nonTarget.id : null,
+           ranked, roles, own };
+}
+
+/* Revised only on a major event: a Brigade broken on either side, or a
+   Brigadier lost. A plan that is rewritten every turn is not a plan. */
+function armyPlanSignature(side){
+  const enemy = otherSide(side);
+  const part = s => brigadeIdsForSide(s).map(id =>
+    (brigadeFighters(s, id).length > 0 ? '1' : '0') +
+    (state.units.some(o=>!o.removed && o.side===s && o.brigadeId===id && o.type==='BRIGADIER') ? 'b' : '-')).join('');
+  return part(side) + '|' + part(enemy);
+}
+
+export function updateArmyPlan(side){
+  if(!state._aiArmyPlan) state._aiArmyPlan = {};
+  const sig = armyPlanSignature(side);
+  const prev = state._aiArmyPlan[side];
+  if(prev && prev.signature === sig){
+    const status = Object.entries(prev.plan.roles)
+      .map(([bId, r]) => `${r.role}=Bde${Number(bId)+1}`).join(' ');
+    armyPlanLog(side, `ARMY PLAN status: ${status}`);
+    return prev.plan;
+  }
+  const plan = computeArmyPlan(side);
+  if(!plan) return null;
+  state._aiArmyPlan[side] = { signature: sig, plan };
+  const tgt = plan.ranked.filter(r=>plan.targets.includes(r.id))
+    .map(r=>`enemy Bde ${r.id+1} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
+  const roles = Object.entries(plan.roles).map(([bId, r]) =>
+    `${r.role}=Bde${Number(bId)+1} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}) -> enemy Bde ${r.target+1}`).join('; ');
+  armyPlanLog(side, `ARMY PLAN ${prev ? 'REVISED' : `(T${state.turnNumber})`}: targets=[${tgt}]` +
+    `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget+1}` : 'none'}`);
+  armyPlanLog(side, `            ${roles}`);
+  return plan;
+}
+
 export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
@@ -1263,9 +1419,8 @@ export function aiPlanTurn(side){
      Brigadier, it may not call him back halfway. */
   updateRecoveryErrands(side, missions);
   updateFinishing(side);
+  updateArmyPlan(side);   // Stage A: computes and logs, acts on nothing
   state._aiMissions[side] = missions;
-  if(!state._aiObjectives) state._aiObjectives = {};
-  state._aiObjectives[side] = assignBrigadeObjectives(side, plan, assessment, missions);
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
 
@@ -1309,91 +1464,15 @@ function getDefensiveRallyPoint(side, nearPos){
 
    Turn one on at a time in the simulator to find which tier costs:
      node tools/sim/run.mjs 30 plan_tier1   (and plan_tier2, plan_tier3) */
-export function tier(side, n){ return tune(side, 'PLAN_TIER'+n, 0) > 0; }
-
-/* TIER 2. Each Brigade's own target. The main effort and its supporter go at the
-   plan's target; anything on FIX pins a DIFFERENT enemy Brigade, chosen as the
-   nearest one that is not already being attacked, so the spare formation holds
-   the reinforcements rather than joining the queue. Computed once per side per
-   turn in aiPlanTurn and read from the cache here. */
-export function objectiveTargetFor(side, brigadeId, plan){
-  const obj = state._aiObjectives && state._aiObjectives[side];
-  if(obj && obj[brigadeId] !== undefined) return obj[brigadeId];
-  return plan ? plan.targetBrigadeId : null;
-}
-
-export function assignBrigadeObjectives(side, plan, assessment, missions){
-  const out = {};
-  const enemyBrigades = assessment.liveEnemyBrigades || [];
-  for(const id of Object.keys(missions)){
-    const bid = Number(id);
-    if(missions[id] !== 'FIX'){ out[bid] = plan ? plan.targetBrigadeId : null; continue; }
-    const own = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===bid);
-    let best = null, bestD = Infinity;
-    for(const eb of enemyBrigades){
-      if(eb.id === (plan ? plan.targetBrigadeId : null)) continue;
-      const foes = state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===eb.id);
-      if(!foes.length || !own.length) continue;
-      let d = Infinity;
-      for(const a of own) for(const f of foes) d = Math.min(d, chebyshev(a,f));
-      if(d < bestD){ bestD = d; best = eb.id; }
-    }
-    out[bid] = best!=null ? best : (plan ? plan.targetBrigadeId : null);
-  }
-  return out;
-}
-
-/* TIER 3. SUB-BRIGADE CLUSTERS, re-formed every turn.
-
-   A Brigade is not reliably one body. It arrives as one, gets cut in half by a
-   dead unit in the middle of the chain, and then fights as two groups whether
-   the AI models that or not. Until now it did not: every unit was pulled toward
-   the Brigade as a whole, which for a split Brigade means pulled toward the
-   average of two places it is not, so both halves drift inward and neither
-   arrives anywhere.
-
-   Clusters are transitive at chebyshev <= 2 and rebuilt from scratch each turn,
-   so there is no membership to maintain and no stale group to go wrong: two
-   halves that reunite are simply one cluster again next turn.
-
-   Memoised per side per turn because the scoring loop asks once per candidate
-   square. */
-export const CLUSTER_RADIUS = 2;
-export const CLUSTER_COHESION_PULL = 0.22;
-let _clusterCache = { turn: -1, side: null, byUnit: null };
-export function clusterOf(u){
-  if(_clusterCache.turn !== state.turnNumber || _clusterCache.side !== u.side){
-    const byUnit = new Map();
-    const pool = state.units.filter(o=>!o.removed && o.side===u.side && o.type!=='BRIGADIER');
-    const seen = new Set();
-    for(const seed of pool){
-      if(seen.has(seed.id)) continue;
-      const group = [seed]; seen.add(seed.id);
-      for(let i=0; i<group.length; i++){
-        for(const o of pool){
-          if(seen.has(o.id) || o.brigadeId !== seed.brigadeId) continue;
-          if(chebyshev(group[i], o) <= CLUSTER_RADIUS){ group.push(o); seen.add(o.id); }
-        }
-      }
-      for(const m of group) byUnit.set(m.id, group);
-    }
-    _clusterCache = { turn: state.turnNumber, side: u.side, byUnit };
-  }
-  return _clusterCache.byUnit.get(u.id) || null;
-}
-
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
-  /* TIER 2: THE BRIGADE'S OWN OBJECTIVE, not the army's.
-
-     Every Brigade used to aim at plan.targetBrigadeId, so a FIX Brigade pinned
-     the same enemy the main effort was already attacking. That is not fixing,
-     it is queueing: two Brigades converge on one target while the enemy's other
-     Brigades walk to wherever they like. Tier 2 gives each Brigade its own
-     target and the fallback is the old army-wide one, so with the tier off the
-     behaviour is byte-identical. */
-  const objTargetId = tier(side, 2) ? objectiveTargetFor(side, u.brigadeId, plan) : (plan ? plan.targetBrigadeId : null);
+  /* Every Brigade aims at the army's target Brigade. The old Tier 2 gave each
+     its own, chosen as the nearest enemy Brigade not already under attack, and
+     that measured ten points worse: it sent the spare formation at whatever was
+     closest, often the enemy's strongest. The army plan replacing it chooses
+     targets deliberately instead. */
+  const objTargetId = plan ? plan.targetBrigadeId : null;
   const targetBrigade = objTargetId!=null
     ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===objTargetId)
     : [];
@@ -3419,58 +3498,6 @@ export function aiDecideAndExecuteMove(u){
             if(partner && chebyshev(c, partner) <= 2) s += addScore(parts, 'heavyPair', pairBonus);
           }
         }
-        /* TIER 3: FIGHT AS THE GROUP YOU ARE IN, not the one on the roster.
-
-           Pull toward this unit's own cluster's centre rather than the Brigade's.
-           For an intact Brigade the two are the same place and this changes
-           nothing. For a Brigade cut in two it is the whole difference: the old
-           behaviour pulled both halves toward the average of two positions, which
-           is a point neither half occupies and often one no unit can reach, so
-           both drifted and neither concentrated.
-
-           Zero for a cluster of one. A lone unit is not a group and should be
-           free to go where the rest of its scoring sends it rather than be taxed
-           for standing alone, which threat and soloAttackPenalty already handle
-           and handle better. */
-        if(tier(side, 3)){
-          const group = clusterOf(u);
-          if(group && group.length > 1){
-            let cx = 0, cy = 0, n = 0;
-            for(const m of group){ if(m.id===u.id) continue; cx += m.x; cy += m.y; n++; }
-            if(n){
-              const gap = chebyshev(c, { x: cx/n, y: cy/n });
-              if(gap > CLUSTER_RADIUS) s -= subScore(parts, 'clusterCohesion', (gap-CLUSTER_RADIUS) * CLUSTER_COHESION_PULL);
-            }
-          }
-        }
-      } else {
-        s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
-      }
-    }
-
-    /* NEVER ATTACK ALONE.
-
-       The single highest-value behaviour in the AI brief. Every British unit
-       lost across three logged matches was a solo attacker with no supporting
-       unit in reach; almost every French unit destroyed was hit by two or more
-       attackers in sequence.
-
-       This has to be a MOVE-phase rule, not a fight-phase one. Fights are
-       mandatory: endFightPhase refuses to end while anyFightsAvailable(side) is
-       true, so an AI that declined a lone attack once already adjacent would
-       loop forever and freeze the turn. The only place a solo engagement can
-       actually be avoided is before it exists, by not stepping into contact
-       alone in the first place.
-
-       Two exemptions, both from the brief:
-         - the target is already turned around or rallying, where finishing it
-           denies the rally and is worth the risk
-         - the unit is ALREADY in contact, where the decision has been taken and
-           declining changes nothing */
-    if(seekTactics && !holdingReserve && !preserving){
-      const alreadyInContact = state.units.some(o=>!o.removed && o.side!==side &&
-        isAdjacent({x:ox,y:oy}, o) && canAttackTarget(u, o));
-      if(!alreadyInContact){
         const wouldContact = state.units.filter(o=>!o.removed && o.side!==side &&
           isAdjacent(c, o) && canAttackTarget(u, o));
         let solo = 0;

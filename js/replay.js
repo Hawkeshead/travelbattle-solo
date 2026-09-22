@@ -700,6 +700,9 @@ export function exportFullMatchLog(){
     lines.push(`--- ${SIDE_LABEL[side]} ---`);
     /* Finishing events first: when a Brigade is one kill from breaking, whether
        the AI went for it is the single most important thing in the section. */
+    const army = (state._aiArmyPlanLog && state._aiArmyPlanLog[side]) || [];
+    for(const e of army) lines.push(`  T${e.turn} ${e.text}`);
+    if(army.length) lines.push('');
     const fin = (state._aiFinishingLog && state._aiFinishingLog[side]) || [];
     for(const e of fin) lines.push(`  T${e.turn} ${e.text}`);
     if(fin.length) lines.push('');
