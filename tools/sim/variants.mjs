@@ -15,6 +15,10 @@ export const VARIANTS = {
   no_errands:  { BRIGADE_ERRANDS: 0 },
   /* The finishing rule is ON by default, so the experiment turns it OFF. */
   no_finishing: { FINISHING_RULE: 0 },
+  no_shelter:  { SHELTER_MISSION: 0 },
+  /* The first settings tried: shelters at 40% and only on clearly favourable
+     odds. Measured 13 points of win rate worse than the defaults. */
+  shelter_early: { SHELTER_RATIO: 0.4, SHELTER_ENGAGE_FLOOR: 1.0 },
   plan_tier1:  { PLAN_TIER1: 1 },
   plan_tier2:  { PLAN_TIER1: 1, PLAN_TIER2: 1 },
   plan_tier3:  { PLAN_TIER3: 1 },

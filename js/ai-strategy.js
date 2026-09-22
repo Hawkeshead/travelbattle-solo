@@ -26,7 +26,7 @@ const BASE_STATE_WEIGHT = 0.35;
 ========================================================= */
 export const OPERATIONAL_PLAN_TYPES = ['MAIN_ATTACK','FLANK_ATTACK','REFUSED_FLANK','DEFENSIVE','COUNTERATTACK',
   'ARTILLERY_PREP','FIX_AND_FLANK','BRIGADE_DESTRUCTION','CAVALRY_EXPLOITATION','WITHDRAWAL','FINISHING_BLOW'];
-export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP','PRESERVE','REUNITE','FETCH'];
+export const BRIGADE_MISSIONS = ['MAIN_ATTACK','SUPPORT','FIX','FLANK','RESERVE','SCREEN','HOLD','COUNTERATTACK','WITHDRAW','REGROUP','PRESERVE','REUNITE','FETCH','SHELTER'];
 export const MAX_PLAN_TURNS_UNCHANGED = 6; // a plan that's made no progress in this many AI turns gets reassessed regardless
 
 /* Re-escalation. Every reassessment trigger below MAX_PLAN_TURNS_UNCHANGED used to
@@ -320,6 +320,84 @@ export function effectiveStrength(side, brigadeId){
   const fighters = units.filter(o=>o.type!=='BRIGADIER').length;
   const hasBrigadier = units.some(o=>o.type==='BRIGADIER');
   return fighters + (hasBrigadier ? 0.5 : 0);
+}
+
+/* SHELTER — THE STEP BEFORE PRESERVE.
+
+   PRESERVE only fires at Brigadier plus one, and its instruction is to leave the
+   battle entirely: it never initiates and even its guns fall silent. Everything
+   above that threshold fought where it stood until it was gone, which is most of
+   why a losing side collapses whole rather than being ground down. Across 16
+   matches the winner lost no Brigade at all in ten of them.
+
+   A Brigade down to 40% or fewer of the units it started with now falls back
+   onto a healthier neighbour and keeps fighting from there: it holds beside the
+   host, prefers cover, keeps firing, and only looks for fights clearly in its
+   favour. It is still doing work, which is the difference between this and
+   PRESERVE.
+
+   Ceil, not floor, because Brigades here start at 2 to 6 units: 40% of six is
+   2.4, and a six-unit Brigade down to three is plainly in trouble. Below two
+   fighters PRESERVE takes over, and with none the Brigade is broken. */
+export const SHELTER_PULL = 0.45;          // the PRESERVE pull: it must beat cohesionLoss
+/* THESE TWO WERE MEASURED, not chosen. At 0.4 and a 1.0 engage floor the rule
+   did what it was asked (the losing side took an enemy Brigade with it far more
+   often) and cost 13 points of win rate over 48 matches: a four-unit Brigade
+   shelters at two, which is half strength, so a third of the army stepped out
+   of the fight while it could still win it. Sheltering later and fighting on
+   any favourable odds rather than only clear ones recovers that: 45% over 46
+   matches, within noise of even, with the resilience gain kept.
+   shelter_early in the variants file restores the first pair. */
+export const SHELTER_ENGAGE_FLOOR = 0.2;
+export const SHELTER_COVER_BONUS = 0.8;
+export const SHELTER_RATIO = 0.3;
+
+function shelterEnabled(side){ return tune(side, 'SHELTER_MISSION', 1) > 0; }
+
+export function brigadeAtShelterThreshold(side, brigadeId){
+  if(!shelterEnabled(side)) return false;
+  const all = state.units.filter(o=>o.side===side && o.brigadeId===brigadeId && o.type!=='BRIGADIER');
+  const alive = all.filter(o=>!o.removed).length;
+  const hasBrigadier = state.units.some(o=>!o.removed && o.side===side &&
+    o.brigadeId===brigadeId && o.type==='BRIGADIER');
+  // Without a Brigadier it cannot reliably move, so sheltering it achieves
+  // nothing; below two fighters PRESERVE owns the Brigade.
+  if(!hasBrigadier || alive < 2) return false;
+  const ratio = tune(side, 'SHELTER_RATIO', SHELTER_RATIO);
+  return alive <= Math.ceil(ratio * all.length - 1e-9);
+}
+
+/* Where it shelters: beside the strongest Brigade that is not itself in
+   trouble, on the far side from the nearest enemy, so the host stands between
+   it and the fighting. Two squares out rather than PRESERVE's three: this one
+   is meant to be in support, not out of reach. Cached per side per turn. */
+export function shelterDestination(side, brigadeId){
+  const cache = state._aiShelterCache;
+  const key = side + ':' + brigadeId;
+  if(cache && cache.turn===state.turnNumber && cache.key===key) return cache.point;
+  let point = null;
+  const others = [0,1,2].filter(id => id!==brigadeId && effectiveStrength(side,id) > 0);
+  const healthy = others.filter(id => !brigadeAtShelterThreshold(side,id) && !brigadeAtPreserveThreshold(side,id));
+  const pool = healthy.length ? healthy : others;
+  if(pool.length){
+    const hostId = pool.reduce((a,b)=>effectiveStrength(side,b) > effectiveStrength(side,a) ? b : a);
+    const host = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===hostId);
+    if(host.length){
+      const cx = host.reduce((n,o)=>n+o.x,0)/host.length;
+      const cy = host.reduce((n,o)=>n+o.y,0)/host.length;
+      const foes = state.units.filter(o=>!o.removed && o.side!==side && o.type!=='BRIGADIER');
+      if(foes.length){
+        const near = foes.reduce((a,b)=>
+          (Math.abs(b.x-cx)+Math.abs(b.y-cy)) < (Math.abs(a.x-cx)+Math.abs(a.y-cy)) ? b : a);
+        const dx = cx - near.x, dy = cy - near.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        point = { x: Math.max(0, Math.min(COLS-1, Math.round(cx + (dx/len)*2))),
+                  y: Math.max(0, Math.min(ROWS-1, Math.round(cy + (dy/len)*2))) };
+      } else point = { x: Math.round(cx), y: Math.round(cy) };
+    }
+  }
+  state._aiShelterCache = { turn: state.turnNumber, key, point };
+  return point;
 }
 
 export function brigadeAtPreserveThreshold(side, brigadeId){
@@ -1096,6 +1174,7 @@ export function assignBrigadeMissions(side, plan, assessment){
      soon as its last fighter goes anyway. */
   for(const id of brigadeIds){
     if(brigadeAtPreserveThreshold(side, id)) missions[id] = 'PRESERVE';
+    else if(brigadeAtShelterThreshold(side, id)) missions[id] = 'SHELTER';
   }
 
   /* --- COMMAND-STATE PASS ---
@@ -1374,6 +1453,21 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       if(nearestTargetDist == null) return 0;
       const RESERVE_STANDOFF = 4;   // squares from the target Brigade: close enough to matter, far enough not to be drawn in
       return -Math.abs(nearestTargetDist - RESERVE_STANDOFF) * RESERVE_AXIS_PULL;
+    }
+    case 'SHELTER': {
+      /* Falls back onto the host and then stops wanting ground, the same
+         terminating shape PRESERVE uses: a gradient away from danger is what
+         sent a remnant wandering under fire for twenty turns. On arrival it
+         prefers cover, because a mauled Brigade in a wood is far harder to
+         finish than the same Brigade in the open. */
+      const dest = shelterDestination(side, u.brigadeId);
+      if(!dest) return 0;
+      const d = chebyshev(pos, dest);
+      if(d <= 2){
+        const key = terrainAt(pos.x, pos.y).key;
+        return (key==='WOODS' || key==='BUILDING') ? SHELTER_COVER_BONUS : 0.6;
+      }
+      return -d * SHELTER_PULL;
     }
     case 'PRESERVE': {
       /* R6. A destination, not a direction. Once there, nothing pulls it
@@ -3503,9 +3597,15 @@ export function aiDecideAndExecuteMove(u){
            PAID to start anything, which lets retreatToSupport and threat carry
            it back without a new term fighting them for control. */
         const beaten = (u.lossStreak || 0) >= 3;
-        s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT * tempoMultiplier(side, 'engage'));
+        /* A sheltering Brigade takes only fights clearly in its favour. Not
+           silenced like PRESERVE: it still defends, still fires, and still
+           fights when the odds are good. Once adjacent it owes a fight under
+           the rules like anything else, so this governs what it walks into
+           rather than what it is obliged to do. */
+        const shy = mission === 'SHELTER' && rawEngage < tune(side, 'SHELTER_ENGAGE_FLOOR', SHELTER_ENGAGE_FLOOR);
+        if(!shy) s += addScore(parts, 'engage', (beaten ? Math.min(0, best) : best) * ENGAGE_WEIGHT * tempoMultiplier(side, 'engage'));
         if(beaten) s += addScore(parts, 'disengage', -0.5 * Math.min(5, u.lossStreak));
-        if(!beaten && bestTarget){
+        if(!beaten && bestTarget && !shy){
           const credit = killCreditFor(side, bestTarget, rawEngage, u);
           const fin = currentFinishing(side);
           if(credit) s += addScore(parts, fin && fin.targetId===bestTarget.id ? 'finishing' : 'brigadeKillValue', credit);
