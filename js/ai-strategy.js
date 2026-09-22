@@ -1180,6 +1180,45 @@ export function assignBrigadeMissions(side, plan, assessment){
     else if(brigadeAtShelterThreshold(side, id)) missions[id] = 'SHELTER';
   }
 
+  /* NOBODY IS WILLING TO ATTACK, AND NOTHING HAS HAPPENED FOR TWENTY TURNS.
+
+     Every passive mission is right on its own. PRESERVE is right for a Brigade
+     down to its last unit: surviving denies the enemy a kill they require.
+     SHELTER is right for a mauled one. FETCH and REUNITE are right for a
+     scattered one. Put them together and an army can end up with no Brigade
+     that will start anything, and two armies in that state stand six squares
+     apart until the turn cap.
+
+     That is what the remaining stalls are. Seed 4 at turn 301: red on SUPPORT
+     and FETCH, blue on SHELTER and PRESERVE, seven and five units alive, no
+     contact. Seeds 4, 7 and 8 all had the same shape. It is not the army plan's
+     doing, though the plan reaches this endgame more often.
+
+     So: if no Brigade here has had a mission that initiates for twenty turns,
+     the strongest Brigade attacks.
+     A decided match this army might lose beats a draw it certainly cannot win.
+     Gated on stagnation rather than on the missions alone, so an army that is
+     legitimately sheltering while its neighbour fights is left alone: this only
+     fires once the battle has genuinely stopped happening. */
+  const ATTACKING = new Set(['MAIN_ATTACK','FLANK','COUNTERATTACK']);
+  const live = brigadeIds.filter(id => effectiveStrength(side, id) > 0);
+  const anyAttacking = live.some(id => ATTACKING.has(missions[id]));
+  /* Measured on WILLINGNESS, not casualties. Counting turns since the last
+     casualty was tried first and never fired: in seed 4 the guns were still
+     killing something every few turns at range while the armies never closed,
+     so the board looked busy and was going nowhere. What actually persists is
+     that no Brigade will start anything. */
+  if(!state._aiNoAttackSince) state._aiNoAttackSince = {};
+  if(anyAttacking) state._aiNoAttackSince[side] = null;
+  else if(state._aiNoAttackSince[side] == null) state._aiNoAttackSince[side] = state.turnNumber;
+  const since = state._aiNoAttackSince[side];
+  const stagnant = since != null &&
+    state.turnNumber - since >= tune(side, 'STAGNATION_TURNS', 20);
+  if(live.length && !anyAttacking && stagnant && tune(side, 'STALL_BREAK', 1) > 0){
+    const pick = live.reduce((a,b)=> effectiveStrength(side,b) > effectiveStrength(side,a) ? b : a);
+    missions[pick] = 'MAIN_ATTACK';
+  }
+
   /* --- COMMAND-STATE PASS ---
      Missions above are assigned purely on brigadeId, which says nothing about
      whether a Brigade can carry the order out. Two things make an offensive
@@ -1391,6 +1430,58 @@ export function updateArmyPlan(side){
   return plan;
 }
 
+/* STAGE B: THE PLAN DRIVES THE MISSIONS.
+
+   Stage A only wrote the plan down. This hands it the wheel: each Brigade's
+   role becomes its mission, and its missionPull aims at the enemy Brigade the
+   plan gave it rather than at the army-wide target.
+
+     STRIKE  -> MAIN_ATTACK on the primary target
+     SUPPORT -> SUPPORT on the primary target
+     FIX     -> FIX on the Brigade the army has decided NOT to attack
+
+   WHAT IT DOES NOT TOUCH. Unit-level scoring is unchanged: engage, squareTrap,
+   brigadierTrail and the rest all work exactly as before. The plan sets which
+   Brigade is going where and nothing below that.
+
+   BRIGADES IN TROUBLE ARE EXEMPT. PRESERVE, SHELTER, WITHDRAW, REUNITE and
+   FETCH all describe a Brigade that has its own problem to solve, and an army
+   plan that orders a mauled Brigade to attack anyway is how the plan starts
+   losing games. They keep the mission they were given and the plan works with
+   the Brigades that are actually available.
+
+   OFF BY DEFAULT until measured. The army_plan variant turns it on. */
+export function armyPlanActs(side){ return tune(side, 'ARMY_PLAN_ACTS', 0) > 0; }
+
+const ARMY_PLAN_ROLE_MISSION = { STRIKE: 'MAIN_ATTACK', SUPPORT: 'SUPPORT', FIX: 'FIX' };
+const ARMY_PLAN_EXEMPT = new Set(['PRESERVE','SHELTER','WITHDRAW','REUNITE','FETCH']);
+
+export function applyArmyPlan(side, missions, plan){
+  if(!plan || !armyPlanActs(side)) return missions;
+  if(!state._aiArmyTargets) state._aiArmyTargets = {};
+  const targets = {};
+  for(const [key, role] of Object.entries(plan.roles)){
+    const bId = Number(key);
+    if(missions[bId] == null || ARMY_PLAN_EXEMPT.has(missions[bId])) continue;
+    const mission = ARMY_PLAN_ROLE_MISSION[role.role];
+    if(!mission) continue;
+    missions[bId] = mission;
+    targets[bId] = role.target;
+  }
+  state._aiArmyTargets[side] = targets;
+  return missions;
+}
+
+/* The enemy Brigade THIS Brigade is aimed at. Falls back to the army-wide
+   target, which is what every Brigade used before the plan existed, so with the
+   plan off the behaviour is unchanged. */
+export function armyPlanTargetFor(side, brigadeId, plan){
+  if(!armyPlanActs(side)) return plan ? plan.targetBrigadeId : null;
+  const t = state._aiArmyTargets && state._aiArmyTargets[side];
+  const own = t && t[brigadeId];
+  return own != null ? own : (plan ? plan.targetBrigadeId : null);
+}
+
 export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
@@ -1419,7 +1510,7 @@ export function aiPlanTurn(side){
      Brigadier, it may not call him back halfway. */
   updateRecoveryErrands(side, missions);
   updateFinishing(side);
-  updateArmyPlan(side);   // Stage A: computes and logs, acts on nothing
+  applyArmyPlan(side, missions, updateArmyPlan(side));
   state._aiMissions[side] = missions;
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
@@ -1467,12 +1558,13 @@ function getDefensiveRallyPoint(side, nearPos){
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
-  /* Every Brigade aims at the army's target Brigade. The old Tier 2 gave each
-     its own, chosen as the nearest enemy Brigade not already under attack, and
-     that measured ten points worse: it sent the spare formation at whatever was
-     closest, often the enemy's strongest. The army plan replacing it chooses
-     targets deliberately instead. */
-  const objTargetId = plan ? plan.targetBrigadeId : null;
+  /* With the army plan acting, this Brigade's own target; otherwise the
+     army-wide one, which is what every Brigade used before the plan existed.
+     The old Tier 2 also gave each Brigade its own target, chosen as the NEAREST
+     enemy Brigade not already under attack, and measured ten points worse: it
+     sent the spare formation at whatever was closest, often the enemy's
+     strongest. The difference is how the target is chosen, not that it is. */
+  const objTargetId = armyPlanTargetFor(side, u.brigadeId, plan);
   const targetBrigade = objTargetId!=null
     ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===objTargetId)
     : [];
