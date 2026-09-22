@@ -64,6 +64,14 @@ export const MUSKET_VOLLEY_TAKES = [
   'audio/effects/musket-volley-4.m4a',
 ];
 
+/* The officer's order before a volley, by side. leadMs is when the volley
+   starts: the French take is 2.53s and "prepare to fire!" ends at about 2.45s,
+   so the shot follows his last word. A side with no entry volleys at once. */
+export const VOLLEY_COMMAND = {
+  blue: { file: 'audio/effects/french-fire-command.mp3', leadMs: 2450 },
+  red:  null,
+};
+
 /* =========================================================
    MAIN GAME FLOW
 ========================================================= */
@@ -1389,8 +1397,16 @@ export function resolveVolley(shooter, target, onComplete){
        Category 'musketVolley' rather than 'cannon', which is its own priority
        tier in the ducking system and correctly sits below cannon and major
        combat. */
-    AudioManager.playEffect('musket-volley', MUSKET_VOLLEY_TAKES, 'musketVolley',
+    /* FRENCH VOLLEYS ARE ORDERED FIRST. The French officer's "Soldiers...
+       prepare to fire!" plays, then the volley follows the moment he finishes.
+       Queued on the audio clock only: the turn is not held for it, the volley
+       simply sounds while the dice are still rolling. British volleys are
+       unchanged. */
+    const fireCmd = VOLLEY_COMMAND[shooter.side];
+    if(fireCmd) AudioManager.playEffect(`volley-command-${shooter.side}`, fireCmd.file, 'musketVolley',
       { pan: AudioManager.panForBoardX(shooter.x) });
+    AudioManager.playEffect('musket-volley', MUSKET_VOLLEY_TAKES, 'musketVolley',
+      { pan: AudioManager.panForBoardX(shooter.x), delayMs: fireCmd ? fireCmd.leadMs : 0 });
 
     /* V1: THE VOLLEY LADDER NO LONGER MATCHES THE ARTILLERY LADDER.
 

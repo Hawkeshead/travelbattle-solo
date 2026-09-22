@@ -5,7 +5,7 @@ import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
-import { FOOT_ACK, MUSKET_VOLLEY_TAKES } from './ui-battle.js';
+import { FOOT_ACK, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
 import { RALLY_CALL } from './engine-rules.js';
 
 /* =========================================================
@@ -67,6 +67,10 @@ export function start(){
          without anyone having to remember to come back here. */
       ...Object.values(FOOT_ACK).flat(),
       ...Object.values(RALLY_CALL).flat(),
+      // The volley order plays first, so it matters most that it is not late.
+      ...Object.values(VOLLEY_COMMAND).filter(Boolean).map(c => c.file),
+      // Turn themes open every turn, including the very first one.
+      ...Object.values(TURN_THEME).filter(Boolean).map(t => t.file),
     ]);
   }, { once:true });
 
