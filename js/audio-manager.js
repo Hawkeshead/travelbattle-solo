@@ -326,7 +326,10 @@ export const AudioManager = (function(){
           // an explicit stop it would play until the safety net fired 8 seconds
           // later, long after the unit had halted.
           const stopAt = startAt + opts.durationMs/1000;
-          const fade = Math.min(0.18, opts.durationMs/1000 * 0.25);
+          /* opts.fadeMs sets the fade length outright; otherwise a short
+             anti-click fade scaled to the sound. */
+          const fade = opts.fadeMs > 0 ? Math.min(opts.fadeMs, opts.durationMs) / 1000
+                                       : Math.min(0.18, opts.durationMs/1000 * 0.25);
           gain.gain.setValueAtTime(gain.gain.value, Math.max(startAt, stopAt - fade));
           gain.gain.linearRampToValueAtTime(0.0001, stopAt);
           source.stop(stopAt + 0.02);

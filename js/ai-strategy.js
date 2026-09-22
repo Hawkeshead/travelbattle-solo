@@ -2,7 +2,7 @@ import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.j
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -3764,9 +3764,8 @@ export function aiDecideAndExecuteMove(u){
     animateUnitTo(u, best.x, best.y, isCharge ? 'charge' : 'march', { delayMs: lead });
     const moveSteps = Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)));
     if(t.key==='INFANTRY' || t.key==='GUARD'){
-      // Lasts exactly as long as this unit is walking, one square or three.
-      AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
-        { durationMs: moveAnimationMs(moveSteps), delayMs: lead });
+      // As long as this unit is walking (French Guard a second longer).
+      playFootMarch(u, moveAnimationMs(moveSteps), { delayMs: lead });
     }
     if(t.isCavalry){
       /* Loops to cover the whole ride. A charge animates on the quicker charge

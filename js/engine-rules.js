@@ -453,6 +453,28 @@ export function isFootInfantry(u){
 
    Keyed per unit type: Brigadiers get the single rider rather than the squadron,
    and the test is on the type key because isCavalry is false for them. */
+/* FOOT MOVEMENT, for every caller: the player's move, the AI's, and a pushback
+   or rout. One place, so the three cannot drift.
+
+   The FRENCH GUARD march their own way. Their clip runs on for one second after
+   the unit stops and fades out across that second, so a short move tails off
+   rather than cutting; it loops, since a three-square move plus the extra second
+   outlasts the 5s clip. Every other foot unit, British Guards included, keeps the
+   ordinary march, cut to the move. */
+export const GUARD_MARCH = { blue: 'audio/effects/guard-march-french.mp3' };
+export const GUARD_MARCH_TAIL_MS = 1000;
+
+export function playFootMarch(u, ms, opts){
+  const guardFile = UNIT_TYPES[u.type].key === 'GUARD' ? GUARD_MARCH[u.side] : null;
+  if(guardFile){
+    AudioManager.playEffect(`guard-march-${u.side}`, guardFile, 'movement',
+      { ...opts, durationMs: ms + GUARD_MARCH_TAIL_MS, fadeMs: GUARD_MARCH_TAIL_MS, loop: true });
+  } else {
+    AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
+      { ...opts, durationMs: ms });
+  }
+}
+
 export function playMovementAudio(u, steps, profile){
   if(!u) return;
   const n = Math.max(1, steps|0);
@@ -463,7 +485,7 @@ export function playMovementAudio(u, steps, profile){
   const ms = profile === 'rout' ? Math.min(3000, moveAnimationMs(n)) : moveAnimationMs(n);
   const T = UNIT_TYPES[u.type];
   if(T.key==='INFANTRY' || T.key==='GUARD'){
-    AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement', { durationMs: ms });
+    playFootMarch(u, ms);
   } else if(T.key==='BRIGADIER'){
     AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement', { durationMs: ms, loop: true });
   } else if(T.isCavalry){

@@ -49,6 +49,12 @@ MUSKET VOLLEY. audio/effects/musket-volley-1.m4a through -4.m4a.
   128k for size (1.5 MB each to 64 KB, no audible loss at four seconds).
   SOURCE AND LICENCE STILL TO BE RECORDED HERE.
 
+FRENCH GUARD MARCH. audio/effects/guard-march-french.mp3 (5.0s).
+  Movement sound for French Guard only (every move, pushback and rout), running
+  one second past the end of the move with a one-second fade. Other foot units
+  keep infantry-marching.wav. Supplied by Matthew on 22 Sep 2026 as
+  Guard_marching_audio.mp3. SOURCE AND LICENCE NOT RECORDED.
+
 FRENCH FIRE COMMAND. audio/effects/french-fire-command.mp3 (2.5s).
   A French officer: "Soldiers... prepare to fire!" Plays before every French
   volley, with the volley queued to start as he finishes. Supplied by Matthew on

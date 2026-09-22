@@ -52,6 +52,7 @@ export function start(){
        the player is still on the menus. */
     AudioManager.preloadEffects([
       'audio/effects/chess-piece-placed.wav', 'audio/effects/infantry-marching.wav',
+      'audio/effects/guard-march-french.mp3',
       'audio/effects/cavalry-select-sword.wav', 'audio/effects/cavalry-gallop.wav',
       'audio/effects/brigadier-select-attention.wav', 'audio/effects/brigadier-gallop.wav',
       'audio/effects/artillery-select.wav', 'audio/effects/artillery-move.wav',
