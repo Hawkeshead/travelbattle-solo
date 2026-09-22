@@ -243,7 +243,7 @@ function emitRoadDustIfCrossing(u, anim, pos){
   if(!anim.path || anim.path.length < 2) return;
   // Which waypoint have we just passed? Only the moment of crossing emits.
   const idx = Math.round(pos.x) === pos.x && Math.round(pos.y) === pos.y ? -1 : Math.floor(
-    (anim.path.length - 1) * Math.min(1, (Date.now() - anim.startTime) / anim.duration));
+    (anim.path.length - 1) * Math.max(0, Math.min(1, (Date.now() - anim.startTime) / anim.duration)));
   if(idx < 0 || idx >= anim.path.length) return;
   const sq = anim.path[idx];
   if(!sq || anim.dustAt === idx) return;
@@ -274,6 +274,7 @@ export function unitGaitOffset(u){
   if(!anim) return 0;
   const g = GAIT[UNIT_TYPES[u.type].key];
   if(!g) return 0;
+  if(Date.now() < anim.startTime) return 0;   // held before a delayed start
   const elapsed = (Date.now() - anim.startTime) / 1000;
   // Faded in and out so a unit does not appear to jolt as it starts and stops.
   const t = Math.min(1, (Date.now() - anim.startTime) / anim.duration);
@@ -384,7 +385,7 @@ function routJitterSeed(id){
 export function getUnitVisualPos(u){
   const anim = unitAnimations[u.id];
   if(!anim) return {x:u.x, y:u.y};
-  const elapsed = Date.now() - anim.startTime;
+  const elapsed = Math.max(0, Date.now() - anim.startTime);   // zero while held before a delayed start
   const t = Math.min(1, elapsed/anim.duration);
   if(t>=1){ delete unitAnimations[u.id]; return {x:u.x, y:u.y}; }
   const eased = 1 - Math.pow(1-t, 2); // ease-out — starts fast, settles gently
@@ -542,7 +543,12 @@ export function moveAnimationMs(steps){
   return Math.max(MOVE_MS_PER_SQUARE * 0.7, steps * MOVE_MS_PER_SQUARE);
 }
 
-export function animateUnitTo(u, newX, newY, kind){
+/* opts.delayMs holds the unit where it stands for that long before it starts to
+   move. The logical position still updates at once (game rules never wait on
+   animation); only the drawing waits. Used for an AI unit answering its call
+   before it marches. Every read of the animation clock clamps at zero, so a
+   held unit draws exactly at its starting square until its start time arrives. */
+export function animateUnitTo(u, newX, newY, kind, opts){
   const start = getUnitVisualPos(u); // current rendered position, in case a prior animation was still mid-flight
   const fromX = u.x, fromY = u.y;
   /* Every move now carries who moved, in what shape, and whether it ended on
@@ -617,7 +623,7 @@ export function animateUnitTo(u, newX, newY, kind){
   if(profile.maxMs) duration = Math.min(duration, profile.maxMs);
   unitAnimations[u.id] = {
     fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
-    startTime:Date.now(), duration,
+    startTime:Date.now() + Math.max(0, (opts && opts.delayMs) || 0), duration,
   };
   if(kind === 'rout') beginRoutProbe(u, unitAnimations[u.id]);
   ensureAnimationLoopRunning();

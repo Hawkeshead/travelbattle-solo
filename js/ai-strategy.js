@@ -5,8 +5,8 @@ import { otherSide } from './engine-objectives.js';
 import { playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
-import { CAMERA_ACTION_PAN_MS, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
-import { brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, owesAFight, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
+import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
+import { playSelectCue, brigadeBrokenStatus, canAttackTarget, canInitiateFight, canLayAmbush, endFightPhase, endFirePhase, endMovePhase, fireArtillery, owesAFight, resolveAmbushSpringsNow, resolveVolley, unitLabel } from './ui-battle.js';
 
 /* How hard evaluateState pulls on a move decision. Declared at module scope
    because two separate comparisons depend on it and they must agree: the
@@ -3751,34 +3751,41 @@ export function aiDecideAndExecuteMove(u){
     // engine applies when it sets the flag.
     const isCharge = t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) &&
       hasChargeableTargetAt(side, best);
-    animateUnitTo(u, best.x, best.y, isCharge ? 'charge' : 'march');
+    /* THE UNIT ANSWERS BEFORE IT MOVES. Its selection cue plays first (the
+       infantry's "oui!", the sabre, the gun, the Brigadier's call), and the
+       unit holds where it stands for AI_CUE_LEAD_MS before its animation and
+       its movement sound start together. The same cue the player hears on
+       selecting a unit, from the same function. A charge's sabre IS its cue,
+       so the separate charge sabre is not played on top. Skipped entirely in
+       fast-animation mode (simulator), which must stay as quick as before. */
+    const lead = FAST_ANIMATION_MODE ? 0 : AI_CUE_LEAD_MS;
+    if(lead) playSelectCue(u);
+    u._aiCueLeadMs = lead;
+    animateUnitTo(u, best.x, best.y, isCharge ? 'charge' : 'march', { delayMs: lead });
+    const moveSteps = Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)));
     if(t.key==='INFANTRY' || t.key==='GUARD'){
       // Lasts exactly as long as this unit is walking, one square or three.
-        // Measured from fromX/fromY: animateUnitTo has already moved the unit's
-        // logical position to the destination by this point.
       AudioManager.playEffect('infantry-march', 'audio/effects/infantry-marching.wav', 'movement',
-        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))) });
+        { durationMs: moveAnimationMs(moveSteps), delayMs: lead });
     }
     if(t.isCavalry){
-      // Loops to cover the whole ride: the clip is 4s and a three-square move
-      // is 5.04s. Same distance measurement as the infantry march above.
-      /* A charge animates on the quicker charge profile, so its hooves are cut
-         to match; timed as a walk they ran on after the horse had arrived. */
-      const ms = moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY))));
+      /* Loops to cover the whole ride. A charge animates on the quicker charge
+         profile, so its hooves are cut to match. */
+      const ms = moveAnimationMs(moveSteps);
       AudioManager.playEffect('cavalry-gallop', 'audio/effects/cavalry-gallop.wav', 'movement',
-        { durationMs: isCharge ? ms * MOVE_PROFILES.charge.speed : ms, loop: true });
-      if(isCharge) playChargeSabres(u);
+        { durationMs: isCharge ? ms * MOVE_PROFILES.charge.speed : ms, loop: true, delayMs: lead });
+      if(isCharge && !lead) playChargeSabres(u);
     }
     // A Brigadier is one rider, so a single horse rather than the squadron.
     // Keyed on the type: isCavalry is false for Brigadiers.
     if(t.key === 'BRIGADIER'){
       AudioManager.playEffect('brigadier-gallop', 'audio/effects/brigadier-gallop.wav', 'movement',
-        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+        { durationMs: moveAnimationMs(moveSteps), loop: true, delayMs: lead });
     }
     // Gun carriage on the move: wheels on a dirt road.
     if(t.isArtillery){
       AudioManager.playEffect('artillery-move', 'audio/effects/artillery-move.wav', 'movement',
-        { durationMs: moveAnimationMs(Math.max(1, Math.max(Math.abs(best.x-fromX), Math.abs(best.y-fromY)))), loop: true });
+        { durationMs: moveAnimationMs(moveSteps), loop: true, delayMs: lead });
     }
     if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
       u.charged = true;
@@ -3806,6 +3813,12 @@ export function aiDecideAndExecuteMove(u){
   }
   recordMove((best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', best && !best.stay ? {x:best.x, y:best.y} : null);
 }
+
+/* How long an AI unit stands after answering its call before it moves. Long
+   enough for a French "oui!" to land before the march starts (the takes are
+   about a second, with the word at the front); short enough that a turn of ten
+   moving units gains about five seconds rather than ten. */
+export const AI_CUE_LEAD_MS = 500;
 
 export function aiDoMovePhase(){
   const order = orderAiUnitsForMove(state.aiSide);
@@ -3856,8 +3869,11 @@ export function aiDoMovePhase(){
        feature is off, so this costs nothing on a quiet turn and a turn with
        labels disabled runs at exactly its previous duration. The per-turn
        budget inside the module is what stops a heavy turn dragging. */
+    // A moving unit also waits out its answering call (AI_CUE_LEAD_MS).
+    const cueLead = moved ? (u._aiCueLeadMs || 0) : 0;
+    if(u) u._aiCueLeadMs = 0;
     setTimeout(()=> floatingTextIdle().then(()=> resolveAmbushSpringsNow(step)),
-      moved ? moveAnimationMs(Math.max(1, steps)) + 60 : 340);
+      moved ? moveAnimationMs(Math.max(1, steps)) + 60 + cueLead : 340);
   }
   resetFloatingTextTurnBudget();
   step();

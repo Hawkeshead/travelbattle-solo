@@ -390,6 +390,32 @@ export const BRIGADIER_SELECT = {
   blue: 'audio/effects/brigadier-select-attention.wav',
 };
 
+/* A unit's selection cue: the Brigadier's call, the sabre, the gun, the foot
+   soldier's answer, or the plain click. One function for both callers, the
+   player clicking a unit and the AI about to move one, so the two can never
+   drift apart. */
+export function playSelectCue(u){
+  const selT = UNIT_TYPES[u.type];
+  /* Brigadier checked BEFORE isCavalry: Brigadiers are mounted but not flagged
+     as cavalry, so the sound follows the rank rather than that flag. */
+  if(selT.key === 'BRIGADIER'){
+    AudioManager.playEffect(`brigadier-select-${u.side}`, BRIGADIER_SELECT[u.side], 'ui', SELECT_CUE);
+  } else if(selT.isArtillery){
+    AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui', SELECT_CUE);
+  } else if(selT.isCavalry){
+    AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui', SELECT_CUE);
+  } else if(footAckFor(u)){
+    /* Foot infantry and Guards answer their officer instead of clicking. The
+       KEY IS PER SIDE, not one shared 'foot-ack': pickVariant's no-repeat
+       memory is keyed on it, and a single key would let a British take and a
+       French one count as the same sound, so the two languages could alternate
+       in a way that reads as one voice changing accent. */
+    AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui', SELECT_CUE);
+  } else {
+    AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui', SELECT_CUE);
+  }
+}
+
 /* TURN THEMES, KEYED BY SIDE. volumeScale is per file, set by measuring its
    peak so it sits as loud as it can without clipping:
      France  32.3s, peaks -5.5 dB -> 1.5x, about -2 dB. Set to match the
@@ -847,31 +873,7 @@ export function selectUnit(id){
   /* Cavalry draw sabres on selection; everything else keeps the piece-placed
      click. Both armies, light and heavy alike. Plays once, so no duration or
      loop: it is a moment, not an action of variable length. */
-  if(u && selectionChanged){
-    const selT = UNIT_TYPES[u.type];
-    /* A Brigadier calls for attention; cavalry draw sabres; everything else
-       keeps the piece-placed click. Checked BEFORE isCavalry, though it happens
-       not to matter today: Brigadiers are mounted but are not flagged as cavalry
-       in unit-types.json, so they would otherwise have fallen through to the
-       click. Ordering it this way means the sound follows the rank rather than
-       depending on that flag staying false. */
-    if(selT.key === 'BRIGADIER'){
-      AudioManager.playEffect(`brigadier-select-${u.side}`, BRIGADIER_SELECT[u.side], 'ui', SELECT_CUE);
-    } else if(selT.isArtillery){
-      AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui', SELECT_CUE);
-    } else if(selT.isCavalry){
-      AudioManager.playEffect('cavalry-select', 'audio/effects/cavalry-select-sword.wav', 'ui', SELECT_CUE);
-    } else if(footAckFor(u)){
-      /* Foot infantry and Guards answer their officer instead of clicking. The
-         KEY IS PER SIDE, not one shared 'foot-ack': pickVariant's no-repeat
-         memory is keyed on it, and a single key would let a British take and a
-         French one count as the same sound, so the two languages could alternate
-         in a way that reads as one voice changing accent. */
-      AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui', SELECT_CUE);
-    } else {
-      AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui', SELECT_CUE);
-    }
-  }
+  if(u && selectionChanged) playSelectCue(u);
   renderUnitInfo(u);
   if(u && u.side===state.turn){
     if(state.phase==='move'){

@@ -306,7 +306,11 @@ export const AudioManager = (function(){
            fit, pitches it down and turns a gallop into a shire horse. */
         if(opts.loop) source.loop = true;
         if(PRIORITY[category] && PRIORITY[category] <= PRIORITY.cavalryCharge) duck();
-        source.start();
+        /* opts.delayMs starts the sound a little later than now, on the audio
+           clock. Used so an AI unit's march begins after its answering call,
+           in step with its animation, which is held back by the same amount. */
+        const startAt = ctx.currentTime + Math.max(0, (opts.delayMs || 0) / 1000);
+        source.start(startAt);
 
         /* opts.durationMs stops the sound early, with a short fade so it does
            not click. Marching is the case this exists for: the clip is a
@@ -321,9 +325,9 @@ export const AudioManager = (function(){
           // Required for a looping source: it never reaches its end, so without
           // an explicit stop it would play until the safety net fired 8 seconds
           // later, long after the unit had halted.
-          const stopAt = ctx.currentTime + opts.durationMs/1000;
+          const stopAt = startAt + opts.durationMs/1000;
           const fade = Math.min(0.18, opts.durationMs/1000 * 0.25);
-          gain.gain.setValueAtTime(gain.gain.value, Math.max(ctx.currentTime, stopAt - fade));
+          gain.gain.setValueAtTime(gain.gain.value, Math.max(startAt, stopAt - fade));
           gain.gain.linearRampToValueAtTime(0.0001, stopAt);
           source.stop(stopAt + 0.02);
         }
