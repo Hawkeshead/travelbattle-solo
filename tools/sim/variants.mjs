@@ -18,6 +18,12 @@ export const VARIANTS = {
   no_shelter:  { SHELTER_MISSION: 0 },
   /* Stage B is ON as of Alexander, so the experiment turns it OFF. */
   no_army_plan: { ARMY_PLAN_ACTS: 0 },
+  /* An attacking Brigade pays less to break its chain when the move closes on
+     the enemy. 1.0 is today's behaviour. */
+  press_half:  { CLOSE_PRESS: 0.5 },        // measured 39%: recreates stranded units
+  /* The Brigadier leads a STUCK attacking Brigade forward. Off is 1.0. */
+  no_lead:     { BRIGADIER_LEAD: 1.0 },
+  lead_always: { LEAD_AFTER_TURNS: 0 },     // measured 55%: strands healthy Brigades
   /* The old behaviour: an army with no attacking Brigade stands there. */
   no_stall_break: { STALL_BREAK: 0 },
   /* The first settings tried: shelters at 40% and only on clearly favourable

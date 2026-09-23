@@ -1454,6 +1454,24 @@ export function updateArmyPlan(side){
 /* ON as of Alexander. Measured plan-on against the same build plan-off, sides
    swapped, 50 matches: 65.2% of 46 decided (95% range 51 to 79). The
    no_army_plan variant turns it off. */
+/* How long this Brigade has gone without a unit adjacent to an enemy. Counted
+   per Brigade per turn, so it measures the Brigade's own situation rather than
+   the army's. */
+export function brigadeTurnsOutOfContact(side, brigadeId){
+  if(!state._aiContactSince) state._aiContactSince = {};
+  const key = side + ':' + brigadeId;
+  const rec = state._aiContactSince[key];
+  if(rec && rec.turn === state.turnNumber) return rec.value;
+  const units = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===brigadeId);
+  const touching = units.some(o => state.units.some(e => !e.removed && e.side!==side &&
+    chebyshev(o, e) <= 1));
+  const since = touching ? state.turnNumber : (rec && rec.since != null ? rec.since : state.turnNumber);
+  state._aiContactSince[key] = { turn: state.turnNumber, since, value: state.turnNumber - since };
+  return state.turnNumber - since;
+}
+
+export const ATTACK_MISSIONS = new Set(['MAIN_ATTACK','FLANK','SUPPORT','FIX','COUNTERATTACK']);
+
 export function armyPlanActs(side){ return tune(side, 'ARMY_PLAN_ACTS', 1) > 0; }
 
 const ARMY_PLAN_ROLE_MISSION = { STRIKE: 'MAIN_ATTACK', SUPPORT: 'SUPPORT', FIX: 'FIX' };
@@ -3064,6 +3082,17 @@ export function aiDecideAndExecuteMove(u){
          much later in this function and duplicating the reachability walk here
          would cost more than the term is worth. Melee is at range 1 anyway, so
          the two agree for everything except a charge run. */
+      /* Does this square bring the unit nearer the enemy than it stands now? */
+      let closesOnEnemy = false;
+      {
+        let dNow = Infinity, dThere = Infinity;
+        for(const o of state.units){
+          if(o.removed || o.side===side || o.type==='BRIGADIER') continue;
+          dNow = Math.min(dNow, Math.max(Math.abs(startX-o.x), Math.abs(startY-o.y)));
+          dThere = Math.min(dThere, chebyshev(c, o));
+        }
+        closesOnEnemy = dThere < dNow;
+      }
       const ranging = flag(side, 'CAVALRY_MAY_RANGE') && t.isCavalry;
       let leash = 2.4;
       if(ranging){
@@ -3074,6 +3103,15 @@ export function aiDecideAndExecuteMove(u){
         }
         if(bestFight >= tune(side, 'CAVALRY_RANGE_THRESHOLD', 3.0)) leash *= 0.3;
       }
+      /* PRESSING HOME. A Brigade ordered to attack cannot advance faster than
+         its chain allows, and every square that closes on the enemy is off the
+         chain, so cohesionLoss forbids it. Measured on the stalling seed: only
+         15% of units closed, and cohesionLoss was the single largest term
+         keeping them where they were. This scales the leash for a unit whose
+         Brigade is attacking and whose move would close. 1.0 is the old
+         behaviour. */
+      const pressing = ATTACK_MISSIONS.has(mission) && closesOnEnemy;
+      if(pressing) leash *= tune(side, 'CLOSE_PRESS', 1.0);
       if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', leash);
       /* S7: DISCONNECTING FOR NOTHING COSTS EXTRA.
 
@@ -3095,7 +3133,8 @@ export function aiDecideAndExecuteMove(u){
          can clear. */
       const buysAFight = state.units.some(o=>!o.removed && o.side!==side &&
         isAdjacent(c, o) && canAttackTarget(u, o));
-      if(!t.isArtillery && !buysAFight) s -= subScore(parts, 'cohesionDrift', 1.6);
+      if(!t.isArtillery && !buysAFight) s -= subScore(parts, 'cohesionDrift',
+        1.6 * (pressing ? tune(side, 'CLOSE_PRESS', 1.0) : 1));
     /* Judged on the CANDIDATE square, not the gun's current one, so a move INTO
        a vantage point counts as established and is not penalised for arriving
        out of contact. The old test asked where the gun already stood, so a
@@ -3817,9 +3856,32 @@ export function aiDecideAndExecuteMove(u){
          so he frees one unit and strands the next. Left as a comment because the
          idea reads as obviously right and should not be re-derived from scratch
          in six months. It is not right. */
+      /* THE BRIGADIER LEADS AN ATTACK. Every square that closes on the enemy is
+         off the chain, so cohesionLoss forbids it and the Brigade cannot advance
+         faster than its Brigadier does. Paying less to break the chain was tried
+         first and measured worse (39% over 23 matches): it simply recreates the
+         stranded units the chain rules exist to prevent. Moving the chain is the
+         other way to solve it. While his Brigade is attacking and none of it is
+         yet in contact, his own mission pull is scaled up so he goes forward
+         and the Brigade can follow. 1.0 is the old behaviour. */
+      let leadMul = 1;
+      if(u.type === 'BRIGADIER' && ATTACK_MISSIONS.has(mission)){
+        /* ONLY ONCE THE BRIGADE HAS ACTUALLY STUCK. Leading always was measured
+           both ways and it is the right medicine for the wrong patient: on the
+           stalling seed it resolved the match at turn 52 instead of the cap and
+           lifted closing from 15% to 50%, while on a healthy seed it turned a
+           66-turn match INTO a stall, because a Brigadier who runs ahead of an
+           advancing Brigade strands it. Across 60 matches those cancelled to
+           55%. So he only presses forward after his Brigade has gone several
+           turns without touching the enemy, which is the stall signature and
+           nothing else. */
+        const noContactFor = brigadeTurnsOutOfContact(side, u.brigadeId);
+        if(noContactFor >= tune(side, 'LEAD_AFTER_TURNS', 6))
+          leadMul = tune(side, 'BRIGADIER_LEAD', 2.0);
+      }
       s += addScore(parts, 'missionPull',
         Math.max(tune(side, 'MISSION_PULL_FLOOR', MISSION_PULL_FLOOR),
-                 missionMoveBonus(u, side, c, mission, plan) * tempoMul));
+                 missionMoveBonus(u, side, c, mission, plan) * tempoMul * leadMul));
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
@@ -3841,6 +3903,12 @@ export function aiDecideAndExecuteMove(u){
      that matters, which is whether the chosen action won on merit or whether
      everything else was worse for a reason worth seeing. */
   scored.sort((a,b)=>b.total-a.total);
+  /* Simulator only: every scored square, not just the four kept below. The log
+     keeps the top few, which answers "why this square over its rivals" but not
+     "why was the square that closes on the enemy nowhere near the top", and
+     that is the question behind every stall left. Undefined in the browser, so
+     a no-op in play. */
+  if(typeof globalThis.__fcScoreProbe === 'function') globalThis.__fcScoreProbe(u, scored);
   const decision = { chosen: scored[0] || null, alternatives: scored.slice(1,4), considered: scored.length };
   decisionForLog = decision;
 
