@@ -679,7 +679,7 @@ export function updateFinishing(side){
     const t = state.units.find(o => o.id===h.targetId);
     if(!t || t.removed){
       finishNote(side, `FINISHING resolved: ${h.label} destroyed T${state.turnNumber}, ` +
-        `${state.turnNumber - h.startedTurn} turns after the hunt began. Enemy Bde ${h.brigadeId+1} broken.`);
+        `${state.turnNumber - h.startedTurn} turns after the hunt began. Enemy Bde ${h.brigadeId} broken.`);
       delete book[key]; continue;
     }
     if(fightingMembers(enemy, t.brigadeId).length !== 1){ delete book[key]; continue; }
@@ -711,7 +711,7 @@ export function updateFinishing(side){
       if(od > radius) continue;
       (badFightFor(o, t) ? held : near).push(`${name} (${od} tiles)`);
     }
-    finishNote(side, `FINISHING: enemy Bde ${bId+1} at Brigadier + 1 (${label} at (${t.x},${t.y})). ` +
+    finishNote(side, `FINISHING: enemy Bde ${bId} at Brigadier + 1 (${label} at (${t.x},${t.y})). ` +
       `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
       `Committed: ${near.join(', ') || 'none in reach'}.` +
       (held.length ? ` Held back, bad fight: ${held.join(', ')}.` : '') +
@@ -1333,7 +1333,7 @@ function brigadeToughness(units){
    the average of our units' best matchup against theirs. One Brigade beating
    them decisively is what matters, not the army's average. */
 function bestSuperiorityOver(side, foes){
-  let best = -Infinity, bestId = null;
+  let best = -Infinity, bestId = null, bestNumbers = 0, bestType = 0;
   for(const bId of brigadeIdsForSide(side)){
     const own = brigadeFighters(side, bId);
     if(!own.length) continue;
@@ -1341,9 +1341,10 @@ function bestSuperiorityOver(side, foes){
     let type = 0;
     for(const a of own) type += Math.max(...foes.map(f => estimateFightValue(a, f)));
     const score = numbers + (type / own.length);
-    if(score > best){ best = score; bestId = bId; }
+    if(score > best){ best = score; bestId = bId; bestNumbers = numbers; bestType = type / own.length; }
   }
-  return { score: best === -Infinity ? 0 : best, brigadeId: bestId };
+  return { score: best === -Infinity ? 0 : best, brigadeId: bestId,
+           numbers: bestNumbers, type: bestType };
 }
 
 export function computeArmyPlan(side){
@@ -1353,8 +1354,13 @@ export function computeArmyPlan(side){
     const foes = brigadeFighters(enemy, bId);
     if(!foes.length) continue;
     const sup = bestSuperiorityOver(side, foes);
-    ranked.push({ id: bId, units: foes.length, toughness: brigadeToughness(foes),
-                  superiority: sup.score, ourBest: sup.brigadeId,
+    const parts = { units: foes.length,
+      heavy: foes.filter(o=>o.type==='HEAVY_CAV').length,
+      guard: foes.filter(o=>o.type==='GUARD').length,
+      art:   foes.filter(o=>o.type==='ARTILLERY').length };
+    ranked.push({ id: bId, units: foes.length, parts, toughness: brigadeToughness(foes),
+                  superiority: sup.score, supNumbers: sup.numbers, supType: sup.type,
+                  ourBest: sup.brigadeId,
                   difficulty: brigadeToughness(foes) - sup.score });
   }
   if(!ranked.length) return null;
@@ -1391,7 +1397,15 @@ export function computeArmyPlan(side){
   }
   if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id };
   if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id };
-  if(pool[2]) roles[pool[2].id] = { role: 'FIX', target: nonTarget ? nonTarget.id : (targets[1] ? targets[1].id : targets[0].id) };
+  /* C3: with no non-target left there is nothing to fix, and a FIX Brigade
+     aimed at a Brigade the army is trying to break is just a worse SUPPORT.
+     Converted here rather than left to the caller so the log says so. */
+  if(pool[2]){
+    const secondary = targets[1] || targets[0];
+    roles[pool[2].id] = nonTarget
+      ? { role: 'FIX', target: nonTarget.id }
+      : { role: 'SUPPORT', target: secondary.id, converted: 'FIX -> SUPPORT (no non-target remaining)' };
+  }
 
   return { turn: state.turnNumber, targets: targets.map(t=>t.id), nonTarget: nonTarget ? nonTarget.id : null,
            ranked, roles, own };
@@ -1413,20 +1427,35 @@ export function updateArmyPlan(side){
   const prev = state._aiArmyPlan[side];
   if(prev && prev.signature === sig){
     const status = Object.entries(prev.plan.roles)
-      .map(([bId, r]) => `${r.role}=Bde${Number(bId)+1}`).join(' ');
+      .map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
     armyPlanLog(side, `ARMY PLAN status: ${status}`);
     return prev.plan;
   }
   const plan = computeArmyPlan(side);
   if(!plan) return null;
   state._aiArmyPlan[side] = { signature: sig, plan };
+  /* C1: ZERO-INDEXED, like Section 2 and the move log. The plan used to print
+     Bde 1, 2, 3 for the same Brigades the rest of the export calls 0, 1, 2, so
+     any cross-reference between the plan and a unit's moves was off by one. */
   const tgt = plan.ranked.filter(r=>plan.targets.includes(r.id))
-    .map(r=>`enemy Bde ${r.id+1} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
+    .map(r=>`enemy Bde ${r.id} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
   const roles = Object.entries(plan.roles).map(([bId, r]) =>
-    `${r.role}=Bde${Number(bId)+1} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}) -> enemy Bde ${r.target+1}`).join('; ');
+    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}) -> enemy Bde ${r.target}` +
+    (r.converted ? ` [${r.converted}]` : '')).join('; ');
   armyPlanLog(side, `ARMY PLAN ${prev ? 'REVISED' : `(T${state.turnNumber})`}: targets=[${tgt}]` +
-    `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget+1}` : 'none'}`);
+    `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget}` : 'none'}`);
   armyPlanLog(side, `            ${roles}`);
+  /* C2: the sum, shown. difficulty = toughness (units, with Heavy Cavalry
+     counting 2 extra and Guard and guns 1 each) MINUS the best superiority any
+     one of our Brigades has over them, in numbers and in type. It is not the
+     absolute formula from the original brief: it measures how easy a Brigade is
+     to break FOR US, which is why a value can reach 0.0 or go negative. */
+  for(const r of plan.ranked){
+    armyPlanLog(side, `            enemy Bde ${r.id}: units ${r.parts.units}, heavy ${r.parts.heavy}, ` +
+      `guard ${r.parts.guard}, art ${r.parts.art} -> toughness ${r.toughness.toFixed(1)}; ` +
+      `our Bde ${r.ourBest} superiority numbers ${r.supNumbers.toFixed(1)} + type ${r.supType.toFixed(1)} ` +
+      `= ${r.superiority.toFixed(1)}; diff ${r.difficulty.toFixed(1)}`);
+  }
   return plan;
 }
 

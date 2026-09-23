@@ -46,6 +46,44 @@ TWO STALL BREAKS (on).
   Stalls fell from 8 of 50 to 4 of 50 with the plan acting.
 
 ------------------------------------------------------------------------
+THE MISSIONS THAT ARE NOT IN ANY BRIEF
+------------------------------------------------------------------------
+
+FETCH      Trigger: more than 40% of a Brigade's remaining units are off the
+           Brigadier's chain, and the units he would leave behind are not under
+           pressure (enemies within 2 tiles number fewer than half of them).
+           Only one Brigade per side may be on an errand at a time.
+           missionPull: the Brigadier is pulled to the centre of the cut-off
+           group, plus a close-range term so he does not stop two squares short.
+           The connected units get NO pull: they hold the ground they are on,
+           which is the point of FETCH.
+           engage: unchanged.
+           Ends when every unit is reconnected, when the targets die, or after
+           four turns. Upgrades to REUNITE if the units left behind come under
+           pressure.
+
+REUNITE    Same trigger, but the units left behind ARE under pressure, so the
+           Brigade falls back onto the cut-off group instead of splitting
+           further.
+           missionPull: the Brigadier as for FETCH; the other units are pulled
+           to the same rally point at 0.6 of the Brigadier's weight, so they
+           come back with him.
+           engage: unchanged.
+
+SHELTER    Trigger: a Brigade is down to 30% or fewer of the units it started
+           with, and still has at least two fighting units (below that PRESERVE
+           takes over).
+           missionPull: a point two squares beyond the strongest healthy
+           Brigade's centre, on the far side from the nearest enemy, so the host
+           stands between it and the fighting. On arrival (within 2) it stops
+           wanting ground and prefers cover: a wood or building scores 0.8, open
+           ground 0.6.
+           engage: only fights rated 0.2 or better are sought. It is NOT
+           silenced like PRESERVE: it defends, it fires, and once adjacent it
+           owes a fight like any other unit. The floor governs what it walks
+           into, not what the rules oblige it to do.
+
+------------------------------------------------------------------------
 ALEXANDER AGAINST SALADIN
 ------------------------------------------------------------------------
 
