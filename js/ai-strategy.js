@@ -1576,6 +1576,123 @@ function getDefensiveRallyPoint(side, nearPos){
 
    Turn one on at a time in the simulator to find which tier costs:
      node tools/sim/run.mjs 30 plan_tier1   (and plan_tier2, plan_tier3) */
+/* =========================================================
+   BRIGADE-LEVEL PLANNING: MOVE AS A FORMATION, NOT AS UNITS
+
+   Every unit is pulled at the enemy Brigade its army plan named, each weighing
+   its own cohesion against that pull separately. That is why a Brigade told to
+   attack can sit six squares away for hundreds of turns: measured with
+   close-probe, the square that closes is off the Brigade's chain, cohesionLoss
+   forbids it, and the Brigade cannot advance faster than its chain allows.
+   Paying less to break the chain was tried and measured 39%, because it simply
+   strands units.
+
+   So the Brigade advances as a formation. Each turn it has a WAYPOINT: a point
+   a short step ahead of its own centre, toward the ground it is trying to
+   reach. Units are pulled to the waypoint rather than at a distant enemy. Since
+   the waypoint is near the Brigade's own centre, moving to it keeps the chain
+   intact, so closing no longer requires anybody to leave it. The Brigade shuffles
+   forward together and the waypoint moves again next turn.
+
+   WHERE THE WAYPOINT AIMS, by mission:
+     MAIN_ATTACK, SUPPORT, COUNTERATTACK, FLANK  the target Brigade's centre
+     FIX                                         between the Brigade it is
+                                                 pinning and the main fight,
+                                                 preferring cover
+     HOLD, SCREEN, RESERVE                       the best cover within reach,
+                                                 which is what "occupy a wood or
+                                                 a village and hold it" means
+
+   COVER IS A REAL PREFERENCE, not decoration: a Brigade holding a building or a
+   wood is far harder to shift, and the waypoint is nudged onto one when a good
+   square is within a tile or two of where it was heading anyway.
+
+   THE STEP IS SHORT ON PURPOSE. A waypoint far ahead is the old behaviour under
+   a new name: units would again each decide whether the distant pull beats
+   cohesion. A step of two squares keeps the whole Brigade inside one move of
+   it. */
+export const BRIGADE_STEP = 2;
+export const BRIGADE_COVER_RADIUS = 2;
+export const BRIGADE_WAYPOINT_PULL = 0.55;
+
+function brigadePlanActs(side){ return tune(side, 'BRIGADE_PLAN', 0) > 0; }
+
+function coverNear(x, y, radius){
+  let best = null, bestD = Infinity;
+  for(let dy=-radius; dy<=radius; dy++){
+    for(let dx=-radius; dx<=radius; dx++){
+      const nx = x+dx, ny = y+dy;
+      if(nx<0 || ny<0 || nx>=COLS || ny>=ROWS) continue;
+      const key = terrainAt(nx, ny).key;
+      if(key!=='WOODS' && key!=='BUILDING') continue;
+      const d = Math.max(Math.abs(dx), Math.abs(dy));
+      if(d < bestD){ bestD = d; best = { x:nx, y:ny }; }
+    }
+  }
+  return best;
+}
+
+/* The Brigade's aim: the ground it is trying to be on, not a step toward it. */
+function brigadeObjective(side, brigadeId, mission, plan){
+  const enemy = otherSide(side);
+  const targetId = armyPlanTargetFor(side, brigadeId, plan);
+  const foes = targetId!=null
+    ? state.units.filter(o=>!o.removed && o.side===enemy && o.brigadeId===targetId) : [];
+  const centre = list => list.length
+    ? { x: Math.round(list.reduce((n,o)=>n+o.x,0)/list.length),
+        y: Math.round(list.reduce((n,o)=>n+o.y,0)/list.length) } : null;
+  if(mission==='FIX'){
+    /* Between the Brigade it pins and the fighting, so it stands in the way
+       rather than chasing. Cover if there is any, since a FIX Brigade expects
+       to be outnumbered and wants to be expensive to remove. */
+    const pinned = centre(foes);
+    const ours = centre(state.units.filter(o=>!o.removed && o.side===side && o.brigadeId!==brigadeId));
+    if(!pinned) return null;
+    const aim = ours ? { x: Math.round((pinned.x*2+ours.x)/3), y: Math.round((pinned.y*2+ours.y)/3) } : pinned;
+    return coverNear(aim.x, aim.y, BRIGADE_COVER_RADIUS) || aim;
+  }
+  if(mission==='HOLD' || mission==='SCREEN' || mission==='RESERVE'){
+    const own = centre(state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===brigadeId));
+    if(!own) return null;
+    return coverNear(own.x, own.y, BRIGADE_COVER_RADIUS + 1) || own;
+  }
+  return centre(foes);
+}
+
+/* One short step from the Brigade's own centre toward its objective, so the
+   whole Brigade can reach it without anybody leaving the chain. Cached per
+   Brigade per turn. */
+export function brigadeWaypoint(side, brigadeId, mission, plan){
+  if(!brigadePlanActs(side)) return null;
+  if(!state._aiWaypoints) state._aiWaypoints = {};
+  const key = side + ':' + brigadeId;
+  const cached = state._aiWaypoints[key];
+  if(cached && cached.turn === state.turnNumber) return cached.point;
+  const units = state.units.filter(o=>!o.removed && o.side===side && o.brigadeId===brigadeId);
+  let point = null;
+  if(units.length){
+    const cx = Math.round(units.reduce((n,o)=>n+o.x,0)/units.length);
+    const cy = Math.round(units.reduce((n,o)=>n+o.y,0)/units.length);
+    const aim = brigadeObjective(side, brigadeId, mission, plan);
+    if(aim){
+      const dx = aim.x - cx, dy = aim.y - cy;
+      const dist = Math.max(Math.abs(dx), Math.abs(dy));
+      if(dist <= BRIGADE_STEP) point = aim;
+      else {
+        const step = BRIGADE_STEP / dist;
+        const sx = Math.max(0, Math.min(COLS-1, Math.round(cx + dx*step)));
+        const sy = Math.max(0, Math.min(ROWS-1, Math.round(cy + dy*step)));
+        /* Cover ON THE WAY is worth a small detour: a Brigade that advances
+           through a wood arrives harder to shift than one that walks past it. */
+        const cover = coverNear(sx, sy, 1);
+        point = cover || { x:sx, y:sy };
+      }
+    }
+  }
+  state._aiWaypoints[key] = { turn: state.turnNumber, point };
+  return point;
+}
+
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
@@ -1590,6 +1707,19 @@ export function missionMoveBonus(u, side, pos, mission, plan){
     ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===objTargetId)
     : [];
   const nearestTargetDist = targetBrigade.length ? Math.min(...targetBrigade.map(o=>chebyshev(pos,o))) : null;
+
+  /* BRIGADE-LEVEL: pull to the Brigade's waypoint instead of at the enemy, so
+     the formation moves together and closing does not mean leaving the chain.
+     Contact overrides it: once a unit is beside an enemy the fight terms decide,
+     and a waypoint behind it must not drag it out of the melee. */
+  const waypoint = brigadeWaypoint(side, u.brigadeId, mission, plan);
+  if(waypoint && !ARMY_PLAN_EXEMPT.has(mission)){
+    const inContact = state.units.some(o=>!o.removed && o.side!==side && chebyshev(pos, o) <= 1);
+    if(!inContact){
+      const d = chebyshev(pos, waypoint);
+      return -d * BRIGADE_WAYPOINT_PULL + Math.max(0, 3 - d) * 0.25;
+    }
+  }
 
   switch(mission){
     case 'MAIN_ATTACK':

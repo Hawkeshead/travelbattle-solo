@@ -15,7 +15,7 @@ const { data, dice, rules } = g; const { state, SIDES } = data;
 dice.setFastDiceMode(true); render.setFastAnimationMode(true);
 state.scenario=null; state.campaign=null; state.mode='ai'; state.spectate=true;
 state.aiDifficulty='hard'; state.aiSide=SIDES.RED; state.gameOver=false; state.winner=null;
-const L=Number(process.argv[3]||1); state.aiConfig={ red:{BRIGADIER_LEAD:L}, blue:{BRIGADIER_LEAD:L} };
+const L=Number(process.argv[3]||1); const BP=Number(process.argv[4]||0); state.aiConfig={ red:{BRIGADIER_LEAD:L,BRIGADE_PLAN:BP}, blue:{BRIGADIER_LEAD:L,BRIGADE_PLAN:BP} };
 rules.seedRng(Number(process.argv[2]||4));
 const cheb=(a,b)=>Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));
 const by={}, gap=[]; let held=0, closed=0, noOption=0;

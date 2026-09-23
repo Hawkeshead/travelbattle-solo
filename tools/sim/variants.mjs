@@ -18,6 +18,8 @@ export const VARIANTS = {
   no_shelter:  { SHELTER_MISSION: 0 },
   /* Stage B is ON as of Alexander, so the experiment turns it OFF. */
   no_army_plan: { ARMY_PLAN_ACTS: 0 },
+  /* Brigade-level: the Brigade advances to a waypoint as a formation. */
+  brigade_plan: { BRIGADE_PLAN: 1 },
   /* An attacking Brigade pays less to break its chain when the move closes on
      the enemy. 1.0 is today's behaviour. */
   press_half:  { CLOSE_PRESS: 0.5 },        // measured 39%: recreates stranded units
