@@ -3759,7 +3759,14 @@ export function aiDecideAndExecuteMove(u){
              Split, the log answers the actual question: cavalryMass is what
              massing PAYS, cavalryConcentration is what being scattered COSTS.
              The scoring is byte-identical, only the reporting changes. */
-          const gap = chebyshev(c, point);
+          /* MEASURED TO CONTACT, NOT TO THE TILE ITSELF. The rally point IS an
+             enemy unit, and no unit can ever stand on it, so a gap measured to
+             the tile bottomed out at 1 and the term could never reach the 0.00
+             it was designed to reach on arrival: a permanent tax of at least
+             -0.28 on every cavalry move, which is exactly the fault the split
+             into cavalryConcentration and cavalryMass was supposed to have
+             cured. Arriving ADJACENT is arriving. */
+          const gap = Math.max(0, chebyshev(c, point) - 1);
           if(gap > 0) s -= subScore(parts, 'cavalryConcentration', gap * CAVALRY_CONCENTRATION_PULL);
           const massed = state.units.filter(o=>!o.removed && o.side===side && o.id!==u.id &&
             UNIT_TYPES[o.type].isCavalry && chebyshev(o, point) <= 2).length;
