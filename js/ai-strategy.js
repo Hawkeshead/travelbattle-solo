@@ -1616,6 +1616,14 @@ function attackTilesFor(u, at){
   return out;
 }
 
+/* WHY THE FOLLOWER IS NOT FILTERED ON THE CHAIN, having tried it. Followers
+   reach their square only about 43% of the time, so the obvious move is to plan
+   only combos whose square keeps the follower connected. Measured, that CUT the
+   combos planned per match from about 5 to 3 and left the reach rate unchanged,
+   because chain membership at planning time is not what the follower meets when
+   it moves: the Brigadier moves during the same turn, so the chain the plan was
+   checked against is not the chain that exists by then. Reverted. */
+
 export function comboPass(side){
   if(!state._aiCombos) state._aiCombos = {};
   state._aiCombos[side] = {};
