@@ -83,7 +83,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   /* SIM_REVERSE flips which side of an experiment is the control, so a result
      can be checked by running it backwards. */
   if (process.env.SIM_REVERSE) { g.rules.setStrandedRejoinDefault(true); }
-  if (variantSide) state.aiConfig[variantSide] = resolveVariant(variant);
+  if (variantSide) state.aiConfig[variantSide] =
+    process.env.SIM_SET ? JSON.parse(process.env.SIM_SET) : resolveVariant(variant);
 
   /* VERSION vs VERSION. The variant side keeps the CURRENT AI and the other side
      is handed the old one, so 'variant wins' means the new build beat the old
@@ -526,6 +527,17 @@ export async function main() {
   const { spawn } = await import('node:child_process');
   const n = Number(args.find(a => /^\d+$/.test(a)) || 5);
   const jsonAt = args.indexOf('--json');
+  /* --set TERM=VALUE builds a one-term variant on the fly, so a sweep does not
+     need a named variant per value. Repeatable, but a sweep must only ever pass
+     ONE: two terms at once gives an uninterpretable result. */
+  const sets = {};
+  for(let i = 0; i < args.length; i++){
+    if(args[i] !== '--set') continue;
+    const [k, v] = String(args[i + 1] || '').split('=');
+    if(k) sets[k] = Number(v);
+  }
+  if(Object.keys(sets).length) process.env.SIM_SET = JSON.stringify(sets);
+
   const seedAt = args.indexOf('--seed');
   const firstSeed = seedAt > -1 ? Number(args[seedAt + 1]) : 1;
 
@@ -560,6 +572,8 @@ export async function main() {
   });
 
   let variant = args.includes('--variant') ? args[args.indexOf('--variant') + 1] : null;
+  // A --set run is a variant too: one term overridden, everything else main.
+  if (!variant && Object.keys(sets).length) variant = Object.entries(sets).map(([k, v]) => `${k}=${v}`).join(',');
 
   /* --vs <ref> plays the CURRENT build against the AI as it was at that commit.
      The old files are materialised once here and the children just import them,

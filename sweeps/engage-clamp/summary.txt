@@ -1,0 +1,25 @@
+Sweep: ENGAGE_CLAMP vs alexander, 26 matches per value, sides swapped
+Seeds 1 to 13 for every value. Replay any match with:
+  node tools/sim/run.mjs 1 --seed <N> --set ENGAGE_CLAMP=<value> --vs alexander
+
+value   winRate   asFrance   asBritain   decided   stalled   medianTurns
+2       50.0      -          -           26        0         69
+3       48.0      50.0       46.1        25        1         65
+4       53.8      53.8       53.8        26        0         71
+5       50.0      46.1       53.8        26        0         60
+6       53.8      53.8       53.8        26        0         58
+
+NO PEAK. The spread across the whole range 2.0 to 6.0 is 48% to 53.8%, and
+the 95% band on 26 matches is about +/-19 points, so every value here is the
+same value within the noise. The current setting of 5.0 is not wrong and no
+change is recommended.
+
+WHAT THIS SAYS ABOUT THE SWEEP SET. 26 matches per value cannot separate
+differences of this size; it would take roughly 400 per value to resolve five
+points. Either sweep terms where a wrong value is catastrophic rather than
+marginal, or accept that the answer to 'what should this weight be' is often
+'it does not matter much', which is itself worth knowing after four builds of
+hand-tuning this one.
+
+NOT TO BE APPLIED TO MAIN ON THE STRENGTH OF ONE SWEEP. Terms interact; the
+set must be re-swept with the others at their new values first.

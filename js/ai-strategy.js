@@ -4287,7 +4287,10 @@ export function aiDecideAndExecuteMove(u){
           if(combined > raw){ raw = combined; bestTarget = o; }
         }
         const rawEngage = bestTarget ? estimateFightValue(u, bestTarget) : 0;
-        const best = Math.max(-ENGAGE_CLAMP, Math.min(ENGAGE_CLAMP, rawEngage));
+        /* Overridable so the sweep can measure it instead of it being set by
+           hand again: it has been 0.42, 3.00, 4.15 and 5.00 across builds. */
+        const clamp = tune(side, 'ENGAGE_CLAMP', ENGAGE_CLAMP);
+        const best = Math.max(-clamp, Math.min(clamp, rawEngage));
         /* W9: a unit that keeps losing stops looking for new fights.
 
            Three consecutive defeats is the point a human commander pulls a unit
