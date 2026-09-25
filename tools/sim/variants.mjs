@@ -20,7 +20,6 @@ export const VARIANTS = {
   no_army_plan: { ARMY_PLAN_ACTS: 0 },
   /* Turn-level attack sequencing: a lead pushes, a follower takes the +1. */
   no_combo:    { COMBO_PASS: 0 },
-  no_tempo:    { TEMPO_V2: false },
   /* Units keep their job across turns and re-plan the route each turn. */
   intents:     { UNIT_INTENT: 1 },
   intents_combo: { UNIT_INTENT: 1 },
