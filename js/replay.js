@@ -700,6 +700,13 @@ export function exportFullMatchLog(){
     lines.push(`--- ${SIDE_LABEL[side]} ---`);
     /* Finishing events first: when a Brigade is one kill from breaking, whether
        the AI went for it is the single most important thing in the section. */
+    const combo = (state._aiComboLog && state._aiComboLog[side]) || [];
+    for(const e of combo) lines.push(`  T${e.turn} ${e.text}`);
+    if(combo.length){
+      const st = (state._aiComboStats && state._aiComboStats[side]) || { planned: 0, converted: 0 };
+      lines.push(`  Combos: ${st.planned} planned, ${st.converted} converted (follow-up got the turned-around bonus)`);
+      lines.push('');
+    }
     const army = (state._aiArmyPlanLog && state._aiArmyPlanLog[side]) || [];
     for(const e of army) lines.push(`  T${e.turn} ${e.text}`);
     if(army.length) lines.push('');

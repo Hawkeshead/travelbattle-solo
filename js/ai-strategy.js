@@ -1532,6 +1532,162 @@ export function armyPlanTargetFor(side, brigadeId, plan){
   return own != null ? own : (plan ? plan.targetBrigadeId : null);
 }
 
+/* =========================================================
+   THE COMBO PASS: SEQUENCING TWO ATTACKS ON ONE TARGET
+
+   The largest measurable gap between the player and the AI. The player's
+   "Defender turned around" count over six matches: 13, 15, 18, 19, 20, 23.
+   France's: 1, 4, 4, 5, 8, 1. He pushes a defender back with one unit and hits
+   it again the same turn with a second, taking the +1 the displaced unit gives
+   up. The AI scored every unit's move on its own and never planned the second
+   blow.
+
+   THIS PASS RUNS ONCE PER TURN, before any unit is scored, and pairs units up.
+   It only ever ADDS to the existing scoring: squareTrap, cohesionLoss, threat
+   and the rest all still apply, so a combo that would drag the follower out of
+   command range or into a trap loses on those terms and simply does not happen.
+   That is intended.
+
+   THE THREE LEADS, and the volley rules decide which is which:
+     MELEE      the defender is pushed one square directly away AND turned
+                around. Both at once, which only a lost melee gives.
+     VOLLEY, disrupt (4-5)   the defender is turned around and STAYS PUT. The
+                cleanest lead of all: the follower attacks it where it stands,
+                with the bonus, and no prediction is needed.
+     VOLLEY, knockback (6+)  the defender moves but is NOT turned around, so it
+                sets up no bonus. Useful for breaking a square, not a combo.
+   A volley lead is therefore scored on the disrupt outcome. Confirmed against
+   resolveVolley: only melee sets both flags, which is why the player's combos
+   are melee-led and the AI's single accidental one came from a disrupt.
+
+   PUSHBACK IS PREDICTABLE, so the follow-up position can be worked out exactly:
+   one square directly away by the sign of the difference; blocked by an enemy
+   means nobody moves; a friendly in the way is shoved one further if it has
+   room; at the board edge the defender slides along the edge. And a square
+   formation BREAKS before it is displaced, so the follower faces line infantry.
+
+   CORNER TILES. A follow-up square that is also adjacent to the defender's
+   ORIGINAL tile is worth more, because if the lead only stalemates the follower
+   still has a fight. That is what makes a combo safe to attempt.
+========================================================= */
+export const COMBO_LEAD_BONUS = 2.50;
+export const COMBO_FOLLOW_BONUS = 2.50;
+export const COMBO_FOLLOW_ELSEWHERE = 1.00;
+export const COMBO_CORNER = 0.50;
+export const COMBO_TURNED_AROUND = 1.00;
+export const COMBO_VOLLEY_LEAD_VALUE = 1.5;
+
+function comboEnabled(side){ return tune(side, 'COMBO_PASS', 0) > 0; }
+
+/* Exactly the engine's rule in pushBack(), so the prediction cannot drift from
+   what actually happens. Returns null when the defender would not move. */
+export function predictPushback(defender, attacker){
+  const dx = Math.sign(defender.x - attacker.x), dy = Math.sign(defender.y - attacker.y);
+  const nx = defender.x + dx, ny = defender.y + dy;
+  if(nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS){
+    /* Edge: slides along its own edge away from the winner, either way. */
+    for(const [sx, sy] of [[dy, dx], [-dy, -dx]]){
+      const ex = defender.x + sx, ey = defender.y + sy;
+      if(ex < 0 || ey < 0 || ex >= COLS || ey >= ROWS) continue;
+      if(unitsAt(ex, ey).some(o=>!o.removed)) continue;
+      return { x: ex, y: ey };
+    }
+    return null;
+  }
+  const blockers = unitsAt(nx, ny).filter(o=>!o.removed);
+  if(!blockers.length) return { x: nx, y: ny };
+  if(blockers.some(o=>o.side !== defender.side)) return null;    // enemy behind: nobody moves
+  const bx = nx + dx, by = ny + dy;                              // friendly shoved on
+  if(bx < 0 || by < 0 || bx >= COLS || by >= ROWS) return null;
+  if(unitsAt(bx, by).some(o=>!o.removed)) return null;
+  return { x: nx, y: ny };
+}
+
+/* Can this unit reach a square adjacent to `at` and attack from it this turn? */
+function attackTilesFor(u, at){
+  const out = [];
+  if(u.removed || u.turnOnly || UNIT_TYPES[u.type].isArtillery || u.type==='BRIGADIER') return out;
+  const moves = [{ x:u.x, y:u.y, stay:true }, ...(legalMoves(u) || [])];
+  for(const m of moves){
+    if(Math.max(Math.abs(m.x - at.x), Math.abs(m.y - at.y)) !== 1) continue;
+    if(unitsAt(m.x, m.y).some(o=>!o.removed && o.id!==u.id)) continue;
+    out.push(m);
+  }
+  return out;
+}
+
+export function comboPass(side){
+  if(!state._aiCombos) state._aiCombos = {};
+  state._aiCombos[side] = {};
+  if(!comboEnabled(side)) return;
+  const enemy = otherSide(side);
+  const mine = state.units.filter(o=>!o.removed && o.side===side && o.type!=='BRIGADIER');
+  const foes = state.units.filter(o=>!o.removed && o.side===enemy && o.type!=='BRIGADIER');
+  const combos = [];
+
+  for(const D of foes){
+    for(const A of mine){
+      const leadTiles = attackTilesFor(A, D);
+      let leadValue = null, landing = null, viaVolley = false;
+      if(leadTiles.length){
+        leadValue = estimateFightValue(A, D);
+        landing = predictPushback(D, leadTiles[0]);
+      }
+      /* A volley lead: scored on the disrupt outcome, where the defender is
+         turned around and does not move, so the follower fights it in place. */
+      if(!leadTiles.length && isFootInfantry(A) && (volleyTargets(A)||[]).some(t=>t.id===D.id)){
+        leadValue = COMBO_VOLLEY_LEAD_VALUE; landing = { x: D.x, y: D.y }; viaVolley = true;
+      }
+      if(leadValue == null || landing == null) continue;
+      if(leadValue < 0) continue;                       // the lead must be a level fight at worst
+
+      for(const B of mine){
+        if(B.id === A.id) continue;
+        const at = { x: landing.x, y: landing.y, id: D.id };
+        for(const tileB of attackTilesFor(B, at)){
+          const followValue = estimateFightValue(B, D) + COMBO_TURNED_AROUND;
+          if(followValue < 1.0) continue;               // favourable even with the bonus
+          if(UNIT_TYPES[B.type].isCavalry && state.units.some(o=>!o.removed && o.side===enemy &&
+            o.formation==='square' && isAdjacent(tileB, o))) continue;    // squareTrap
+          const corner = Math.max(Math.abs(tileB.x - D.x), Math.abs(tileB.y - D.y)) === 1 ? COMBO_CORNER : 0;
+          combos.push({ D, A, B, tileB, leadTile: leadTiles[0] || null, viaVolley,
+                        value: leadValue + followValue + corner });
+        }
+      }
+    }
+  }
+
+  combos.sort((a,b)=> b.value - a.value);
+  const taken = new Set(), book = state._aiCombos[side];
+  let planned = 0;
+  for(const k of combos){
+    if(taken.has(k.A.id) || taken.has(k.B.id)) continue;
+    taken.add(k.A.id); taken.add(k.B.id);
+    book[k.A.id] = { role: 'LEAD', targetId: k.D.id, tile: k.leadTile, viaVolley: k.viaVolley };
+    book[k.B.id] = { role: 'FOLLOW', targetId: k.D.id, tile: k.tileB };
+    planned++;
+    comboLog(side, `COMBO planned: LEAD ${unitLabel(k.A)}${k.viaVolley ? ' (volley)' : ''} -> ` +
+      `${unitLabel(k.D)} at (${k.D.x},${k.D.y}); FOLLOW ${unitLabel(k.B)} to (${k.tileB.x},${k.tileB.y})` +
+      `${Math.max(Math.abs(k.tileB.x-k.D.x), Math.abs(k.tileB.y-k.D.y))===1 ? ' [corner]' : ''}  value ${k.value.toFixed(1)}`);
+  }
+  if(planned){
+    state._aiComboStats = state._aiComboStats || {};
+    state._aiComboStats[side] = state._aiComboStats[side] || { planned: 0, converted: 0 };
+    state._aiComboStats[side].planned += planned;
+  }
+}
+
+function comboLog(side, text){
+  if(!state._aiComboLog) state._aiComboLog = {};
+  if(!state._aiComboLog[side]) state._aiComboLog[side] = [];
+  state._aiComboLog[side].push({ turn: state.turnNumber, text });
+}
+
+export function comboRoleFor(u){
+  const book = state._aiCombos && state._aiCombos[u.side];
+  return book ? (book[u.id] || null) : null;
+}
+
 export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
@@ -1561,6 +1717,7 @@ export function aiPlanTurn(side){
   updateRecoveryErrands(side, missions);
   updateFinishing(side);
   applyArmyPlan(side, missions, updateArmyPlan(side));
+  comboPass(side);   // pairs units before any of them is scored
   state._aiMissions[side] = missions;
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
@@ -3827,7 +3984,23 @@ export function aiDecideAndExecuteMove(u){
       if(chargeableTarget){
         isChargeMove = true;
         s += addScore(parts, 'chargeBonus', 2.2);
-        if(state.turnComboTarget && state.turnComboTarget===chargeableTarget.id) s += addScore(parts, 'comboTarget', 1.0);
+      }
+    }
+    /* COMBO: this unit has been paired with another against one target. Purely
+       additive; every avoidance term still applies, so a combo that would pull
+       the follower out of command range or beside a square loses on those terms
+       and quietly does not happen. Replaces the old comboTarget, which was a
+       +1.00 nudge on a charge and sequenced nothing. */
+    {
+      const role = comboRoleFor(u);
+      if(role && role.tile){
+        const onTile = c.x === role.tile.x && c.y === role.tile.y;
+        if(role.role === 'LEAD'){
+          if(onTile) s += addScore(parts, 'comboTarget', COMBO_LEAD_BONUS);
+        } else {
+          if(onTile) s += addScore(parts, 'comboTarget', COMBO_FOLLOW_BONUS);
+          else s -= subScore(parts, 'comboTarget', COMBO_FOLLOW_ELSEWHERE);
+        }
       }
     }
     /* ENGAGE: a reason to take the LAST step into contact.
@@ -4768,6 +4941,28 @@ export function aiDoFightPhase(){
         // squares. It cannot be reinforced and, if disconnected, cannot even
         // move itself back to safety.
         if(vulnerableIds.has(t.id)) s += ISOLATED_TARGET_BONUS;
+
+        /* COMBO ORDERING. The fight phase picks the best pair each time round
+           rather than working down a list, so sequencing is a matter of scoring
+           rather than of engine changes. The lead goes first; the follower waits
+           while its lead is still able to strike, and needs no special case
+           afterwards, because once the lead lands the target is turned around
+           and WOUNDED_TARGET_BONUS already makes it the obvious next attack. */
+        const role = comboRoleFor(a);
+        if(role && role.targetId === t.id){
+          if(role.role === 'LEAD') s += COMBO_LEAD_BONUS;
+          else {
+            const lead = state.units.find(o=>!o.removed && o.side===a.side &&
+              (comboRoleFor(o)||{}).role === 'LEAD' && (comboRoleFor(o)||{}).targetId === t.id);
+            if(lead && !t.turnOnly && owesAFight(lead, a.side)) s -= COMBO_LEAD_BONUS * 2;
+            else if(t.turnOnly){
+              s += COMBO_FOLLOW_BONUS;
+              const st = (state._aiComboStats = state._aiComboStats || {});
+              st[a.side] = st[a.side] || { planned: 0, converted: 0 };
+              if(!role.counted){ role.counted = true; st[a.side].converted++; }
+            }
+          }
+        }
 
         if(s>bestScore){ bestScore=s; bestA=a; bestT=t; }
       }

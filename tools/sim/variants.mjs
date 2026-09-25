@@ -18,6 +18,8 @@ export const VARIANTS = {
   no_shelter:  { SHELTER_MISSION: 0 },
   /* Stage B is ON as of Alexander, so the experiment turns it OFF. */
   no_army_plan: { ARMY_PLAN_ACTS: 0 },
+  /* Turn-level attack sequencing: a lead pushes, a follower takes the +1. */
+  combo:       { COMBO_PASS: 1 },
   /* Brigade-level: the Brigade advances to a waypoint as a formation. */
   brigade_plan: { BRIGADE_PLAN: 1 },
   /* An attacking Brigade pays less to break its chain when the move closes on
