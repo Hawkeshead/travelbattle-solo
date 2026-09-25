@@ -198,7 +198,13 @@ export function endGame(winner){
     fullExportBtn.textContent = 'Export Full Match Log';
     fullExportBtn.onclick = ()=>{
       document.getElementById('aiLogExportTitle').textContent = 'Full Match Log';
-      document.getElementById('aiLogExportText').value = exportFullMatchLog();
+      /* The AI move log used to be a separate button, so a full export could
+         arrive without it: seed 1141694745 came back with sections 1 to 6 and
+         no move log, no disconnection figures and no missions by turn, which
+         read as a broken export when it was one of two buttons not pressed.
+         With an AI in the match, it is now always appended. */
+      document.getElementById('aiLogExportText').value = exportFullMatchLog() +
+        (state.aiSide ? '\n\n' + exportAiMoveLog() : '');
       // Tells the dialog to snapshot the untouched text before any filtering.
       document.dispatchEvent(new CustomEvent('tb:logShown'));
       document.getElementById('aiLogExportPanel').classList.remove('hidden');

@@ -2594,7 +2594,16 @@ export const TEMPO_READY_SPREAD = 6;
    So it stays available and off. Turning it on is a variant away. What it needs
    before it becomes the default is a run large enough to separate 55% from 50%,
    which at the current stall rate means several hundred matches. */
-export const TEMPO_V2_DEFAULT = false;
+/* ON AS OF 26 SEP, re-measured on the board as it now is. The two readings
+   above were taken when two matches in three stalled, before the Brigadier fix,
+   so they were largely measuring an army that could not move. Re-run on the
+   current build, tempo on against the same build with it off: 24 of 49 decided,
+   49.0%, 95% +/-14. Neutral on win rate, as before. But units that died in their
+   very first fight fell from 26 to 16 across four matches, both sides counted,
+   and that is the failure seed 1141694745 was lost to: eleven French units
+   arriving one at a time on a two-battalion target, ten of them dying on the way.
+   It costs nothing and does the thing asked of it. no_tempo turns it off. */
+export const TEMPO_V2_DEFAULT = true;
 
 /* THE AVOIDANCE CEILING.
 
