@@ -1176,7 +1176,6 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       }
       log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
-      const columnPartner = stackPartner(loser); // a broken Column takes both units with it
       const attackerSucceeded = winnerIsAttacker;
       if(diff===1){
         logNarration('melee_pushback', attackerSucceeded ? 'win' : 'loss');
@@ -1184,10 +1183,21 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         onComplete();
       } else if(diff===2){
         logNarration('melee_rout', attackerSucceeded ? 'win' : 'loss');
-        retreatAndRally(loser, ()=>{
-          if(columnPartner) retreatAndRally(columnPartner, onComplete);
-          else onComplete();
-        });
+        /* ONLY THE UNIT THAT LOST FALLS BACK, even from a Column. A Column used
+           to rout as one, which meant a single bad melee roll cost two units at
+           once. Measured across five simulated matches: two units lost to one
+           fight in three of them, and in AI-vs-AI it fell on both sides about
+           equally (red 3, blue 4), so it was a property of the rule rather than
+           of how anyone played. In human matches it landed on the player seven
+           times and the AI once, because the player forms Columns far more.
+
+           It also contradicted the destroy branch directly below, which already
+           states there is NO SHARED FATE IN MELEE: infantry and cavalry fight
+           one unit at a time, so beating the top of a Column does nothing to the
+           one beneath it. The Column now shares a fate for artillery only, which
+           is where the rule belongs: a roundshot goes through a doubled stand
+           and does not care which half it hits. */
+        retreatAndRally(loser, onComplete);
       } else {
         logNarration('melee_destroy', attackerSucceeded ? 'win' : 'loss');
         removeUnit(loser, 'destroyed in combat');
