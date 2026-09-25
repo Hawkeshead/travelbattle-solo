@@ -4228,7 +4228,19 @@ export function aiDecideAndExecuteMove(u){
        +1.00 nudge on a charge and sequenced nothing. */
     {
       const role = comboRoleFor(u);
-      if(role && role.tile){
+      /* A COMBO NEVER PAYS A UNIT TO LEAVE THE CHAIN. Seed 1200531486, turn 6:
+         the pass paired the 7e and 11e Hussards on an exposed gun, and both
+         charged to squares off Soult's chain to take their places. comboTarget
+         had become the widest term in the export (spread 4.36, up to +6.80)
+         once the follower's square carried the value of the fight it waited
+         for, which is more than cohesionLoss (2.40) can hold back. The lead
+         stalemated on a tied roll, both units were left stranded forward, and
+         both were destroyed within five turns without firing again.
+         cohesionLoss is scored before this block, so a square that breaks the
+         chain simply earns no combo credit: the pair still forms wherever it
+         can do so connected, and nowhere else. */
+      const breaksChain = (parts.cohesionLoss || 0) < 0;
+      if(role && role.tile && !breaksChain){
         const onTile = c.x === role.tile.x && c.y === role.tile.y;
         if(role.role === 'LEAD'){
           if(onTile) s += addScore(parts, 'comboTarget', COMBO_LEAD_BONUS);
