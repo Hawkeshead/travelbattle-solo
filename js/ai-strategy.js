@@ -1971,6 +1971,37 @@ function brigadeObjective(side, brigadeId, mission, plan){
   return centre(foes);
 }
 
+/* THE GROUND IS HELD FOR SEVERAL TURNS; THE ROUTE IS NOT.
+
+   Missions already persist: there is a minimum hold and a staleness limit,
+   added after a match where a Brigade was given MAIN_ATTACK at T15 and had it
+   revoked at T17 having advanced one tile. What did NOT persist was the ground.
+   brigadeObjective was recomputed from scratch every turn, so a Brigade could
+   hold one mission for twenty turns while its aim point wandered with every
+   shift of an enemy centroid, and the Brigade never arrived anywhere.
+
+   So the objective is chosen once and kept, while the waypoint toward it is
+   still recomputed every turn. Dropped when the mission changes, when the
+   Brigade arrives, or after BRIGADE_OBJECTIVE_TURNS with no progress toward it:
+   progress rather than a clock, so a Brigade closing slowly is left alone. */
+export const BRIGADE_OBJECTIVE_TURNS = 3;
+
+function heldObjective(side, brigadeId, mission, plan, cx, cy){
+  if(!state._aiBrigadeAim) state._aiBrigadeAim = {};
+  const key = side + ':' + brigadeId;
+  const held = state._aiBrigadeAim[key];
+  const dist = p => Math.max(Math.abs(cx - p.x), Math.abs(cy - p.y));
+  if(held && held.mission === mission){
+    const d = dist(held.point);
+    if(d < held.bestDist){ held.bestDist = d; held.since = state.turnNumber; }
+    if(d > 0 && state.turnNumber - held.since < BRIGADE_OBJECTIVE_TURNS) return held.point;
+  }
+  const aim = brigadeObjective(side, brigadeId, mission, plan);
+  if(!aim) { delete state._aiBrigadeAim[key]; return null; }
+  state._aiBrigadeAim[key] = { point: aim, mission, since: state.turnNumber, bestDist: dist(aim) };
+  return aim;
+}
+
 /* One short step from the Brigade's own centre toward its objective, so the
    whole Brigade can reach it without anybody leaving the chain. Cached per
    Brigade per turn. */
@@ -1985,7 +2016,7 @@ export function brigadeWaypoint(side, brigadeId, mission, plan){
   if(units.length){
     const cx = Math.round(units.reduce((n,o)=>n+o.x,0)/units.length);
     const cy = Math.round(units.reduce((n,o)=>n+o.y,0)/units.length);
-    const aim = brigadeObjective(side, brigadeId, mission, plan);
+    const aim = heldObjective(side, brigadeId, mission, plan, cx, cy);
     if(aim){
       const dx = aim.x - cx, dy = aim.y - cy;
       const dist = Math.max(Math.abs(dx), Math.abs(dy));

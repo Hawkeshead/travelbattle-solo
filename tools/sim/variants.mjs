@@ -25,6 +25,8 @@ export const VARIANTS = {
   intents_combo: { UNIT_INTENT: 1, COMBO_PASS: 1 },
   /* Brigade-level: the Brigade advances to a waypoint as a formation. */
   brigade_plan: { BRIGADE_PLAN: 1 },
+  /* The held objective without the waypoint, to separate the two. */
+  brigade_hold_only: { BRIGADE_PLAN: 1, BRIGADE_OBJECTIVE_TURNS: 0 },
   /* An attacking Brigade pays less to break its chain when the move closes on
      the enemy. 1.0 is today's behaviour. */
   press_half:  { CLOSE_PRESS: 0.5 },        // measured 39%: recreates stranded units
