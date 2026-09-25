@@ -1611,7 +1611,10 @@ export const COMBO_CORNER = 1.00;
 export const COMBO_TURNED_AROUND = 1.00;
 export const COMBO_VOLLEY_LEAD_VALUE = 1.5;
 
-function comboEnabled(side){ return tune(side, 'COMBO_PASS', 0) > 0; }
+/* ON for playtesting from 25 Sep. Measured 53.4% over 104 matches against the
+   same build without it, no stalls, so it costs nothing and adds about one
+   turned-around bonus a match. no_combo turns it off. */
+function comboEnabled(side){ return tune(side, 'COMBO_PASS', 1) > 0; }
 
 /* Exactly the engine's rule in pushBack(), so the prediction cannot drift from
    what actually happens. Returns null when the defender would not move. */
