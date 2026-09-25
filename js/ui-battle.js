@@ -1,6 +1,6 @@
 import { setFloatingTextEnabled } from './floating-text.js';
 const FCT_PREF_KEY = 'fc:floatingText';
-import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, estimateFightValue, missionFor } from './ai-router.js';
+import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
@@ -634,10 +634,26 @@ export { canAttackTarget };
    So there is now one exported test and both callers use it. A future exclusion
    added to the AI's behaviour cannot desynchronise from the gate again, because
    there is no second place to add it to. */
+/* Kept here beside owesAFight so the gate and the AI can never disagree about
+   who may fight: one predicate, as with owesAFight itself. */
+function releasedForFinishing(u){
+  const hunts = currentFinishing(u.side) || [];
+  return hunts.some(h => h.unit && isAdjacent(u, h.unit) &&
+    canAttackTarget(u, h.unit) && estimateFightValue(u, h.unit) >= 2.0);
+}
+
 export function owesAFight(u, side){
   if(u.side !== side || !canInitiateFight(u)) return false;
-  // PRESERVE never initiates (R6), so it can never owe a fight either.
-  if(missionFor(u) === 'PRESERVE') return false;
+  /* PRESERVE never initiates (R6), so it can never owe a fight either. ONE
+     EXCEPTION: the attack that wins the match. PRESERVE exists to deny the
+     enemy a Brigade kill; it must not forbid taking the kill that ends the
+     game. Seed 1271653599: the 5e Cuirassiers, eight fights won, spent six
+     turns touring the board under PRESERVE, twice passing within two tiles of
+     the unescorted gun whose death would have won, and were forbidden from
+     attacking it. Guarded at a fight value of 2.0, not merely positive, and
+     only against the finishing target: heavy cavalry into a gun in the open
+     qualifies, light infantry into a gun in a building does not. */
+  if(missionFor(u) === 'PRESERVE' && !releasedForFinishing(u)) return false;
   return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o));
 }
 

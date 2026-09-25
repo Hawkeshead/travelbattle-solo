@@ -50,4 +50,11 @@ export function aiDoFightPhase(){ return acting().aiDoFightPhase(); }
 /* Not routed. These two are read by the UI to describe what it is showing, not
    to decide anything, so they always come from the current build. Routing them
    would mean the debug panel described one version while another moved. */
+/* currentFinishing goes through the router like the rest: owesAFight in
+   ui-battle needs it to release a PRESERVE unit for a match-winning attack, and
+   an older AI version loaded for a comparison run has its own. */
 export { estimateFightValue, missionFor } from './ai-strategy.js';
+export function currentFinishing(side){
+  const mod = forSide(side);
+  return mod.currentFinishing ? mod.currentFinishing(side) : [];
+}

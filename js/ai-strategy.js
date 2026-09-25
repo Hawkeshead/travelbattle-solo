@@ -684,11 +684,40 @@ export function updateFinishing(side){
     }
     if(fightingMembers(enemy, t.brigadeId).length !== 1){ delete book[key]; continue; }
     h.wins = wins;
-    const d = reachOf(t);
+    /* F3: PROGRESS IS MEASURED ON THE UNITS ACTUALLY COMMITTED, not on the
+       nearest unit of the army. With nothing committed the old test could never
+       register progress, so the four-turn expiry was guaranteed to fire while
+       the 5e Cuirassiers were closing on the target under PRESERVE. */
+    const committed = own.filter(o => {
+      const r = o._finRoleTurn === state.turnNumber ? o._finRole : null;
+      return r && r.f && r.f.targetId === h.targetId;
+    });
+    /* F1: the committed set is recomputed every turn (finishRoleFor is cached
+       per unit per TURN, not per hunt), but the log only ever printed it at the
+       trigger, which read as though a unit entering reach later was ignored.
+       Joins and departures are now reported as they happen. */
+    const nowIds = committed.map(o=>o.id).join(',');
+    if(h.lastCommitted !== nowIds){
+      const was = new Set((h.lastCommitted || '').split(',').filter(Boolean));
+      const joined = committed.filter(o=>!was.has(o.id));
+      const left = [...was].filter(id => !committed.some(o=>o.id===id));
+      for(const o of joined) finishNote(side, `FINISHING: ${o.historicalName || o.type} entered reach ` +
+        `(${chebyshev(o, t)} tiles), committed`);
+      for(const id of left){
+        const o = state.units.find(x=>x.id===id);
+        if(o && !o.removed) finishNote(side, `FINISHING: ${o.historicalName || o.type} left reach, released`);
+      }
+      h.lastCommitted = nowIds;
+    }
+    const d = committed.length ? Math.min(...committed.map(o => chebyshev(o, t))) : reachOf(t);
     if(d < h.bestDist || d <= 1){ h.bestDist = Math.min(h.bestDist, d); h.lastProgressTurn = state.turnNumber; }
-    if(state.turnNumber - h.lastProgressTurn >= FINISH_STALL_TURNS){
-      finishNote(side, `FINISHING expired: ${h.label}, no progress for ${FINISH_STALL_TURNS} turns. ` +
-        `Resting ${FINISH_COOLDOWN_TURNS}.`);
+    /* Longer for ground that legitimately takes time to close on: cover, or a
+       Guard unit, which is expensive to approach and slow to shift. */
+    const sheltered = ['WOODS','BUILDING','HILL'].includes(terrainAt(t.x, t.y).key) || t.type === 'GUARD';
+    const window = sheltered ? FINISH_STALL_TURNS * 2 : FINISH_STALL_TURNS;
+    if(state.turnNumber - h.lastProgressTurn >= window){
+      finishNote(side, `FINISHING expired: ${h.label}, no committed unit closed for ${window} turns` +
+        `${sheltered ? ' (extended: target in cover or Guard)' : ''}. Resting ${FINISH_COOLDOWN_TURNS}.`);
       cooldown[t.id] = state.turnNumber + FINISH_COOLDOWN_TURNS;
       delete book[key];
     }
