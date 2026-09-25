@@ -1607,7 +1607,7 @@ export function armyPlanTargetFor(side, brigadeId, plan){
 export const COMBO_LEAD_BONUS = 2.50;
 export const COMBO_FOLLOW_BONUS = 2.50;
 export const COMBO_FOLLOW_ELSEWHERE = 1.00;
-export const COMBO_CORNER = 0.50;
+export const COMBO_CORNER = 1.00;
 export const COMBO_TURNED_AROUND = 1.00;
 export const COMBO_VOLLEY_LEAD_VALUE = 1.5;
 
@@ -1658,6 +1658,17 @@ function attackTilesFor(u, at){
    it moves: the Brigadier moves during the same turn, so the chain the plan was
    checked against is not the chain that exists by then. Reverted. */
 
+/* The best fight this unit could take on its own this turn, from any legal
+   square. The follower is only worth assigning when the combo beats this. */
+function bestStandaloneFight(u, foes){
+  let best = -Infinity;
+  for(const D of foes){
+    if(!attackTilesFor(u, D).length) continue;
+    best = Math.max(best, estimateFightValue(u, D));
+  }
+  return best;
+}
+
 export function comboPass(side){
   if(!state._aiCombos) state._aiCombos = {};
   state._aiCombos[side] = {};
@@ -1670,10 +1681,20 @@ export function comboPass(side){
   for(const D of foes){
     for(const A of mine){
       const leadTiles = attackTilesFor(A, D);
-      let leadValue = null, landing = null, viaVolley = false;
+      let leadValue = null, landing = null, viaVolley = false, leadTile = null;
       if(leadTiles.length){
         leadValue = estimateFightValue(A, D);
-        landing = predictPushback(D, leadTiles[0]);
+        /* THE LEAD KEEPS ITS OWN BEST TILE. It used to take the first legal
+           square found, and in seed 2 abandoned it seven times out of twelve to
+           cohesionLoss, threat and mutualSupport. Standing still if already
+           adjacent, otherwise the square nearest where it stands, is the one
+           the other terms are least likely to overrule. And a lead with a
+           better fight of its own elsewhere is not a lead: it would take that
+           fight, correctly, and the combo would never happen. */
+        if(bestStandaloneFight(A, foes) > leadValue + 0.5) continue;
+        leadTile = leadTiles.find(t => t.stay) ||
+          leadTiles.reduce((a, b) => chebyshev(b, A) < chebyshev(a, A) ? b : a);
+        landing = predictPushback(D, leadTile);
       }
       /* A volley lead: scored on the disrupt outcome, where the defender is
          turned around and does not move, so the follower fights it in place. */
@@ -1686,13 +1707,20 @@ export function comboPass(side){
       for(const B of mine){
         if(B.id === A.id) continue;
         const at = { x: landing.x, y: landing.y, id: D.id };
+        const followValue = estimateFightValue(B, D) + COMBO_TURNED_AROUND;
+        if(followValue < 1.0) continue;                 // favourable even with the bonus
+        /* DO NOT RECRUIT A FOLLOWER WITH BETTER THINGS TO DO. Measured with the
+           score probe: when a follower abandoned its square, what beat it was
+           engage, a kill value, a charge or a finishing target, not cohesion.
+           It had a better fight of its own and took it, which is correct, and
+           means it should never have been the follower. */
+        if(bestStandaloneFight(B, foes) > followValue) continue;
         for(const tileB of attackTilesFor(B, at)){
-          const followValue = estimateFightValue(B, D) + COMBO_TURNED_AROUND;
-          if(followValue < 1.0) continue;               // favourable even with the bonus
+          if(leadTile && tileB.x === leadTile.x && tileB.y === leadTile.y) continue;   // not the lead's square
           if(UNIT_TYPES[B.type].isCavalry && state.units.some(o=>!o.removed && o.side===enemy &&
             o.formation==='square' && isAdjacent(tileB, o))) continue;    // squareTrap
           const corner = Math.max(Math.abs(tileB.x - D.x), Math.abs(tileB.y - D.y)) === 1 ? COMBO_CORNER : 0;
-          combos.push({ D, A, B, tileB, leadTile: leadTiles[0] || null, viaVolley,
+          combos.push({ D, A, B, tileB, leadTile, viaVolley, followValue,
                         value: leadValue + followValue + corner });
         }
       }
@@ -1706,7 +1734,7 @@ export function comboPass(side){
     if(taken.has(k.A.id) || taken.has(k.B.id)) continue;
     taken.add(k.A.id); taken.add(k.B.id);
     book[k.A.id] = { role: 'LEAD', targetId: k.D.id, tile: k.leadTile, viaVolley: k.viaVolley };
-    book[k.B.id] = { role: 'FOLLOW', targetId: k.D.id, tile: k.tileB };
+    book[k.B.id] = { role: 'FOLLOW', targetId: k.D.id, tile: k.tileB, followValue: k.followValue };
     planned++;
     comboLog(side, `COMBO planned: LEAD ${unitLabel(k.A)}${k.viaVolley ? ' (volley)' : ''} -> ` +
       `${unitLabel(k.D)} at (${k.D.x},${k.D.y}); FOLLOW ${unitLabel(k.B)} to (${k.tileB.x},${k.tileB.y})` +
@@ -4202,7 +4230,13 @@ export function aiDecideAndExecuteMove(u){
         if(role.role === 'LEAD'){
           if(onTile) s += addScore(parts, 'comboTarget', COMBO_LEAD_BONUS);
         } else {
-          if(onTile) s += addScore(parts, 'comboTarget', COMBO_FOLLOW_BONUS);
+          /* The follower's square carries the FIGHT IT IS WAITING FOR, not a
+             flat bonus. Standing beside the predicted landing square, no enemy
+             is there yet, so engage scores it at zero and any square with a
+             live enemy beside it wins. Crediting the planned fight's value here
+             puts the two on the same footing, which is the comparison the
+             follower should actually be making. */
+          if(onTile) s += addScore(parts, 'comboTarget', COMBO_FOLLOW_BONUS + (role.followValue || 0));
           else s -= subScore(parts, 'comboTarget', COMBO_FOLLOW_ELSEWHERE);
         }
       }

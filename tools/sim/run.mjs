@@ -140,6 +140,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     brokenBrigades: countBrokenBrigades(state, SIDES),
     stall: finished === 'win' ? null : snapshotStall(state, SIDES),
     remnants: remnantsOf(state, SIDES),
+    turnedAround: turnedAroundBonuses(state, SIDES),
     reach: reach.result(),
   };
 }
@@ -307,6 +308,20 @@ function installReachTracker(state, g, SIDES) {
   return { result: () => tally };
 }
 
+/* "DEFENDER TURNED AROUND" BONUSES TAKEN, per side. The exploit finder showed
+   this bonus in every stacked-bonus fight recorded, won essentially every time:
+   it is the bonus that makes the others lethal, and the player takes 13 to 23 a
+   match against the AI's 1 to 8. Counted from the fight log's bonus sources, so
+   it measures the combo pass directly rather than through the win rate. */
+function turnedAroundBonuses(state, SIDES) {
+  const out = { [SIDES.RED]: 0, [SIDES.BLUE]: 0 };
+  for (const e of state.matchLog || []) {
+    if (e.type !== 'fight' || !e.diag) continue;
+    if ((e.diag.aSources || []).some(s => /turned around/i.test(s))) out[e.attackerSide]++;
+  }
+  return out;
+}
+
 /* EVERY BRIGADE THAT SPENT TIME AT ITS LAST FIGHTING UNIT, and for how long.
    From the removal turn stamped on each unit, not from polling, so it is exact
    and it is the same measurement whichever build is playing either side. A
@@ -412,6 +427,18 @@ function verdict(results) {
     lines.push(`  hunted by ${who}`.padEnd(30) + ` ${set.length} remnants, ${done.length} finished` +
       (done.length ? ` in mean ${fmt(mean)} / median ${median(done.map(m => m.to - m.from))} turns (${slow} took 6+)` : '') +
       `, ${open} still standing at match end`);
+  }
+  /* Turned-around bonuses per match, by build. */
+  const ta = { [NEW]: 0, [OLD]: 0, n: 0 };
+  for (const r of played) {
+    if (!r.variantSide || !r.turnedAround) continue;
+    ta.n++;
+    for (const side of Object.keys(r.turnedAround))
+      ta[side === r.variantSide ? OLD : NEW] += r.turnedAround[side];
+  }
+  if (ta.n) {
+    lines.push('');
+    lines.push(`"DEFENDER TURNED AROUND" BONUSES TAKEN PER MATCH   ${NEW} ${(ta[NEW] / ta.n).toFixed(1)}   ${OLD} ${(ta[OLD] / ta.n).toFixed(1)}`);
   }
   /* Within reach: the part of finishing that is actually a decision. */
   const blank = () => ({ near: 0, closed: 0, held: 0, opened: 0, gunsFar: 0, gunsClosed: 0, heldNoWay: 0, heldCould: 0, recruited: 0, recruitedClosed: 0 });
