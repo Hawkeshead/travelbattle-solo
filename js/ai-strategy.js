@@ -1696,6 +1696,123 @@ export function comboRoleFor(u){
   return book ? (book[u.id] || null) : null;
 }
 
+/* =========================================================
+   UNIT-LEVEL INTENT: A UNIT KEEPS ITS JOB ACROSS TURNS
+
+   The army has a plan revised only on major events. The Brigade has one. The
+   unit had none: every unit re-decided everything from nothing, every turn.
+
+   That hole explains a run of changes that were mechanically correct and
+   measured neutral. The finishing rule recruits a unit and it does not close.
+   The combo pass assigns a follower a square and it arrives 43% of the time.
+   The Brigade waypoint moves the formation and units box themselves in. In each
+   case the AI forms a sensible intention and abandons it next turn, because next
+   turn there is no memory that it ever had one. The one change this week that
+   clearly gained was the Brigadier's recovery errands, which are the one thing
+   that already commits across turns.
+
+   A ROLE, NOT A ROUTE. A fixed path goes stale the moment the enemy moves. What
+   persists is the JOB: this unit is hunting that enemy, or taking that piece of
+   ground. Where the subject is, and how to get there, is worked out fresh every
+   turn, so the unit reacts to the board while still finishing what it started.
+
+   TWO INTENTS, which is all the evidence supports for a first version:
+     HUNT <enemy unit>   for a unit whose Brigade is attacking: it keeps after
+                         the same enemy rather than re-choosing a new best
+                         target every turn as the board shifts
+     TAKE <tile>         for a Brigade holding, screening or in reserve: it
+                         occupies a piece of cover and stays on it
+
+   HELD FOR THREE TURNS, and dropped early when the job is done or gone: the
+   subject dies, the ground is taken, the Brigade's mission changes to one with
+   its own problem to solve, or three turns pass with no progress toward it. The
+   no-progress rule is what stops a unit committing to something it cannot reach,
+   which is the fault the finishing rule hit with its fixed eight-turn clock.
+
+   THE PULL IS DELIBERATELY MODEST. The point is not force, it is consistency:
+   the same subject every turn instead of a fresh one. Force against cohesion has
+   been measured twice this week, at 39% and neutral, and it strands units. */
+export const INTENT_TURNS = 3;
+export const INTENT_PULL = 0.40;
+const INTENT_EXEMPT = new Set(['PRESERVE','SHELTER','WITHDRAW','REUNITE','FETCH']);
+
+function intentsEnabled(side){ return tune(side, 'UNIT_INTENT', 0) > 0; }
+
+export function unitIntent(u){
+  const book = state._aiIntents && state._aiIntents[u.side];
+  return book ? (book[u.id] || null) : null;
+}
+
+/* Where the intent's subject is NOW. A hunted unit moves; ground does not. */
+function intentPoint(intent){
+  if(intent.kind === 'TAKE') return intent.tile;
+  const t = state.units.find(o=>o.id===intent.targetId);
+  return (t && !t.removed) ? { x:t.x, y:t.y } : null;
+}
+
+export function updateIntents(side, missions){
+  if(!state._aiIntents) state._aiIntents = {};
+  if(!state._aiIntents[side]) state._aiIntents[side] = {};
+  const book = state._aiIntents[side];
+  if(!intentsEnabled(side)){ for(const k of Object.keys(book)) delete book[k]; return; }
+  const enemy = otherSide(side);
+
+  for(const u of state.units){
+    if(u.removed || u.side!==side || u.type==='BRIGADIER') continue;
+    const mission = missions[u.brigadeId];
+    const held = book[u.id];
+
+    if(held){
+      const point = intentPoint(held);
+      const gone = !point || INTENT_EXEMPT.has(mission) ||
+        (held.kind==='TAKE' && u.x===held.tile.x && u.y===held.tile.y && held.arrived);
+      if(!gone){
+        const d = chebyshev(u, point);
+        if(d < held.bestDist){ held.bestDist = d; held.since = state.turnNumber; }
+        if(held.kind==='TAKE' && d===0) held.arrived = true;
+        /* Dropped on NO PROGRESS rather than on a clock: a unit that is closing,
+           slowly, is doing its job. */
+        if(state.turnNumber - held.since < INTENT_TURNS) continue;
+      }
+      delete book[u.id];
+    }
+    if(INTENT_EXEMPT.has(mission) || !mission) continue;
+
+    if(ATTACK_MISSIONS.has(mission)){
+      /* The enemy this unit would pick anyway, chosen once and then kept. */
+      let best = null, bestScore = -Infinity;
+      for(const e of state.units){
+        if(e.removed || e.side!==enemy || e.type==='BRIGADIER' || isConcealedFromEnemy(e)) continue;
+        const d = chebyshev(u, e);
+        if(d > 8) continue;
+        const score = estimateFightValue(u, e) - d * 0.3;
+        if(score > bestScore){ bestScore = score; best = e; }
+      }
+      if(best) book[u.id] = { kind:'HUNT', targetId: best.id, since: state.turnNumber,
+                              bestDist: chebyshev(u, best) };
+    } else {
+      const cover = nearestCoverTile(u);
+      if(cover) book[u.id] = { kind:'TAKE', tile: cover, since: state.turnNumber,
+                               bestDist: chebyshev(u, cover), arrived:false };
+    }
+  }
+}
+
+function nearestCoverTile(u){
+  let best = null, bestD = Infinity;
+  for(let y=0; y<ROWS; y++){
+    for(let x=0; x<COLS; x++){
+      const key = terrainAt(x,y).key;
+      if(key!=='WOODS' && key!=='BUILDING') continue;
+      if(unitsAt(x,y).some(o=>!o.removed && o.id!==u.id)) continue;
+      const d = Math.max(Math.abs(u.x-x), Math.abs(u.y-y));
+      if(d > 6 || d >= bestD) continue;
+      bestD = d; best = { x, y };
+    }
+  }
+  return best;
+}
+
 export function aiPlanTurn(side){
   if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
   const assessment = assessBattlefield(side);
@@ -1726,6 +1843,7 @@ export function aiPlanTurn(side){
   updateFinishing(side);
   applyArmyPlan(side, missions, updateArmyPlan(side));
   comboPass(side);   // pairs units before any of them is scored
+  updateIntents(side, missions);   // and each unit keeps the job it already had
   state._aiMissions[side] = missions;
   state._aiDebugLog[side] = { turn: state.turnNumber, assessment, plan, missions, moveLog: [] };
 }
@@ -3993,6 +4111,19 @@ export function aiDecideAndExecuteMove(u){
         isChargeMove = true;
         s += addScore(parts, 'chargeBonus', 2.2);
       }
+    }
+    /* INTENT: the job this unit already had, pulling it toward wherever its
+       subject is now. Modest by design: consistency, not force. */
+    {
+      /* TRIED AND REVERTED: cancelling the intent when an enemy is within two
+         squares, so a unit fights what is at hand rather than walking past it.
+         It reads right and measured 38.4% against 48% for leaving the intent
+         alone. The engage terms already decide the last step into contact; all
+         the override did was throw away the commitment exactly where the unit
+         was about to use it. */
+      const intent = unitIntent(u);
+      const point = intent ? intentPoint(intent) : null;
+      if(point) s -= subScore(parts, 'intent', chebyshev(c, point) * INTENT_PULL);
     }
     /* COMBO: this unit has been paired with another against one target. Purely
        additive; every avoidance term still applies, so a combo that would pull

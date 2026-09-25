@@ -20,6 +20,9 @@ export const VARIANTS = {
   no_army_plan: { ARMY_PLAN_ACTS: 0 },
   /* Turn-level attack sequencing: a lead pushes, a follower takes the +1. */
   combo:       { COMBO_PASS: 1 },
+  /* Units keep their job across turns and re-plan the route each turn. */
+  intents:     { UNIT_INTENT: 1 },
+  intents_combo: { UNIT_INTENT: 1, COMBO_PASS: 1 },
   /* Brigade-level: the Brigade advances to a waypoint as a formation. */
   brigade_plan: { BRIGADE_PLAN: 1 },
   /* An attacking Brigade pays less to break its chain when the move closes on
