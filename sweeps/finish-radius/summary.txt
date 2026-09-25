@@ -1,0 +1,27 @@
+Sweep: FINISH_RADIUS vs alexander, 26 matches per value, sides swapped
+Seeds 1 to 13 for every value. Replay any match with:
+  node tools/sim/run.mjs 1 --seed <N> --set FINISH_RADIUS=<value> --vs alexander
+
+value   winRate   decided   stalled
+4       40.0      25        1
+6       50.0      26        0
+8       53.8      26        0
+10      53.8      26        0
+12      57.6      26        0
+16      50.0      26        0
+
+THE SHAPE IS REAL AT THE BOTTOM AND NOISE AT THE TOP. 4 is clearly bad (40%):
+a radius that tight excludes cavalry that could plainly reach the target, which
+is the fault seen in seed 1271653599, where the 5e Cuirassiers sat seven tiles
+away and were never committed. From 6 upward the values sit between 50% and
+57.6%, inside the +/-19 point band at this sample size, so the peak at 12 is
+not separable from 8, 10 or 6.
+
+RECOMMENDED: 10. Not the peak. 12 and 16 disagree by 7.6 points with nothing
+between them to explain it, and 16 is larger than half the board, which makes
+the radius meaningless as a filter. 10 sits inside the flat region, is twice
+the distance a cavalry unit covers in two turns, and would have included the
+Cuirassiers.
+
+NOT APPLIED. One sweep does not change main, and this one needs re-running with
+the finishing rule's other values before it is trusted.

@@ -769,7 +769,12 @@ function finishRoleFor(u, startX, startY){
         if(d > 4 && hasLOS(u, tgt) && (!best || d < best.d0)) best = { kind: 'gun', f, d0: d };
         continue;
       }
-      const radius = ut.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
+      /* Overridable for the sweep: the value that excluded the 5e Cuirassiers at
+         seven tiles while a match-winning kill sat in front of them. Infantry
+         keep their own shorter radius, which moves with it so the two stay in
+         proportion rather than becoming a second term to sweep. */
+      const cavR = tune(u.side, 'FINISH_RADIUS', FINISH_CAV_RADIUS);
+      const radius = ut.isCavalry ? cavR : Math.max(2, cavR - 2);
       if(d > radius || badFightFor(u, tgt)) continue;
       if(!best || d < best.d0) best = { kind: ut.isCavalry ? 'cav' : 'inf', f, d0: d };
     }
