@@ -140,6 +140,73 @@ img.portrait{display:block;object-fit:cover;object-position:50% 14%}
 .despatch .margin{margin-top:10px;font-family:var(--hand);font-size:17px;color:#6b5f55;transform:rotate(-1.5deg)}
 .despatch .bio-toggle{font-family:var(--fell);font-style:italic;margin-top:8px;font-size:14px;color:var(--ink-2)}
 
+
+/* ============================================================
+   COMMAND RIBBONS: no panel at all. Selecting a unit makes a few
+   ribbons appear beside it ON THE BOARD, one per thing it can
+   actually do this turn, and nothing else. Three styles below.
+   ============================================================ */
+.ribbon-lab{max-width:1320px;margin:0 auto;padding:6px 22px 26px}
+.ribbon-lab h2{font-family:var(--serif);font-weight:400;font-size:26px;margin:0 0 6px}
+.ribbon-lab .styles{display:flex;flex-wrap:wrap;gap:8px 20px;margin:12px 0 14px;font-size:16px}
+.ribbon-lab .styles label{display:flex;gap:7px;align-items:center;cursor:pointer}
+.ribbon-lab .styles input{accent-color:var(--gold)}
+.ribbon-lab .hint{font-size:15px;color:#cfc7b0;margin:0 0 10px}
+.board-wrap{overflow-x:auto;padding-bottom:6px}
+.board{position:relative;display:grid;grid-template-columns:repeat(9,var(--cell));grid-template-rows:repeat(5,var(--cell));
+  --cell:clamp(52px,8.6vw,84px);width:max-content;border:3px solid #1d241f;box-shadow:0 14px 30px rgba(0,0,0,.45)}
+/* The game's tile art is 2:3 with the ground in the bottom square and overhang
+   above it, so the ground is shown at full width from the bottom, not covered. */
+.tile{position:relative;background-size:100% auto;background-position:50% 100%;background-repeat:no-repeat}
+.tile.grass{background-image:var(--grass)}
+.tile.woods,.tile.town{background-image:var(--grass)}
+.tile.woods::after,.tile.town::after{content:"";position:absolute;left:0;right:0;bottom:0;height:130%;background:var(--art) 50% 100%/100% auto no-repeat;pointer-events:none}
+.unit{position:absolute;display:grid;place-items:end center;cursor:pointer;background:none;border:0;padding:0 0 6%;z-index:2}
+.unit img{width:78%;height:auto;filter:drop-shadow(0 3px 2px rgba(0,0,0,.45));transition:transform .12s}
+.unit.sel img{transform:translateY(-3px)}
+.unit.sel::before{content:"";position:absolute;left:12%;right:12%;bottom:3%;height:16%;border-radius:50%;
+  border:2px solid var(--gold-hi);box-shadow:0 0 10px rgba(217,191,116,.8)}
+.unit .sq{position:absolute;top:8%;left:50%;transform:translateX(-50%);font-family:var(--fell);font-size:11px;color:#fff;
+  background:rgba(20,20,20,.6);padding:0 5px;border-radius:2px;display:none}
+.unit.square .sq{display:block}
+.menu{position:absolute;z-index:5;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.menu > *{pointer-events:auto}
+.menu.left{align-items:flex-end}
+.slip{max-width:240px;background:var(--rag);color:var(--ink);font-family:var(--fell);font-size:13.5px;line-height:1.45;
+  padding:8px 10px;box-shadow:0 6px 14px rgba(0,0,0,.4);margin-top:2px}
+
+/* style 1: PENNANTS. Swallowtail ribbons stacked beside the unit. */
+.st-pennant .rb{position:relative;font-family:var(--serif);font-size:15px;line-height:1;color:#f7ecd2;
+  background:var(--side);border:0;padding:8px 22px 8px 12px;min-height:34px;cursor:pointer;
+  clip-path:polygon(0 0,100% 0,calc(100% - 10px) 50%,100% 100%,0 100%);box-shadow:0 3px 6px rgba(0,0,0,.35);
+  border-top:1px solid rgba(255,255,255,.25)}
+.st-pennant.left .rb{padding:8px 12px 8px 22px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,10px 50%)}
+.st-pennant .rb:hover,.st-pennant .rb:focus-visible{filter:brightness(1.18)}
+.st-pennant .name{background:transparent;box-shadow:none;clip-path:none;padding:0 2px 2px;min-height:0;
+  font-style:italic;font-size:14px;color:#f3e8cc;text-shadow:0 1px 2px rgba(0,0,0,.8);cursor:default}
+
+/* style 2: FAN. Ribbons splayed on an arc round the unit, like a hand of orders. */
+.st-fan .rb{font-family:var(--fell);font-size:15px;color:var(--ink);background:var(--rag);border:0;
+  padding:7px 14px;min-height:34px;cursor:pointer;border-left:5px solid var(--side);
+  box-shadow:0 4px 10px rgba(0,0,0,.4);transform-origin:0 50%;transform:rotate(var(--r,0deg))}
+.st-fan.left .rb{border-left:0;border-right:5px solid var(--side);transform-origin:100% 50%}
+.st-fan .rb:hover,.st-fan .rb:focus-visible{background:#f4eedc}
+.st-fan .name{background:none;box-shadow:none;border:0;font-family:var(--serif);font-style:italic;color:#f3e8cc;
+  text-shadow:0 1px 2px rgba(0,0,0,.85);padding:0 0 2px;min-height:0;transform:none;cursor:default}
+
+/* style 3: SASH. One sash under the unit carrying its name, orders hanging from it like tabs. */
+.menu.st-sash{flex-direction:column;align-items:center;gap:0}
+.st-sash .name{font-family:var(--caps);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--gold-hi);
+  background:var(--side);padding:6px 16px;border:0;cursor:default;white-space:nowrap;
+  box-shadow:0 4px 10px rgba(0,0,0,.4);border-top:1px solid var(--gold);border-bottom:1px solid var(--gold)}
+.st-sash .tabs{display:flex;gap:4px;margin-top:-1px}
+.st-sash .rb{font-family:var(--fell);font-size:14.5px;color:#241808;background:linear-gradient(#e2c77e,#b08d3c);border:0;
+  padding:6px 11px 9px;min-height:34px;cursor:pointer;clip-path:polygon(0 0,100% 0,100% 82%,50% 100%,0 82%);
+  box-shadow:0 3px 6px rgba(0,0,0,.35)}
+.st-sash .rb:hover,.st-sash .rb:focus-visible{filter:brightness(1.1)}
+.earlier{max-width:1320px;margin:10px auto 0;padding:0 22px}
+.earlier h2{font-family:var(--serif);font-weight:400;font-size:22px;margin:24px 0 2px}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -156,6 +223,17 @@ img.portrait{display:block;object-fit:cover;object-position:50% 14%}
     <label><input type="checkbox" data-state="charged"> Charged</label>
   </div>
 </header>
+<section class="ribbon-lab" aria-label="Command ribbons">
+  <h2>Command ribbons</h2>
+  <p class="hint">Click a unit. Only what it can actually do this turn appears beside it, and clicking empty ground closes it. Try the infantry in the wood for Lay ambush, and the French cavalry for Charge.</p>
+  <div class="styles" role="radiogroup" aria-label="Ribbon style">
+    <label><input type="radio" name="rstyle" value="pennant" checked> Pennants</label>
+    <label><input type="radio" name="rstyle" value="fan"> Fan</label>
+    <label><input type="radio" name="rstyle" value="sash"> Sash</label>
+  </div>
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+</section>
+<div class="earlier"><h2>Earlier studies: the full profile panel</h2></div>
 <main id="studies"></main>
 <script>
 const PORTRAITS = {"portraits": {"42nd Black Watch": "assets/portraits/b-guard-1.jpg", "92nd Gordon Highlanders": "assets/portraits/b-guard-2.jpg", "95th Rifles": "assets/portraits/b-inf-95rifles.jpg", "Corsican Rangers": "assets/portraits/b-inf-corsican.jpg", "44th East Essex": "assets/portraits/b-inf-44th.jpg", "28th North Gloucestershire": "assets/portraits/b-inf-28th.jpg", "3rd Regiment of Foot Guards": "assets/portraits/b-inf-3rdfg.jpg", "Brunswick Oels Jägers": "assets/portraits/b-inf-brunswick.jpg", "Scots Greys": "assets/portraits/b-hcav-greys.jpg", "Royal Horse Guards – The Blues": "assets/portraits/b-hcav-blues.jpg", "10th Hussars": "assets/portraits/b-lcav-10th.jpg", "15th Hussars": "assets/portraits/b-lcav-15th.jpg", "1er Grenadiers à Pied": "assets/portraits/f-guard-1er.jpg", "2e Grenadiers à Pied": "assets/portraits/f-guard-2e.jpg", "9e Légère": "assets/portraits/f-inf-9elegere.jpg", "17e Légère": "assets/portraits/f-inf-17elegere.jpg", "1er Ligne": "assets/portraits/f-inf-1erligne.jpg", "4e Ligne": "assets/portraits/f-inf-4eligne.jpg", "45e Ligne": "assets/portraits/f-inf-45eligne.jpg", "105e Ligne": "assets/portraits/f-inf-105eligne.jpg", "5e Cuirassiers": "assets/portraits/f-hcav-cuirassiers.jpg", "Carabiniers-à-Cheval": "assets/portraits/f-hcav-carabiniers.jpg", "7e Hussards": "assets/portraits/f-lcav-7e.jpg", "11e Hussards": "assets/portraits/f-lcav-11e.jpg", "Wellington": "assets/brigadiers/brig_wellington.jpg", "Uxbridge": "assets/brigadiers/brig_uxbridge.jpg", "Thomas Graham": "assets/brigadiers/brig_thomasgraham.jpg", "Napoleon": "assets/brigadiers/brig_napoleon.jpg", "Soult": "assets/brigadiers/brig_soult.jpg", "Murat": "assets/brigadiers/brig_murat.jpg"}, "cannon": {"red": "assets/icons/cannon_red.png", "blue": "assets/icons/cannon_blue.png"}};
@@ -255,6 +333,85 @@ function render(){
     `<section class="study"><h2>${s.name}</h2><p class="why">${s.why}</p>${s.fn(u, t, st, +document.getElementById('unit').value)}</section>`).join('');
 }
 
+
+/* ---------- COMMAND RIBBONS ---------- */
+const GRASS = ["assets/terrain/grass_1.png", "assets/terrain/grass_2.png", "assets/terrain/grass_3.png", "assets/terrain/grass_4.png", "assets/terrain/grass_5.png", "assets/terrain/grass_6.png"];
+const BOARD = { cols:9, rows:5,
+  woods:[[2,1],[3,1]], town:[[6,3]],
+  units:[
+    { id:'a', side:'red',  type:'INFANTRY', name:'95th Rifles',     x:2, y:1, icon:'assets/icons/infantry_red.png', woods:true },
+    { id:'b', side:'red',  type:'GUARD',    name:'42nd Black Watch', x:4, y:3, icon:'assets/icons/infantry_red.png' },
+    { id:'c', side:'red',  type:'ARTILLERY',name:'Royal Artillery, Battery A', x:1, y:3, icon:'assets/icons/cannon_red.png' },
+    { id:'d', side:'blue', type:'HEAVY_CAV',name:'5e Cuirassiers',  x:6, y:1, icon:'assets/icons/cavalry_blue.png', canCharge:true },
+    { id:'e', side:'blue', type:'INFANTRY', name:'9e Légère',       x:7, y:3, icon:'assets/icons/infantry_blue.png' },
+  ]};
+let SEL = null, SLIP = null;
+const RSIDE = { red:'#8f2b2b', blue:'#2a3f66' };
+
+function actionsFor(u){
+  const out = [];
+  const bio = (UNITS.find(x => x.name === u.name) || {}).bio;
+  if(u.type==='INFANTRY' || u.type==='GUARD') out.push(u.square ? 'Leave square' : 'Form square');
+  if(u.woods && !u.square) out.push(u.hidden ? 'Stand down' : 'Lay ambush');
+  if(u.canCharge) out.push('Charge');
+  if(bio) out.push('History');
+  return out;
+}
+function drawBoard(){
+  const b = document.getElementById('board'); if(!b) return;
+  const cellPx = b.getBoundingClientRect().width / BOARD.cols || 70;
+  let html = '';
+  for(let y=0;y<BOARD.rows;y++) for(let x=0;x<BOARD.cols;x++){
+    const w = BOARD.woods.some(([a,c])=>a===x&&c===y), t = BOARD.town.some(([a,c])=>a===x&&c===y);
+    const g = GRASS[(x*7+y*3)%GRASS.length];
+    html += `<div class="tile ${w?'woods':t?'town':'grass'}" style="--grass:url('${g}');${w?"--art:url('assets/terrain/forest_notroops_1.png')":t?"--art:url('assets/terrain/building_1.png')":''}"></div>`;
+  }
+  for(const u of BOARD.units){
+    html += `<button class="unit${SEL===u.id?' sel':''}${u.square?' square':''}" data-id="${u.id}" aria-label="${esc(u.name)}"
+      style="left:calc(${u.x} * var(--cell));top:calc(${u.y} * var(--cell));width:var(--cell);height:var(--cell);${u.hidden?'opacity:.55;':''}">
+      <span class="sq">Square</span><img src="${u.icon}" alt=""></button>`;
+  }
+  const u = BOARD.units.find(v => v.id === SEL);
+  if(u){
+    const style = document.querySelector('[name=rstyle]:checked').value;
+    const left = u.x >= BOARD.cols/2;          // right half of the board: ribbons open to the left
+    const acts = actionsFor(u);
+    const pos = style==='sash'
+      ? `left:calc(${u.x+0.5} * var(--cell));top:calc(${u.y+1} * var(--cell) - 6px);transform:translateX(-50%)`
+      : left ? `right:calc(${BOARD.cols-u.x} * var(--cell) + 4px);top:calc(${u.y} * var(--cell) - 6px)`
+             : `left:calc(${u.x+1} * var(--cell) + 4px);top:calc(${u.y} * var(--cell) - 6px)`;
+    const side = RSIDE[u.side];
+    let inner = '';
+    if(style==='sash'){
+      inner = `<div class="name" style="--side:${side}">${esc(u.name)}</div><div class="tabs">${acts.map(a=>`<button class="rb" data-act="${a}">${a}</button>`).join('')}</div>`;
+    } else {
+      const n = acts.length;
+      inner = `<div class="name rb" style="--side:${side}">${esc(u.name)}</div>` + acts.map((a,i)=>{
+        const r = style==='fan' ? ((i-(n-1)/2)*7*(left?-1:1)) : 0;
+        return `<button class="rb" data-act="${a}" style="--side:${side};--r:${r}deg">${a}</button>`; }).join('');
+    }
+    if(SLIP) inner += `<div class="slip">${esc(SLIP)}</div>`;
+    html += `<div class="menu st-${style}${left?' left':''}" style="${pos}">${inner}</div>`;
+  }
+  b.innerHTML = html;
+}
+document.addEventListener('click', e => {
+  const board = document.getElementById('board'); if(!board || !board.contains(e.target)) return;
+  const unitEl = e.target.closest('.unit'), act = e.target.closest('[data-act]');
+  if(act){
+    const u = BOARD.units.find(v => v.id === SEL), a = act.dataset.act;
+    if(a==='Form square'){ u.square = true; SLIP = null; }
+    else if(a==='Leave square'){ u.square = false; SLIP = null; }
+    else if(a==='Lay ambush'){ u.hidden = true; SLIP = null; }
+    else if(a==='Stand down'){ u.hidden = false; SLIP = null; }
+    else if(a==='Charge'){ SLIP = 'Now click the enemy to charge. A clean run of two squares wins any tie.'; }
+    else if(a==='History'){ SLIP = SLIP ? null : (UNITS.find(x => x.name === u.name) || {}).bio; }
+  } else if(unitEl){ SEL = SEL === unitEl.dataset.id ? null : unitEl.dataset.id; SLIP = null; }
+  else { SEL = null; SLIP = null; }
+  drawBoard();
+});
+document.addEventListener('change', e => { if(e.target.name === 'rstyle') drawBoard(); });
+
 Promise.all([fetch('data/unit-archive.json').then(r=>r.json()), fetch('data/unit-types.json').then(r=>r.json())])
   .then(([archive, types]) => {
     TYPES = types.unitTypes;
@@ -274,6 +431,7 @@ Promise.all([fetch('data/unit-archive.json').then(r=>r.json()), fetch('data/unit
     sel.addEventListener('change', render);
     document.querySelectorAll('[data-state]').forEach(c => c.addEventListener('change', render));
     render();
+    drawBoard();
   })
   .catch(() => { document.getElementById('studies').innerHTML = '<p>The unit data could not be loaded. Open this page from the published site rather than from a file on disk.</p>'; });
 </script>
