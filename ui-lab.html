@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Command: unit profile studies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,600;1,6..96,400&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Cinzel:wght@500;700&family=Petit+Formal+Script&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   UNIT PROFILE STUDIES. A test page, not part of the game.
+   Four candidate designs for the panel that opens when a unit is
+   clicked, each taken from a real Napoleonic object rather than a
+   generic "old paper" look, with the current panel beside them.
+   Every card uses the game's own portraits, unit data and
+   regimental histories (data/unit-archive.json).
+   ============================================================ */
+:root{
+  --table:#3b4a3f;       /* green baize of a map table */
+  --table-2:#2f3b33;
+  --rag:#e8e0cb;         /* rag paper, cooler than cream */
+  --ink:#2a1e14;         /* iron-gall ink */
+  --ink-2:#5b4a3a;
+  --gold:#b08d3c;
+  --gold-hi:#d9bf74;
+  --crimson:#8e1b1b;     /* stamp and wax */
+  --red:#a3403a; --blue:#2e4566;  /* the game's own side colours */
+  --serif:"Bodoni Moda", "Didot", Georgia, serif;
+  --fell:"IM Fell English", Georgia, serif;
+  --fell-sc:"IM Fell English SC", Georgia, serif;
+  --caps:"Cinzel", Georgia, serif;
+  --hand:"Petit Formal Script", "Snell Roundhand", cursive;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(120% 90% at 50% 0%, #46574b 0%, var(--table) 45%, var(--table-2) 100%);
+  color:var(--rag);font-family:var(--fell);
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+header{max-width:1320px;margin:0 auto;padding:28px 22px 8px}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(26px,3.4vw,40px);margin:0 0 6px;letter-spacing:.01em}
+.lede{font-size:17px;line-height:1.5;max-width:64ch;margin:0;color:#d9d1bb}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:18px 0 6px}
+.controls label{font-size:15px;display:flex;gap:8px;align-items:center;cursor:pointer}
+select{font-family:var(--fell);font-size:16px;background:var(--rag);color:var(--ink);border:1px solid #1e2621;border-radius:3px;padding:6px 8px;max-width:100%}
+input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}
+:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+main{max-width:1320px;margin:0 auto;padding:10px 22px 60px;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:34px 26px;align-items:start}
+.study{display:flex;flex-direction:column;gap:10px}
+.study h2{font-family:var(--serif);font-weight:400;font-style:italic;font-size:20px;margin:0}
+.study p.why{margin:0;font-size:14.5px;line-height:1.45;color:#cfc7b0;max-width:42ch}
+.bio-toggle{cursor:pointer;background:none;border:0;font:inherit;color:inherit;padding:0;text-decoration:underline;text-underline-offset:3px}
+.bio{display:none;font-size:14px;line-height:1.5;margin-top:8px}
+.card.open .bio{display:block}
+img.portrait{display:block;object-fit:cover;object-position:50% 14%}
+
+/* ---------- 0. CURRENT (reproduced for comparison) ---------- */
+.cur{background:#f3efe4;color:#2b2b2b;border-radius:10px;padding:12px;font-family:system-ui,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.35);display:grid;grid-template-columns:84px 1fr;gap:10px}
+.cur .pf{width:84px;height:84px;border-radius:8px;display:grid;place-items:center;overflow:hidden}
+.cur .pf img{width:92%;height:92%;border-radius:6px}
+.cur .nm{font-weight:700;font-size:15px}
+.cur .sub{font-size:11px;color:#777;margin:2px 0 6px}
+.cur .tg{display:inline-block;font-size:11px;background:#e2dccb;border-radius:4px;padding:2px 6px;margin:2px 3px 0 0}
+.cur .bio{grid-column:1/-1;font-size:12px}
+
+/* ---------- 1. THE PLATE: a Knotel uniform plate ---------- */
+.plate{background:#1f2622;padding:14px;border-radius:2px;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.plate .sheet{background:var(--rag);color:var(--ink);padding:14px 14px 12px;border:1px solid #c9bfa3}
+.plate .window{position:relative;border:1px solid var(--ink-2);padding:4px;background:#f1ebd9}
+.plate .window::before{content:"";position:absolute;left:-1px;right:-1px;top:-1px;height:5px;background:var(--facing)}
+.plate .window img{width:100%;aspect-ratio:4/3.3}
+.plate .no{font-family:var(--serif);font-size:12px;letter-spacing:.06em;text-align:center;margin:10px 0 2px;color:var(--ink-2)}
+.plate .cap{font-family:var(--serif);font-style:italic;font-size:20px;text-align:center;line-height:1.2;margin:0}
+.plate .cap small{display:block;font-style:normal;font-size:13px;margin-top:4px;color:var(--ink-2)}
+.plate .terms{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;margin:10px 0 0;padding-top:8px;border-top:1px solid #cdbf9e;font-size:14px;font-family:var(--fell);white-space:nowrap}
+.plate .terms b{font-family:var(--serif);font-weight:600;font-feature-settings:"onum"}
+.plate .state{font-family:var(--fell);font-style:italic;text-align:center;font-size:14px;margin:8px 0 0;color:var(--facing)}
+.plate .foot{margin-top:10px;font-size:14px}
+
+/* ---------- 2. THE MUSTER RETURN: a regimental return form ---------- */
+.muster{position:relative;background:
+  repeating-linear-gradient(to bottom, transparent 0 25px, #9fb0c2 25px 26px),
+  var(--rag);
+  color:var(--ink);padding:14px 14px 16px 44px;box-shadow:0 8px 20px rgba(0,0,0,.4);border-radius:1px}
+.muster::before{content:"";position:absolute;left:32px;top:0;bottom:0;width:2px;background:#b64a4a;opacity:.75}
+.muster .form{font-family:var(--fell-sc);font-size:13px;letter-spacing:.02em;color:var(--ink-2);line-height:26px}
+.muster .nm{font-family:var(--hand);font-size:22px;line-height:26px;color:#1d2a52}
+.muster table{width:100%;border-collapse:collapse;margin-top:2px}
+.muster.has-thumb .nm{padding-right:70px}
+.muster.has-thumb table{margin-top:26px}
+.muster .duty{font-family:var(--fell);font-size:14px;line-height:26px;color:var(--ink)}
+.muster .duty span{font-family:var(--fell-sc);color:var(--ink-2)}
+.muster td{height:26px;vertical-align:bottom;padding:0 4px 1px 0;font-size:14px}
+.muster td.k{font-family:var(--fell-sc);color:var(--ink-2);width:44%}
+.muster td.v{font-family:var(--hand);font-size:17px;color:#1d2a52}
+.muster .thumb{position:absolute;right:12px;top:12px;width:62px;height:74px;border:1px solid var(--ink-2);background:#f1ebd9;padding:2px;transform:rotate(2deg)}
+.muster .thumb img{width:100%;height:100%}
+.muster .stamp{position:absolute;right:16px;bottom:12px;font-family:var(--fell-sc);font-size:15px;color:var(--crimson);border:2px solid var(--crimson);border-radius:3px;padding:2px 8px;transform:rotate(-8deg);opacity:.85;mix-blend-mode:multiply}
+.muster .bio{font-family:var(--fell);color:var(--ink)}
+.muster .bio-toggle{font-family:var(--fell-sc);font-size:13px;margin-top:6px;color:var(--ink-2)}
+
+/* ---------- 3. THE COLOUR: the regimental colour itself ---------- */
+.colour{position:relative;color:#f6ecd0;padding:18px 16px 22px;border-radius:2px;overflow:hidden;box-shadow:0 12px 26px rgba(0,0,0,.5)}
+.colour.red{background:
+  linear-gradient(115deg, rgba(255,255,255,.07) 0 20%, transparent 20% 40%, rgba(0,0,0,.08) 40% 60%, transparent 60%),
+  #8f1c2c}
+.colour.blue{background:
+  linear-gradient(115deg, rgba(255,255,255,.06) 0 20%, transparent 20% 40%, rgba(0,0,0,.08) 40% 60%, transparent 60%),
+  linear-gradient(90deg,#1f3565 0 33.3%, #efe6cf 33.3% 66.6%, #9b2230 66.6%)}
+.colour.blue .field{background:rgba(24,34,58,.86)}
+.colour .field{position:relative;border:2px solid var(--gold);outline:1px solid var(--gold-hi);outline-offset:-6px;padding:16px 12px 14px;text-align:center}
+.colour .wreath{width:96px;height:96px;margin:0 auto 6px;border-radius:50%;overflow:hidden;border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(0,0,0,.25)}
+.colour .wreath img{width:100%;height:100%}
+.colour .nm{font-family:var(--caps);font-weight:700;font-size:19px;letter-spacing:.04em;color:var(--gold-hi);text-shadow:0 1px 0 rgba(0,0,0,.45);margin:4px 0 2px;line-height:1.25}
+.colour .arm{font-family:var(--serif);font-style:italic;font-size:15px;color:#efe0b8}
+.colour .honours{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:12px}
+.colour .honours span{font-family:var(--caps);font-size:12px;letter-spacing:.05em;color:#241808;background:linear-gradient(#e2c77e,#b08d3c);padding:3px 9px;border-radius:1px;box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.colour .fringe{position:absolute;left:0;right:0;bottom:0;height:10px;background:repeating-linear-gradient(90deg,var(--gold) 0 3px,transparent 3px 6px)}
+.colour .bio-toggle{font-family:var(--serif);font-style:italic;font-size:14px;margin-top:12px;color:var(--gold-hi)}
+.colour .bio{text-align:left;font-family:var(--fell);color:#f6ecd0}
+
+/* ---------- 4. THE DESPATCH: a sealed order on the map table ---------- */
+.despatch{position:relative;background:
+  linear-gradient(to right, transparent 49.6%, rgba(90,70,40,.18) 50%, transparent 50.4%),
+  linear-gradient(to bottom, transparent 32.9%, rgba(90,70,40,.16) 33.3%, transparent 33.7%, transparent 66.3%, rgba(90,70,40,.14) 66.6%, transparent 67%),
+  var(--rag);
+  color:var(--ink);padding:18px 18px 16px;box-shadow:0 14px 28px rgba(0,0,0,.5);transform:rotate(-.6deg)}
+.despatch .seal{position:absolute;right:16px;top:-14px;width:54px;height:54px;border-radius:50%;
+  background:radial-gradient(circle at 38% 34%, rgba(255,255,255,.28), transparent 42%), var(--seal);
+  box-shadow:0 3px 6px rgba(0,0,0,.4), inset 0 -3px 6px rgba(0,0,0,.35);
+  display:grid;place-items:center;font-family:var(--caps);font-weight:700;color:rgba(255,235,200,.75);font-size:20px}
+.despatch .to{font-family:var(--fell);font-style:italic;font-size:14px;color:var(--ink-2)}
+.despatch .nm{font-family:var(--serif);font-size:22px;margin:2px 0 10px;line-height:1.2}
+.despatch .row{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:start}
+.despatch img.portrait{width:64px;height:78px;border:1px solid var(--ink-2);filter:sepia(.35) saturate(.85)}
+.despatch .orders{margin:0;padding:0;list-style:none;font-family:var(--fell);font-size:15.5px;line-height:1.45}
+.despatch .orders li+li{margin-top:2px}
+.despatch .margin{margin-top:10px;font-family:var(--hand);font-size:17px;color:#6b5f55;transform:rotate(-1.5deg)}
+.despatch .bio-toggle{font-family:var(--fell);font-style:italic;margin-top:8px;font-size:14px;color:var(--ink-2)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Unit profile studies</h1>
+  <p class="lede">Four candidate designs for the panel that opens when you click a unit, each modelled on a real object from the period, with the current panel for comparison. Pick a unit and switch its states to see how each design copes. Nothing here changes the game.</p>
+  <div class="controls">
+    <select id="unit" aria-label="Unit to preview"></select>
+    <label><input type="checkbox" data-state="square"> In square</label>
+    <label><input type="checkbox" data-state="hidden"> In ambush</label>
+    <label><input type="checkbox" data-state="turnOnly"> Turning around</label>
+    <label><input type="checkbox" data-state="rallying"> Rallying</label>
+    <label><input type="checkbox" data-state="charged"> Charged</label>
+  </div>
+</header>
+<main id="studies"></main>
+<script>
+const PORTRAITS = {"portraits": {"42nd Black Watch": "assets/portraits/b-guard-1.jpg", "92nd Gordon Highlanders": "assets/portraits/b-guard-2.jpg", "95th Rifles": "assets/portraits/b-inf-95rifles.jpg", "Corsican Rangers": "assets/portraits/b-inf-corsican.jpg", "44th East Essex": "assets/portraits/b-inf-44th.jpg", "28th North Gloucestershire": "assets/portraits/b-inf-28th.jpg", "3rd Regiment of Foot Guards": "assets/portraits/b-inf-3rdfg.jpg", "Brunswick Oels Jägers": "assets/portraits/b-inf-brunswick.jpg", "Scots Greys": "assets/portraits/b-hcav-greys.jpg", "Royal Horse Guards – The Blues": "assets/portraits/b-hcav-blues.jpg", "10th Hussars": "assets/portraits/b-lcav-10th.jpg", "15th Hussars": "assets/portraits/b-lcav-15th.jpg", "1er Grenadiers à Pied": "assets/portraits/f-guard-1er.jpg", "2e Grenadiers à Pied": "assets/portraits/f-guard-2e.jpg", "9e Légère": "assets/portraits/f-inf-9elegere.jpg", "17e Légère": "assets/portraits/f-inf-17elegere.jpg", "1er Ligne": "assets/portraits/f-inf-1erligne.jpg", "4e Ligne": "assets/portraits/f-inf-4eligne.jpg", "45e Ligne": "assets/portraits/f-inf-45eligne.jpg", "105e Ligne": "assets/portraits/f-inf-105eligne.jpg", "5e Cuirassiers": "assets/portraits/f-hcav-cuirassiers.jpg", "Carabiniers-à-Cheval": "assets/portraits/f-hcav-carabiniers.jpg", "7e Hussards": "assets/portraits/f-lcav-7e.jpg", "11e Hussards": "assets/portraits/f-lcav-11e.jpg", "Wellington": "assets/brigadiers/brig_wellington.jpg", "Uxbridge": "assets/brigadiers/brig_uxbridge.jpg", "Thomas Graham": "assets/brigadiers/brig_thomasgraham.jpg", "Napoleon": "assets/brigadiers/brig_napoleon.jpg", "Soult": "assets/brigadiers/brig_soult.jpg", "Murat": "assets/brigadiers/brig_murat.jpg"}, "cannon": {"red": "assets/icons/cannon_red.png", "blue": "assets/icons/cannon_blue.png"}};
+const SIDE = { red:{ label:'Britain', colour:'#a3403a', seal:'#7d1420', army:'British Army' },
+               blue:{ label:'France',  colour:'#2e4566', seal:'#8a1620', army:'Grande Armée' } };
+const ROLE = {
+  BRIGADIER:'Commands the brigade. Units must stay within reach of him to move.',
+  INFANTRY:'Line infantry. Holds ground, volleys, and forms square against cavalry.',
+  GUARD:'Elite infantry. Re-rolls a losing die, and forms square against cavalry.',
+  HEAVY_CAV:'Shock cavalry. Charges two squares and re-rolls a losing die.',
+  LIGHT_CAV:'Light cavalry. Fast, screens the army, and charges two squares.',
+  ARTILLERY:'Foot artillery. Fires at range and is dangerous in close combat.',
+};
+const STATE_TEXT = { square:'Formed square', hidden:'Lying in ambush', turnOnly:'Turning about', rallying:'Rallying', charged:'Has charged' };
+let TYPES = {}, UNITS = [];
+
+function portraitFor(u){
+  if(u.type === 'ARTILLERY') return PORTRAITS.cannon[u.side];
+  return PORTRAITS.portraits[u.name] || null;
+}
+function states(){ return [...document.querySelectorAll('[data-state]')].filter(c=>c.checked).map(c=>c.dataset.state); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function img(u, cls='portrait'){ const p = portraitFor(u); return p ? `<img class="${cls}" src="${p}" alt="${esc(u.name)}">` : ''; }
+function bio(u){ return u.bio ? `<button class="bio-toggle" type="button" onclick="this.closest('.card').classList.toggle('open')">Regimental history</button><div class="bio">${esc(u.bio)}</div>` : ''; }
+
+function current(u, t, st){
+  return `<div class="card cur"><div class="pf" style="background:linear-gradient(160deg,${SIDE[u.side].colour}22,#e9e3d3)">${img(u)}</div>
+    <div><div class="nm" style="color:${SIDE[u.side].colour}">${esc(u.name)}</div>
+    <div class="sub">${SIDE[u.side].label} &middot; ${t.label}</div>
+    <span class="tg">Move ${t.move}</span>${t.reroll?'<span class="tg">Re-roll ★</span>':''}${st.map(s=>`<span class="tg">${STATE_TEXT[s]}</span>`).join('')}</div>
+    ${u.bio?`<div class="bio" style="display:block">History ▾</div>`:''}</div>`;
+}
+function plate(u, t, st, i){
+  return `<div class="card plate" style="--facing:${SIDE[u.side].colour}"><div class="sheet">
+    <div class="window">${img(u)}</div>
+    <p class="no">Plate ${['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII'][i % 18]}</p>
+    <p class="cap">${esc(u.name)}<small>${t.label}, ${SIDE[u.side].army}</small></p>
+    <div class="terms"><span>Moves <b>${t.move}</b></span>${t.reroll?'<span>Re-roll</span>':''}${t.canFormSquare?'<span>Forms square</span>':''}${t.isCavalry?'<span>Charges</span>':''}</div>
+    ${st.length?`<p class="state">${st.map(s=>STATE_TEXT[s]).join(', ')}</p>`:''}
+    <div class="foot">${bio(u)}</div></div></div>`;
+}
+function muster(u, t, st){
+  const stamp = st.includes('square') ? 'Square' : st.includes('hidden') ? 'Ambush' : st.includes('turnOnly') ? 'Turning' : st.includes('rallying') ? 'Rallying' : st.includes('charged') ? 'Charged' : '';
+  return `<div class="card muster${portraitFor(u) ? ' has-thumb' : ''}">
+    ${portraitFor(u)?`<div class="thumb">${img(u)}</div>`:''}
+    <div class="form">Return of the</div>
+    <div class="nm">${esc(u.name)}</div>
+    <table>
+      <tr><td class="k">Arm of service</td><td class="v">${t.label}</td></tr>
+      <tr><td class="k">Army</td><td class="v">${SIDE[u.side].army}</td></tr>
+      <tr><td class="k">Paces per turn</td><td class="v">${t.move === 1 ? 'One' : 'Two'}</td></tr>
+      <tr><td class="k">Re-roll</td><td class="v">${t.reroll ? 'Yes' : 'No'}</td></tr>
+    </table>
+    <div class="duty"><span>Duty.</span> ${ROLE[t.key]}</div>
+    ${stamp?`<div class="stamp">${stamp}</div>`:''}
+    ${bio(u)}</div>`;
+}
+function colour(u, t, st){
+  const honours = [ `Moves ${t.move}`, t.reroll ? 'Re-roll' : null, t.canFormSquare ? 'Forms square' : null, ...st.map(s=>STATE_TEXT[s]) ].filter(Boolean);
+  return `<div class="card colour ${u.side}"><div class="field">
+    ${portraitFor(u)?`<div class="wreath">${img(u)}</div>`:''}
+    <div class="nm">${esc(u.name)}</div>
+    <div class="arm">${t.label}</div>
+    <div class="honours">${honours.map(h=>`<span>${esc(h)}</span>`).join('')}</div>
+    ${bio(u)}</div><div class="fringe"></div></div>`;
+}
+function despatch(u, t, st){
+  const orders = [
+    `You may advance ${t.move === 1 ? 'one square' : 'two squares'} each turn.`,
+    t.reroll ? 'You may call for a second throw when a fight goes against you.' : null,
+    t.canFormSquare ? 'Form square should cavalry come upon you.' : null,
+    t.isCavalry ? 'A clean charge of two squares wins any tie.' : null,
+    t.key === 'BRIGADIER' ? 'Keep your regiments within reach, or they cannot march.' : null,
+  ].filter(Boolean);
+  const note = st.length ? st.map(s=>STATE_TEXT[s]).join('; ') : '';
+  return `<div class="card despatch" style="--seal:${SIDE[u.side].seal}">
+    <div class="seal">${u.side === 'red' ? 'GR' : 'N'}</div>
+    <div class="to">To the officer commanding</div>
+    <div class="nm">${esc(u.name)}</div>
+    <div class="row">${img(u) || '<div></div>'}<ul class="orders">${orders.map(o=>`<li>${o}</li>`).join('')}</ul></div>
+    ${note?`<div class="margin">${esc(note)}</div>`:''}
+    ${bio(u)}</div>`;
+}
+
+const STUDIES = [
+  { name:'The plate', why:'A uniform plate, as painted by Knötel: the regiment framed like a watercolour on heavy card, with its facing colour along the frame. Most formal of the four.', fn:plate },
+  { name:'The muster return', why:'The regimental return an adjutant filled in: printed form, ruled paper, entries in a clerk’s hand, status stamped in red ink. Most readable at a glance.', fn:muster },
+  { name:'The colour', why:'The flag the regiment carried: silk field, gold cord and fringe, the unit’s qualities worn as battle honours. Most striking on the board.', fn:colour },
+  { name:'The despatch', why:'A sealed order from headquarters: what the unit may do, written as instructions to its commanding officer. Explains the rules in plain words.', fn:despatch },
+  { name:'Current panel', why:'The panel as it is in the game today, for comparison.', fn:current },
+];
+
+function render(){
+  const u = UNITS[document.getElementById('unit').value];
+  const t = TYPES[u.type]; const st = states();
+  document.getElementById('studies').innerHTML = STUDIES.map(s =>
+    `<section class="study"><h2>${s.name}</h2><p class="why">${s.why}</p>${s.fn(u, t, st, +document.getElementById('unit').value)}</section>`).join('');
+}
+
+Promise.all([fetch('data/unit-archive.json').then(r=>r.json()), fetch('data/unit-types.json').then(r=>r.json())])
+  .then(([archive, types]) => {
+    TYPES = types.unitTypes;
+    for(const side of ['red','blue']){
+      for(const [type, list] of Object.entries(archive[side])){
+        for(const e of list) UNITS.push({ side, type, name:e.name, bio:e.bio });
+      }
+    }
+    const sel = document.getElementById('unit');
+    for(const side of ['red','blue']){
+      const g = document.createElement('optgroup'); g.label = SIDE[side].label;
+      UNITS.forEach((u, i) => { if(u.side !== side) return;
+        const o = document.createElement('option'); o.value = i; o.textContent = `${u.name} (${TYPES[u.type].label})`; g.appendChild(o); });
+      sel.appendChild(g);
+    }
+    sel.value = UNITS.findIndex(u => u.name === '42nd Black Watch');
+    sel.addEventListener('change', render);
+    document.querySelectorAll('[data-state]').forEach(c => c.addEventListener('change', render));
+    render();
+  })
+  .catch(() => { document.getElementById('studies').innerHTML = '<p>The unit data could not be loaded. Open this page from the published site rather than from a file on disk.</p>'; });
+</script>
+</body>
+</html>
