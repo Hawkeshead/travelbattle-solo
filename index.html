@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>TravelBattle: Field Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Petit+Formal+Script&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{
     --map-bg:#2a2f22;
@@ -164,6 +164,33 @@
 
   /* Battle: slide-in unit overlay, shown only when a unit is selected */
   #unitOverlay{ position:absolute;inset:0;z-index:30;pointer-events:none; }
+  /* THE SASH (js/ui-sash.js). The old unit panel is kept in the page, hidden,
+     because its buttons remain the single source of truth for what a unit may
+     do; the sash mirrors and presses them. */
+  body.sash-ui #unitOverlayPanel{ display:none; }
+  #unitSash{ position:fixed;z-index:29;display:flex;flex-direction:column;align-items:center;
+    pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform .14s ease-out;
+    max-width:min(320px,92vw); }
+  #unitSash.show{ opacity:1;transform:none; }
+  #unitSash.above{ flex-direction:column-reverse; }
+  #unitSash .sash-name, #unitSash button{ font-family:"Petit Formal Script","Snell Roundhand",cursive;color:#fbf6ea;
+    background:none;border:0;
+    text-shadow:0 1px 1px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.9),0 0 8px rgba(0,0,0,.75),0 0 14px rgba(0,0,0,.45); }
+  #unitSash .sash-name{ font-size:18px;line-height:1.15;white-space:nowrap;padding:1px 6px; }
+  #unitSash .sash-orders{ display:flex;flex-wrap:wrap;justify-content:center;gap:0 2px; }
+  #unitSash button{ pointer-events:auto;cursor:pointer;font-size:16px;line-height:1.1;padding:7px 8px;min-height:36px;white-space:nowrap;
+    text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:rgba(251,246,234,.45); }
+  #unitSash button:hover, #unitSash button:focus-visible{ outline:none;text-decoration-color:#fbf6ea;
+    text-shadow:0 1px 1px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.95),0 0 10px rgba(217,191,116,.9); }
+  #unitSash .sash-slip{ pointer-events:auto;margin-top:4px;background:#e8e0cb;color:#2a1e14;
+    font-family:"IM Fell English",Georgia,serif;font-size:13.5px;line-height:1.45;padding:8px 11px;max-width:280px;
+    max-height:40vh;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,.45); }
+  #unitSash.above .sash-slip{ margin:0 0 4px; }
+  #unitSash .sash-slip p{ margin:0; }
+  #unitSash .sash-slip p + p{ margin-top:6px; }
+  #unitSash .sash-particulars{ font-style:italic; }
+  @media (prefers-reduced-motion:reduce){ #unitSash{ transition:none; } }
+
   #unitOverlay.hidden{ display:none; }
   #unitOverlayPanel{
     position:absolute;bottom:8px;width:252px;max-width:64vw;max-height:min(380px,74%);

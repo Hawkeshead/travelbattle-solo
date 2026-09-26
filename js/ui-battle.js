@@ -10,6 +10,7 @@ import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitT
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
+import { showSash } from './ui-sash.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
@@ -941,6 +942,7 @@ export function toggleUnitBio(){
 // as a follow-up rather than smuggled in here.
 window.toggleUnitBio = toggleUnitBio;
 export function renderUnitInfo(u){
+  showSash(u);   // the on-board sash; the panel below is kept, hidden, as the source of truth for its buttons
   const el = document.getElementById('unitInfo');
   const sqBtn = document.getElementById('squareBtn');
   const ambBtn = document.getElementById('ambushBtn');
