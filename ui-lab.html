@@ -194,16 +194,20 @@ img.portrait{display:block;object-fit:cover;object-position:50% 14%}
 .st-fan .name{background:none;box-shadow:none;border:0;font-family:var(--serif);font-style:italic;color:#f3e8cc;
   text-shadow:0 1px 2px rgba(0,0,0,.85);padding:0 0 2px;min-height:0;transform:none;cursor:default}
 
-/* style 3: SASH. One sash under the unit carrying its name, orders hanging from it like tabs. */
+/* style 3: SASH. The unit's name under it, its orders in a row beneath, written
+   in a white copperplate hand straight onto the board: no ribbon, no plate.
+   Legibility comes from a layered dark shadow rather than a backing, so the
+   ground shows through and the writing reads as if chalked onto the map. */
 .menu.st-sash{flex-direction:column;align-items:center;gap:0}
-.st-sash .name{font-family:var(--caps);font-weight:500;font-size:13px;letter-spacing:.04em;color:var(--gold-hi);
-  background:var(--side);padding:6px 16px;border:0;cursor:default;white-space:nowrap;
-  box-shadow:0 4px 10px rgba(0,0,0,.4);border-top:1px solid var(--gold);border-bottom:1px solid var(--gold)}
-.st-sash .tabs{display:flex;gap:4px;margin-top:-1px}
-.st-sash .rb{font-family:var(--fell);font-size:14.5px;color:#241808;background:linear-gradient(#e2c77e,#b08d3c);border:0;
-  padding:6px 11px 9px;min-height:34px;cursor:pointer;clip-path:polygon(0 0,100% 0,100% 82%,50% 100%,0 82%);
-  box-shadow:0 3px 6px rgba(0,0,0,.35)}
-.st-sash .rb:hover,.st-sash .rb:focus-visible{filter:brightness(1.1)}
+.st-sash .name,.st-sash .rb{font-family:var(--hand);color:#fbf6ea;background:none;border:0;
+  text-shadow:0 1px 1px rgba(0,0,0,.95), 0 0 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.75), 0 0 14px rgba(0,0,0,.45)}
+.st-sash .name{font-size:18px;line-height:1.1;white-space:nowrap;cursor:default;padding:2px 6px}
+.st-sash .tabs{display:flex;gap:2px;margin-top:0}
+.st-sash .rb{font-size:16px;line-height:1.1;padding:6px 8px;min-height:34px;cursor:pointer;white-space:nowrap;
+  text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:rgba(251,246,234,.45)}
+.st-sash .rb:hover,.st-sash .rb:focus-visible{text-decoration-color:#fbf6ea;
+  text-shadow:0 1px 1px rgba(0,0,0,.95), 0 0 3px rgba(0,0,0,.95), 0 0 10px rgba(217,191,116,.9)}
+.st-sash .rb:focus-visible{outline:none}
 .earlier{max-width:1320px;margin:10px auto 0;padding:0 22px}
 .earlier h2{font-family:var(--serif);font-weight:400;font-size:22px;margin:24px 0 2px}
 
@@ -227,9 +231,9 @@ img.portrait{display:block;object-fit:cover;object-position:50% 14%}
   <h2>Command ribbons</h2>
   <p class="hint">Click a unit. Only what it can actually do this turn appears beside it, and clicking empty ground closes it. Try the infantry in the wood for Lay ambush, and the French cavalry for Charge.</p>
   <div class="styles" role="radiogroup" aria-label="Ribbon style">
-    <label><input type="radio" name="rstyle" value="pennant" checked> Pennants</label>
+    <label><input type="radio" name="rstyle" value="pennant"> Pennants</label>
     <label><input type="radio" name="rstyle" value="fan"> Fan</label>
-    <label><input type="radio" name="rstyle" value="sash"> Sash</label>
+    <label><input type="radio" name="rstyle" value="sash" checked> Sash</label>
   </div>
   <div class="board-wrap"><div class="board" id="board"></div></div>
 </section>
