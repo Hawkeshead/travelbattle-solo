@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Field Command: online test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Petit+Formal+Script&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ONLINE TEST. Not the game: a small page that proves the live
+   connection end to end before any of it is wired into the game.
+   Guest sign-in, create or join with a code, see each other online,
+   and a piece each that moves live on both screens.
+   ============================================================ */
+:root{ --table:#34423a; --rag:#e8e0cb; --ink:#2a1e14; --red:#a3403a; --blue:#2e4566; --gold:#d9bf74;
+  --fell:"IM Fell English", Georgia, serif; --hand:"Petit Formal Script", cursive; }
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(120% 90% at 50% 0%,#46574b,var(--table) 55%,#2a352f);
+  color:var(--rag);font-family:var(--fell);padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom))}
+main{max-width:560px;margin:0 auto}
+h1{font-family:var(--hand);font-weight:400;font-size:30px;margin:4px 0 2px;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+p{line-height:1.5;margin:6px 0}
+.card{background:rgba(232,224,203,.08);border:1px solid rgba(232,224,203,.18);border-radius:6px;padding:14px;margin:14px 0}
+label{display:block;font-size:15px;margin:0 0 4px}
+input{font:inherit;font-size:17px;width:100%;padding:9px 10px;border-radius:4px;border:1px solid #1e2621;background:var(--rag);color:var(--ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{font:inherit;font-size:16px;min-height:42px;padding:8px 14px;border-radius:4px;border:0;cursor:pointer;background:var(--rag);color:var(--ink)}
+button.red{background:var(--red);color:#fbf6ea} button.blue{background:var(--blue);color:#fbf6ea}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.code{font-family:var(--hand);font-size:34px;letter-spacing:.06em;color:#fbf6ea;text-shadow:0 2px 6px rgba(0,0,0,.7)}
+.status{font-style:italic;color:#cfc7b0;min-height:1.5em}
+.err{color:#ffb4a8}
+.who{display:flex;gap:14px;flex-wrap:wrap;font-size:16px}
+.who span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#777;vertical-align:1px}
+.who span.on::before{background:#7fd08a;box-shadow:0 0 6px #7fd08a}
+.board{position:relative;display:grid;grid-template-columns:repeat(10,1fr);aspect-ratio:10/6;margin-top:10px;
+  border:2px solid #1d241f;background:#6d7b3a;box-shadow:0 10px 24px rgba(0,0,0,.45)}
+.board div{border:1px solid rgba(0,0,0,.12);cursor:pointer}
+.piece{position:absolute;width:10%;height:16.666%;display:grid;place-items:center;pointer-events:none;
+  transition:left .9s cubic-bezier(.3,.6,.3,1), top .9s cubic-bezier(.3,.6,.3,1)}
+.piece i{width:62%;height:62%;border-radius:50%;border:2px solid #fbf6ea;box-shadow:0 3px 6px rgba(0,0,0,.5)}
+.piece.red i{background:var(--red)} .piece.blue i{background:var(--blue)}
+.piece.mine i{outline:2px solid var(--gold);outline-offset:2px}
+.log{font-size:14px;color:#cfc7b0;max-height:140px;overflow:auto;margin-top:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>Online test</h1>
+  <p>Proves the live connection before it goes into the game. Open this on two devices, or in a normal window and a private window on one computer.</p>
+
+  <section class="card" id="start">
+    <label for="name">Your name</label>
+    <input id="name" autocomplete="nickname" maxlength="40" placeholder="e.g. Matthew">
+    <div class="row">
+      <button class="red"  data-create="red">New game as Britain</button>
+      <button class="blue" data-create="blue">New game as France</button>
+    </div>
+    <label for="code" style="margin-top:14px">Or join with a code</label>
+    <div class="row" style="margin-top:0">
+      <input id="code" maxlength="6" placeholder="K7QX2P" style="flex:1;text-transform:uppercase;min-width:9ch">
+      <button id="joinBtn">Join</button>
+    </div>
+  </section>
+
+  <section class="card hidden" id="game">
+    <div>Game code</div>
+    <div class="code" id="gameCode"></div>
+    <div class="row" style="margin-top:4px"><button id="shareBtn">Send invite link</button></div>
+    <div class="who" style="margin-top:12px"><span id="whoRed">Britain</span><span id="whoBlue">France</span></div>
+    <p>Tap a square to move your piece (gold ring). It should glide on the other screen too.</p>
+    <div class="board" id="board"></div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <p class="status" id="status" aria-live="polite"></p>
+</main>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './js/online-config.js';
+
+const VERSION = 'online-test-1';
+const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const $ = id => document.getElementById(id);
+const status = (t, bad) => { $('status').textContent = t; $('status').className = 'status' + (bad ? ' err' : ''); };
+const log = t => { const d = document.createElement('div'); d.textContent = `${new Date().toLocaleTimeString()}  ${t}`; $('log').prepend(d); };
+
+let me = null, match = null, channel = null;
+const pieces = { red: { x: 1, y: 2 }, blue: { x: 8, y: 3 } };
+const sideOf = () => match && (match.red_player === me.id ? 'red' : 'blue');
+
+$('name').value = localStorage.getItem('fc-name') || '';
+
+async function signIn(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){ me = session.user; return; }
+  const { data, error } = await sb.auth.signInAnonymously();
+  if(error) throw new Error(/anonymous/i.test(error.message)
+    ? 'Guest sign-in is switched off in Supabase (Authentication, Sign In / Providers, Allow anonymous sign-ins).'
+    : error.message);
+  me = data.user;
+}
+
+function drawBoard(){
+  const b = $('board');
+  if(!b.children.length){
+    for(let y = 0; y < 6; y++) for(let x = 0; x < 10; x++){
+      const c = document.createElement('div'); c.dataset.x = x; c.dataset.y = y; b.appendChild(c);
+    }
+    for(const s of ['red', 'blue']){
+      const p = document.createElement('div'); p.className = `piece ${s}`; p.id = `p-${s}`; p.innerHTML = '<i></i>'; b.appendChild(p);
+    }
+  }
+  for(const s of ['red', 'blue']){
+    const p = $(`p-${s}`);
+    p.style.left = `${pieces[s].x * 10}%`; p.style.top = `${pieces[s].y * 16.666}%`;
+    p.classList.toggle('mine', s === sideOf());
+  }
+}
+
+async function enter(m){
+  match = m;
+  if(m.state && m.state.pieces) Object.assign(pieces, m.state.pieces);   // resume where it was
+  $('start').classList.add('hidden'); $('game').classList.remove('hidden');
+  $('gameCode').textContent = m.code;
+  history.replaceState(null, '', `?join=${m.code}`);
+  drawBoard();
+  await sb.realtime.setAuth();                       // private channels need the signed-in token
+  channel = sb.channel(`match:${m.id}`, { config: { private: true, broadcast: { self: false }, presence: { key: me.id } } });
+  channel
+    .on('broadcast', { event: 'move' }, ({ payload }) => {
+      pieces[payload.side] = { x: payload.x, y: payload.y };
+      drawBoard();
+      channel.send({ type: 'broadcast', event: 'ack', payload: { t: payload.t, to: payload.from } });
+      log(`${payload.name} moved to (${payload.x},${payload.y})`);
+    })
+    .on('broadcast', { event: 'ack' }, ({ payload }) => {
+      if(payload.to === me.id) log(`their screen showed it ${Date.now() - payload.t} ms after you tapped (there and back)`);
+    })
+    .on('presence', { event: 'sync' }, () => {
+      const online = Object.values(channel.presenceState()).flat();
+      for(const s of ['red', 'blue']){
+        const here = online.find(p => p.side === s);
+        const el = $(s === 'red' ? 'whoRed' : 'whoBlue');
+        el.classList.toggle('on', !!here);
+        el.textContent = `${s === 'red' ? 'Britain' : 'France'}: ${here ? here.name + ' is here' : (m[s + '_name'] || 'waiting') + (here ? '' : ' (not here)')}`;
+      }
+    })
+    .subscribe(async (st, err) => {
+      if(st === 'SUBSCRIBED'){
+        status('Connected. Waiting for your opponent.');
+        await channel.track({ name: localStorage.getItem('fc-name') || 'Player', side: sideOf() });
+      } else if(st === 'CHANNEL_ERROR' || st === 'TIMED_OUT'){
+        status(`Live connection problem: ${st}${err ? ' (' + err.message + ')' : ''}`, true);
+      }
+    });
+}
+
+$('board').addEventListener('click', async e => {
+  const c = e.target.closest('[data-x]'); if(!c || !channel) return;
+  const side = sideOf();
+  pieces[side] = { x: +c.dataset.x, y: +c.dataset.y };
+  drawBoard();
+  channel.send({ type: 'broadcast', event: 'move',
+    payload: { side, x: pieces[side].x, y: pieces[side].y, t: Date.now(), from: me.id, name: localStorage.getItem('fc-name') || 'Player' } });
+  /* Saved as well as sent, so either phone can close and come back to the same position. */
+  await sb.from('matches').update({ state: { pieces }, seq: (match.seq = (match.seq || 0) + 1) }).eq('id', match.id);
+});
+
+function needName(){
+  const n = $('name').value.trim();
+  if(!n){ status('Put your name in first.', true); $('name').focus(); return null; }
+  localStorage.setItem('fc-name', n); return n;
+}
+
+document.querySelectorAll('[data-create]').forEach(b => b.addEventListener('click', async () => {
+  const name = needName(); if(!name) return;
+  try {
+    status('Signing in...'); await signIn();
+    status('Creating the game...');
+    const { data, error } = await sb.rpc('create_match', { p_side: b.dataset.create, p_name: name, p_version: VERSION });
+    if(error) throw error;
+    await enter(data);
+  } catch(e){ status(e.message, true); }
+}));
+
+async function join(code){
+  const name = needName(); if(!name) return;
+  try {
+    status('Signing in...'); await signIn();
+    status('Joining...');
+    const { data, error } = await sb.rpc('join_match', { p_code: code, p_name: name, p_version: VERSION });
+    if(error) throw error;
+    await enter(data);
+  } catch(e){ status(e.message, true); }
+}
+$('joinBtn').addEventListener('click', () => join($('code').value));
+
+$('shareBtn').addEventListener('click', async () => {
+  const url = `${location.origin}${location.pathname}?join=${match.code}`;
+  if(navigator.share){ try { await navigator.share({ title: 'Field Command', text: 'Join my game', url }); return; } catch {} }
+  await navigator.clipboard.writeText(url); status('Invite link copied.');
+});
+
+const joinCode = new URLSearchParams(location.search).get('join');
+if(joinCode){ $('code').value = joinCode; if($('name').value.trim()) join(joinCode); else status('Put your name in, then press Join.'); }
+</script>
+</body>
+</html>
