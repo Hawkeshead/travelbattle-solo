@@ -118,6 +118,43 @@
   #topBar button.primary:disabled{ filter:saturate(0.45) brightness(0.7);opacity:0.7; }
 
   #boardWrap{flex:1;display:flex;align-items:center;justify-content:center;background:var(--map-bg);overflow:hidden;position:relative;padding:8px;}
+
+  /* THE TOP BAR IS RETIRED (27 Sep). Its brigade-health pips were a constant
+     reminder nobody needed, its turn badge now lives under the phase seal, and
+     its End buttons moved to the seal. The bar stays in the markup, hidden,
+     because updateHeader still writes to it; nothing is lost by hiding it, and
+     its height goes to the board. */
+  #topBar{ display:none !important; }
+
+  /* The dials and seal get their own strip at the right whenever that costs the
+     board nothing, i.e. when the board is limited by height and there is width
+     to spare (a phone on its side, a wide monitor). Where width is what limits
+     the board (a laptop), the strip would shrink every square, so it is not
+     used. computeCellSize decides and sets the class. */
+  #boardWrap.hud-gutter{ padding:6px 80px 6px 8px; }
+
+  /* THE PHASE SEAL. A wax seal in the colour of the side whose turn it is, so it
+     carries the turn as well as the button; the side is named beneath it. */
+  #phaseDock{ display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:8px; }
+  #phaseDock button.seal{
+    width:62px;height:62px;border-radius:50%;padding:6px 5px;
+    font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.05em;line-height:1.15;
+    text-align:center;white-space:normal;color:#F6E7C8;border:1px solid rgba(0,0,0,.55);
+    background:var(--side,#7A2024);
+    background:radial-gradient(circle at 38% 30%, color-mix(in srgb, var(--side,#7A2024) 72%, white) 0%,
+      var(--side,#7A2024) 50%, color-mix(in srgb, var(--side,#7A2024) 55%, black) 100%);
+    text-shadow:0 -1px 1px rgba(0,0,0,.8);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--side,#7A2024) 70%, black), inset 0 1px 4px rgba(255,255,255,.18),
+      inset 0 -4px 9px rgba(0,0,0,.55), 0 5px 12px rgba(0,0,0,.6);
+    transition:transform .12s cubic-bezier(.34,1.5,.5,1), filter .15s;
+  }
+  #phaseDock button.seal:hover:not(:disabled){ filter:brightness(1.12); }
+  #phaseDock button.seal:active:not(:disabled){ transform:scale(.94); }
+  #phaseDock button.seal:disabled{ filter:saturate(.35) brightness(.75);opacity:.8;cursor:default; }
+  #phaseDock button.seal:focus-visible{ outline:2px solid #f3e8cc;outline-offset:3px; }
+  #phaseSide{ font-family:'Cinzel',serif;font-weight:700;font-size:9px;letter-spacing:.08em;color:#f3e8cc;
+    background:rgba(20,24,20,.72);padding:1px 8px;border-radius:8px;white-space:nowrap; }
+  #phaseSide:empty{ display:none; }
   /* touch-action:none keeps the browser's own page-pinch-zoom/scroll from firing when a
      gesture starts on the board — map-zoom.js (in render-board.js) handles pinch/pan itself,
      scoped to just this element, so the rest of the page still pinch-zooms normally. */
@@ -130,7 +167,7 @@
   }
   /* Brass dials. Same positions and functions as before — instrument bezels
      rather than grey circles. */
-  #hudIcons button{
+  #hudIcons > button{
     position:relative;
     width:40px;height:40px;border-radius:50%;font-size:18px;padding:0;
     display:flex;align-items:center;justify-content:center;
@@ -143,14 +180,14 @@
   }
   /* Inner bezel ring. position:relative on the button is load-bearing here —
      without it these anchor to #hudIcons and stretch across all three. */
-  #hudIcons button::after{
+  #hudIcons > button::after{
     content:"";position:absolute;inset:5px;border-radius:50%;pointer-events:none;
     border:1px solid rgba(62,47,17,0.45);
     box-shadow:inset 0 1px 0 rgba(255,244,206,0.4);
   }
-  #hudIcons button:hover:not(:disabled){ filter:brightness(1.09); }
-  #hudIcons button:active:not(:disabled){ transform:scale(0.93); }
-  #hudIcons button:disabled{ filter:saturate(0.4) brightness(0.72);opacity:0.75; }
+  #hudIcons > button:hover:not(:disabled){ filter:brightness(1.09); }
+  #hudIcons > button:active:not(:disabled){ transform:scale(0.93); }
+  #hudIcons > button:disabled{ filter:saturate(0.4) brightness(0.72);opacity:0.75; }
 
   /* Deploy-only persistent sidebar */
   #sidebar{
@@ -941,7 +978,7 @@
     #turnBadge{font-size:10px;padding:3px 6px;}
     #brigadeStatus{font-size:9px;}
     #sidebar{width:210px;}
-    #hudIcons button{width:32px;height:32px;font-size:15px;}
+    #hudIcons > button{width:32px;height:32px;font-size:15px;}
     #armyPickerCardBody{padding:6px 9px 2px;}
     .apLabel{font-size:8.5px;}
     #armyPickerName{font-size:12px;margin-top:0;}
@@ -988,9 +1025,6 @@
     <div id="turnBadge">&mdash;</div>
     <div id="brigadeStatus"></div>
     <div id="topBarSpacer"></div>
-    <button id="endMoveBtn" class="primary" disabled>End Move</button>
-    <button id="endFireBtn" class="primary" style="display:none;">End Artillery</button>
-    <button id="endFightBtn" class="primary" style="display:none;">End Fight</button>
   </div>
 
   <main>
@@ -1015,6 +1049,14 @@
       <button id="undoBtnBattle" title="Undo" disabled>&#8634;</button>
       <button id="resetViewBtn" title="Reset View">&#9974;</button>
       <button id="logIconBtn" title="Field Report">&#9776;</button>
+      <!-- The phase seal: End Move / End Artillery / End Fight, moved here from
+           the retired top bar. Coloured for the side acting, named beneath. -->
+      <div id="phaseDock">
+        <button id="endMoveBtn" class="primary seal" disabled>End Move</button>
+        <button id="endFireBtn" class="primary seal" style="display:none;">End Artillery</button>
+        <button id="endFightBtn" class="primary seal" style="display:none;">End Fight</button>
+        <div id="phaseSide"></div>
+      </div>
     </div>
 
     <div id="sidebar">

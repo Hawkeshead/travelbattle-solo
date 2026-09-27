@@ -115,6 +115,18 @@ export function startBattle(){
 }
 
 export function updateHeader(){
+  /* The phase seal carries the turn now that the top bar is gone: it takes the
+     acting side's colour and names the side beneath, in battle phases only. */
+  const dock = document.getElementById('phaseDock');
+  if(dock){
+    const battle = state.phase==='move' || state.phase==='fire' || state.phase==='fight';
+    dock.style.display = battle ? '' : 'none';
+    if(battle && state.turn){
+      dock.style.setProperty('--side', SIDE_COLOR[state.turn]);
+      const lab = document.getElementById('phaseSide');
+      if(lab) lab.textContent = SIDE_LABEL[state.turn];
+    }
+  }
   const badge = document.getElementById('turnBadge');
   const sideName = SIDE_LABEL[state.phase==='deploy' ? state.deployTurn : state.turn].split(' ')[0];
   if(state.phase==='deploy'){

@@ -418,7 +418,7 @@ function updatePill(note){
   let pill = document.getElementById('onlinePill');
   if(!pill){
     pill = document.createElement('div'); pill.id = 'onlinePill';
-    pill.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 42px);left:50%;transform:translateX(-50%);z-index:28;' +
+    pill.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);z-index:28;' +
       'font:14px "IM Fell English",Georgia,serif;color:#fbf6ea;background:rgba(20,24,20,.72);padding:4px 12px;border-radius:14px;' +
       'pointer-events:none;white-space:nowrap';
     document.body.appendChild(pill);

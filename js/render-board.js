@@ -790,14 +790,36 @@ export function cellFromClient(clientX, clientY){
   return { x, screenY };
 }
 
+/* The board takes all the room it is given. It used to subtract a fixed 16px
+   for padding and stop growing at 68px a square; it now reads the wrap's real
+   padding (which, in landscape, includes the strip kept clear for the dials and
+   the phase seal) and allows squares up to 112px, so a large screen gets a
+   large board. The tile art is drawn at 323px wide, so 112 is still a
+   downscale and stays crisp. */
+export const MAX_CELL = 112;
+const HUD_GUTTER = 72;   // the extra right padding .hud-gutter adds, over the plain 8px
 export function computeCellSize(){
   const wrap = document.getElementById('boardWrap');
+  /* Measured without the gutter first, so the decision below is made against
+     the plain layout rather than whatever the last call chose. */
+  wrap.classList.remove('hud-gutter');
+  const cs = getComputedStyle(wrap);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
   const viewportW = document.documentElement.clientWidth || window.innerWidth;
-  const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - 16);
-  const availH = Math.max(200, wrap.clientHeight - 16);
+  const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - padX);
+  const availH = Math.max(200, wrap.clientHeight - padY);
+  const byHeight = Math.min(Math.floor(availH / ROWS), MAX_CELL);
   const byWidth = Math.floor(availW / COLS);
-  const byHeight = Math.floor(availH / ROWS);
-  return Math.max(22, Math.min(byWidth, byHeight, 68));
+  /* Keep the strip for the dials and seal only if the board is no smaller for
+     it. Otherwise the board uses the full width and the dials sit over its
+     right-hand edge, as they always did. */
+  const byWidthWithGutter = Math.floor((availW - HUD_GUTTER) / COLS);
+  if(byWidthWithGutter >= byHeight){
+    wrap.classList.add('hud-gutter');
+    return Math.max(22, byHeight);
+  }
+  return Math.max(22, Math.min(byWidth, byHeight));
 }
 
 /* The board is sized from boardWrap's measured box, so it has to be measured
