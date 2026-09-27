@@ -694,6 +694,22 @@ function attachArmyPickerSwipe(){
   }, { passive: true });
 }
 
+/* Online: the guest's phone shows the same picker for its own side, but the
+   choice is sent back to the host's phone to be placed, so "Deploy This Army"
+   reports the army instead of deploying it, and manual placement is hidden
+   (it would need every placement sent across; not yet built). */
+export function showArmyPickerFor(side, onChosen){
+  showArmyPicker(side);
+  const manual = document.getElementById('armyPickerManualBtn');
+  manual.style.display = 'none';
+  document.getElementById('armyPickerDeployBtn').onclick = ()=>{
+    const army = TB_DATA.armyCompositions[armyPickerState.index];
+    closeArmyPicker();
+    manual.style.display = '';
+    onChosen(army);
+  };
+}
+
 function showArmyPicker(side){
   armyPickerState = { side, index: 0, viewingMap: false };
   document.getElementById('sidebar').style.display = 'none';

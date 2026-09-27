@@ -26,17 +26,24 @@
    and deploying your own army on your own phone comes next.
 ========================================================= */
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
-import { setOnlineSession, onlineSession } from './online-session.js';
+import { setOnlineSession, onlineSession, setRemoteDeployHandler } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
 import { animateUnitTo, draw, sizeCanvas } from './render-board.js';
 import { playMovementAudio } from './engine-rules.js';
 import { playTurnTheme, selectUnit, updateHeader } from './ui-battle.js';
-import { syncPhaseButtons } from './engine-state.js';
+import { log, syncPhaseButtons } from './engine-state.js';
 import { endGame } from './engine-objectives.js';
+import { deployArmyComposition } from './ai-deployment.js';
+import { maybeShowArmyPicker, showArmyPickerFor } from './ui-menus.js';
 
 export const ONLINE_VERSION = 'fc-online-1';
 const SEND_EVERY_MS = 250;
 const SAVE_EVERY_MS = 3000;
+/* Only a battle under way is shared. Before that the host is still choosing the
+   board's orientation or deploying, there is no side to move yet, and an early
+   copy crashed the guest's header on a turn that did not exist. Deployment is
+   handed across separately (deployRequest). */
+const BATTLE_PHASES = new Set(['move', 'fire', 'fight']);
 
 /* Keys never sent: the match log and AI caches are bulky and only matter on the
    phone that made them, and the rest are this phone's own view of the match. */
@@ -142,7 +149,7 @@ function startSync(){
   if(sendTimer) return;
   sendTimer = setInterval(() => {
     const s = onlineSession(); if(!s) return;
-    if(!state.phase || state.phase === 'deploy') return;   // nothing to share until the battle begins
+    if(!BATTLE_PHASES.has(state.phase)) return;   // nothing to share until the battle begins
     const now = pack();
     if(now === lastShared) return;
     lastShared = now; seq += 1;
@@ -163,7 +170,7 @@ function startSync(){
 function applyBattle(json, incomingSeq){
   if(incomingSeq != null && incomingSeq <= seq && lastShared) return;   // stale or already applied
   const incoming = unpack(json);
-  if(incoming.phase === 'deploy') return;                                // the host is still setting up
+  if(!BATTLE_PHASES.has(incoming.phase)) return;                          // the host is still setting up
   const s = onlineSession();
 
   /* Walk every unit that moved to its new square before adopting the battle,
@@ -221,12 +228,72 @@ function refreshUi(){
   updatePill();
 }
 
+/* ---------------------------------------------------------
+   Deployment: each player chooses their own army.
+   The host's phone runs deployment. When it reaches the guest's side, where it
+   would normally let the AI choose, it asks the guest's phone instead and
+   keeps asking every few seconds until the answer arrives (the guest may still
+   be connecting). The guest sees the board as deployed so far and the same
+   six armies; their choice is placed on the host's phone exactly as if chosen
+   there, and deployment carries on.
+--------------------------------------------------------- */
+let pendingDeploy = null, deployRetry = null, pickerOpen = false, armySent = false;
+
+function askGuestToDeploy(side){
+  pendingDeploy = side;
+  const ask = () => { if(pendingDeploy) T.send({ type: 'deployRequest', side: pendingDeploy, battle: pack() }); };
+  ask();
+  clearInterval(deployRetry);
+  deployRetry = setInterval(ask, 3000);
+  updatePill();
+}
+
+function onArmyChosen(p){
+  if(!pendingDeploy || p.side !== pendingDeploy) return;
+  pendingDeploy = null; clearInterval(deployRetry);
+  deployArmyComposition(p.side, p.armyId);
+  log(`${SIDE_LABEL[p.side]} deploys as ${p.armyName}.`, 'system');   // as the picker logs the host's own choice
+  /* Placing a whole army suppresses the picker while it works, so the other
+     side's picker cannot flash open mid-placement, and nothing reopens it
+     afterwards. When the guest deploys first that left the host with no way
+     to choose: offer it now if it is the host's turn and they have not. */
+  maybeShowArmyPicker();
+  const s = onlineSession();
+  const who = s.names[p.side] || 'Your opponent';
+  updatePill(`${who} deployed as ${p.armyName}`);
+}
+
+function onDeployRequest(p){
+  const s = onlineSession();
+  if(p.side !== s.mySide || pickerOpen || armySent) return;
+  const incoming = unpack(p.battle);
+  for(const k of Object.keys(incoming)) state[k] = incoming[k];
+  state.mode = 'ai'; state.aiSide = s.remoteSide; state.spectate = false;
+  closeLobby();
+  document.getElementById('overlay').classList.remove('show');
+  sizeCanvas(); draw();
+  pickerOpen = true;
+  showArmyPickerFor(s.mySide, army => {
+    pickerOpen = false; armySent = true;
+    document.getElementById('sidebar').style.display = 'none';
+    document.getElementById('rosterPanel').style.display = 'none';
+    T.send({ type: 'armyChosen', side: s.mySide, armyId: army.id, armyName: army.name });
+    lobbyShell(`<div style="font-family:'Petit Formal Script',cursive;font-size:24px">${esc(army.name)}</div>
+      <p style="margin:8px 0 0">Army chosen. The battle appears here the moment ${esc(s.names[s.remoteSide] || 'your opponent')} starts it.</p>`);
+  });
+}
+
 function onMessage(p){
   if(p.type === 'state') applyBattle(p.battle, p.seq);
+  else if(p.type === 'deployRequest') onDeployRequest(p);
+  else if(p.type === 'armyChosen') onArmyChosen(p);
+  else if(p.type === 'hello' && pendingDeploy){
+    T.send({ type: 'deployRequest', side: pendingDeploy, battle: pack() });
+  }
   else if(p.type === 'hello'){
     /* The other phone has just connected or come back: hand it the battle as
        it stands, if there is one to hand over. */
-    if(state.phase && state.phase !== 'deploy' && state.units && state.units.length){
+    if(BATTLE_PHASES.has(state.phase) && state.units && state.units.length){
       lastShared = pack(); T.send({ type: 'state', seq, battle: lastShared });
     }
   }
@@ -238,7 +305,9 @@ function onMessage(p){
 let present = [];
 function onPresence(list){ present = list; updatePill(); updateLobby(); }
 
-function updatePill(){
+let pillNote = '';
+function updatePill(note){
+  if(note !== undefined) pillNote = note;
   const s = onlineSession(); if(!s) return;
   let pill = document.getElementById('onlinePill');
   if(!pill){
@@ -250,7 +319,8 @@ function updatePill(){
   }
   const them = present.find(p => p && p.side === s.remoteSide);
   const name = s.names[s.remoteSide] || (them && them.name) || 'Opponent';
-  const whose = !inBattle ? '' : (state.turn === s.mySide ? ' · Your turn' : ` · ${name}'s turn`);
+  const whose = pendingDeploy ? ` · ${name} is choosing an army` : pillNote && !inBattle ? ` · ${pillNote}`
+    : !inBattle ? '' : (state.turn === s.mySide ? ' · Your turn' : ` · ${name}'s turn`);
   pill.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;` +
     `background:${them ? '#7fd08a' : '#888'}"></span>${them ? `${esc(name)} is here` : `${esc(name)} is not connected`}${whose}`;
 }
@@ -273,10 +343,24 @@ function lobbyShell(inner){
 const btn = (label, attrs = '', bg = '#2a1e14', fg = '#fbf6ea') =>
   `<button ${attrs} style="font:inherit;min-height:42px;padding:8px 14px;border:0;border-radius:4px;cursor:pointer;background:${bg};color:${fg}">${label}</button>`;
 
+/* An iPhone opens every link in Safari, never in the home-screen app, and the
+   app and Safari keep separate storage, so they count as different players.
+   The code is therefore the main way in, and a phone that has opened an invite
+   in the browser is told how to use it in the app instead. */
+const inBrowserOnPhone = () => /iPhone|iPad|Android/i.test(navigator.userAgent)
+  && !(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) && !navigator.standalone;
+
 export function openLobby({ joinCode } = {}){
   const name = localStorage.getItem('fc-name') || '';
+  const last = localStorage.getItem('fc-last-code') || '';
+  const appHint = joinCode && inBrowserOnPhone()
+    ? `<div style="background:#f6efd9;border-left:4px solid #5b6b3a;padding:8px 10px;margin:0 0 12px;font-size:15px">
+         Playing from the Field Command app on your home screen? Open it, tap <b>Play Online</b> and enter
+         <b style="letter-spacing:.06em">${esc(joinCode.toUpperCase())}</b>. Or carry on here in the browser.</div>` : '';
   const el = lobbyShell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px;margin-bottom:6px">Play online</div>
+    ${appHint}
+    ${last && !joinCode ? `<div style="margin:0 0 10px">${btn(`Rejoin game ${esc(last)}`, 'id="olRejoin"', '#5b6b3a')}</div>` : ''}
     <label style="display:block;margin:4px 0">Your name</label>
     <input id="olName" value="${esc(name)}" maxlength="40" style="font:inherit;width:100%;padding:8px;border:1px solid #9a8b6c;border-radius:4px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -306,6 +390,8 @@ export function openLobby({ joinCode } = {}){
     catch(e){ status(friendly(e), true); }
   };
   el.querySelector('#olJoin').onclick = doJoin;
+  const rejoin = el.querySelector('#olRejoin');
+  if(rejoin) rejoin.onclick = () => { el.querySelector('#olCode').value = last; doJoin(); };
   if(joinCode && name) doJoin();
 }
 
@@ -330,6 +416,7 @@ async function start(match, myName, createdHere){
   const mySide = match.red_player === me ? SIDES.RED : SIDES.BLUE;
   const remoteSide = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
   const isHost = match.created_by ? match.created_by === me : createdHere;
+  localStorage.setItem('fc-last-code', match.code);
   setOnlineSession({ matchId: match.id, code: match.code, mySide, remoteSide, isHost,
     names: { red: match.red_name, blue: match.blue_name, [mySide]: myName } });
   history.replaceState(null, '', `${location.pathname}?join=${match.code}${location.search.includes('onlineTransport=local') ? '&onlineTransport=local' : ''}`);
@@ -342,6 +429,7 @@ async function start(match, myName, createdHere){
   const saved = (await T.load(match.id)) || match;
   if(saved && saved.state && saved.state.battle) applyBattle(saved.state.battle, saved.state.seq || 0);
 
+  setRemoteDeployHandler(askGuestToDeploy);
   startSync();
   if(!inBattle) waitingRoom();
   updatePill();
@@ -352,6 +440,7 @@ function waitingRoom(){
   const url = `${location.origin}${location.pathname}?join=${s.code}`;
   const el = lobbyShell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(s.code)}</div>
+    <p style="margin:2px 0 6px;font-size:14px">Your opponent enters this code under <b>Play Online</b>, or taps your invite.</p>
     <p style="margin:6px 0">You are <b>${SIDE_LABEL[s.mySide]}</b>.</p>
     <p id="olWho" style="margin:6px 0;font-style:italic"></p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -359,11 +448,12 @@ function waitingRoom(){
       ${s.isHost ? btn('Set up the battle', 'id="olStart"', '#5b6b3a') : ''}
     </div>
     <p style="margin:12px 0 0;font-size:14px">${s.isHost
-      ? 'You set up the battle: choose your army when asked, and your opponent\'s is chosen for them. They see it the moment it is ready.'
-      : 'Your opponent is setting up the battle. It will appear here the moment it is ready.'}</p>`);
+      ? 'You set up the battle. You each choose your own army when your turn to deploy comes; your opponent chooses on their phone.'
+      : 'Your opponent is setting up the battle. When it is your turn to deploy, the armies appear here for you to choose from.'}</p>`);
   el.querySelector('#olShare').onclick = async () => {
-    if(navigator.share){ try { await navigator.share({ title: 'Field Command', text: 'Join my battle', url }); return; } catch {} }
-    try { await navigator.clipboard.writeText(url); el.querySelector('#olWho').textContent = 'Invite link copied.'; } catch {}
+    const text = `Join my Field Command battle. Code: ${s.code}\n\nIn the Field Command app, tap Play Online and enter the code. Or open this link:`;
+    if(navigator.share){ try { await navigator.share({ title: 'Field Command', text, url }); return; } catch {} }
+    try { await navigator.clipboard.writeText(`${text} ${url}`); el.querySelector('#olWho').textContent = 'Invite copied.'; } catch {}
   };
   const startBtn = el.querySelector('#olStart');
   if(startBtn) startBtn.onclick = async () => {

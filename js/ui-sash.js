@@ -1,34 +1,33 @@
 /* =========================================================
-   THE SASH
+   THE FAN (was the sash)
 
-   Selecting a unit writes its name under it on the board, in a white
-   copperplate hand, with its orders in a row beneath: Form square, Lay ambush,
-   Charge, and History. No panel, no plate, nothing drawn behind the words: a
-   layered dark shadow does the work, so the ground shows through. Chosen from
-   the command-ribbon studies on ui-lab.html.
+   Selecting a unit writes its name beside it on the board in a white
+   copperplate hand, with its orders as small paper slips splayed on a slight
+   arc beneath the name: Form square, Lay ambush, Charge. Only orders the unit
+   can actually give right now appear; a unit with none shows just its name.
+   The fan opens away from the nearer side of the board, so it never falls off
+   the map. Chosen from the command-ribbon studies on ui-lab.html (the "Fan"
+   style), in the sash's font.
+
+   History and the particulars slip were removed at Matthew's request, to keep
+   the board to gameplay only; the unit archive is untouched and can return.
 
    IT DOES NOT REIMPLEMENT ANY RULE. The old panel's buttons (squareBtn,
    ambushBtn, chargeBtn) are still in the page, hidden, and still owned by
    ui-battle exactly as before: it decides whether each is shown, enabled and
-   what it says. The sash mirrors them every frame and presses the real button
-   when an order is chosen. So anything that already governs when a unit may
-   form square or charge governs the sash too, with no second copy to drift.
+   what it says. The fan mirrors them every frame and presses the real button,
+   so whatever governs when a unit may form square or charge governs the fan.
 
-   History opens a small slip under the orders with the unit's particulars
-   (arm, side, how far it moves, its re-roll, its current state) and its
-   regimental history. That is where the rest of the old panel's content lives.
-
-   Positioned from the board canvas's on-screen box, which already includes any
-   zoom and pan, so the lettering stays one size whatever the zoom, rather than
-   shrinking with the board on a phone. It follows the unit's DRAWN position, so
-   it rides along while the unit walks.
+   Positioned from the board canvas's on-screen box, which includes zoom and
+   pan, so the lettering stays one size at any zoom, and following the unit's
+   DRAWN position so it rides along while the unit walks.
 ========================================================= */
-import { COLS, ROWS, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { COLS, ROWS, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { canvas, getUnitVisualPos, sy } from './render-board.js';
 
 export const SASH_UI = true;
 
-let root = null, current = null, slipOpen = false, raf = null;
+let root = null, current = null, raf = null;
 
 const ORDER_BUTTONS = ['squareBtn', 'ambushBtn', 'chargeBtn'];
 
@@ -37,16 +36,14 @@ function ensure(){
   root = document.createElement('div');
   root.id = 'unitSash';
   root.setAttribute('role', 'group');
-  root.innerHTML = '<div class="sash-name"></div><div class="sash-orders"></div><div class="sash-slip" hidden></div>';
+  root.innerHTML = '<div class="sash-name"></div><div class="sash-orders"></div>';
   document.body.appendChild(root);
   document.body.classList.add('sash-ui');
   root.addEventListener('click', e => {
     const btn = e.target.closest('[data-order]');
     if(!btn) return;
     e.stopPropagation();
-    const id = btn.dataset.order;
-    if(id === 'history'){ slipOpen = !slipOpen; paint(true); return; }
-    const real = document.getElementById(id);
+    const real = document.getElementById(btn.dataset.order);
     if(real && !real.disabled) real.click();
     paint(true);
   });
@@ -54,22 +51,6 @@ function ensure(){
 }
 
 function sentence(s){ return String(s || '').replace(/\s+/g, ' ').trim().replace(/^(.)(.*)$/, (m, a, b) => a.toUpperCase() + b.toLowerCase()); }
-
-/* First letter only: sentence-casing the whole line lowercased "Britain". */
-function capitalise(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
-
-function particulars(u){
-  const t = UNIT_TYPES[u.type];
-  const bits = [`${t.label}, ${SIDE_LABEL[u.side]}`, `moves ${t.move}`];
-  if(t.reroll) bits.push('re-roll');
-  if(u.formation === 'square') bits.push('in square');
-  if(u.hidden) bits.push('in ambush');
-  if(u.turnOnly) bits.push('turning around');
-  if(u.rallying) bits.push('rallying');
-  if(u.charged) bits.push('has charged');
-  return bits.join(', ');
-}
-
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
 
 /* Rebuilds the words only when they change, so a unit that is simply walking
@@ -84,50 +65,44 @@ function paint(force){
     if(!b || b.style.display === 'none' || b.disabled) continue;
     orders.push({ id, label: sentence(b.textContent) });
   }
-  /* Always offered: the particulars that used to sit in the panel live in the
-     slip, so every unit has something there even without a regimental history. */
-  orders.push({ id: 'history', label: 'History' });
-  const key = [u.id, u.formation, u.hidden, u.turnOnly, u.rallying, u.charged, slipOpen,
-               ...orders.map(o => o.label)].join('|');
+  const opensLeft = openLeft(u);
+  const key = [u.id, opensLeft, ...orders.map(o => o.label)].join('|');
   if(force || key !== lastKey){
     lastKey = key;
+    root.style.setProperty('--side', SIDE_COLOR[u.side]);
+    root.classList.toggle('left', opensLeft);
     root.querySelector('.sash-name').textContent = u.historicalName || UNIT_TYPES[u.type].label;
-    root.querySelector('.sash-orders').innerHTML = orders.map(o =>
-      `<button type="button" data-order="${o.id}"${o.id === 'history' ? ` aria-expanded="${slipOpen}"` : ''}>${esc(o.label)}</button>`).join('');
-    const slip = root.querySelector('.sash-slip');
-    slip.hidden = !slipOpen;
-    slip.innerHTML = slipOpen
-      ? `<p class="sash-particulars">${esc(capitalise(particulars(u)))}.</p>${u.historicalBio ? `<p>${esc(u.historicalBio)}</p>` : ''}`
-      : '';
+    const n = orders.length;
+    /* Splayed like a hand of orders: each slip turned a few degrees about the
+       edge nearest the unit, the middle one straight. */
+    root.querySelector('.sash-orders').innerHTML = orders.map((o, i) =>
+      `<button type="button" data-order="${o.id}" style="--r:${((i - (n - 1) / 2) * 6 * (opensLeft ? -1 : 1)).toFixed(1)}deg">${esc(o.label)}</button>`).join('');
   }
-  place();
+  place(opensLeft);
   root.classList.add('show');
 }
 
-/* Under the unit, centred on it; above it instead when the unit is on the
-   bottom row, so the orders never fall off the board. Kept inside the viewport
-   sideways. */
-function place(){
+/* Opens to the right of the unit, or to the left when the unit is in the right
+   half of the board, the same rule the old panel used for its side. */
+function openLeft(u){
+  const vp = getUnitVisualPos(u) || { x: u.x };
+  return vp.x >= COLS / 2;
+}
+
+function place(opensLeft){
   const u = current;
   const rect = canvas.getBoundingClientRect();
   const cw = rect.width / COLS, ch = rect.height / ROWS;
   const vp = getUnitVisualPos(u) || { x: u.x, y: u.y };
   const row = sy(vp.y);
-  const cx = rect.left + (vp.x + 0.5) * cw;
-  const w = root.offsetWidth || 200, h = root.offsetHeight || 60;
+  const w = root.offsetWidth || 160, h = root.offsetHeight || 60;
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
-  const underY = rect.top + (row + 1) * ch - 4, overY = rect.top + row * ch + 4;
-  /* Below by default. Above when below would run off the screen and there is
-     more room above, which is what an open History slip on a low unit needs;
-     the bottom row always goes above. Otherwise clamped onto the screen. */
-  const roomBelow = vh - underY, roomAbove = overY;
-  const below = row < ROWS - 1 && (h <= roomBelow - 6 || roomBelow >= roomAbove);
-  const left = Math.max(6, Math.min(vw - w - 6, cx - w / 2));
-  let top = below ? underY : overY - h;
+  let left = opensLeft ? rect.left + vp.x * cw - w - 2 : rect.left + (vp.x + 1) * cw + 2;
+  let top = rect.top + row * ch - 4;
+  left = Math.max(6, Math.min(vw - w - 6, left));
   top = Math.max(6, Math.min(vh - h - 6, top));
   root.style.left = `${Math.round(left)}px`;
   root.style.top = `${Math.round(top)}px`;
-  root.classList.toggle('above', !below);
 }
 
 function loop(){
@@ -146,8 +121,7 @@ function hide(){
 export function showSash(u){
   if(!SASH_UI) return;
   ensure();
-  if(!u){ current = null; slipOpen = false; hide(); return; }
-  if(!current || current.id !== u.id) slipOpen = false;
+  if(!u){ current = null; hide(); return; }
   current = u;
   paint(true);
   if(!raf) raf = requestAnimationFrame(loop);

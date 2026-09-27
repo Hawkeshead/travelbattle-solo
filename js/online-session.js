@@ -18,3 +18,10 @@ let session = null;
 export function isOnline(){ return !!session; }
 export function onlineSession(){ return session; }
 export function setOnlineSession(s){ session = s; }
+
+/* When the game would hand deployment to the AI for the other player's side,
+   online play asks the other phone instead. online.js registers the handler;
+   ai-deployment calls requestRemoteDeploy rather than choosing for them. */
+let remoteDeployHandler = null;
+export function setRemoteDeployHandler(fn){ remoteDeployHandler = fn; }
+export function requestRemoteDeploy(side){ if(remoteDeployHandler) remoteDeployHandler(side); }
