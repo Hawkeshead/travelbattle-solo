@@ -25,7 +25,10 @@
 import { COLS, ROWS, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { canvas, getUnitVisualPos, sy } from './render-board.js';
 
-export const SASH_UI = true;
+/* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
+   Matthew asked for the profile panel back, tighter. Kept, not deleted, so the
+   fan can be tried again in another position. */
+export const SASH_UI = false;
 
 let root = null, current = null, raf = null;
 

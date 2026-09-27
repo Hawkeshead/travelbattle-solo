@@ -953,6 +953,7 @@ export function renderUnitInfo(u){
   if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; if(overlay) overlay.classList.remove('show'); return; }
   if(overlay && state.phase!=='deploy') overlay.classList.add('show');
   const panelEl = document.getElementById('unitOverlayPanel');
+  if(panelEl) panelEl.style.setProperty('--side', SIDE_COLOR[u.side]);   // frames the portrait in the side's colour
   if(panelEl){
     const inLeftHalf = u.x < COLS/2;
     panelEl.classList.toggle('anchor-right', inLeftHalf);  // unit on the left -> panel on the right
@@ -961,30 +962,35 @@ export function renderUnitInfo(u){
   const t = UNIT_TYPES[u.type];
   const terr = terrainAt(u.x,u.y);
   const heading = u.historicalName || t.label;
-  const subheading = u.historicalName ? t.label : null;
+  /* Arm, side and ground in one quiet line. The grid coordinates and raw
+     terrain key that used to sit here were debugging aids, not information a
+     player acts on. History is off for now, at Matthew's request. */
+  const ground = { OPEN:'Open ground', FIELD:'Fields', PLOUGHED_FIELD:'Ploughed field', ROAD:'Road',
+                   WOODS:'Woods', BUILDING:'Buildings', HILL:'Hill' }[terr.key] || String(terr.key);
+  const sub = [u.historicalName ? t.label : null, SIDE_LABEL[u.side]].filter(Boolean).join(' · ');
   el.innerHTML = `
     <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${heading}</div>
-    <div style="color:var(--ink-dim);font-size:11px;">${SIDE_LABEL[u.side]}${subheading?(' &middot; '+subheading):''} &middot; (${u.x},${u.y}) &middot; ${terr.key}</div>
+    <div class="u-sub">${sub}</div>
     <div class="u-tags">
-      <span class="tag st-active">Move ${t.move}</span>
-      ${t.reroll?'<span class="tag">Re-roll ★</span>':''}
-      ${u.formation==='square'?'<span class="tag st-square">SQUARE</span>':''}
-      ${u.turnOnly?'<span class="tag st-pushed">Turning Around</span>':''}
-      ${u.rallying?'<span class="tag">Rallying</span>':''}
-      ${u.hidden?'<span class="tag st-square">IN AMBUSH</span>':(isConcealedFromEnemy(u)?'<span class="tag">IN COVER (Woods)</span>':'')}
-      ${u.charged?'<span class="tag st-active">CHARGED</span>':''}
+      <span class="tag">Move ${t.move}</span>
+      <span class="tag">${ground}</span>
+      ${t.reroll?'<span class="tag">Re-roll</span>':''}
+      ${u.formation==='square'?'<span class="tag st-square">In square</span>':''}
+      ${u.turnOnly?'<span class="tag st-pushed">Turning around</span>':''}
+      ${u.rallying?'<span class="tag st-pushed">Rallying</span>':''}
+      ${u.hidden?'<span class="tag st-square">In ambush</span>':(isConcealedFromEnemy(u)?'<span class="tag">In cover</span>':'')}
+      ${u.charged?'<span class="tag st-active">Charged</span>':''}
     </div>
-    ${u.historicalBio ? `<div class="bio-toggle" id="bioToggleBtn" onclick="toggleUnitBio()">History ▾</div><div class="bio-text" id="bioText" style="display:none;">${u.historicalBio}</div>` : ''}
   `;
   const portraitEl = document.getElementById('unitPortrait');
   if(portraitEl){
     portraitEl.style.background = `linear-gradient(160deg, ${SIDE_COLOR[u.side]}22, var(--paper-2))`;
     if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
-      portraitEl.innerHTML = `<img src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}" style="width:92%;height:92%;object-fit:cover;object-position:50% 12%;border-radius:6px;border:3px solid ${u.side===SIDES.RED?'#b9c2c9':'#c9a227'};">`;
+      portraitEl.innerHTML = `<img class="u-art" alt="" src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}">`;
     } else if(t.isArtillery){
-      portraitEl.innerHTML = `<img src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}" style="width:80%;height:auto;">`;
+      portraitEl.innerHTML = `<img class="u-art u-gun" alt="" src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}">`;
     } else if(REGIMENT_PORTRAIT_KEY[u.historicalName]){
-      portraitEl.innerHTML = `<img src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}" style="width:92%;height:92%;object-fit:cover;object-position:50% 12%;border-radius:6px;border:3px solid ${SIDE_COLOR[u.side]};">`;
+      portraitEl.innerHTML = `<img class="u-art" alt="" src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}">`;
     } else {
       const glyph = (t.key==='HEAVY_CAV'||t.key==='LIGHT_CAV') ? '\u25B2\u25B2\u25B2' : (t.key==='BRIGADIER' ? '\u2605' : '\u25CF\u25CF\u25CF\u25CF\u25CF');
       portraitEl.innerHTML = `<span style="font-size:26px;letter-spacing:2px;color:${SIDE_COLOR[u.side]};">${glyph}</span>`;

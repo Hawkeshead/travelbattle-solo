@@ -187,51 +187,50 @@
   @media (prefers-reduced-motion:reduce){ #unitSash, #unitSash button{ transition:none; } }
 
   #unitOverlay.hidden{ display:none; }
+  /* THE UNIT CARD. A compact horizontal card rather than a tall column: the
+     regiment's paired portrait on the left framed in its side's colour, name,
+     arm, side and ground beside it, status tags, and the orders in one slim row
+     beneath. It sits in the bottom corner AWAY from the selected unit, so it
+     never covers the squares that unit can move to (the on-board fan did, and
+     was switched off for it). Roughly half the height of the old column. */
   #unitOverlayPanel{
-    position:absolute;bottom:8px;width:252px;max-width:64vw;max-height:min(380px,74%);
-    background:var(--panel);border:2px solid var(--brass-dim);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
-    display:flex;flex-direction:column;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-    pointer-events:none;
-    transform:translateY(12px);opacity:0;transition:transform 0.15s ease-out,opacity 0.15s ease-out,left 0.1s,right 0.1s;
+    position:absolute;bottom:8px;width:300px;max-width:calc(100vw - 16px);
+    background:linear-gradient(180deg,#f0e7ce,#e3d6b2);border:1px solid var(--brass-dim);border-radius:4px;
+    box-shadow:0 8px 22px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.35);
+    display:grid;grid-template-columns:76px minmax(0,1fr);grid-template-areas:"art info" "act act";
+    overflow:hidden;pointer-events:none;
+    transform:translateY(10px);opacity:0;transition:transform 0.15s ease-out,opacity 0.15s ease-out,left 0.1s,right 0.1s;
   }
-  /* Only the panel's actual interactive bits intercept clicks — its background,
-     portrait and info text let taps pass straight through to the board beneath,
-     so it never blocks selecting a DIFFERENT unit that happens to sit under it. */
-  #unitOverlayPanel #actionRow button, #unitOverlayPanel .bio-toggle, #unitOverlayPanel .bio-text{ pointer-events:auto; }
+  /* Only the orders intercept taps; the card's background, portrait and text
+     let taps through to the board, so a unit beneath it can still be selected. */
+  #unitOverlayPanel #actionRow button{ pointer-events:auto; }
   #unitOverlayPanel.anchor-left{ left:8px;right:auto; }
   #unitOverlayPanel.anchor-right{ right:8px;left:auto; }
   #unitOverlay.show #unitOverlayPanel{ transform:translateY(0);opacity:1; }
-  /* The portrait is capped as well as ratio-locked. At 4/3 and full width with
-     flex-shrink:0 it claimed the panel's entire height budget on a landscape
-     phone, leaving the name, stats and buttons to pile into whatever was left
-     and overlap each other. It now yields once space is short, so the text and
-     the action row always get their room. */
   #unitPortrait{
-    width:100%;aspect-ratio:4/3;max-height:44vh;background:var(--paper-2);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:11px;
-    background-size:cover;background-position:center;flex-shrink:1;min-height:0;overflow:hidden;
+    grid-area:art;width:68px;height:84px;margin:8px 0 8px 8px;border-radius:2px;overflow:hidden;
+    background:var(--paper-2);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 2px var(--side,var(--brass-dim)), 0 0 0 3px rgba(255,255,255,.5), 0 3px 8px rgba(0,0,0,.3);
   }
-  #unitPortrait img{ max-height:100%; }
-  /* The text block and the buttons keep their space no matter how short the
-     viewport gets; the portrait is the only thing that gives. */
-  #unitInfo, #actionRow{ flex-shrink:0; }
-  @media (max-height:520px){
-    #unitOverlayPanel{ max-height:88%; }
-    #unitPortrait{ max-height:38vh; }
-  }
+  #unitPortrait .u-art{ width:100%;height:100%;object-fit:cover;object-position:50% 14%;display:block; }
+  #unitPortrait .u-art.u-gun{ object-fit:contain;padding:6px; }
+  #unitInfo{ grid-area:info;padding:7px 10px 6px 12px;min-width:0;font-size:12px;line-height:1.3; }
+  #unitInfo .empty{ color:var(--ink-dim);font-style:italic; }
+  #unitInfo .u-name{ font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;line-height:1.1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  #unitInfo .u-sub{ font-size:11.5px;color:var(--ink-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  #unitInfo .u-tags{ display:flex;gap:4px;flex-wrap:wrap;margin-top:6px; }
+  #unitInfo .tag{ font-family:'Inter',sans-serif;font-size:10px;font-weight:500;padding:1px 7px;border-radius:9px;
+    background:rgba(60,40,15,.08);color:var(--ink-dim); }
+  #unitInfo .tag.st-active{ color:var(--ok);background:rgba(60,110,60,.1); }
+  #unitInfo .tag.st-square{ color:var(--warn);background:rgba(150,100,20,.12); }
+  #unitInfo .tag.st-pushed{ color:var(--danger);background:rgba(150,40,30,.1); }
 
-  #unitInfo{padding:6px 12px 7px;font-size:12.5px;line-height:1.3;min-height:0;border-bottom:1px solid var(--line);}
-  #unitInfo .empty{color:var(--ink-dim);font-style:italic;}
-  #unitInfo .u-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;margin-bottom:1px;}
-  #unitInfo .u-tags{display:flex;gap:4px;flex-wrap:wrap;margin:3px 0;}
-  #unitInfo .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;padding:1px 5px;border-radius:2px;background:var(--paper-2);color:var(--ink-dim);}
-  #unitInfo .tag.st-active{color:var(--ok);}
-  #unitInfo .tag.st-square{color:var(--warn);}
-  #unitInfo .tag.st-pushed{color:var(--danger);}
-  .bio-toggle{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brass-dim);cursor:pointer;margin-top:3px;user-select:none;}
-  .bio-text{font-family:'Cormorant Garamond',serif;font-size:12.5px;line-height:1.35;color:var(--ink-dim);margin-top:3px;padding-top:3px;border-top:1px solid var(--line);}
-
-  #actionRow{display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  #unitOverlayPanel #actionRow{ grid-area:act;display:flex;gap:6px;padding:0 8px 8px; }
+  /* The deployment sidebar has two rows with the same id (older markup); they
+     keep the look they had before the card was redesigned. */
+  #rosterPanel #actionRow{ display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap; }
+  #rosterPanel #actionRow button{ clip-path:polygon(5% 0%,100% 0%,95% 100%,0% 100%);border-radius:0;padding:6px 14px; }
   button{
     font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;
     background:var(--paper-2);color:var(--ink);border:1px solid var(--line);border-radius:3px;cursor:pointer;
@@ -248,10 +247,17 @@
   button.danger{border-color:var(--danger);color:var(--danger);}
   /* Thematic "campaign ribbon" shape for the action buttons inside the unit
      overlay panel — a subtle angled tab rather than a stock rounded rectangle. */
-  #actionRow button{
-    clip-path:polygon(5% 0%,100% 0%,95% 100%,0% 100%);
-    border-radius:0;padding:6px 14px;
+  /* Orders: brass, full width between them, big enough to hit on a phone. A
+     disabled order stays in place but recedes, so the row does not jump about
+     as the unit's options change. */
+  #unitOverlayPanel #actionRow button{
+    flex:1 1 0;min-height:34px;padding:5px 10px;border-radius:3px;
+    font-family:'Cormorant Garamond',serif;font-size:15.5px;font-weight:700;letter-spacing:.01em;
+    background:linear-gradient(180deg,var(--brass-bright),var(--brass));border:1px solid var(--brass-dim);color:#2e1f08;
+    box-shadow:0 1px 2px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.3);
   }
+  #unitOverlayPanel #actionRow button:hover:not(:disabled){ background:linear-gradient(180deg,#dcb35d,var(--brass-bright)); }
+  #unitOverlayPanel #actionRow button:disabled{ background:rgba(60,40,15,.06);box-shadow:none;border-color:var(--line);color:var(--ink-dim);opacity:.7; }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
   #armyPickerPanel{ position:absolute;inset:0;z-index:38;display:flex;align-items:center;justify-content:center;background:rgba(20,16,8,0.55);padding:16px; }
@@ -903,7 +909,7 @@
     }
     #topBar{font-size:11px;}
     #brigadeStatus{flex-wrap:wrap;gap:5px 14px;font-size:9.5px;}
-    #unitOverlayPanel{ bottom:6px;width:200px;max-width:56vw;max-height:50vh; }
+    #unitOverlayPanel{ bottom:6px;width:min(300px,calc(100vw - 12px));max-width:none; }
     #logOverlayPanel{ width:100%;max-width:100%;top:auto;left:0;right:0;bottom:0;height:65vh;
       border-left:none;border-top:2px solid #3E2F11;transform:translateY(100%); }
     #logOverlayPanel::before{
