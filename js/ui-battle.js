@@ -121,7 +121,9 @@ export function updateHeader(){
   if(dock){
     const battle = state.phase==='move' || state.phase==='fire' || state.phase==='fight';
     const begin = document.getElementById('beginBattleBtn');
-    if(battle){ dock.style.display = 'flex'; if(begin) begin.style.display = 'none'; }
+    /* Only when a person on this device is the one acting: gone on the AI's
+       turn, the other player's turn online, and in spectate. */
+    if(battle){ dock.style.display = humanOwns(state.turn) ? 'flex' : 'none'; if(begin) begin.style.display = 'none'; }
     else if(!begin || begin.style.display === 'none') dock.style.display = 'none';   // leaves a Begin Battle offer standing
     if(battle && state.turn){
       dock.style.setProperty('--side', SIDE_COLOR[state.turn]);
