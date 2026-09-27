@@ -1,0 +1,385 @@
+/* =========================================================
+   ONLINE PLAY
+
+   Loaded only when someone opens the lobby or an invite link, so the Supabase
+   client is never downloaded for an ordinary game.
+
+   HOW THE TWO PHONES STAY IN STEP
+   Whoever's turn it is, their phone runs the rules exactly as in a normal game.
+   Every few hundred milliseconds each phone compares the battle with the last
+   version both phones agreed on, and if its own copy has changed (because its
+   player moved, fired, fought or rolled) it sends the whole battle across. The
+   other phone animates any unit that moved, with its movement sound, and then
+   adopts the battle as sent. Only one phone can change anything at a time,
+   because the game already locks input on the side that is not yours, so the
+   two never send over each other.
+
+   The battle is sent without the match log and the AI's working notes, which
+   are most of its bulk: about 50 KB mid-match against 830 KB with them.
+
+   THE AI NEVER PLAYS. The session sets aiSide to the other player, so the game
+   treats their side as it treats an AI side (locked input, flipped board,
+   hidden ambushes), and online-session.js stops the AI acting for it.
+
+   FIRST VERSION: the host's phone sets up the battle and picks both armies
+   (the host's through the normal picker, the guest's automatically). Choosing
+   and deploying your own army on your own phone comes next.
+========================================================= */
+import { state, SIDES, SIDE_LABEL } from './data-core.js';
+import { setOnlineSession, onlineSession } from './online-session.js';
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
+import { animateUnitTo, draw, sizeCanvas } from './render-board.js';
+import { playMovementAudio } from './engine-rules.js';
+import { playTurnTheme, selectUnit, updateHeader } from './ui-battle.js';
+import { syncPhaseButtons } from './engine-state.js';
+import { endGame } from './engine-objectives.js';
+
+export const ONLINE_VERSION = 'fc-online-1';
+const SEND_EVERY_MS = 250;
+const SAVE_EVERY_MS = 3000;
+
+/* Keys never sent: the match log and AI caches are bulky and only matter on the
+   phone that made them, and the rest are this phone's own view of the match. */
+const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiDifficulty']);
+const skipKey = k => k === 'matchLog' || k === 'replayStartUnits' || k.startsWith('_ai') || LOCAL_ONLY.has(k);
+
+function pack(){
+  return JSON.stringify(state, (k, v) => (k && skipKey(k)) ? undefined
+    : (v instanceof Set ? { __isSet: true, items: [...v] } : v));
+}
+function unpack(s){
+  return JSON.parse(s, (k, v) => (v && v.__isSet) ? new Set(v.items) : v);
+}
+
+/* ---------------------------------------------------------
+   Transport: Supabase for real play; ?onlineTransport=local swaps in a
+   same-browser stand-in (BroadcastChannel and localStorage) so two tabs can
+   test the game side of this without the network.
+--------------------------------------------------------- */
+async function supabaseTransport(){
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
+  const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  let me = null, channel = null;
+  return {
+    async signIn(){
+      const { data: { session } } = await sb.auth.getSession();
+      if(session){ me = session.user.id; return me; }
+      const { data, error } = await sb.auth.signInAnonymously();
+      if(error) throw new Error(error.message);
+      me = data.user.id; return me;
+    },
+    async create(side, name){
+      const { data, error } = await sb.rpc('create_match', { p_side: side, p_name: name, p_version: ONLINE_VERSION });
+      if(error) throw error; return data;
+    },
+    async join(code, name){
+      const { data, error } = await sb.rpc('join_match', { p_code: code, p_name: name, p_version: ONLINE_VERSION });
+      if(error) throw error; return data;
+    },
+    async save(matchId, fields){ await sb.from('matches').update(fields).eq('id', matchId); },
+    async load(matchId){ const { data } = await sb.from('matches').select('*').eq('id', matchId).single(); return data; },
+    async open(matchId, { onMessage, onPresence, onStatus }, presence){
+      await sb.realtime.setAuth();
+      channel = sb.channel(`match:${matchId}`, { config: { private: true, broadcast: { self: false }, presence: { key: me } } });
+      channel
+        .on('broadcast', { event: 'm' }, ({ payload }) => onMessage(payload))
+        .on('presence', { event: 'sync' }, () => onPresence(Object.values(channel.presenceState()).flat()))
+        .subscribe(async st => {
+          onStatus(st);
+          if(st === 'SUBSCRIBED') await channel.track(presence);
+        });
+    },
+    send(payload){ if(channel) channel.send({ type: 'broadcast', event: 'm', payload }); },
+  };
+}
+
+function localTransport(){
+  const tabId = sessionStorage.getItem('fc-tab') || (sessionStorage.setItem('fc-tab', crypto.randomUUID()), sessionStorage.getItem('fc-tab'));
+  const read = () => JSON.parse(localStorage.getItem('fc-local-matches') || '{}');
+  const write = m => localStorage.setItem('fc-local-matches', JSON.stringify(m));
+  let bc = null, seen = {}, presenceMe = null;
+  return {
+    async signIn(){ return tabId; },
+    async create(side, name){
+      const all = read(); const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const m = { id: crypto.randomUUID(), code, red_player: side === 'red' ? tabId : null, blue_player: side === 'blue' ? tabId : null,
+                  red_name: side === 'red' ? name : null, blue_name: side === 'blue' ? name : null, created_by: tabId, state: null };
+      all[m.id] = m; write(all); return m;
+    },
+    async join(code, name){
+      const all = read(); const m = Object.values(all).find(x => x.code === code.toUpperCase().trim());
+      if(!m) throw new Error('no match with that code');
+      if(![m.red_player, m.blue_player].includes(tabId)){
+        if(!m.red_player){ m.red_player = tabId; m.red_name = name; } else if(!m.blue_player){ m.blue_player = tabId; m.blue_name = name; }
+        else throw new Error('match is full');
+      }
+      all[m.id] = m; write(all); return m;
+    },
+    async save(matchId, fields){ const all = read(); Object.assign(all[matchId], fields); write(all); },
+    async load(matchId){ return read()[matchId]; },
+    async open(matchId, { onMessage, onPresence, onStatus }, presence){
+      bc = new BroadcastChannel(`fc-${matchId}`); presenceMe = presence;
+      const beat = () => bc.postMessage({ kind: 'presence', from: tabId, presence: presenceMe });
+      bc.onmessage = e => {
+        const d = e.data;
+        if(d.kind === 'presence'){ seen[d.from] = { ...d.presence, at: Date.now() };
+          onPresence([presenceMe, ...Object.values(seen).filter(p => Date.now() - p.at < 5000)]); }
+        else if(d.kind === 'm') onMessage(d.payload);
+      };
+      setInterval(() => { beat(); onPresence([presenceMe, ...Object.values(seen).filter(p => Date.now() - p.at < 5000)]); }, 1500);
+      onStatus('SUBSCRIBED'); beat();
+    },
+    send(payload){ if(bc) bc.postMessage({ kind: 'm', payload }); },
+  };
+}
+
+/* ---------------------------------------------------------
+   Keeping in step
+--------------------------------------------------------- */
+let T = null, lastShared = null, seq = 0, sendTimer = null, lastSave = 0, inBattle = false, lastTurn = null, endShown = false;
+
+function startSync(){
+  if(sendTimer) return;
+  sendTimer = setInterval(() => {
+    const s = onlineSession(); if(!s) return;
+    if(!state.phase || state.phase === 'deploy') return;   // nothing to share until the battle begins
+    const now = pack();
+    if(now === lastShared) return;
+    lastShared = now; seq += 1;
+    T.send({ type: 'state', seq, battle: now });
+    if(Date.now() - lastSave > SAVE_EVERY_MS){
+      lastSave = Date.now();
+      T.save(s.matchId, { state: { battle: now, seq }, seq, turn_side: state.turn || null,
+                          status: state.gameOver ? 'finished' : (state.phase === 'deploy' ? 'deploy' : 'active') });
+    }
+    enterBattleView();
+    /* This phone's own turn changes play their theme through beginMovePhase as
+       usual; noting them here stops the other phone's next update replaying it. */
+    lastTurn = state.turn;
+    updatePill();
+  }, SEND_EVERY_MS);
+}
+
+function applyBattle(json, incomingSeq){
+  if(incomingSeq != null && incomingSeq <= seq && lastShared) return;   // stale or already applied
+  const incoming = unpack(json);
+  if(incoming.phase === 'deploy') return;                                // the host is still setting up
+  const s = onlineSession();
+
+  /* Walk every unit that moved to its new square before adopting the battle,
+     with its own movement sound. The animation is keyed by unit id, so it keeps
+     running after the battle's unit objects are replaced a moment later. */
+  if(inBattle){
+    for(const nu of incoming.units || []){
+      const lu = state.units.find(u => u.id === nu.id);
+      if(!lu || lu.removed || nu.removed || (lu.x === nu.x && lu.y === nu.y)) continue;
+      const steps = Math.max(Math.abs(nu.x - lu.x), Math.abs(nu.y - lu.y));
+      const profile = nu.charged && !lu.charged ? 'charge' : 'march';
+      animateUnitTo(lu, nu.x, nu.y, profile);
+      playMovementAudio(lu, steps, profile);
+    }
+  }
+
+  for(const k of Object.keys(incoming)) state[k] = incoming[k];
+  state.mode = 'ai'; state.aiSide = s.remoteSide; state.spectate = false;
+  seq = Math.max(seq, incomingSeq || 0);
+  lastShared = pack();
+
+  enterBattleView();
+  if(lastTurn !== state.turn){
+    if(lastTurn !== null) playTurnTheme(state.turn);
+    lastTurn = state.turn;
+  }
+  refreshUi();
+  if(state.gameOver && !endShown){ endShown = true; endGame(state.winner); }
+}
+
+function enterBattleView(){
+  if(inBattle) return;
+  inBattle = true;
+  lastTurn = state.turn;
+  closeLobby();
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('sidebar').style.display = 'none';
+  const uo = document.getElementById('unitOverlay'); uo.classList.remove('hidden'); uo.classList.remove('show');
+  sizeCanvas();
+}
+
+function refreshUi(){
+  const s = onlineSession();
+  const theirs = state.turn !== s.mySide;
+  for(const id of ['endMoveBtn', 'endFireBtn', 'endFightBtn']){
+    const b = document.getElementById(id); if(b) b.disabled = theirs;
+  }
+  syncPhaseButtons();
+  if(state.selectedUnitId != null){
+    const u = state.units.find(x => x.id === state.selectedUnitId);
+    if(!u || u.removed) selectUnit(null);
+  }
+  updateHeader();
+  draw();
+  updatePill();
+}
+
+function onMessage(p){
+  if(p.type === 'state') applyBattle(p.battle, p.seq);
+  else if(p.type === 'hello'){
+    /* The other phone has just connected or come back: hand it the battle as
+       it stands, if there is one to hand over. */
+    if(state.phase && state.phase !== 'deploy' && state.units && state.units.length){
+      lastShared = pack(); T.send({ type: 'state', seq, battle: lastShared });
+    }
+  }
+}
+
+/* ---------------------------------------------------------
+   Presence pill and lobby
+--------------------------------------------------------- */
+let present = [];
+function onPresence(list){ present = list; updatePill(); updateLobby(); }
+
+function updatePill(){
+  const s = onlineSession(); if(!s) return;
+  let pill = document.getElementById('onlinePill');
+  if(!pill){
+    pill = document.createElement('div'); pill.id = 'onlinePill';
+    pill.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 42px);left:50%;transform:translateX(-50%);z-index:28;' +
+      'font:14px "IM Fell English",Georgia,serif;color:#fbf6ea;background:rgba(20,24,20,.72);padding:4px 12px;border-radius:14px;' +
+      'pointer-events:none;white-space:nowrap';
+    document.body.appendChild(pill);
+  }
+  const them = present.find(p => p && p.side === s.remoteSide);
+  const name = s.names[s.remoteSide] || (them && them.name) || 'Opponent';
+  const whose = !inBattle ? '' : (state.turn === s.mySide ? ' · Your turn' : ` · ${name}'s turn`);
+  pill.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;` +
+    `background:${them ? '#7fd08a' : '#888'}"></span>${them ? `${esc(name)} is here` : `${esc(name)} is not connected`}${whose}`;
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+
+let lobbyEl = null;
+function closeLobby(){ if(lobbyEl){ lobbyEl.remove(); lobbyEl = null; } }
+
+function lobbyShell(inner){
+  closeLobby();
+  lobbyEl = document.createElement('div');
+  lobbyEl.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(15,18,15,.7);padding:16px';
+  lobbyEl.innerHTML = `<div style="max-width:420px;width:100%;background:#e8e0cb;color:#2a1e14;border-radius:6px;padding:18px 18px 16px;
+    box-shadow:0 14px 34px rgba(0,0,0,.5);font:16px 'IM Fell English',Georgia,serif">${inner}</div>`;
+  document.body.appendChild(lobbyEl);
+  return lobbyEl;
+}
+
+const btn = (label, attrs = '', bg = '#2a1e14', fg = '#fbf6ea') =>
+  `<button ${attrs} style="font:inherit;min-height:42px;padding:8px 14px;border:0;border-radius:4px;cursor:pointer;background:${bg};color:${fg}">${label}</button>`;
+
+export function openLobby({ joinCode } = {}){
+  const name = localStorage.getItem('fc-name') || '';
+  const el = lobbyShell(`
+    <div style="font-family:'Petit Formal Script',cursive;font-size:26px;margin-bottom:6px">Play online</div>
+    <label style="display:block;margin:4px 0">Your name</label>
+    <input id="olName" value="${esc(name)}" maxlength="40" style="font:inherit;width:100%;padding:8px;border:1px solid #9a8b6c;border-radius:4px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      ${btn('New game as Britain', 'data-side="red"', '#a3403a')}
+      ${btn('New game as France', 'data-side="blue"', '#2e4566')}
+    </div>
+    <label style="display:block;margin:14px 0 4px">Or join with a code</label>
+    <div style="display:flex;gap:8px"><input id="olCode" maxlength="6" value="${esc(joinCode || '')}"
+      style="font:inherit;flex:1;min-width:8ch;padding:8px;border:1px solid #9a8b6c;border-radius:4px;text-transform:uppercase">${btn('Join', 'id="olJoin"')}</div>
+    <p id="olStatus" style="min-height:1.4em;margin:12px 0 0;font-style:italic"></p>
+    <div style="text-align:right;margin-top:6px">${btn('Close', 'id="olClose"', 'transparent', '#2a1e14')}</div>`);
+  const status = (t, bad) => { const p = el.querySelector('#olStatus'); p.textContent = t; p.style.color = bad ? '#9b1c1c' : '#2a1e14'; };
+  const getName = () => {
+    const n = el.querySelector('#olName').value.trim();
+    if(!n){ status('Put your name in first.', true); return null; }
+    localStorage.setItem('fc-name', n); return n;
+  };
+  el.querySelector('#olClose').onclick = () => { closeLobby(); history.replaceState(null, '', location.pathname); };
+  el.querySelectorAll('[data-side]').forEach(b => b.onclick = async () => {
+    const n = getName(); if(!n) return;
+    try { status('Connecting...'); await start(await (await transport()).create(b.dataset.side, n), n, true); }
+    catch(e){ status(friendly(e), true); }
+  });
+  const doJoin = async () => {
+    const n = getName(); if(!n) return;
+    try { status('Joining...'); const t = await transport(); await start(await t.join(el.querySelector('#olCode').value, n), n, false); }
+    catch(e){ status(friendly(e), true); }
+  };
+  el.querySelector('#olJoin').onclick = doJoin;
+  if(joinCode && name) doJoin();
+}
+
+function friendly(e){
+  const m = (e && e.message) || String(e);
+  if(/version mismatch/i.test(m)) return 'You are on different versions of the game. Both of you reload the page, then try again.';
+  if(/no match/i.test(m)) return 'No game with that code. Check the letters and try again.';
+  if(/full/i.test(m)) return 'That game already has two players.';
+  if(/anonymous/i.test(m)) return 'Guest sign-in is switched off in Supabase.';
+  return m;
+}
+
+async function transport(){
+  if(T) return T;
+  T = new URLSearchParams(location.search).get('onlineTransport') === 'local' ? localTransport() : await supabaseTransport();
+  await T.signIn();
+  return T;
+}
+
+async function start(match, myName, createdHere){
+  const me = await T.signIn();
+  const mySide = match.red_player === me ? SIDES.RED : SIDES.BLUE;
+  const remoteSide = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  const isHost = match.created_by ? match.created_by === me : createdHere;
+  setOnlineSession({ matchId: match.id, code: match.code, mySide, remoteSide, isHost,
+    names: { red: match.red_name, blue: match.blue_name, [mySide]: myName } });
+  history.replaceState(null, '', `${location.pathname}?join=${match.code}${location.search.includes('onlineTransport=local') ? '&onlineTransport=local' : ''}`);
+
+  await T.open(match.id, { onMessage, onPresence, onStatus: st => {
+    if(st === 'SUBSCRIBED') T.send({ type: 'hello' });
+  } }, { name: myName, side: mySide });
+
+  /* Coming back to a match already under way: pick up the saved battle. */
+  const saved = (await T.load(match.id)) || match;
+  if(saved && saved.state && saved.state.battle) applyBattle(saved.state.battle, saved.state.seq || 0);
+
+  startSync();
+  if(!inBattle) waitingRoom();
+  updatePill();
+}
+
+function waitingRoom(){
+  const s = onlineSession();
+  const url = `${location.origin}${location.pathname}?join=${s.code}`;
+  const el = lobbyShell(`
+    <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(s.code)}</div>
+    <p style="margin:6px 0">You are <b>${SIDE_LABEL[s.mySide]}</b>.</p>
+    <p id="olWho" style="margin:6px 0;font-style:italic"></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      ${btn('Send invite link', 'id="olShare"')}
+      ${s.isHost ? btn('Set up the battle', 'id="olStart"', '#5b6b3a') : ''}
+    </div>
+    <p style="margin:12px 0 0;font-size:14px">${s.isHost
+      ? 'You set up the battle: choose your army when asked, and your opponent\'s is chosen for them. They see it the moment it is ready.'
+      : 'Your opponent is setting up the battle. It will appear here the moment it is ready.'}</p>`);
+  el.querySelector('#olShare').onclick = async () => {
+    if(navigator.share){ try { await navigator.share({ title: 'Field Command', text: 'Join my battle', url }); return; } catch {} }
+    try { await navigator.clipboard.writeText(url); el.querySelector('#olWho').textContent = 'Invite link copied.'; } catch {}
+  };
+  const startBtn = el.querySelector('#olStart');
+  if(startBtn) startBtn.onclick = async () => {
+    closeLobby();
+    state.scenario = null; state.campaign = null;
+    state.mode = 'ai'; state.spectate = false; state.aiDifficulty = 'hard';
+    state.aiSide = s.remoteSide;
+    const { beginBoardSetup } = await import('./ui-menus.js');
+    beginBoardSetup();
+  };
+  updateLobby();
+}
+
+function updateLobby(){
+  const s = onlineSession(); if(!s || !lobbyEl) return;
+  const who = lobbyEl.querySelector('#olWho'); if(!who) return;
+  const them = present.find(p => p && p.side === s.remoteSide);
+  who.textContent = them ? `${them.name} is here.` : 'Waiting for your opponent to join...';
+}

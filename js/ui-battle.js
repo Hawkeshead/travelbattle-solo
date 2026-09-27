@@ -11,6 +11,7 @@ import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNI
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
+import { isOnline } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
@@ -441,7 +442,7 @@ export const TURN_THEME_FADE_MS = 800;
 /* A turn that ends before its theme does fades the theme out as the next turn
    begins, so the two never overlap. The fade acts on that one play-through only;
    the new turn's theme starts on a fresh gain at full level every time. */
-function playTurnTheme(side){
+export function playTurnTheme(side){
   AudioManager.fadeOutEffects('turn-theme-', TURN_THEME_FADE_MS);
   const theme = TURN_THEME[side];
   if(!theme) return;
@@ -481,6 +482,7 @@ export function beginMovePhase(){
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endMoveBtn').disabled = aiTurn;
   if(aiTurn){
+    if(isOnline()) return;   // the other player moves on their own phone; their moves arrive over the connection
     aiPlanTurn(state.aiSide);
     setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
@@ -520,7 +522,7 @@ export function beginFirePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
-  if(aiTurn){ setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
+  if(aiTurn){ if(isOnline()) return; setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
   maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
@@ -536,6 +538,7 @@ export function beginFightPhase(){
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFightBtn').disabled = aiTurn;
   if(aiTurn){
+    if(isOnline()) return;
     if(!anyFightsAvailable(state.turn)){ setTimeout(endFightPhase, 400); return; }
     setTimeout(aiDoFightPhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;

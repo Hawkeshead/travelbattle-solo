@@ -177,6 +177,13 @@ export function showModeSelect(isSplash){
   // and everything it needs is untouched, so this is just the one entry point
   // no longer being offered, easy to re-add later.
   extra.appendChild(aiBtn);
+  /* ONLINE. Loaded on demand, so the Supabase client is only ever downloaded
+     by someone who chooses to play online. */
+  const onlineBtn = document.createElement('button');
+  onlineBtn.className = 'primary';
+  onlineBtn.textContent = 'Play Online';
+  onlineBtn.onclick = ()=>{ import('./online.js').then(m => m.openLobby()); };
+  extra.appendChild(onlineBtn);
   extra.appendChild(spectateBtn);
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,

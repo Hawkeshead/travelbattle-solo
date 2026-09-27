@@ -103,3 +103,11 @@ export function start(){
 }
 
 start();
+
+/* An invite link (?join=CODE) opens straight into the online lobby with the
+   code filled in, joining at once if this phone already knows its player's
+   name. Loaded on demand like the menu button. */
+{
+  const joinCode = new URLSearchParams(location.search).get('join');
+  if(joinCode) import('./online.js').then(m => m.openLobby({ joinCode }));
+}
