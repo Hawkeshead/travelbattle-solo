@@ -675,6 +675,14 @@ function goToArmy(delta){
 // a phone than two small circular buttons competing for thumb space at the
 // bottom of an already busy bar. Attached once (idempotency guard below)
 // since #armyPickerBody is a static element, not recreated per open.
+/* Left and right arrow keys browse the armies while the picker is open, for a
+   laptop; registered once, inert whenever the picker is closed. */
+document.addEventListener('keydown', e => {
+  if(!armyPickerState || armyPickerState.viewingMap) return;
+  if(e.key === 'ArrowLeft'){ goToArmy(-1); e.preventDefault(); }
+  else if(e.key === 'ArrowRight'){ goToArmy(1); e.preventDefault(); }
+});
+
 function attachArmyPickerSwipe(){
   const el = document.getElementById('armyPickerBody');
   let startX = null, startY = null;
@@ -720,6 +728,8 @@ function showArmyPicker(side){
   if(!armyPickerSwipeAttached){ attachArmyPickerSwipe(); armyPickerSwipeAttached = true; }
 
   document.getElementById('armyPickerViewMapBtn').onclick = toggleArmyPickerMapView;
+  document.getElementById('armyPickerPrev').onclick = ()=>{ if(!armyPickerState.viewingMap) goToArmy(-1); };
+  document.getElementById('armyPickerNext').onclick = ()=>{ if(!armyPickerState.viewingMap) goToArmy(1); };
   document.getElementById('armyPickerDeployBtn').onclick = ()=>{
     const army = TB_DATA.armyCompositions[armyPickerState.index];
     deployArmyComposition(side, army.id);

@@ -275,6 +275,14 @@
   #armyPickerBar{ flex-shrink:0;background:var(--panel-2);border-top:2px solid var(--brass-dim);padding:7px 12px 9px; }
   #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;margin-bottom:3px; }
   #armyPickerDots{ display:flex;gap:5px; }
+  /* Arrows for browsing without a touchscreen: swiping was the only way, so a
+     laptop mouse could never get past the first army. Shown everywhere, since
+     they help on a phone too; the swipe hint is hidden where there is a mouse. */
+  #armyPickerCarousel{ display:flex;align-items:center;justify-content:center;gap:12px; }
+  .apArrow{ min-width:40px;min-height:40px;padding:0 0 3px;border-radius:50%;border:1px solid var(--line);background:transparent;
+    color:var(--brass-bright);font-size:24px;line-height:1;cursor:pointer; }
+  .apArrow:hover, .apArrow:focus-visible{ border-color:var(--brass-bright);outline:none; }
+  @media (hover:hover) and (pointer:fine){ #armyPickerSwipeHint{ display:none; } }
   #armyPickerDots .apDot{ width:6px;height:6px;border-radius:50%;background:var(--line); }
   #armyPickerDots .apDot.active{ background:var(--brass-bright);width:16px;border-radius:3px; }
   #armyPickerSwipeHint{ text-align:center;font-size:9.5px;color:var(--ink-dim);letter-spacing:0.03em;margin-bottom:6px; }
@@ -1126,7 +1134,9 @@
     </div>
     <div id="armyPickerBar">
       <div id="armyPickerCarousel">
+        <button id="armyPickerPrev" class="apArrow" type="button" aria-label="Previous army">&lsaquo;</button>
         <div id="armyPickerDots"></div>
+        <button id="armyPickerNext" class="apArrow" type="button" aria-label="Next army">&rsaquo;</button>
       </div>
       <div id="armyPickerSwipeHint">Swipe to browse Armies</div>
       <div id="armyPickerBtnRow">
