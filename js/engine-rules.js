@@ -6,6 +6,7 @@ import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
+import { askRemote, isRemoteSide } from './online-session.js';
 import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -828,6 +829,13 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
       next();
     });
     if(!isHuman){
+      /* Online, the other player decides for their own unit on their own phone,
+         seeing the same dice. No answer in time takes it, as the AI would. */
+      if(isRemoteSide(unit.side)){
+        askRemote('reroll', { label: `Use Re-roll (${unitLabel(unit)})` }, true, 9000)
+          .then(yes => yes ? doReroll() : next());
+        return;
+      }
       setTimeout(doReroll, 500); // AI always takes it when eligible — no cost to declining
       return;
     }
@@ -1437,9 +1445,21 @@ export function offerLeadershipRoll(loser, brig, onComplete){
   const isHuman = !FAST_DICE_MODE && humanOwns(loser.side);
   if(!isHuman){
     const useIt = aiDecideLeadershipRoll(loser, brig);
+    /* Online, the owning player spends their own Leadership Roll. The AI's
+       judgement is the fallback if they do not answer. */
+    if(isRemoteSide(loser.side)){
+      askRemote('leadership', { loserId: loser.id, brigId: brig.id }, useIt, 30000)
+        .then(use => applyLeadershipRollChoice(loser, brig, !!use, onComplete));
+      return;
+    }
     applyLeadershipRollChoice(loser, brig, useIt, onComplete);
     return;
   }
+  showLeadershipRollPrompt(loser, brig, use => applyLeadershipRollChoice(loser, brig, use, onComplete));
+}
+
+/* The question itself, on whichever phone belongs to the unit's owner. */
+export function showLeadershipRollPrompt(loser, brig, choose){
   document.getElementById('overlayTitle').textContent = 'Use Leadership Roll?';
   document.getElementById('overlayText').innerHTML =
     `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`;
@@ -1452,10 +1472,10 @@ export function offerLeadershipRoll(loser, brig, onComplete){
   const yesBtn = document.createElement('button');
   yesBtn.className = 'primary';
   yesBtn.textContent = 'Use Leadership Roll';
-  yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyLeadershipRollChoice(loser, brig, true, onComplete); };
+  yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(true); };
   const noBtn = document.createElement('button');
   noBtn.textContent = 'Let the Unit Go';
-  noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); applyLeadershipRollChoice(loser, brig, false, onComplete); };
+  noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(false); };
   extra.appendChild(yesBtn);
   extra.appendChild(noBtn);
   document.getElementById('overlay').classList.add('show');

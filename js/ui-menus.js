@@ -465,7 +465,7 @@ export function beginBoardSetup(){
    with mix-blend-mode:multiply, #ambientLayer at 10) and sets isolation:isolate
    on #boardWrap itself, so the blend has an explicit group to work against and
    cannot darken the app chrome. No CSS in index.html is required. */
-function startAmbientLayer(){
+export function startAmbientLayer(){
   const host = document.getElementById('boardWrap');
   if(!host) return;
   AmbientLayer.init(host, { boardEl: document.getElementById('board') }).start();

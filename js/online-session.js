@@ -25,3 +25,16 @@ export function setOnlineSession(s){ session = s; }
 let remoteDeployHandler = null;
 export function setRemoteDeployHandler(fn){ remoteDeployHandler = fn; }
 export function requestRemoteDeploy(side){ if(remoteDeployHandler) remoteDeployHandler(side); }
+
+/* A question for the other player: a re-roll, a Leadership Roll, an ambush.
+   The phone running the rules asks, the other phone shows the same choice its
+   own player would see, and the answer comes back. If none arrives in time
+   (they have put the phone down, or lost signal) the fallback is used, which is
+   what the game would have chosen for them anyway. */
+let remoteAsker = null;
+export function setRemoteAsker(fn){ remoteAsker = fn; }
+export function isRemoteSide(side){ return !!session && side === session.remoteSide; }
+export function askRemote(kind, data, fallback, timeoutMs){
+  if(!remoteAsker) return Promise.resolve(fallback);
+  return remoteAsker(kind, data, fallback, timeoutMs);
+}

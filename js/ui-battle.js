@@ -11,7 +11,7 @@ import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNI
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
-import { isOnline } from './online-session.js';
+import { askRemote, isOnline, isRemoteSide } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
@@ -787,6 +787,12 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
     showAmbushChoice(amb, target, (mode)=>{
       springAmbush(amb, target, mode, ()=> processAmbushSpringsSequentially(springs, idx+1, onDone));
     });
+  } else if(isRemoteSide(amb.side)){
+    /* Online: the ambusher belongs to the other player, who chooses Hold or
+       Advance on their own phone. Hold if they do not answer in time. */
+    askRemote('ambush', { ambId: amb.id, targetId: target.id }, 'hold', 30000)
+      .then(mode => springAmbush(amb, target, mode === 'advance' ? 'advance' : 'hold',
+                                 ()=> processAmbushSpringsSequentially(springs, idx+1, onDone)));
   } else {
     springAmbush(amb, target, 'hold', ()=> processAmbushSpringsSequentially(springs, idx+1, onDone)); // AI doesn't lay ambush itself, but resolve gracefully if it ever inherits one
   }

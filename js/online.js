@@ -26,15 +26,18 @@
    and deploying your own army on your own phone comes next.
 ========================================================= */
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
-import { setOnlineSession, onlineSession, setRemoteDeployHandler } from './online-session.js';
+import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
-import { animateUnitTo, draw, sizeCanvas } from './render-board.js';
-import { playMovementAudio } from './engine-rules.js';
-import { playTurnTheme, selectUnit, updateHeader } from './ui-battle.js';
+import { animateUnitTo, draw, playBoardIntroAnimation, sizeCanvas } from './render-board.js';
+import { playMovementAudio, showLeadershipRollPrompt } from './engine-rules.js';
+import { playTurnTheme, selectUnit, showAmbushChoice, updateHeader } from './ui-battle.js';
 import { log, syncPhaseButtons } from './engine-state.js';
 import { endGame } from './engine-objectives.js';
 import { deployArmyComposition } from './ai-deployment.js';
-import { maybeShowArmyPicker, showArmyPickerFor } from './ui-menus.js';
+import { maybeShowArmyPicker, showArmyPickerFor, startAmbientLayer } from './ui-menus.js';
+import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
+import { setBoardMode } from './data-core.js';
+import { AudioManager } from './audio-manager.js';
 
 export const ONLINE_VERSION = 'fc-online-1';
 const SEND_EVERY_MS = 250;
@@ -149,7 +152,9 @@ function startSync(){
   if(sendTimer) return;
   sendTimer = setInterval(() => {
     const s = onlineSession(); if(!s) return;
-    if(!BATTLE_PHASES.has(state.phase)) return;   // nothing to share until the battle begins
+    /* Once the battle is under way either phone may be the one acting. Before
+       that only the host acts (it runs the setup), so only the host shares. */
+    if(!BATTLE_PHASES.has(state.phase) && !(s.isHost && setupStarted)) return;
     const now = pack();
     if(now === lastShared) return;
     lastShared = now; seq += 1;
@@ -159,7 +164,7 @@ function startSync(){
       T.save(s.matchId, { state: { battle: now, seq }, seq, turn_side: state.turn || null,
                           status: state.gameOver ? 'finished' : (state.phase === 'deploy' ? 'deploy' : 'active') });
     }
-    enterBattleView();
+    if(BATTLE_PHASES.has(state.phase)) enterBattleView();
     /* This phone's own turn changes play their theme through beginMovePhase as
        usual; noting them here stops the other phone's next update replaying it. */
     lastTurn = state.turn;
@@ -169,8 +174,11 @@ function startSync(){
 
 function applyBattle(json, incomingSeq){
   if(incomingSeq != null && incomingSeq <= seq && lastShared) return;   // stale or already applied
+  /* While the dice are on screen, hold the battle back until they fade, so a
+     unit is not removed or pushed back before its own roll has finished. */
+  if(diceBusy){ deferred = { json, incomingSeq }; return; }
   const incoming = unpack(json);
-  if(!BATTLE_PHASES.has(incoming.phase)) return;                          // the host is still setting up
+  if(!BATTLE_PHASES.has(incoming.phase)){ applySetup(incoming, incomingSeq); return; }
   const s = onlineSession();
 
   /* Walk every unit that moved to its new square before adopting the battle,
@@ -199,6 +207,93 @@ function applyBattle(json, incomingSeq){
   }
   refreshUi();
   if(state.gameOver && !endShown){ endShown = true; endGame(state.winner); }
+}
+
+/* ---------------------------------------------------------
+   Setup, followed live on the guest's phone: the same map arrives the moment
+   the host presses start, the falling-tiles intro plays, and from then the
+   orientation rolls (through the dice mirror), any board rotation and the
+   deployment follow as they happen.
+--------------------------------------------------------- */
+let setupStarted = false, setupShown = false;
+
+function adopt(incoming){
+  const s = onlineSession();
+  for(const k of Object.keys(incoming)) state[k] = incoming[k];
+  state.mode = 'ai'; state.aiSide = s.remoteSide; state.spectate = false;
+}
+
+function applySetup(incoming, incomingSeq){
+  if(onlineSession().isHost) return;
+  adopt(incoming);
+  seq = Math.max(seq, incomingSeq || 0);
+  lastShared = pack();
+  if(!setupShown){ enterSetupView(); return; }
+  if(state.phase === 'deploy') updateHeader();
+  draw();
+}
+
+function enterSetupView(){
+  setupShown = true;
+  closeLobby();
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('sidebar').style.display = 'none';
+  setBoardMode('standard');
+  sizeCanvas();
+  AudioManager.stopMusic();
+  AudioManager.playAmbience('audio/ambience/countryside.mp3');
+  playBoardIntroAnimation(() => { startAmbientLayer(); draw(); });
+  updatePill();
+}
+
+/* ---------------------------------------------------------
+   Dice on both phones
+--------------------------------------------------------- */
+let diceBusy = false, deferred = null, diceSafety = null;
+
+function releaseDeferred(){
+  diceBusy = false; clearTimeout(diceSafety);
+  if(deferred){ const d = deferred; deferred = null; applyBattle(d.json, d.incomingSeq); }
+}
+
+function onDice(p){
+  if(!setupShown && !inBattle) return;
+  diceBusy = true;
+  clearTimeout(diceSafety);
+  diceSafety = setTimeout(releaseDeferred, 8000);     // never hold the battle back for long if a finish goes missing
+  const a = p.kind === 'trigger' ? { ...p.args, watchSide: onlineSession().remoteSide } : p.args;
+  replayDice(p.kind, a, releaseDeferred);
+}
+
+/* ---------------------------------------------------------
+   Questions for the owner of a unit (re-roll, Leadership Roll, ambush)
+--------------------------------------------------------- */
+const pendingAsks = new Map();
+
+function askOther(kind, data, fallback, timeoutMs){
+  return new Promise(resolve => {
+    const id = Math.random().toString(36).slice(2);
+    const s = onlineSession();
+    const name = s.names[s.remoteSide] || 'your opponent';
+    const done = v => { clearTimeout(timer); pendingAsks.delete(id); updatePill(''); resolve(v); };
+    const timer = setTimeout(() => done(fallback), timeoutMs);
+    pendingAsks.set(id, done);
+    T.send({ type: 'ask', id, kind, data });
+    updatePill(`${name} is deciding`);
+  });
+}
+
+function onAsk(p){
+  const reply = value => T.send({ type: 'answer', id: p.id, value });
+  const find = id => state.units.find(u => u.id === id);
+  if(p.kind === 'reroll') showDiceRerollButton(p.data.label, () => reply(true), () => reply(false));
+  else if(p.kind === 'leadership'){
+    const loser = find(p.data.loserId), brig = find(p.data.brigId);
+    if(loser && brig) showLeadershipRollPrompt(loser, brig, reply);
+  } else if(p.kind === 'ambush'){
+    const amb = find(p.data.ambId), target = find(p.data.targetId);
+    if(amb && target) showAmbushChoice(amb, target, reply);
+  }
 }
 
 function enterBattleView(){
@@ -259,19 +354,20 @@ function onArmyChosen(p){
      to choose: offer it now if it is the host's turn and they have not. */
   maybeShowArmyPicker();
   const s = onlineSession();
-  const who = s.names[p.side] || 'Your opponent';
-  updatePill(`${who} deployed as ${p.armyName}`);
+  const them = present.find(x => x && x.side === p.side);
+  const who = s.names[p.side] || (them && them.name) || 'Your opponent';
+  flashPill(`${who} deployed as ${p.armyName}`);
 }
 
 function onDeployRequest(p){
   const s = onlineSession();
   if(p.side !== s.mySide || pickerOpen || armySent) return;
-  const incoming = unpack(p.battle);
-  for(const k of Object.keys(incoming)) state[k] = incoming[k];
-  state.mode = 'ai'; state.aiSide = s.remoteSide; state.spectate = false;
+  adopt(unpack(p.battle));
+  lastShared = pack();
+  if(!setupShown) enterSetupView();
   closeLobby();
   document.getElementById('overlay').classList.remove('show');
-  sizeCanvas(); draw();
+  draw();
   pickerOpen = true;
   showArmyPickerFor(s.mySide, army => {
     pickerOpen = false; armySent = true;
@@ -285,8 +381,15 @@ function onDeployRequest(p){
 
 function onMessage(p){
   if(p.type === 'state') applyBattle(p.battle, p.seq);
+  else if(p.type === 'setup'){ if(!onlineSession().isHost){ adopt(unpack(p.battle)); lastShared = pack(); if(!setupShown) enterSetupView(); } }
+  else if(p.type === 'dice') onDice(p);
+  else if(p.type === 'ask') onAsk(p);
+  else if(p.type === 'answer'){ const f = pendingAsks.get(p.id); if(f) f(p.value); }
   else if(p.type === 'deployRequest') onDeployRequest(p);
   else if(p.type === 'armyChosen') onArmyChosen(p);
+  else if(p.type === 'hello' && setupStarted && !BATTLE_PHASES.has(state.phase) && !pendingDeploy){
+    T.send({ type: 'setup', battle: pack() });
+  }
   else if(p.type === 'hello' && pendingDeploy){
     T.send({ type: 'deployRequest', side: pendingDeploy, battle: pack() });
   }
@@ -305,7 +408,10 @@ function onMessage(p){
 let present = [];
 function onPresence(list){ present = list; updatePill(); updateLobby(); }
 
-let pillNote = '';
+let pillNote = '', pillTimer = null;
+/* A passing note (who deployed as what) clears itself; a standing one (waiting
+   for a decision) stays until it is cleared by the code that set it. */
+function flashPill(note){ clearTimeout(pillTimer); updatePill(note); pillTimer = setTimeout(() => updatePill(''), 6000); }
 function updatePill(note){
   if(note !== undefined) pillNote = note;
   const s = onlineSession(); if(!s) return;
@@ -319,7 +425,7 @@ function updatePill(note){
   }
   const them = present.find(p => p && p.side === s.remoteSide);
   const name = s.names[s.remoteSide] || (them && them.name) || 'Opponent';
-  const whose = pendingDeploy ? ` · ${name} is choosing an army` : pillNote && !inBattle ? ` · ${pillNote}`
+  const whose = pendingDeploy ? ` · ${name} is choosing an army` : pillNote ? ` · ${pillNote}`
     : !inBattle ? '' : (state.turn === s.mySide ? ' · Your turn' : ` · ${name}'s turn`);
   pill.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;` +
     `background:${them ? '#7fd08a' : '#888'}"></span>${them ? `${esc(name)} is here` : `${esc(name)} is not connected`}${whose}`;
@@ -430,6 +536,8 @@ async function start(match, myName, createdHere){
   if(saved && saved.state && saved.state.battle) applyBattle(saved.state.battle, saved.state.seq || 0);
 
   setRemoteDeployHandler(askGuestToDeploy);
+  setRemoteAsker(askOther);
+  setDiceMirror((kind, args) => T.send({ type: 'dice', kind, args }));
   startSync();
   if(!inBattle) waitingRoom();
   updatePill();
@@ -463,6 +571,11 @@ function waitingRoom(){
     state.aiSide = s.remoteSide;
     const { beginBoardSetup } = await import('./ui-menus.js');
     beginBoardSetup();
+    /* The map is generated synchronously inside beginBoardSetup, so it can go
+       across at once and the guest's intro plays alongside the host's. */
+    setupStarted = true;
+    lastShared = pack();
+    T.send({ type: 'setup', battle: lastShared });
   };
   updateLobby();
 }

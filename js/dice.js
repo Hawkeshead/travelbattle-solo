@@ -110,7 +110,31 @@ function ensureBattleBedObserver(){
   battleBedObserver.observe(overlay, { attributes:true, attributeFilter:['class'] });
 }
 
+/* =========================================================
+   MIRRORING FOR ONLINE PLAY
+
+   The phone whose player is acting runs every roll. Each time the panel opens,
+   rolls, refreshes or finishes, it reports what it showed through mirrorOut,
+   and online.js sends that across. The other phone calls replayDice, which runs
+   the same four functions with the same numbers and no consequences: its
+   callbacks do nothing, because the rules only run on the rolling phone.
+   `replaying` stops a mirrored call being reported straight back.
+========================================================= */
+let mirrorOut = null, replaying = false;
+export function setDiceMirror(fn){ mirrorOut = fn; }
+function emit(kind, args){ if(mirrorOut && !replaying) mirrorOut(kind, args); }
+export function replayDice(kind, a, onFinished){
+  replaying = true;
+  try {
+    if(kind === 'trigger') presentRollTrigger(a.groups, a.watchSide, ()=>{}, a.legendText);
+    else if(kind === 'show') showDice(a.groups, a.resultText, a.resultCls, ()=>{}, a.holdOpen);
+    else if(kind === 'refresh') refreshDiceFrame(a.groups, a.resultText, a.resultCls);
+    else if(kind === 'finish') finishDice(onFinished);
+  } finally { replaying = false; }
+}
+
 export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
+  emit('trigger', { groups, legendText });
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -215,6 +239,7 @@ function adjustmentHTML(g){
 }
 
 export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
+  emit('show', { groups, resultText, resultCls, holdOpen });
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -280,6 +305,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
 // value) and for the final settle once any re-roll decisions are done, so the
 // flicker-in only ever plays once, on the very first reveal.
 export function refreshDiceFrame(groups, resultText, resultCls){
+  emit('refresh', { groups, resultText, resultCls });
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -327,6 +353,7 @@ export function showDiceRerollButton(label, onAccept, onDecline){
 // Starts the normal fade-and-dismiss — call once the dice popup is showing its
 // true final state (no more re-roll offers pending).
 export function finishDice(onSettled){
+  emit('finish', {});
   const overlay = document.getElementById('diceOverlay');
   clearTimeout(showDice._fadeT);
   // Anything still outstanding from an earlier fight applies now, before this
