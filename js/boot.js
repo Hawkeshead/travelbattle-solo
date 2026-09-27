@@ -5,6 +5,7 @@ import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
+import { initSafeArea } from './safe-area.js';
 import { FOOT_ACK, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
 import { RALLY_CALL } from './engine-rules.js';
 
@@ -111,3 +112,6 @@ start();
   const joinCode = new URLSearchParams(location.search).get('join');
   if(joinCode) import('./online.js').then(m => m.openLobby({ joinCode }));
 }
+
+/* Before the board is first sized: it decides how much of the screen the board gets. */
+initSafeArea();

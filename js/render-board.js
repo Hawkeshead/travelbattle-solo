@@ -815,7 +815,11 @@ export function computeCellSize(){
      it. Otherwise the board uses the full width and the dials sit over its
      right-hand edge, as they always did. */
   const byWidthWithGutter = Math.floor((availW - HUD_GUTTER) / COLS);
-  if(byWidthWithGutter >= byHeight){
+  /* With the dials in the camera strip (safe-area.js) the board side has no
+     dials to make room for. */
+  const dialsOffBoard = document.documentElement.classList.contains('island-left')
+                     || document.documentElement.classList.contains('island-right');
+  if(!dialsOffBoard && byWidthWithGutter >= byHeight){
     wrap.classList.add('hud-gutter');
     return Math.max(22, byHeight);
   }
