@@ -120,7 +120,9 @@ export function updateHeader(){
   const dock = document.getElementById('phaseDock');
   if(dock){
     const battle = state.phase==='move' || state.phase==='fire' || state.phase==='fight';
-    dock.style.display = battle ? '' : 'none';
+    const begin = document.getElementById('beginBattleBtn');
+    if(battle){ dock.style.display = 'flex'; if(begin) begin.style.display = 'none'; }
+    else if(!begin || begin.style.display === 'none') dock.style.display = 'none';   // leaves a Begin Battle offer standing
     if(battle && state.turn){
       dock.style.setProperty('--side', SIDE_COLOR[state.turn]);
       const lab = document.getElementById('phaseSide');
@@ -1809,6 +1811,7 @@ export function initBattleControls(){
   registerPhaseEnders({ move: endMovePhase, fire: endFirePhase, fight: endFightPhase }, anyFightsAvailable);
   document.getElementById('confirmBrigadeBtn').onclick = confirmCurrentBrigade;
   document.getElementById('endDeployBtn').onclick = startBattle;
+  document.getElementById('beginBattleBtn').onclick = startBattle;
   const restartDeployBtn = document.getElementById('restartDeployBtn');
   if(restartDeployBtn) restartDeployBtn.onclick = restartDeployment;
   document.getElementById('undoBtn').onclick = undoLastAction;

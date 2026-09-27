@@ -1,5 +1,5 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log } from './engine-state.js';
@@ -8,7 +8,7 @@ import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
 import { deployArmyComposition } from './ai-deployment.js';
-import { initDeployment } from './ui-deployment.js';
+import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
 
 /* THE BATTLE SCORE. Two tracks, played in turn rather than one on repeat, and
    the opening track rotates between battles so two matches in a row do not start
@@ -534,18 +534,42 @@ function runRotationPicks(eligibleSides, i){
 // map (at its random starting rotation) becomes the picker itself, rather
 // than a small separate preview. Only the current player's own half responds
 // to taps (Britain = left, France = right — see buildTerrainMap).
+/* A line of instruction over the top of the board. The orientation step used
+   to write its instruction into the top bar's turn badge; with the bar retired
+   it needs its own place, or the player is never told to tap the map. */
+function showBoardHint(text){
+  let el = document.getElementById('boardHint');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'boardHint';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.add('show');
+}
+function hideBoardHint(){ const el = document.getElementById('boardHint'); if(el) el.classList.remove('show'); }
+
 function startOrientationPickMode(side, onDone){
   state.phase = 'orientation';
   state._orientationPick = { side, onDone };
-  const badge = document.getElementById('turnBadge');
-  badge.textContent = `${SIDE_LABEL[side]}: tap your half of the map to rotate it`;
+  showBoardHint(`${SIDE_LABEL[side]}: tap your half of the map to rotate it, then confirm`);
+  /* The phase seal doubles as the Confirm button here, in the side's colour. */
+  const dock = document.getElementById('phaseDock');
+  if(dock){
+    dock.style.display = 'flex';
+    dock.style.setProperty('--side', SIDE_COLOR[side]);
+    const lab = document.getElementById('phaseSide'); if(lab) lab.textContent = SIDE_LABEL[side];
+  }
   const confirmBtn = document.getElementById('endMoveBtn');
   confirmBtn.style.display = 'inline-block';
   confirmBtn.disabled = false;
-  confirmBtn.textContent = 'Confirm This Orientation';
+  confirmBtn.textContent = 'Confirm Orientation';
   confirmBtn.onclick = ()=>{
     confirmBtn.textContent = 'End Move'; // hand the button back to its normal battle-phase role
     confirmBtn.onclick = endMovePhase;   // its real handler — never gets re-bound after boot.js's one-time initBattleControls() call, so this must restore it explicitly
+    hideBoardHint();
+    if(dock) dock.style.display = 'none';
     log(`${SIDE_LABEL[side]} confirms a ${state.boardRotation[side]*90}\u00b0 rotation.`, 'system');
     state._orientationPick = null;
     onDone();
@@ -735,8 +759,9 @@ function showArmyPicker(side){
     deployArmyComposition(side, army.id);
     log(`${SIDE_LABEL[side]} deploys as ${army.name}.`, 'system');
     closeArmyPicker();
+    if(!maybeShowArmyPicker()) showRosterIfNeeded();   // a second human (hotseat) gets their own choice
   };
-  document.getElementById('armyPickerManualBtn').onclick = closeArmyPicker;
+  document.getElementById('armyPickerManualBtn').onclick = ()=> closeArmyPicker(true);
 }
 
 function renderArmyPickerCard(){
@@ -833,10 +858,14 @@ function drawArmyZoneHighlights(){
   });
 }
 
-function closeArmyPicker(){
+function closeArmyPicker(manual){
   document.getElementById('armyPickerPanel').classList.add('hidden');
-  document.getElementById('sidebar').style.display = 'flex';
-  document.getElementById('rosterPanel').style.display = 'flex';
+  /* Only "Deploy Manually Instead" opens the roster: an army deployed from the
+     picker is already on the board, and the roster would just squeeze it. */
+  if(manual === true){
+    document.getElementById('sidebar').style.display = 'flex';
+    document.getElementById('rosterPanel').style.display = 'flex';
+  }
   armyPickerState = null;
   draw();
   // No extra AI-triggering needed here: "Deploy This Army" already ran

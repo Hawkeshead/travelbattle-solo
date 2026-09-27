@@ -46,12 +46,14 @@ export function initDeployment(forcedFirstPlacement){
   state.deployTurn = forcedFirstPlacement || (seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE);
   resetUndoStack();
   log(`Roll for first placement: ${SIDE_LABEL[state.deployTurn]} places their first Brigade.`, 'system');
-  document.getElementById('sidebar').style.display='flex';
-  document.getElementById('rosterPanel').style.display='flex';
   document.getElementById('unitOverlay').classList.add('hidden');
+  const begin = document.getElementById('beginBattleBtn');       // a restarted deployment withdraws the offer
+  if(begin) begin.style.display = 'none';
+  const dock = document.getElementById('phaseDock'); if(dock) dock.style.display = 'none';
   renderRoster();
   updateHeader();
   if(maybeShowArmyPicker()) return; // offers the fast-path Army picker instead of leaving the roster panel as the only option — see ui-menus.js
+  showRosterIfNeeded();
   if(aiControlsDeployTurn()){
     scheduleAiDeployStep(500);
   }
@@ -84,6 +86,35 @@ let deployGeneration = 0;
 function aiControlsDeployTurn(){
   if(state.spectate) state.aiSide = state.deployTurn;
   return state.mode==='ai' && state.deployTurn===state.aiSide;
+}
+
+/* THE ROSTER PANEL IS FOR PLACING BY HAND, and appears only when a person has
+   to. It used to be shown from the moment the page loaded, so it sat beside the
+   board through the falling-tiles intro and the orientation rolls, squeezing the
+   board for no reason. Now it opens when a human side must deploy and the Army
+   picker is not on offer (Operations, grand battles, or "Deploy Manually
+   Instead"), and stays shut otherwise. */
+export function showRosterIfNeeded(){
+  if(state.phase !== 'deploy') return false;
+  if(aiControlsDeployTurn() || sideFullyDeployed(state.deployTurn)) return false;
+  if(!document.getElementById('armyPickerPanel').classList.contains('hidden')) return false;
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('rosterPanel').style.display = 'flex';
+  return true;
+}
+
+/* With the roster shut, its Confirm Deployment button is out of reach, so once
+   both armies are down the phase seal offers Begin Battle instead. A player who
+   deployed by hand still has the roster's own button, and sees both. */
+export function offerBeginBattle(){
+  const dock = document.getElementById('phaseDock');
+  const begin = document.getElementById('beginBattleBtn');
+  if(!dock || !begin) return;
+  for(const id of ['endMoveBtn', 'endFireBtn', 'endFightBtn']) document.getElementById(id).style.display = 'none';
+  dock.style.setProperty('--side', '#8a6a2a');
+  const lab = document.getElementById('phaseSide'); if(lab) lab.textContent = '';
+  begin.style.display = '';
+  dock.style.display = 'flex';
 }
 
 export function scheduleAiDeployStep(ms){
@@ -279,6 +310,7 @@ export function attemptDeployAt(typeKey, x, y){
 export function checkDeployAdvance(){
   if(sideFullyDeployed(SIDES.RED) && sideFullyDeployed(SIDES.BLUE)){
     document.getElementById('endDeployBtn').disabled = false;
+    if(!state.spectate) offerBeginBattle();   // spectate starts itself just below
     /* Spectate has nobody to press it. The button is enabled either way so the
        watcher can see the state the game is in, and then pressed for them. */
     if(state.spectate) setTimeout(()=>{ if(state.phase==='deploy') startBattle(); }, 900);
@@ -348,6 +380,7 @@ export function confirmCurrentBrigade(){
   draw();
 
   if(maybeShowArmyPicker()) return; // it just became a human side's first turn — offer the fast-path Army picker
+  showRosterIfNeeded();
   if(aiControlsDeployTurn() && !sideFullyDeployed(state.aiSide)){
     scheduleAiDeployStep(450);
   }

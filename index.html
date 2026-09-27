@@ -135,7 +135,9 @@
 
   /* THE PHASE SEAL. A wax seal in the colour of the side whose turn it is, so it
      carries the turn as well as the button; the side is named beneath it. */
-  #phaseDock{ display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:8px; }
+  /* Hidden until there is something to end: updateHeader shows it in the battle
+     phases, offerBeginBattle once both armies are deployed. */
+  #phaseDock{ display:none;flex-direction:column;align-items:center;gap:4px;margin-top:8px; }
   #phaseDock button.seal{
     width:62px;height:62px;border-radius:50%;padding:6px 5px;
     font-family:'Cinzel',serif;font-weight:700;font-size:9.5px;letter-spacing:.05em;line-height:1.15;
@@ -152,6 +154,15 @@
   #phaseDock button.seal:active:not(:disabled){ transform:scale(.94); }
   #phaseDock button.seal:disabled{ filter:saturate(.35) brightness(.75);opacity:.8;cursor:default; }
   #phaseDock button.seal:focus-visible{ outline:2px solid #f3e8cc;outline-offset:3px; }
+  /* When the roster panel is open for manual deployment, the dials move to its
+     left edge instead of sitting over its title. The panel is opened and closed
+     by setting display from script, which :has can see. */
+  main:has(> #sidebar[style*="flex"]) #hudIcons{ right:258px; }
+  #boardHint{ position:fixed;top:10px;left:50%;transform:translate(-50%,-6px);z-index:28;max-width:calc(100vw - 140px);
+    font:15px 'Cormorant Garamond',Georgia,serif;font-weight:600;color:#fbf6ea;text-align:center;
+    background:rgba(20,24,20,.8);padding:6px 14px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.4);
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s; }
+  #boardHint.show{ opacity:1;transform:translate(-50%,0); }
   #phaseSide{ font-family:'Cinzel',serif;font-weight:700;font-size:9px;letter-spacing:.08em;color:#f3e8cc;
     background:rgba(20,24,20,.72);padding:1px 8px;border-radius:8px;white-space:nowrap; }
   #phaseSide:empty{ display:none; }
@@ -190,9 +201,12 @@
   #hudIcons > button:disabled{ filter:saturate(0.4) brightness(0.72);opacity:0.75; }
 
   /* Deploy-only persistent sidebar */
+  /* Hidden until a person has to place units by hand (showRosterIfNeeded, or
+     "Deploy Manually Instead"): it was on screen from page load, beside the
+     board through the whole intro. Shown with display:flex from script. */
   #sidebar{
     width:250px;flex-shrink:0;background:var(--panel);border-left:2px solid var(--brass-dim);
-    display:flex;flex-direction:column;min-height:0;
+    display:none;flex-direction:column;min-height:0;
   }
   #sidebar h3{
     font-family:'Cormorant Garamond',serif;font-weight:700;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;
@@ -978,6 +992,7 @@
     #turnBadge{font-size:10px;padding:3px 6px;}
     #brigadeStatus{font-size:9px;}
     #sidebar{width:210px;}
+    main:has(> #sidebar[style*="flex"]) #hudIcons{ right:218px; }
     #hudIcons > button{width:32px;height:32px;font-size:15px;}
     #armyPickerCardBody{padding:6px 9px 2px;}
     .apLabel{font-size:8.5px;}
@@ -1055,6 +1070,7 @@
         <button id="endMoveBtn" class="primary seal" disabled>End Move</button>
         <button id="endFireBtn" class="primary seal" style="display:none;">End Artillery</button>
         <button id="endFightBtn" class="primary seal" style="display:none;">End Fight</button>
+        <button id="beginBattleBtn" class="primary seal" style="display:none;">Begin Battle</button>
         <div id="phaseSide"></div>
       </div>
     </div>
