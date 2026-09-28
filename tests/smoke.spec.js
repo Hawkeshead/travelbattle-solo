@@ -132,7 +132,7 @@ async function clickCell(page, bx, by, { cols = 20, rows = 10 } = {}) {
  */
 async function clearBoardSetup(page) {
   const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
-  const deployManually = page.getByRole('button', { name: 'Deploy Manually Instead' });
+  const deployManually = page.getByRole('button', { name: 'Deploy Manually' });
   const firstChip = page.locator('#rosterList .roster-chip').first();
   // 70 iterations of 400ms — up from 40 — to leave headroom for the ~10.5s
   // falling-tile intro animation that now plays before an AI match's

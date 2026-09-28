@@ -837,7 +837,7 @@ function drawArmyPreview(side, army){
 
 function closeArmyPicker(manual){
   document.getElementById('armyPickerPanel').classList.add('hidden');
-  /* Only "Deploy Manually Instead" opens the roster: an army deployed from the
+  /* Only "Deploy Manually" opens the roster: an army deployed from the
      picker is already on the board, and the roster would just squeeze it. */
   if(manual === true){
     document.getElementById('sidebar').style.display = 'flex';
@@ -848,6 +848,6 @@ function closeArmyPicker(manual){
   // No extra AI-triggering needed here: "Deploy This Army" already ran
   // deployArmyComposition, which calls confirmCurrentBrigade() internally —
   // that already handles handing off to the AI correctly if it's now their
-  // turn. "Deploy Manually Instead" hasn't changed deployTurn at all, so
+  // turn. "Deploy Manually" hasn't changed deployTurn at all, so
   // it's still this human side's turn regardless.
 }
