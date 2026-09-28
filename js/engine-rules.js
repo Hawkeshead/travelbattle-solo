@@ -4,6 +4,7 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, state } 
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
+import { GROUP_ARMIES, armyBrokenCount, armyOf, homeEdgeCells } from './group.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
 import { askRemote, isRemoteSide } from './online-session.js';
@@ -1267,13 +1268,21 @@ export function pushBack(loser, winner){
        from the winner, and only if that square is blocked does it try the other
        direction. If both are blocked it stands its ground, which is the honest
        outcome for a unit with genuinely nowhere to go. */
-    const along = Math.sign(loser.x - winner.x) || (loser.x < COLS/2 ? 1 : -1);
-    const options = [loser.x + along, loser.x - along];
+    /* Group: an east or west edge is as real as a north or south one, so the
+       slide runs along whichever edge the unit is pinned against. Outside Group
+       the original along-x slide stands unchanged. */
+    const alongY = !!state.group && !inBounds(nx, loser.y);
+    const along = alongY
+      ? (Math.sign(loser.y - winner.y) || (loser.y < ROWS/2 ? 1 : -1))
+      : (Math.sign(loser.x - winner.x) || (loser.x < COLS/2 ? 1 : -1));
+    const base = alongY ? loser.y : loser.x;
+    const options = [base + along, base - along];
     let moved = false;
-    for(const tx of options){
-      if(tx < 0 || tx >= COLS) continue;
-      if(unitsAt(tx, loser.y).some(o=>o.id!==loser.id)) continue;
-      { const st = Math.abs(tx-loser.x) || 1; animateUnitTo(loser, tx, loser.y, 'pushback'); playMovementAudio(loser, st, 'pushback'); }
+    for(const t of options){
+      const tx = alongY ? loser.x : t, ty = alongY ? t : loser.y;
+      if(!inBounds(tx, ty)) continue;
+      if(unitsAt(tx, ty).some(o=>o.id!==loser.id)) continue;
+      { const st = Math.max(Math.abs(tx-loser.x), Math.abs(ty-loser.y)) || 1; animateUnitTo(loser, tx, ty, 'pushback'); playMovementAudio(loser, st, 'pushback'); }
       log(`${unitLabel(loser)} has nowhere left to give and edges along the board edge.`, 'combat');
       moved = true;
       break;
@@ -1339,9 +1348,19 @@ function playRallyCall(unit){
 export function retreatAndRally(loser, onComplete){
   onComplete = onComplete || function(){};
   const brig = state.units.find(u=>!u.removed && u.side===loser.side && u.type==='BRIGADIER' && u.brigadeId===loser.brigadeId);
-  const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
-  const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
-  const cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
+  let cell;
+  if(state.group && armyOf(loser)){
+    // Group: back to this army's own edge (never an ally's), to the free square
+    // on it nearest the Brigadier.
+    const ref = brig || loser;
+    const free = homeEdgeCells(armyOf(loser)).filter(c => !unitsAt(c.x,c.y).some(o=>o.id!==loser.id));
+    free.sort((a,b)=> chebyshev(a,ref) - chebyshev(b,ref));
+    cell = free[0] || { x:loser.x, y:loser.y };
+  } else {
+    const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
+    const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
+    cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
+  }
   const routSteps = Math.max(Math.abs(cell.x-loser.x), Math.abs(cell.y-loser.y));
 
   /* THE RALLY IS ROLLED WHERE THE UNIT STANDS, and only a unit that rallies
@@ -1575,6 +1594,7 @@ export function removeUnit(u, reason){
 export function checkWinCondition(){
   if(state.replaying) return;
   if(state.scenario){ checkScenarioObjective(); return; }
+  if(state.group){ checkGroupBreaks(); return; }
   for(const side of [SIDES.RED, SIDES.BLUE]){
     let brokenCount = 0;
     for(let bId=0; bId<3; bId++){
@@ -1591,3 +1611,29 @@ export function checkWinCondition(){
   }
 }
 
+
+/* GROUP: an army with 2 of its 3 Brigades broken leaves the field. Its
+   surviving units withdraw (not killed: no skull, logged as Withdrawn) and its
+   turns are skipped from then on. A team is beaten when both its armies are. */
+export function checkGroupBreaks(){
+  state.groupArmyOut = state.groupArmyOut || {};
+  for(const army of GROUP_ARMIES){
+    if(state.groupArmyOut[army.id]) continue;
+    if(armyBrokenCount(army) < 2) continue;
+    state.groupArmyOut[army.id] = true;
+    for(const u of state.units){
+      if(u.removed || u.army !== army.id) continue;
+      u.removed = true;
+      u.removedTurn = state.turnNumber;
+      logReplay('status', { unitId:u.id, side:u.side, x:u.x, y:u.y, newStatus:'Withdrawn', reason:'Army broken' });
+    }
+    log(`${army.label} is broken and withdraws from the field.`, 'system');
+  }
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const armies = GROUP_ARMIES.filter(a => a.side === side);
+    if(armies.every(a => state.groupArmyOut[a.id])){
+      endGame(side===SIDES.RED ? SIDES.BLUE : SIDES.RED);
+      return;
+    }
+  }
+}

@@ -15,6 +15,8 @@ import { askRemote, isOnline, isRemoteSide } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
+import { GROUP_ARMIES, actingArmy, actsFor, armyBrokenCount, armyById, isActing, nextTurnArmy, rollTurnOrder } from './group.js';
+const armyForBrigade = (side, bId) => state.group ? GROUP_ARMIES.find(a => a.side===side && bId>=a.brigadeOffset && bId<a.brigadeOffset+3) : null;
 
 /* ACKNOWLEDGEMENTS ON SELECT, one per side.
 
@@ -81,8 +83,18 @@ export function startBattle(){
   document.getElementById('overlay').classList.remove('show');
   state.matchLog = [];
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
-  state.turn = seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE;
-  log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
+  if(state.group){
+    // Group: one army at a time, alternating teams, in an order rolled now and
+    // kept for the whole match.
+    state.groupTurnOrder = rollTurnOrder(seededRandom);
+    state.groupArmyOut = {};
+    state.turnArmy = state.groupTurnOrder[0];
+    state.turn = armyById(state.turnArmy).side;
+    log(`Roll for initiative. Order of play: ${state.groupTurnOrder.map(id => armyById(id).label).join(', ')}.`, 'system');
+  } else {
+    state.turn = seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE;
+    log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
+  }
   document.getElementById('sidebar').style.display='none';
   document.getElementById('unitOverlay').classList.remove('hidden');
   document.getElementById('unitOverlay').classList.remove('show');
@@ -126,9 +138,10 @@ export function updateHeader(){
     if(battle){ dock.style.display = humanOwns(state.turn) ? 'flex' : 'none'; if(begin) begin.style.display = 'none'; }
     else if(!begin || begin.style.display === 'none') dock.style.display = 'none';   // leaves a Begin Battle offer standing
     if(battle && state.turn){
-      dock.style.setProperty('--side', SIDE_COLOR[state.turn]);
+      const army = actingArmy();
+      dock.style.setProperty('--side', army ? army.color : SIDE_COLOR[state.turn]);
       const lab = document.getElementById('phaseSide');
-      if(lab) lab.textContent = SIDE_LABEL[state.turn];
+      if(lab) lab.textContent = army ? army.short : SIDE_LABEL[state.turn];
     }
   }
   const badge = document.getElementById('turnBadge');
@@ -136,6 +149,9 @@ export function updateHeader(){
   if(state.phase==='deploy'){
     badge.textContent = `Deploying: ${sideName}`;
     badge.style.borderColor = SIDE_COLOR[state.deployTurn];
+  } else if(actingArmy()){
+    badge.textContent = actingArmy().short;
+    badge.style.borderColor = actingArmy().color;
   } else {
     badge.textContent = sideName;
     badge.style.borderColor = SIDE_COLOR[state.turn];
@@ -158,7 +174,8 @@ export function brigadeBrokenStatus(side){
   // excluding "Brigadier-only" here, every single Brigade briefly, incorrectly
   // read as already broken the instant its Brigadier went down.
   const out = [];
-  for(let bId=0; bId<3; bId++){
+  const count = state.group ? 6 : 3;   // Group: two armies per side, brigades 0-2 and 3-5
+  for(let bId=0; bId<count; bId++){
     const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
     const combatUnits = group.filter(u=>u.type!=='BRIGADIER');
     if(combatUnits.length===0){ out.push(false); continue; }
@@ -230,7 +247,9 @@ function showDispatch(side, brigadeId){
   el.innerHTML =
     `<div class="dispatch-kicker">Dispatch from the field</div>` +
     `<div class="dispatch-head">${who}'s Brigade is broken</div>` +
-    `<div class="dispatch-sub">${SIDE_LABEL[side]} &mdash; ${brokenCount} of 3 &middot; two ends the battle</div>`;
+    (armyForBrigade(side, brigadeId)
+      ? `<div class="dispatch-sub">${armyForBrigade(side, brigadeId).label} &mdash; ${armyBrokenCount(armyForBrigade(side, brigadeId))} of 3 &middot; two breaks the army</div>`
+      : `<div class="dispatch-sub">${SIDE_LABEL[side]} &mdash; ${brokenCount} of 3 &middot; two ends the battle</div>`);
   el.classList.add('show');
   // No dedicated sound yet: the audio catalogue has no brigadeBreak entry and
   // inventing one silently would fail the asset check. Hook here when one exists.
@@ -273,8 +292,8 @@ export function noteBrigadeBreaks(){
   if(!state.brokenSeen) state.brokenSeen = {};
   for(const side of [SIDES.RED, SIDES.BLUE]){
     const now = brigadeBrokenStatus(side);
-    const seen = state.brokenSeen[side] || [false,false,false];
-    for(let i=0;i<3;i++){
+    const seen = state.brokenSeen[side] || now.map(()=>false);
+    for(let i=0;i<now.length;i++){
       if(now[i] && !seen[i]){
         dispatchQueue.push({ side, brigadeId:i });
         // Reserve the whole run up front, not just the first one, so a second
@@ -296,6 +315,14 @@ export function renderBrigadeStatus(){
     const brokenCount = statuses.filter(Boolean).length;
     return `<span class="side-status" style="color:${SIDE_COLOR[side]}">${SIDE_LABEL[side]}: ${pips} <span style="color:var(--ink-dim);margin-left:2px;">(${brokenCount}/3 broken)</span></span>`;
   };
+  if(state.group){
+    el.innerHTML = GROUP_ARMIES.map(a=>{
+      const broken = armyBrokenCount(a);
+      const pips = [0,1,2].map(i=>`<span class="pip ${i<broken?'broken':'alive'}"></span>`).join('');
+      return `<span class="side-status" style="color:${a.color}">${a.short}: ${pips}</span>`;
+    }).join('');
+    return;
+  }
   el.innerHTML = renderSide(SIDES.RED) + renderSide(SIDES.BLUE);
 }
 
@@ -471,8 +498,11 @@ export function beginMovePhase(){
   // Hand the player's own zoom and pan back as their turn starts. Parked at the
   // top of the AI's move phase; following the action must never cost them where
   // they were looking.
+  // Group, one phone passed round: the board turns so whoever is acting sits
+  // behind their own army's edge.
+  if(state.group && actingArmy()) state.viewEdge = actingArmy().edge;
   if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
-  logReplay('turnStart', { side: state.turn });
+  logReplay('turnStart', { side: state.turn, army: state.turnArmy || undefined });
   /* TURN THEMES, at the start of every turn once the battle is under way.
      beginMovePhase is only reached after deployment, and it is the one place
      both the first turn and every later one begin, so nothing plays during
@@ -509,7 +539,7 @@ export function beginMovePhase(){
 export function clearPendingTurnaroundFlagsIfDue(){
   // units flagged turnOnly get exactly one phase of "turn around only", then are free again
   for(const u of state.units){
-    if(u.side!==state.turn) continue;
+    if(!isActing(u)) continue;
     if(u._turnOnlyConsumed){
       u.turnOnly = false;
       u._turnOnlyConsumed = false;
@@ -581,7 +611,7 @@ export function canLayAmbush(u){
   const t = UNIT_TYPES[u.type];
   if(!(t.key==='INFANTRY'||t.key==='GUARD')) return false;
   if(u.hidden) return false;
-  if(state.phase!=='move' || u.side!==state.turn || (state.moved && state.moved.has(u.id)) || u.turnOnly) return false;
+  if(state.phase!=='move' || !isActing(u) || (state.moved && state.moved.has(u.id)) || u.turnOnly) return false;
   if(terrainAt(u.x,u.y).key!=='WOODS') return false;
   if(unitsAt(u.x,u.y).length>1) return false; // Square-style formations need the square to itself, same for an ambush position
   const adjacentEnemy = state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(u,o));
@@ -663,7 +693,7 @@ function releasedForFinishing(u){
 }
 
 export function owesAFight(u, side){
-  if(u.side !== side || !canInitiateFight(u)) return false;
+  if(!actsFor(u, side) || !canInitiateFight(u)) return false;
   /* PRESERVE never initiates (R6), so it can never owe a fight either. ONE
      EXCEPTION: the attack that wins the match. PRESERVE exists to deny the
      enemy a Brigade kill; it must not forbid taking the kill that ends the
@@ -690,7 +720,7 @@ export function anyFightsAvailable(side){
 function describeBlockingContacts(side, limit){
   const out = [];
   for(const u of state.units){
-    if(u.side !== side || u.removed) continue;
+    if(!actsFor(u, side) || u.removed) continue;
     const foes = state.units.filter(o=>!o.removed && o.side!==side && isAdjacent(u,o));
     if(!foes.length) continue;
     if(!owesAFight(u, side)) continue;
@@ -719,7 +749,7 @@ function describeBlockingContacts(side, limit){
 // units get turned around at once. The generic "no units in contact" message
 // was misleading here, since there genuinely are units in contact.
 export function turnedAroundInContact(side){
-  return state.units.filter(u=>!u.removed && u.side===side && u.turnOnly &&
+  return state.units.filter(u=>!u.removed && actsFor(u, side) && u.turnOnly &&
     state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o)));
 }
 
@@ -885,9 +915,16 @@ export function endFightPhase(){
   state._fightGateRefusals = 0;
   state.phase = 'rally';
   updateHeader();
-  log(`${SIDE_LABEL[state.turn]} turn complete.`, 'system');
+  log(`${actingArmy() ? actingArmy().label : SIDE_LABEL[state.turn]} turn complete.`, 'system');
   setTimeout(()=>{
-    state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    if(state.group){
+      const next = nextTurnArmy();
+      if(!next) return;          // nobody left to act: the win check has already ended the match
+      state.turnArmy = next.id;
+      state.turn = armyById(next.id).side;
+    } else {
+      state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    }
     state.turnNumber++;
     /* Simulator only: a turn boundary it can observe on EVERY turn, where polling
        misses some. Undefined in the browser, so this is a no-op in play. Lives
@@ -925,7 +962,7 @@ export function selectUnit(id){
      loop: it is a moment, not an action of variable length. */
   if(u && selectionChanged) playSelectCue(u);
   renderUnitInfo(u);
-  if(u && u.side===state.turn){
+  if(u && isActing(u)){
     if(state.phase==='move'){
       const moves = legalMoves(u);
       setHighlightCells(moves.map(m=>({x:m.x,y:m.y,kind:'move'})));
@@ -1037,7 +1074,7 @@ export function renderUnitInfo(u){
      way), so this buys the unit no extra movement, only the ability to decide
      late. Not reactive: it happens in the unit's own Move phase, never during
      the opponent's turn. */
-  const baseOk = t.canFormSquare && state.phase==='move' && u.side===state.turn && !u.turnOnly;
+  const baseOk = t.canFormSquare && state.phase==='move' && isActing(u) && !u.turnOnly;
   if(u.formation==='square'){
     sqBtn.disabled = !(baseOk && !state.moved.has(u.id));
   } else {
@@ -1047,7 +1084,7 @@ export function renderUnitInfo(u){
   if(u.hidden){
     ambBtn.style.display = 'inline-block';
     ambBtn.textContent = 'Stand Down';
-    ambBtn.disabled = !(state.phase==='move' && u.side===state.turn && !state.moved.has(u.id));
+    ambBtn.disabled = !(state.phase==='move' && isActing(u) && !state.moved.has(u.id));
   } else if(canLayAmbush(u)){
     ambBtn.style.display = 'inline-block';
     ambBtn.textContent = 'Lay Ambush';
@@ -1057,7 +1094,7 @@ export function renderUnitInfo(u){
   }
 
   const chargeBtn = document.getElementById('chargeBtn');
-  const chargeOk = t.isCavalry && state.phase==='move' && u.side===state.turn && !state.moved.has(u.id) && !u.turnOnly;
+  const chargeOk = t.isCavalry && state.phase==='move' && isActing(u) && !state.moved.has(u.id) && !u.turnOnly;
   if(chargeOk && computeChargeDestinations(u).length>0){
     chargeBtn.style.display = 'inline-block';
     chargeBtn.disabled = false;
@@ -1092,7 +1129,7 @@ export function onCellClick(x,y){
   const sel = state.selectedUnitId ? state.units.find(u=>u.id===state.selectedUnitId) : null;
 
   if(state.phase==='move'){
-    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='charge')){
+    if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='charge')){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
@@ -1112,7 +1149,7 @@ export function onCellClick(x,y){
       afterMoveSettles(chargeSteps, 'charge', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
-    if(sel && sel.side===state.turn && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
+    if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
@@ -1152,7 +1189,7 @@ export function onCellClick(x,y){
       afterMoveSettles(marchSteps, 'march', ()=> resolveAmbushSpringsNow(maybeStartAutoEnd));
       return;
     }
-    if(clicked && clicked.side===state.turn){ selectUnit(clicked.id); return; }
+    if(clicked && isActing(clicked)){ selectUnit(clicked.id); return; }
     selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fire'){
     if(sel && UNIT_TYPES[sel.type].isArtillery && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
@@ -1181,7 +1218,7 @@ export function onCellClick(x,y){
       resolveVolley(sel, target, maybeStartAutoEnd);
       return;
     }
-    if(clicked && clicked.side===state.turn &&
+    if(clicked && isActing(clicked) &&
        (UNIT_TYPES[clicked.type].isArtillery || isFootInfantry(clicked))){ selectUnit(clicked.id); return; }
     selectUnit(clicked ? clicked.id : null);
   } else if(state.phase==='fight'){
@@ -1196,7 +1233,7 @@ export function onCellClick(x,y){
        A logged match shows the 10th Hussars attacking FOUR times in turn 31:
        it pushed a battery back, killed it, killed the second battery, then
        fought the 7e Hussards. One unit, four fights, one turn. */
-    if(sel && sel.side===state.turn && canInitiateFight(sel) &&
+    if(sel && isActing(sel) && canInitiateFight(sel) &&
        highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
       pushUndoSnapshot();
@@ -1221,7 +1258,7 @@ export function onCellClick(x,y){
       resolveFight(sel, target, undefined, maybeStartAutoEnd);
       return;
     }
-    if(clicked && clicked.side===state.turn && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
+    if(clicked && isActing(clicked) && canInitiateFight(clicked)){ selectUnit(clicked.id); return; }
     selectUnit(clicked ? clicked.id : null);
   }
 }

@@ -1,4 +1,5 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
+import { armyOf } from './group.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
 import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
@@ -236,6 +237,52 @@ export function drawCavalryChevrons(size){
     ctx.restore();
   });
 }
+/* SECOND ARMIES (Group, 2v2). Until they have art of their own, each side's
+   second army is its first army's figures with the coats recoloured: the
+   saturated red of the British coats turned green, the French blue turned
+   violet. Done once per image, on a canvas, the first time it is needed, and
+   only the strongly coloured pixels move, so faces, horses, metal and the
+   ground under the figures keep their own colours. drawUnit sets UNIT_SKIN for
+   the unit being drawn and puts it back afterwards. */
+let UNIT_SKIN = 1;
+export function setUnitSkin(n){ UNIT_SKIN = n || 1; }
+const SKIN_CACHE = {};
+const SKIN_RULES = {
+  red:  { match: h => h >= 340 || h <= 14, to: 128 },
+  blue: { match: h => h >= 195 && h <= 250, to: 282 },
+};
+function skinnedImage(key){
+  const img = UNIT_IMAGES[key];
+  if(UNIT_SKIN !== 2 || !(img && img.complete && img.naturalWidth>0)) return img;
+  if(SKIN_CACHE[key]) return SKIN_CACHE[key];
+  const rule = /british|_red/.test(key) ? SKIN_RULES.red : /french|_blue/.test(key) ? SKIN_RULES.blue : null;
+  if(!rule) return img;
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  try {
+    const data = g.getImageData(0, 0, c.width, c.height), d = data.data;
+    for(let i=0; i<d.length; i+=4){
+      if(d[i+3] < 8) continue;
+      const r = d[i]/255, gg = d[i+1]/255, b = d[i+2]/255;
+      const max = Math.max(r,gg,b), min = Math.min(r,gg,b), delta = max-min;
+      if(max < 0.12 || delta/max < 0.35) continue;          // dark or greyish: leave alone
+      let h = max===r ? 60*(((gg-b)/delta)%6) : max===gg ? 60*((b-r)/delta+2) : 60*((r-gg)/delta+4);
+      if(h < 0) h += 360;
+      if(!rule.match(h)) continue;
+      const s = delta/max, v = max, hh = rule.to/60, f = hh - Math.floor(hh);
+      const p = v*(1-s), q = v*(1-s*f), t = v*(1-s*(1-f));
+      const [R,G,B] = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][Math.floor(hh)%6];
+      d[i] = R*255; d[i+1] = G*255; d[i+2] = B*255;
+    }
+    g.putImageData(data, 0, 0);
+  } catch { return img; }   // a tainted canvas (never expected for our own assets) keeps the original look
+  c.complete = true; c.naturalWidth = c.width; c.naturalHeight = c.height;
+  SKIN_CACHE[key] = c;
+  return c;
+}
+
 export const CANNON_SILHOUETTE_CACHE = {};
 // Builds (and caches) a solid-white silhouette of a cannon image, used to paint a thin
 // outline around it — the PNG has transparency so a normal stroke() has nothing to grab.
@@ -256,7 +303,7 @@ export function getCannonSilhouette(img, key){
 // cavalry, infantry). sizeRatio lets a taller (portrait-oriented cavalry
 // crop) or wider (cannon) source scale sensibly against the common cell size.
 function drawSilhouetteIconImage(size, key, sizeRatio){
-  const img = UNIT_IMAGES[key];
+  const img = skinnedImage(key);
   if(img && img.complete && img.naturalWidth>0){
     const h = size*sizeRatio, w = h*(img.naturalWidth/img.naturalHeight);
     ctx.drawImage(img, -w/2, -h/2, w, h);
@@ -271,7 +318,7 @@ function drawSilhouetteIconImage(size, key, sizeRatio){
 // upward into the square above — never sideways, never down — suggesting the
 // standing/mounted figure's real height on a top-down board.
 function drawBottomAnchoredImage(cellSize, key, maxHeightRatio, overscan){
-  const img = UNIT_IMAGES[key];
+  const img = skinnedImage(key);
   if(!(img && img.complete && img.naturalWidth>0)) return false;
   const aspect = img.naturalWidth/img.naturalHeight;
   // overscan (default 1, i.e. unchanged) lets Woods draw past its cell so the
@@ -326,7 +373,7 @@ const LINE_INFANTRY_SPRITES = {
 export function drawLineInfantryImage(size, side){
   const spec = LINE_INFANTRY_SPRITES[side];
   if(!spec) return false;
-  const img = UNIT_IMAGES[spec.key];
+  const img = skinnedImage(spec.key);
   if(!(img && img.complete && img.naturalWidth>0)) return false;
   const frameW = img.naturalWidth / spec.frames;
   const frameH = img.naturalHeight;
@@ -352,7 +399,7 @@ function drawWoodsHiddenImage(cellSize, side, x, y){
 }
 export function drawCannonImage(size, side){
   const key = side===SIDES.RED ? 'cannon_red' : 'cannon_blue';
-  const img = UNIT_IMAGES[key];
+  const img = skinnedImage(key);
   if(img && img.complete && img.naturalWidth>0){
     const h = size*0.95*0.85, w = h*(img.naturalWidth/img.naturalHeight); // 15% smaller
     const silhouette = getCannonSilhouette(img, key);
@@ -397,7 +444,12 @@ export function drawBrigadierPortrait(size, u, isSel){
   return false; // no match or not yet loaded — caller falls back to the star
 }
 
+const skinFor = u => (state.group && armyOf(u) && armyOf(u).skin === 2) ? 2 : 1;
 export function drawUnit(u, off){
+  setUnitSkin(skinFor(u));
+  try { drawUnitInner(u, off); } finally { setUnitSkin(1); }
+}
+function drawUnitInner(u, off){
   off = off || {dx:0, dy:0, scale:1};
   const vp = getUnitVisualPos(u);
   // Gait added here rather than inside getUnitVisualPos, because that value also
@@ -410,7 +462,7 @@ export function drawUnit(u, off){
   routProbeSample(u, vp, cx, cy);
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
-  const col = SIDE_COLOR[u.side];
+  const col = (state.group && armyOf(u)) ? armyOf(u).color : SIDE_COLOR[u.side];
   const size = CELL*0.62*off.scale; // common scale basis for the new marker drawing functions
   const r = CELL*0.30*off.scale;    // legacy radius, still used by the Brigadier star fallback
 
@@ -517,6 +569,10 @@ export function drawUnit(u, off){
 // suggesting a second rank behind the first, rather than the old abstracted
 // 20-dot mass.
 export function drawColumnUnitPair(u1, u2){
+  setUnitSkin(skinFor(u1));
+  try { drawColumnUnitPairInner(u1, u2); } finally { setUnitSkin(1); }
+}
+function drawColumnUnitPairInner(u1, u2){
   const vp = getUnitVisualPos(u1);
   const sp = toScreen(vp.x, vp.y);
   const cx = sp.x*CELL+CELL/2, cy = sp.y*CELL+CELL/2;

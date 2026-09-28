@@ -31,6 +31,7 @@
 ========================================================= */
 import { state } from './data-core.js';
 import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules.js';
+import { actsFor } from './group.js';
 
 export const AUTO_END_MS = 4000;
 const TICK_MS = 100;
@@ -87,7 +88,7 @@ function isHumanTurn(){
 /* Every legal action in `phase` has been taken by the side whose turn it is. */
 export function phaseActionsComplete(phase){
   const side = state.turn;
-  const mine = state.units.filter(u => !u.removed && u.side === side);
+  const mine = state.units.filter(u => !u.removed && actsFor(u, side));
   if(phase === 'move')  return !mine.some(u => hasAnyLegalMove(u));
   /* The Firing phase is no longer artillery-only: infantry volley resolves here
      too, so a turn with no gun but an infantry unit in contact still has an

@@ -3,6 +3,8 @@ import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
 import { isRoadLike, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
 import { isOnline, requestRemoteDeploy } from './online-session.js';
+import { newUnit } from './engine-state.js';
+import { deployZoneLocal, fromLocal } from './group.js';
 
 /* =========================================================
    AI: DEPLOYMENT
@@ -415,3 +417,89 @@ export function findNearestFreeDeployCell(side, col, row, typeKey){
   return candidates[0] || {x:col,y:row};
 }
 
+
+/* =========================================================
+   GROUP DEPLOYMENT (2v2)
+
+   The same square-by-square choice as the standard auto-deploy (terrain,
+   cohesion with the rest of the Brigade, the same tie-breaking rng per army),
+   worked out in the army's own frame: its two home rows, trimmed at the
+   corners (see deployZoneLocal), split into three bands, one per Brigade.
+   Each candidate is turned into a board square before it is scored, so the
+   scoring itself needs to know nothing about which edge it is on.
+========================================================= */
+function groupBands(army){
+  const [a, b] = deployZoneLocal(army).cols;
+  const w = b - a + 1, cut1 = a + Math.round(w/3) - 1, cut2 = a + Math.round(2*w/3) - 1;
+  return [[a, cut1], [cut1+1, cut2], [cut2+1, b]];
+}
+
+function chooseGroupDeployCell(army, typeKey, localIdx, forceBack, rng){
+  const zone = deployZoneLocal(army);
+  const bIdx = army.brigadeOffset + localIdx;
+  const band = groupBands(army)[localIdx];
+  const isBack = forceBack !== undefined ? forceBack : (typeKey==='BRIGADIER' || typeKey==='ARTILLERY');
+  const tryRows = (rows, cols) => {
+    let best = null, bestScore = -Infinity;
+    for(const ly of rows){
+      for(let lx=cols[0]; lx<=cols[1]; lx++){
+        const c = fromLocal(army.edge, lx, ly);
+        const sc = scoreDeployCell(typeKey, c.x, c.y, army.side, bIdx) + rng()*0.05;
+        if(sc > bestScore && sc > -Infinity){ bestScore = sc; best = c; }
+      }
+    }
+    return best;
+  };
+  return tryRows(isBack ? zone.backRows : [zone.frontRow], band)
+    || tryRows([zone.frontRow, ...zone.backRows], band)
+    || tryRows([zone.frontRow, ...zone.backRows], zone.cols);
+}
+
+function groupArmyEntries(composition){
+  return composition.brigades.map(brig =>
+    [{ type:'BRIGADIER', forceBack:undefined }, ...brig.units.map(e => ({ type:e.type, forceBack:e.rank !== 'front' }))]);
+}
+
+/* Where an army WOULD land (for the picker preview): ghosts pushed while
+   choosing, all removed again before returning, as planArmyDeployment does. */
+export function planGroupArmy(army, compositionId){
+  const comp = TB_DATA.armyCompositions.find(a => a.id === compositionId);
+  if(!comp) return [];
+  const rng = armyRng(comp.id, army.id);
+  const ghosts = [];
+  let n = 0;
+  try {
+    groupArmyEntries(comp).forEach((entries, i)=>{
+      for(const e of entries){
+        const cell = chooseGroupDeployCell(army, e.type, i, e.forceBack, rng);
+        if(!cell) continue;
+        const ghost = { id:'ghost'+(n++), side:army.side, army:army.id, type:e.type,
+          brigadeId:army.brigadeOffset+i, brigadeIndex:i, x:cell.x, y:cell.y,
+          removed:false, formation:'line', ghost:true };
+        ghosts.push(ghost);
+        state.units.push(ghost);
+      }
+    });
+  } finally {
+    for(let k = state.units.length - 1; k >= 0; k--){ if(state.units[k].ghost) state.units.splice(k, 1); }
+  }
+  return ghosts;
+}
+
+/* Place the army for real: the same choices, in the same order, with the same
+   rng, so the preview and the board always agree. */
+export function deployGroupArmy(army, compositionId){
+  const comp = TB_DATA.armyCompositions.find(a => a.id === compositionId);
+  if(!comp) return false;
+  const rng = armyRng(comp.id, army.id);
+  groupArmyEntries(comp).forEach((entries, i)=>{
+    for(const e of entries){
+      const cell = chooseGroupDeployCell(army, e.type, i, e.forceBack, rng);
+      if(!cell) continue;
+      const u = newUnit(army.side, e.type, cell.x, cell.y, army.brigadeOffset + i);
+      u.army = army.id;
+      state.units.push(u);
+    }
+  });
+  return true;
+}

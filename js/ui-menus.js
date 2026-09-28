@@ -3,11 +3,11 @@ import { SCENARIOS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { beginDiagramMode, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy } from './render-board.js';
+import { beginDiagramMode, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
-import { deployArmyComposition, planArmyDeployment } from './ai-deployment.js';
+import { deployArmyComposition, planArmyDeployment, planGroupArmy } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
 
 /* THE BATTLE SCORE. Two tracks, played in turn rather than one on repeat, and
@@ -184,6 +184,11 @@ export function showModeSelect(isSplash){
   onlineBtn.textContent = 'Play Online';
   onlineBtn.onclick = ()=>{ import('./online.js').then(m => m.openLobby()); };
   extra.appendChild(onlineBtn);
+  /* ONLINE GROUP: the four-army 2v2 mode. Loaded on demand like Play Online. */
+  const groupBtn = document.createElement('button');
+  groupBtn.textContent = 'Online Group';
+  groupBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; import('./ui-group.js').then(m => m.showGroupMenu()); };
+  extra.appendChild(groupBtn);
   extra.appendChild(spectateBtn);
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
@@ -686,6 +691,19 @@ export function maybeShowArmyPicker(){
 }
 
 let armyPickerState = null; // { side, index }
+/* Group (2v2): the army the picker is choosing for. Set only by
+   showGroupArmyPicker; everywhere else it is null and the picker behaves as
+   before. */
+let pickerGroupArmy = null;
+export function showGroupArmyPicker(armyDef, onChosen){
+  pickerGroupArmy = armyDef;
+  state.viewEdge = armyDef.edge;
+  draw();
+  showArmyPickerFor(armyDef.side, (composition)=>{
+    pickerGroupArmy = null;
+    onChosen(composition);
+  });
+}
 let armyPickerSwipeAttached = false;
 
 function goToArmy(delta){
@@ -777,6 +795,8 @@ function renderArmyPickerCard(){
   const { side, index } = armyPickerState;
   const army = TB_DATA.armyCompositions[index];
   document.getElementById('armyPickerIndex').textContent = index+1;
+  const forEl = document.getElementById('armyPickerFor');
+  if(forEl) forEl.textContent = pickerGroupArmy ? pickerGroupArmy.label + ' \u00b7 ' : '';
   document.getElementById('armyPickerName').textContent = army.name;
   document.getElementById('armyPickerSummary').textContent = army.summary;
   const cardsEl = document.getElementById('armyPickerBrigadeCards');
@@ -799,7 +819,7 @@ const PREVIEW_BAR = 6;
 function drawArmyPreview(side, army){
   const out = document.getElementById('armyPickerPreview');
   if(!out || !state.terrain) return;
-  const ghosts = planArmyDeployment(side, army.id);
+  const ghosts = pickerGroupArmy ? planGroupArmy(pickerGroupArmy, army.id) : planArmyDeployment(side, army.id);
   for(const g of ghosts){
     const list = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][g.type]) || [];
     g.historicalName = list.length ? list[0].name : null;
@@ -814,11 +834,18 @@ function drawArmyPreview(side, army){
     endDiagramMode();
   }
   const deployRows = 2;
-  const rows = side===SIDES.RED
-    ? Array.from({length: deployRows+1}, (_,i)=>ROWS-1-i)
-    : Array.from({length: deployRows+1}, (_,i)=>i);
-  const screenRows = rows.map(r => sy(r));
-  const top = Math.min(...screenRows);
+  let rows, top;
+  if(pickerGroupArmy){
+    // Group: the board is already turned to this army's edge, so its home rows
+    // are the bottom rows of the screen whichever edge it is.
+    rows = [0,1,2];
+    top = ROWS - rows.length;
+  } else {
+    rows = side===SIDES.RED
+      ? Array.from({length: deployRows+1}, (_,i)=>ROWS-1-i)
+      : Array.from({length: deployRows+1}, (_,i)=>i);
+    top = Math.min(...rows.map(r => sy(r)));
+  }
   const h = rows.length * PREVIEW_CELL;
   out.width = off.width;
   out.height = h + PREVIEW_BAR;
@@ -826,7 +853,7 @@ function drawArmyPreview(side, army){
   octx.clearRect(0, 0, out.width, out.height);
   octx.drawImage(off, 0, top*PREVIEW_CELL, off.width, h, 0, 0, off.width, h);
   army.brigades.forEach((_, i)=>{
-    const xs = ghosts.filter(g => g.brigadeIndex === i).map(g => g.x);
+    const xs = ghosts.filter(g => g.brigadeIndex === i).map(g => toScreen(g.x, g.y).x);
     if(!xs.length) return;
     const x0 = Math.min(...xs), x1 = Math.max(...xs);
     octx.fillStyle = ARMY_ZONE_COLORS[i];
