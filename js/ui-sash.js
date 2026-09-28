@@ -23,7 +23,7 @@
    DRAWN position so it rides along while the unit walks.
 ========================================================= */
 import { COLS, ROWS, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
-import { canvas, getUnitVisualPos, sy } from './render-board.js';
+import { canvas, getUnitVisualPos, toScreen } from './render-board.js';
 
 /* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
    Matthew asked for the profile panel back, tighter. Kept, not deleted, so the
@@ -97,10 +97,10 @@ function place(opensLeft){
   const rect = canvas.getBoundingClientRect();
   const cw = rect.width / COLS, ch = rect.height / ROWS;
   const vp = getUnitVisualPos(u) || { x: u.x, y: u.y };
-  const row = sy(vp.y);
+  const sp = toScreen(vp.x, vp.y), row = sp.y;
   const w = root.offsetWidth || 160, h = root.offsetHeight || 60;
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
-  let left = opensLeft ? rect.left + vp.x * cw - w - 2 : rect.left + (vp.x + 1) * cw + 2;
+  let left = opensLeft ? rect.left + sp.x * cw - w - 2 : rect.left + (sp.x + 1) * cw + 2;
   let top = rect.top + row * ch - 4;
   left = Math.max(6, Math.min(vw - w - 6, left));
   top = Math.max(6, Math.min(vh - h - 6, top));

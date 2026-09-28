@@ -2,7 +2,7 @@ import { aiDeployStep } from './ai-deployment.js';
 import { BRIGADE_COMPOSITIONS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
 import { inBounds, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
-import { cellFromClient, draw, sy } from './render-board.js';
+import { cellFromClient, draw, fromScreen } from './render-board.js';
 import { startBattle, unitLabel, updateHeader } from './ui-battle.js';
 import { maybeShowArmyPicker } from './ui-menus.js';
 
@@ -288,8 +288,8 @@ export function startChipDrag(e, typeKey){
 export function updateDragHoverCell(clientX, clientY){
   const hit = cellFromClient(clientX, clientY);
   if(!hit){ dragState.hoverCell = null; return; }
-  const y = sy(hit.screenY);
-  dragState.hoverCell = inBounds(hit.x,y) ? {x:hit.x,y} : null;
+  const b = fromScreen(hit.x, hit.screenY);
+  dragState.hoverCell = inBounds(b.x,b.y) ? {x:b.x,y:b.y} : null;
 }
 
 // Shared deployment-placement validation, used by both tap-to-place and drag-and-drop.

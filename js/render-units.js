@@ -1,6 +1,6 @@
 import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
-import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, sy, unitGaitOffset, woodsStyleIndex } from './render-board.js';
+import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
   cannon_red: 'assets/icons/cannon_red.png',
@@ -402,8 +402,9 @@ export function drawUnit(u, off){
   const vp = getUnitVisualPos(u);
   // Gait added here rather than inside getUnitVisualPos, because that value also
   // feeds the depth sort and a bobbing sort key would flicker against terrain.
-  const cx = vp.x*CELL+CELL/2 + off.dx*CELL,
-        cy = (sy(vp.y) + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
+  const sp = toScreen(vp.x, vp.y);
+  const cx = sp.x*CELL+CELL/2 + off.dx*CELL,
+        cy = (sp.y + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
   // Sampled here, at the exact coordinates the unit is about to be drawn at, so
   // the probe records what the renderer saw rather than what it was told.
   routProbeSample(u, vp, cx, cy);
@@ -517,7 +518,8 @@ export function drawUnit(u, off){
 // 20-dot mass.
 export function drawColumnUnitPair(u1, u2){
   const vp = getUnitVisualPos(u1);
-  const cx = vp.x*CELL+CELL/2, cy = sy(vp.y)*CELL+CELL/2;
+  const sp = toScreen(vp.x, vp.y);
+  const cx = sp.x*CELL+CELL/2, cy = sp.y*CELL+CELL/2;
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
   const side = u1.side;
   const size = CELL*0.62;

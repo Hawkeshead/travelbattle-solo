@@ -21,6 +21,39 @@ export function sy(y){
   return screenFlipActive() ? (ROWS-1-y) : y;
 }
 
+/* THE VIEW: which edge of the map sits at the bottom of this device's screen.
+   'S' is the board as stored and 'N' is the long-standing vertical flip above
+   (France vs the AI). 'E' and 'W' turn the board a quarter so a player whose
+   army starts on the east or west edge also sits behind their own troops;
+   they need a square board (the 20x20 map), since the canvas keeps its shape.
+
+   Every square-to-screen conversion goes through toScreen / fromScreen. The
+   art is never rotated: each tile is still drawn upright at its new position,
+   and roads pick their tile from the directions they run ON SCREEN, which is
+   how the rotated quadrants of the four-board map already work. Both are
+   linear, so they take fractional squares (a unit mid-animation) too. */
+export function viewEdge(){
+  return state.viewEdge || (screenFlipActive() ? 'N' : 'S');
+}
+export function toScreen(x, y){
+  switch(viewEdge()){
+    case 'N': return { x, y: ROWS-1-y };
+    case 'E': return { x: ROWS-1-y, y: x };
+    case 'W': return { x: y, y: COLS-1-x };
+    default:  return { x, y };
+  }
+}
+export function fromScreen(sx_, sy_){
+  switch(viewEdge()){
+    case 'N': return { x: sx_, y: ROWS-1-sy_ };
+    case 'E': return { x: sy_, y: ROWS-1-sx_ };
+    case 'W': return { x: COLS-1-sy_, y: sx_ };
+    default:  return { x: sx_, y: sy_ };
+  }
+}
+const SX = (x, y) => toScreen(x, y).x;
+const SY = (x, y) => toScreen(x, y).y;
+
 /* =========================================================
    UNIT MOVEMENT ANIMATION
    Units jumped instantly to their new square, which made rapid AI
@@ -249,7 +282,7 @@ function emitRoadDustIfCrossing(u, anim, pos){
   if(!sq || anim.dustAt === idx) return;
   anim.dustAt = idx;
   if(!isRoadLike(terrainAt(sq.x, sq.y))) return;
-  roadDust.push({ x: sq.x*CELL + CELL/2, y: (sy(sq.y)+1)*CELL, startTime: Date.now() });
+  roadDust.push({ x: SX(sq.x,sq.y)*CELL + CELL/2, y: (SY(sq.x,sq.y)+1)*CELL, startTime: Date.now() });
 }
 
 export function drawRoadDust(){
@@ -902,9 +935,9 @@ export function syncFctLayer(){
    square is drawn at the top of the board rather than whether row === 0: the
    board can be screen-flipped, and a label needs to know where the room is. */
 export function fctSquareToPixel(col, row){
-  const r = sy(row);
+  const p = toScreen(col, row), r = p.y;
   return {
-    centreX: (col + 0.5) * CELL,
+    centreX: (p.x + 0.5) * CELL,
     top: r * CELL,
     bottom: (r + 1) * CELL,
     atTopEdge: r === 0,
@@ -1019,8 +1052,9 @@ export function cameraTo(cellX, cellY, opts = {}){
   // The canvas is laid out at its CSS size; CELL is in canvas-internal units, so
   // scale between them before working out where the cell lands on screen.
   const scale = canvas.offsetWidth / (COLS * CELL);
-  const targetX = (cellX + 0.5) * CELL * scale * zoom;
-  const targetY = (sy(cellY) + 0.5) * CELL * scale * zoom;
+  const tp = toScreen(cellX, cellY);
+  const targetX = (tp.x + 0.5) * CELL * scale * zoom;
+  const targetY = (tp.y + 0.5) * CELL * scale * zoom;
 
   const fromX = mapPanX, fromY = mapPanY, fromZ = mapZoom;
   const toX = wrap.clientWidth/2 - targetX;
@@ -1074,7 +1108,7 @@ export function cameraToAction(units, opts = {}){
   const wrap = document.getElementById('boardWrap');
   if(!wrap || !canvas) return;
 
-  const xs = live.map(u=>u.x), ys = live.map(u=>sy(u.y));
+  const xs = live.map(u=>SX(u.x,u.y)), ys = live.map(u=>SY(u.x,u.y));
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
   // +1 so the box covers the full squares at each end, not just their centres.
@@ -1089,10 +1123,8 @@ export function cameraToAction(units, opts = {}){
      three in a stack they are not, and the box is what has to fit. sy() is
      already applied above, so the y handed back to cameraTo is un-flipped to
      avoid flipping it twice. */
-  const cx = (minX + maxX) / 2;
-  const cyScreen = (minY + maxY) / 2;
-  const cy = screenFlipActive() ? (ROWS - 1 - cyScreen) : cyScreen;
-  cameraTo(cx, cy, Object.assign({ zoom }, opts));
+  const centre = fromScreen((minX + maxX) / 2, (minY + maxY) / 2);
+  cameraTo(centre.x, centre.y, Object.assign({ zoom }, opts));
 }
 
 /* Frame a group of units rather than a point: their centroid, so a Brigade
@@ -1403,7 +1435,6 @@ export function drawBuildingCluster(cx, cy, cellSize, seed){
 export function draw(){
   const debugPanel = document.getElementById('aiDebugPanel');
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
-  const flip = screenFlipActive();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const terrain = state.terrain;
 
@@ -1413,11 +1444,10 @@ export function draw(){
   // cells (drawn over next, once the grass tile images are ready) so there's
   // no flash of blank canvas while those assets are still decoding.
   for(let y=0;y<ROWS;y++){
-    const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
       ctx.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
-      ctx.fillRect(x*CELL,sy_*CELL,CELL,CELL);
+      ctx.fillRect(SX(x,y)*CELL, SY(x,y)*CELL,CELL,CELL);
     }
   }
 
@@ -1430,8 +1460,7 @@ export function draw(){
   // rather than doubling up on top of this.
   if(state.grassStyles){
     for(let y=0;y<ROWS;y++){
-      const sy_ = sy(y);
-      for(let x=0;x<COLS;x++){
+        for(let x=0;x<COLS;x++){
         // BUILDING as well as OPEN — see assignGrassStyles. Drawn before the
         // hamlet pass below, so the village plate lands on real grassland
         // instead of the flat fallback fill.
@@ -1440,7 +1469,7 @@ export function draw(){
         if(!style) continue;
         const img = UNIT_IMAGES['grass_'+style];
         if(img && img.complete && img.naturalWidth>0){
-          ctx.drawImage(img, x*CELL, sy_*CELL, CELL, CELL);
+          ctx.drawImage(img, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
         }
       }
     }
@@ -1453,7 +1482,7 @@ export function draw(){
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
-      if(key==='ROAD') ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+      if(key==='ROAD') ctx.rect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
     }
   }
   ctx.clip();
@@ -1467,10 +1496,10 @@ export function draw(){
   for(const region of ploughRegions){
     ctx.save();
     ctx.beginPath();
-    for(const [x,y] of region) ctx.rect(x*CELL, sy(y)*CELL, CELL, CELL);
+    for(const [x,y] of region) ctx.rect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
     ctx.clip();
-    const screenYs = region.map(([,y])=>sy(y));
-    const minX=Math.min(...region.map(c=>c[0])), maxX=Math.max(...region.map(c=>c[0]));
+    const screenYs = region.map(([x,y])=>SY(x,y)), screenXs = region.map(([x,y])=>SX(x,y));
+    const minX=Math.min(...screenXs), maxX=Math.max(...screenXs);
     const minSY=Math.min(...screenYs), maxSY=Math.max(...screenYs);
     const widthPx = (maxX-minX+1)*CELL, heightPx = (maxSY-minSY+1)*CELL;
     const horizontal = widthPx >= heightPx;
@@ -1521,28 +1550,25 @@ export function draw(){
   // Off-board neighbours are expressed as out-of-range coordinates on purpose:
   // sy() maps y=-1 to ROWS when the board is flipped, so an edge that is "up"
   // in grid space correctly becomes "down" on screen without a special case.
+  function screenDir(dirs, x, y, nx, ny){
+    const a = toScreen(x, y), b = toScreen(nx, ny);
+    if(b.x < a.x) dirs.left = true;
+    else if(b.x > a.x) dirs.right = true;
+    else if(b.y < a.y) dirs.up = true;
+    else if(b.y > a.y) dirs.down = true;
+  }
   function roadArtDirs(x, y, list){
     const dirs = roadScreenDirs(x, y, list);
-    const sy0 = sy(y);
     for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
       const nx = x+dx, ny = y+dy;
       if(inBounds(nx,ny)) continue;          // real neighbour, already handled
-      if(nx < x) dirs.left = true;
-      else if(nx > x) dirs.right = true;
-      else if(sy(ny) < sy0) dirs.up = true;
-      else dirs.down = true;
+      screenDir(dirs, x, y, nx, ny);
     }
     return dirs;
   }
   function roadScreenDirs(x, y, list){
     const dirs = { up:false, down:false, left:false, right:false };
-    const sy0 = sy(y);
-    for(const n of list){
-      if(n.x < x) dirs.left = true;
-      else if(n.x > x) dirs.right = true;
-      else if(sy(n.y) < sy0) dirs.up = true;
-      else if(sy(n.y) > sy0) dirs.down = true;
-    }
+    for(const n of list) screenDir(dirs, x, y, n.x, n.y);
     return dirs;
   }
   function roadTileKey(dirs){
@@ -1574,7 +1600,6 @@ export function draw(){
     return null;
   }
   for(let y=0;y<ROWS;y++){
-    const sy_ = sy(y);
     for(let x=0;x<COLS;x++){
       if(terrain[y][x]!=='ROAD') continue;
       const list = roadConn[x+','+y] || [];
@@ -1590,13 +1615,13 @@ export function draw(){
         // clustering behaviour. Nothing is drawn over it.
         const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
         if(gimg && gimg.complete && gimg.naturalWidth>0){
-          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
+          ctx.drawImage(gimg, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
         }
         continue;
       }
       const img = UNIT_IMAGES[key];
       if(img && img.complete && img.naturalWidth>0){
-        ctx.drawImage(img, x*CELL, sy_*CELL, CELL, CELL);
+        ctx.drawImage(img, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
       }
     }
   }
@@ -1638,7 +1663,7 @@ export function draw(){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
       if(key==='HILL' || key==='BUILDING' || key==='WOODS'){
-        raisedFeatures.push({ x, y, key, sy_: sy(y) });
+        raisedFeatures.push({ x, y, key, sy_: SY(x,y), sx_: SX(x,y) });
       }
     }
   }
@@ -1646,10 +1671,10 @@ export function draw(){
   // tiebreak only keeps the order deterministic within a row; nothing in a
   // single row can overlap anything else in that row by more than the 15%
   // side bleed, so it has no visual consequence.
-  raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.x - b.x);
+  raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.sx_ - b.sx_);
 
   for(const f of raisedFeatures){
-    const { x, y, key, sy_ } = f;
+    const { x, y, key } = f;
 
     if(key === 'HILL'){
       const img = UNIT_IMAGES['hill_'+hillStyleIndex(x,y)];
@@ -1660,7 +1685,7 @@ export function draw(){
         // stop dead at the cell's top edge and never overlap the tile above.
         const w = CELL*WOODS_OVERSCAN;
         const h = w*(img.naturalHeight/img.naturalWidth);
-        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+        ctx.drawImage(img, SX(x,y)*CELL-(w-CELL)/2, SY(x,y)*CELL+CELL-h, w, h);
       }
 
     } else if(key === 'BUILDING'){
@@ -1677,7 +1702,7 @@ export function draw(){
         // every hamlet by 23% instead of enlarging it.
         const w = CELL*WOODS_OVERSCAN;
         const h = w*(img.naturalHeight/img.naturalWidth);
-        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+        ctx.drawImage(img, SX(x,y)*CELL-(w-CELL)/2, SY(x,y)*CELL+CELL-h, w, h);
       }
 
     } else { // WOODS
@@ -1691,15 +1716,15 @@ export function draw(){
         // this cell, so it cannot disturb anything already drawn beside it.
         const gimg = UNIT_IMAGES['grass_'+woodsStyleIndex(x,y)];
         if(gimg && gimg.complete && gimg.naturalWidth>0){
-          ctx.drawImage(gimg, x*CELL, sy_*CELL, CELL, CELL);
+          ctx.drawImage(gimg, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
         }
         const w = CELL*WOODS_OVERSCAN;
         const h = w*(img.naturalHeight/img.naturalWidth);
-        ctx.drawImage(img, x*CELL-(w-CELL)/2, sy_*CELL+CELL-h, w, h);
+        ctx.drawImage(img, SX(x,y)*CELL-(w-CELL)/2, SY(x,y)*CELL+CELL-h, w, h);
       } else {
         // fallback while the image decodes: the old flat fill, no canopy detail
         ctx.fillStyle = terrainColor('WOODS');
-        ctx.fillRect(x*CELL, sy_*CELL, CELL, CELL);
+        ctx.fillRect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
       }
     }
   }
@@ -1713,7 +1738,7 @@ export function draw(){
 
   // craters: every square Artillery has hit this match, above terrain, below units
   for(const c of state.craters){
-    const cx = c.x*CELL+CELL/2, cy = sy(c.y)*CELL+CELL/2;
+    const cx = SX(c.x,c.y)*CELL+CELL/2, cy = SY(c.x,c.y)*CELL+CELL/2;
     ctx.save();
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = '#1a1710';
@@ -1745,7 +1770,7 @@ export function draw(){
        terrain swallows, the other survives. The highlight then never depends on
        what happens to be underneath it. */
     for(const c of highlightCells){
-      const hx = c.x*CELL, hy = sy(c.y)*CELL;
+      const hx = SX(c.x,c.y)*CELL, hy = SY(c.x,c.y)*CELL;
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(24,20,14,0.55)';
       ctx.strokeRect(hx+1.5, hy+1.5, CELL-3, CELL-3);
@@ -1794,7 +1819,7 @@ export function draw(){
      SHAPE, and the eye picks a shape out regardless of what is underneath it. */
   if(highlightCells && highlightCells.length){
     for(const c of highlightCells){
-      const hx = c.x*CELL, hy = sy(c.y)*CELL;
+      const hx = SX(c.x,c.y)*CELL, hy = SY(c.x,c.y)*CELL;
       ctx.fillStyle = c.kind==='move' ? 'rgba(253,246,227,0.30)'
         : c.kind==='charge' ? 'rgba(224,110,30,0.55)' : 'rgba(181,69,63,0.50)';
       ctx.fillRect(hx+3, hy+3, CELL-6, CELL-6);
@@ -1815,16 +1840,16 @@ export function draw(){
   // drag-and-drop hover cell during deployment
   if(dragState && dragState.dragging && dragState.hoverCell){
     ctx.fillStyle = 'rgba(184,147,79,0.5)';
-    ctx.fillRect(dragState.hoverCell.x*CELL+2, sy(dragState.hoverCell.y)*CELL+2, CELL-4, CELL-4);
+    ctx.fillRect(SX(dragState.hoverCell.x,dragState.hoverCell.y)*CELL+2, SY(dragState.hoverCell.x,dragState.hoverCell.y)*CELL+2, CELL-4, CELL-4);
     ctx.strokeStyle = 'rgba(253,246,227,0.9)'; ctx.lineWidth=2;
-    ctx.strokeRect(dragState.hoverCell.x*CELL+2, sy(dragState.hoverCell.y)*CELL+2, CELL-4, CELL-4);
+    ctx.strokeRect(SX(dragState.hoverCell.x,dragState.hoverCell.y)*CELL+2, SY(dragState.hoverCell.x,dragState.hoverCell.y)*CELL+2, CELL-4, CELL-4);
   }
 
   // who's firing/fighting whom — fades out on its own after a couple of seconds
   if(activeActionLine && Date.now() < activeActionLine.expiresAt){
     const ln = activeActionLine;
-    const fx = ln.fromX*CELL+CELL/2, fy = sy(ln.fromY)*CELL+CELL/2;
-    const tx = ln.toX*CELL+CELL/2, ty = sy(ln.toY)*CELL+CELL/2;
+    const fx = SX(ln.fromX,ln.fromY)*CELL+CELL/2, fy = SY(ln.fromX,ln.fromY)*CELL+CELL/2;
+    const tx = SX(ln.toX,ln.toY)*CELL+CELL/2, ty = SY(ln.toX,ln.toY)*CELL+CELL/2;
     /* Fade measured against the line's OWN duration, not a hardcoded 3800. With
        the artillery line extended to 5800 that constant would have held it at
        full opacity for most of its life and then snapped off, instead of holding
@@ -1908,7 +1933,7 @@ export function draw(){
   for(const u of state.units){
     if(u.removed || !u.smokeActive) continue;
     const vp = getUnitVisualPos(u);
-    const cx = vp.x*CELL+CELL/2, cy = sy(vp.y)*CELL+CELL/2;
+    const cx = SX(vp.x,vp.y)*CELL+CELL/2, cy = SY(vp.x,vp.y)*CELL+CELL/2;
     ctx.save();
     ctx.fillStyle = '#f4f1e8';
     [[-0.22,-0.30,0.16],[0.10,-0.36,0.13],[0.28,-0.18,0.11]].forEach(([ox,oy,r])=>{
@@ -1922,7 +1947,7 @@ export function draw(){
   const now = Date.now();
   for(const d of deathEffects){
     const elapsed = now - d.startTime;
-    const cx = d.x*CELL+CELL/2, cy = sy(d.y)*CELL+CELL/2;
+    const cx = SX(d.x,d.y)*CELL+CELL/2, cy = SY(d.x,d.y)*CELL+CELL/2;
     if(elapsed < DEATH_SKULL_MS){
       ctx.save();
       ctx.globalAlpha = 1;

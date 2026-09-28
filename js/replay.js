@@ -1,7 +1,7 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit } from './engine-rules.js';
-import { animateUnitTo, canvas, clearUnitAnimations, draw, sy } from './render-board.js';
+import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 
 /* =========================================================
@@ -62,10 +62,10 @@ export function showReplayHitRing(x,y){
   const rect = canvas.getBoundingClientRect();
   const wrapRect = wrap.getBoundingClientRect();
   const cellPxX = rect.width/COLS, cellPxY = rect.height/ROWS;
-  const sy_ = sy(y);
+  const sp = toScreen(x, y), sy_ = sp.y;
   const ring = document.createElement('div');
   ring.className = 'replay-hit-ring';
-  ring.style.left = (rect.left - wrapRect.left + x*cellPxX) + 'px';
+  ring.style.left = (rect.left - wrapRect.left + sp.x*cellPxX) + 'px';
   ring.style.top = (rect.top - wrapRect.top + sy_*cellPxY) + 'px';
   ring.style.width = cellPxX + 'px';
   ring.style.height = cellPxY + 'px';
