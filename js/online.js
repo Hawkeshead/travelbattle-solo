@@ -28,11 +28,11 @@
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
 import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
-import { animateUnitTo, draw, playBoardIntroAnimation, sizeCanvas } from './render-board.js';
+import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits, draw, playBoardIntroAnimation, replayActionLine, sizeCanvas } from './render-board.js';
 import { playMovementAudio, showLeadershipRollPrompt } from './engine-rules.js';
-import { playTurnTheme, selectUnit, showAmbushChoice, updateHeader } from './ui-battle.js';
+import { noteBrigadeBreaks, playTurnTheme, selectUnit, showAmbushChoice, updateHeader } from './ui-battle.js';
 import { log, syncPhaseButtons } from './engine-state.js';
-import { endGame } from './engine-objectives.js';
+import { endGame, renderEndButtons } from './engine-objectives.js';
 import { deployArmyComposition } from './ai-deployment.js';
 import { maybeShowArmyPicker, showArmyPickerFor, startAmbientLayer } from './ui-menus.js';
 import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
@@ -50,7 +50,14 @@ const BATTLE_PHASES = new Set(['move', 'fire', 'fight']);
 
 /* Keys never sent: the match log and AI caches are bulky and only matter on the
    phone that made them, and the rest are this phone's own view of the match. */
-const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiDifficulty']);
+/* The last four are this phone's presentation of the match, never shared: which
+   breaks it has announced, when its dispatch window ends, and whether it is
+   waiting to show the result. Sharing them is what stopped the losing phone
+   from ever showing the result (it adopted the winner's "already waiting"
+   flag) and stopped breaks being announced on the phone that did not cause
+   them. */
+const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiDifficulty',
+  'brokenSeen', '_dispatchUntil', '_endDeferred', 'replaying']);
 const skipKey = k => k === 'matchLog' || k === 'replayStartUnits' || k.startsWith('_ai') || LOCAL_ONLY.has(k);
 
 function pack(){
@@ -155,6 +162,7 @@ function startSync(){
     /* Once the battle is under way either phone may be the one acting. Before
        that only the host acts (it runs the setup), so only the host shares. */
     if(!BATTLE_PHASES.has(state.phase) && !(s.isHost && setupStarted)) return;
+    if(state.gameOver) setTimeout(sendRecord, 1500);   // once, after the final battle has gone across
     const now = pack();
     if(now === lastShared) return;
     lastShared = now; seq += 1;
@@ -167,6 +175,7 @@ function startSync(){
     if(BATTLE_PHASES.has(state.phase)) enterBattleView();
     /* This phone's own turn changes play their theme through beginMovePhase as
        usual; noting them here stops the other phone's next update replaying it. */
+    if(lastTurn !== state.turn && BATTLE_PHASES.has(state.phase)) showPillBriefly();
     lastTurn = state.turn;
     updatePill();
   }, SEND_EVERY_MS);
@@ -195,6 +204,12 @@ function applyBattle(json, incomingSeq){
     }
   }
 
+  const prevLine = state.lastActionLine && state.lastActionLine.n;
+  const prevFocus = state.focusUnitId;
+  const moved = inBattle ? (incoming.units || []).filter(nu => {
+    const lu = state.units.find(u => u.id === nu.id);
+    return lu && !lu.removed && !nu.removed && (lu.x !== nu.x || lu.y !== nu.y);
+  }) : [];
   for(const k of Object.keys(incoming)) state[k] = incoming[k];
   state.mode = 'ai'; state.aiSide = s.remoteSide; state.spectate = false;
   seq = Math.max(seq, incomingSeq || 0);
@@ -203,10 +218,30 @@ function applyBattle(json, incomingSeq){
   enterBattleView();
   if(lastTurn !== state.turn){
     if(lastTurn !== null) playTurnTheme(state.turn);
+    // Their turn: park this player's own view, as for the AI; ours: give it back.
+    if(state.turn === s.mySide) cameraRestorePlayerView(); else cameraParkPlayerView();
     lastTurn = state.turn;
+    showPillBriefly();
+  }
+  /* Follow the opponent like the AI: the unit they pick up, the units they
+     move, and the line from an attacker to its target. Only on their turn. */
+  if(state.turn !== s.mySide){
+    const line = state.lastActionLine;
+    if(line && line.n !== prevLine){
+      replayActionLine(line);
+      cameraToAction([{ x:line.fromX, y:line.fromY }, { x:line.toX, y:line.toY }], { durationMs: CAMERA_ACTION_PAN_MS });
+    } else if(moved.length){
+      cameraToUnits(moved, { durationMs: CAMERA_ACTION_PAN_MS });
+    } else if(state.focusUnitId && state.focusUnitId !== prevFocus){
+      const fu = state.units.find(u => u.id === state.focusUnitId);
+      if(fu && !fu.removed) cameraToUnits([fu], { durationMs: CAMERA_ACTION_PAN_MS });
+    }
   }
   refreshUi();
-  if(state.gameOver && !endShown){ endShown = true; endGame(state.winner); }
+  // Breaks are announced on this phone too, against its own record of what it
+  // has already shown (brokenSeen is not shared).
+  noteBrigadeBreaks();
+  if(state.gameOver && !endShown){ endShown = true; endGame(state.winner); sendRecord(); }
 }
 
 /* ---------------------------------------------------------
@@ -299,7 +334,11 @@ function onAsk(p){
 function enterBattleView(){
   if(inBattle) return;
   inBattle = true;
+  // Every phone keeps a record of the turns it runs (see sendRecord), including
+  // the one that did not start the battle and so never had one made for it.
+  if(!Array.isArray(state.matchLog)) state.matchLog = [];
   lastTurn = state.turn;
+  setTimeout(() => showPillBriefly(), 0);
   closeLobby();
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
@@ -386,6 +425,7 @@ function onMessage(p){
   else if(p.type === 'ask') onAsk(p);
   else if(p.type === 'answer'){ const f = pendingAsks.get(p.id); if(f) f(p.value); }
   else if(p.type === 'deployRequest') onDeployRequest(p);
+  else if(p.type === 'record') onRecord(p);
   else if(p.type === 'armyChosen') onArmyChosen(p);
   else if(p.type === 'hello' && setupStarted && !BATTLE_PHASES.has(state.phase) && !pendingDeploy){
     T.send({ type: 'setup', battle: pack() });
@@ -406,12 +446,29 @@ function onMessage(p){
    Presence pill and lobby
 --------------------------------------------------------- */
 let present = [];
-function onPresence(list){ present = list; updatePill(); updateLobby(); }
+function onPresence(list){
+  const before = present.some(p => p && p.side === (onlineSession() || {}).remoteSide);
+  present = list; updatePill(); updateLobby();
+  const after = present.some(p => p && p.side === (onlineSession() || {}).remoteSide);
+  if(before !== after) showPillBriefly();   // a connection change is worth seeing
+}
 
 let pillNote = '', pillTimer = null;
 /* A passing note (who deployed as what) clears itself; a standing one (waiting
    for a decision) stays until it is cleared by the code that set it. */
-function flashPill(note){ clearTimeout(pillTimer); updatePill(note); pillTimer = setTimeout(() => updatePill(''), 6000); }
+function flashPill(note){ clearTimeout(pillTimer); updatePill(note); showPillBriefly(6000); pillTimer = setTimeout(() => updatePill(''), 6000); }
+
+/* THE PILL SHOWS, THEN GOES. It used to sit over the board all match; it now
+   appears when the turn changes (and when a connection drops or returns, or a
+   note is posted) and fades three seconds later. */
+let pillHideTimer = null;
+function showPillBriefly(ms = 3000){
+  updatePill();
+  const pill = document.getElementById('onlinePill'); if(!pill) return;
+  pill.style.opacity = '1';
+  clearTimeout(pillHideTimer);
+  pillHideTimer = setTimeout(() => { pill.style.opacity = '0'; }, ms);
+}
 function updatePill(note){
   if(note !== undefined) pillNote = note;
   const s = onlineSession(); if(!s) return;
@@ -420,7 +477,7 @@ function updatePill(note){
     pill = document.createElement('div'); pill.id = 'onlinePill';
     pill.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);z-index:28;' +
       'font:14px "IM Fell English",Georgia,serif;color:#fbf6ea;background:rgba(20,24,20,.72);padding:4px 12px;border-radius:14px;' +
-      'pointer-events:none;white-space:nowrap';
+      'pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .4s';
     document.body.appendChild(pill);
   }
   const them = present.find(p => p && p.side === s.remoteSide);
@@ -585,4 +642,48 @@ function updateLobby(){
   const who = lobbyEl.querySelector('#olWho'); if(!who) return;
   const them = present.find(p => p && p.side === s.remoteSide);
   who.textContent = them ? `${them.name} is here.` : 'Waiting for your opponent to join...';
+}
+
+/* ---------------------------------------------------------
+   THE MATCH RECORD. Each phone records only the turns it ran (the record is
+   too big to send with every update), so when the match ends each sends its
+   half to the other and both merge them by turn. That is what makes Watch
+   Replay and Export Full Match Log complete on both phones. Sent in pieces,
+   since a whole match can run to hundreds of kilobytes.
+--------------------------------------------------------- */
+const RECORD_PIECE = 60000;
+let recordSent = false;
+const recordPieces = {};
+function sendRecord(){
+  if(recordSent || !T) return;
+  recordSent = true;
+  const body = JSON.stringify({ log: state.matchLog || [], start: state.replayStartUnits || null });
+  const id = Math.random().toString(36).slice(2);
+  const n = Math.max(1, Math.ceil(body.length / RECORD_PIECE));
+  for(let i=0; i<n; i++){
+    setTimeout(() => T.send({ type:'record', id, i, n, part: body.slice(i*RECORD_PIECE, (i+1)*RECORD_PIECE) }), i*150);
+  }
+}
+function onRecord(p){
+  const parts = recordPieces[p.id] = recordPieces[p.id] || [];
+  parts[p.i] = p.part;
+  if(parts.filter(x => x != null).length < p.n) return;
+  delete recordPieces[p.id];
+  let rec; try { rec = JSON.parse(parts.join('')); } catch { return; }
+  mergeRecord(rec);
+  sendRecord();   // if this phone has not sent its half yet, it does now
+}
+let recordMerged = false;
+export function mergeRecord(rec){
+  if(recordMerged) return;
+  recordMerged = true;
+  const mine = (state.matchLog || []).map((e, i) => ({ e, i, src:0 }));
+  const theirs = (rec.log || []).map((e, i) => ({ e, i, src:1 }));
+  const all = mine.concat(theirs);
+  // Every event of a turn was recorded on the one phone that ran that turn, so
+  // sorting by turn (keeping each phone's own order within it) rebuilds the match.
+  all.sort((a, b) => (a.e.turn || 0) - (b.e.turn || 0) || a.src - b.src || a.i - b.i);
+  state.matchLog = all.map(x => x.e);
+  if(!state.replayStartUnits && rec.start) state.replayStartUnits = rec.start;
+  renderEndButtons();
 }

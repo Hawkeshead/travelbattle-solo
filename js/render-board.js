@@ -677,6 +677,17 @@ if(typeof window !== 'undefined'){
 export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
   const lineMs = durationMs || 1800;
   activeActionLine = { fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs, expiresAt: Date.now()+lineMs };
+  /* Recorded on state too, numbered, so an online opponent's phone (which
+     receives the battle, not the drawing) can draw the same line when it sees
+     a new number arrive. Harmless everywhere else: nothing else reads it. */
+  state.lastActionLine = { n: ((state.lastActionLine && state.lastActionLine.n) || 0) + 1,
+    fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs };
+  ensureAnimationLoopRunning();
+}
+/* Draw a line recorded by the other phone (see showActionLine). */
+export function replayActionLine(l){
+  if(!l) return;
+  activeActionLine = { fromX:l.fromX, fromY:l.fromY, toX:l.toX, toY:l.toY, color:l.color, dashed:!!l.dashed, durationMs:l.durationMs, expiresAt: Date.now()+(l.durationMs||1800) };
   ensureAnimationLoopRunning();
 }
 

@@ -1,4 +1,5 @@
 import { exportAiMoveLog } from './ai-strategy.js';
+import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
 import { saveCampaignProgress } from './campaign.js';
 import { SIDES, SIDE_LABEL, state } from './data-core.js';
@@ -173,6 +174,17 @@ export function endGame(winner){
     extra.style.justifyContent = 'center';
     box.appendChild(extra);
   }
+  renderEndButtons();
+  document.getElementById('overlay').classList.add('show');
+}
+
+/* The victory screen's buttons. Split out so an online match can rebuild them
+   once the other phone's half of the match record has arrived (each phone only
+   records the turns it ran), which is what makes Watch Replay and the full
+   export complete on both phones. */
+export function renderEndButtons(){
+  const extra = document.getElementById('modeChoices');
+  if(!extra || !state.gameOver) return;
   extra.innerHTML = ''; // always rebuilt fresh here — no dependency on what an earlier menu left behind
   const endScreenButtons = [];
   if(state.matchLog && state.matchLog.length>0 && state.replayStartUnits){
@@ -181,7 +193,7 @@ export function endGame(winner){
     replayBtn.onclick = startReplay;
     endScreenButtons.push(replayBtn);
   }
-  if(state.aiSide){
+  if(state.aiSide && !isOnline()){   // online, the "AI side" is the other player: there is no AI log
     const exportBtn = document.createElement('button');
     exportBtn.textContent = 'Export AI Move Log';
     exportBtn.onclick = ()=>{
@@ -204,7 +216,7 @@ export function endGame(winner){
          read as a broken export when it was one of two buttons not pressed.
          With an AI in the match, it is now always appended. */
       document.getElementById('aiLogExportText').value = exportFullMatchLog() +
-        (state.aiSide ? '\n\n' + exportAiMoveLog() : '');
+        (state.aiSide && !isOnline() ? '\n\n' + exportAiMoveLog() : '');
       // Tells the dialog to snapshot the untouched text before any filtering.
       document.dispatchEvent(new CustomEvent('tb:logShown'));
       document.getElementById('aiLogExportPanel').classList.remove('hidden');
@@ -213,6 +225,5 @@ export function endGame(winner){
   }
   extra.style.display = endScreenButtons.length ? 'flex' : 'none';
   endScreenButtons.forEach(b=>extra.appendChild(b));
-  document.getElementById('overlay').classList.add('show');
 }
 

@@ -955,6 +955,10 @@ export function selectUnit(id){
      Comparing before the assignment below, since that is what makes it stale. */
   const selectionChanged = state.selectedUnitId !== id;
   state.selectedUnitId = id;
+  /* Which of its own units the acting player has picked up, shared online so
+     the opponent's camera can follow it (selectedUnitId itself stays local). */
+  { const su = id ? state.units.find(x=>x.id===id) : null;
+    if(su && isActing(su) && humanOwns(su.side)) state.focusUnitId = id; }
   setHighlightCells([]);
   const u = id ? state.units.find(x=>x.id===id) : null;
   /* Cavalry draw sabres on selection; everything else keeps the piece-placed

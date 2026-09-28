@@ -398,7 +398,9 @@
   }
   #armyPickerPanel.hidden{ display:none; }
 
-  #aiLogExportPanel{ position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center; }
+  /* Above the victory screen (#overlay, 50), which is where the export buttons are:
+     at 40 the log opened behind it and only appeared once Watch Replay cleared it. */
+  #aiLogExportPanel{ position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center; }
   #aiLogExportPanel.hidden{ display:none; }
   #aiLogExportBackdrop{ position:absolute;inset:0;background:rgba(20,16,8,0.5); }
   #aiLogExportBox{
