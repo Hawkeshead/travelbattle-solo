@@ -1,13 +1,13 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, TERRAIN, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state } from './data-core.js';
+import { SCENARIOS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log } from './engine-state.js';
-import { canvas, ctx, draw, playBoardIntroAnimation, sizeCanvas, sy, terrainColor } from './render-board.js';
+import { beginDiagramMode, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
 import { endMovePhase } from './ui-battle.js';
-import { deployArmyComposition } from './ai-deployment.js';
+import { deployArmyComposition, planArmyDeployment } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
 
 /* THE BATTLE SCORE. Two tracks, played in turn rather than one on repeat, and
@@ -670,7 +670,6 @@ export function beginGrandBoardSetup(){
    deploy — see the maybeShowArmyPicker() calls in ui-deployment.js.
 ========================================================= */
 const ARMY_ZONE_COLORS = ['#c66','#6ac','#7b6'];
-const ARMY_COL_BANDS = [[0,6],[7,13],[14,19]];
 
 export function maybeShowArmyPicker(){
   if(state._suppressArmyPicker) return false;
@@ -686,7 +685,7 @@ export function maybeShowArmyPicker(){
   return true;
 }
 
-let armyPickerState = null; // { side, index, viewingMap }
+let armyPickerState = null; // { side, index }
 let armyPickerSwipeAttached = false;
 
 function goToArmy(delta){
@@ -694,33 +693,31 @@ function goToArmy(delta){
   renderArmyPickerCard();
 }
 
-// Swipe replaces the old prev/next arrow buttons — one horizontal drag on the
-// card itself steps to the next/previous Army, which reads more naturally on
-// a phone than two small circular buttons competing for thumb space at the
-// bottom of an already busy bar. Attached once (idempotency guard below)
-// since #armyPickerBody is a static element, not recreated per open.
 /* Left and right arrow keys browse the armies while the picker is open, for a
    laptop; registered once, inert whenever the picker is closed. */
 document.addEventListener('keydown', e => {
-  if(!armyPickerState || armyPickerState.viewingMap) return;
+  if(!armyPickerState) return;
   if(e.key === 'ArrowLeft'){ goToArmy(-1); e.preventDefault(); }
   else if(e.key === 'ArrowRight'){ goToArmy(1); e.preventDefault(); }
 });
 
+// One horizontal drag on the card steps to the next/previous Army. Attached
+// once (idempotency guard in showArmyPicker) since #armyPickerCardBody is a
+// static element, not recreated per open.
 function attachArmyPickerSwipe(){
-  const el = document.getElementById('armyPickerBody');
+  const el = document.getElementById('armyPickerCardBody');
   let startX = null, startY = null;
   el.addEventListener('touchstart', (e)=>{
-    if(!armyPickerState || armyPickerState.viewingMap) return;
+    if(!armyPickerState) return;
     const t = e.touches[0];
     startX = t.clientX; startY = t.clientY;
   }, { passive: true });
   el.addEventListener('touchend', (e)=>{
-    if(!armyPickerState || armyPickerState.viewingMap || startX===null) return;
+    if(!armyPickerState || startX===null) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - startX, dy = t.clientY - startY;
     startX = null; startY = null;
-    // Require a real horizontal swipe, not a vertical scroll of the card list
+    // Require a real horizontal swipe, not a vertical scroll of the card
     if(Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
     goToArmy(dx < 0 ? 1 : -1);
   }, { passive: true });
@@ -743,17 +740,15 @@ export function showArmyPickerFor(side, onChosen){
 }
 
 function showArmyPicker(side){
-  armyPickerState = { side, index: 0, viewingMap: false };
+  armyPickerState = { side, index: 0 };
   document.getElementById('sidebar').style.display = 'none';
   document.getElementById('rosterPanel').style.display = 'none';
   document.getElementById('armyPickerPanel').classList.remove('hidden');
-  document.getElementById('armyPickerPanel').classList.remove('viewingMap');
   renderArmyPickerCard();
   if(!armyPickerSwipeAttached){ attachArmyPickerSwipe(); armyPickerSwipeAttached = true; }
 
-  document.getElementById('armyPickerViewMapBtn').onclick = toggleArmyPickerMapView;
-  document.getElementById('armyPickerPrev').onclick = ()=>{ if(!armyPickerState.viewingMap) goToArmy(-1); };
-  document.getElementById('armyPickerNext').onclick = ()=>{ if(!armyPickerState.viewingMap) goToArmy(1); };
+  document.getElementById('armyPickerPrev').onclick = ()=> goToArmy(-1);
+  document.getElementById('armyPickerNext').onclick = ()=> goToArmy(1);
   document.getElementById('armyPickerDeployBtn').onclick = ()=>{
     const army = TB_DATA.armyCompositions[armyPickerState.index];
     deployArmyComposition(side, army.id);
@@ -764,98 +759,80 @@ function showArmyPicker(side){
   document.getElementById('armyPickerManualBtn').onclick = ()=> closeArmyPicker(true);
 }
 
+/* Each brigade as a short list of what is in it ("2 × Infantry"), in the order
+   the units first appear. The Brigadier is left out: every brigade has one. */
+function brigadeUnitLines(brig){
+  const counts = new Map();
+  for(const e of brig.units){
+    if(e.type === 'BRIGADIER') continue;
+    counts.set(e.type, (counts.get(e.type) || 0) + 1);
+  }
+  return [...counts].map(([type, n]) => {
+    const label = (UNIT_TYPES[type] && UNIT_TYPES[type].label) || type;
+    return n > 1 ? `${n} &times; ${label}` : label;
+  });
+}
+
 function renderArmyPickerCard(){
-  const { index, viewingMap } = armyPickerState;
+  const { side, index } = armyPickerState;
   const army = TB_DATA.armyCompositions[index];
   document.getElementById('armyPickerIndex').textContent = index+1;
   document.getElementById('armyPickerName').textContent = army.name;
   document.getElementById('armyPickerSummary').textContent = army.summary;
   const cardsEl = document.getElementById('armyPickerBrigadeCards');
   cardsEl.innerHTML = army.brigades.map((b,i)=>
-    `<div class="apCard" style="border-left-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div><div class="apDoctrine">${b.doctrine}</div></div>`
+    `<div class="apCard" style="border-top-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div><ul class="apUnits">${brigadeUnitLines(b).map(l=>`<li>${l}</li>`).join('')}</ul></div>`
   ).join('');
   const dotsEl = document.getElementById('armyPickerDots');
   dotsEl.innerHTML = TB_DATA.armyCompositions.map((_,i)=>
     `<div class="apDot${i===index?' active':''}"></div>`
   ).join('');
-  drawArmyPickerMinimap();
-  if(viewingMap) drawArmyZoneHighlights();
+  drawArmyPreview(side, army);
 }
 
-// Compact always-visible minimap sitting beside the brigade text — a quick
-// "where do these zones actually fall on the real terrain" reference that
-// doesn't require leaving the card, distinct from the full-detail "View Map"
-// toggle below which swaps to the real interactive board.
-function drawArmyPickerMinimap(){
-  const cv = document.getElementById('armyPickerMinimap');
-  const mctx = cv.getContext('2d');
-  const cw = cv.width, ch = cv.height;
-  mctx.clearRect(0,0,cw,ch);
-  const cellW = cw/COLS, cellH = ch/ROWS;
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      mctx.fillStyle = terrainColor(TERRAIN[state.terrain[y][x]].key);
-      mctx.fillRect(x*cellW, y*cellH, cellW+0.5, cellH+0.5);
-    }
+/* THE ARMY AS IT WILL LAND. The real board, drawn offscreen with the army's
+   planned units added as ghosts (planArmyDeployment makes the same choices the
+   real deployment will), then cropped to this side's deployment rows plus one
+   row towards the enemy. A coloured line under each brigade marks its width. */
+const PREVIEW_CELL = 44;
+const PREVIEW_BAR = 6;
+function drawArmyPreview(side, army){
+  const out = document.getElementById('armyPickerPreview');
+  if(!out || !state.terrain) return;
+  const ghosts = planArmyDeployment(side, army.id);
+  for(const g of ghosts){
+    const list = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][g.type]) || [];
+    g.historicalName = list.length ? list[0].name : null;
   }
-  const { side, index } = armyPickerState;
-  const army = TB_DATA.armyCompositions[index];
-  const deployRows = 2;
-  const rowStart = side===SIDES.RED ? ROWS-deployRows : 0;
-  army.brigades.forEach((brig,i)=>{
-    const [c0,c1] = ARMY_COL_BANDS[i];
-    mctx.fillStyle = ARMY_ZONE_COLORS[i] + '80';
-    mctx.strokeStyle = ARMY_ZONE_COLORS[i];
-    mctx.lineWidth = 1;
-    mctx.fillRect(c0*cellW, rowStart*cellH, (c1-c0+1)*cellW, deployRows*cellH);
-    mctx.strokeRect(c0*cellW, rowStart*cellH, (c1-c0+1)*cellW, deployRows*cellH);
-  });
-  // seam line between the two halves of the joined board
-  mctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  mctx.setLineDash([2,2]);
-  mctx.beginPath(); mctx.moveTo(cw/2,0); mctx.lineTo(cw/2,ch); mctx.stroke();
-  mctx.setLineDash([]);
-}
-
-function toggleArmyPickerMapView(){
-  armyPickerState.viewingMap = !armyPickerState.viewingMap;
-  const panel = document.getElementById('armyPickerPanel');
-  const btn = document.getElementById('armyPickerViewMapBtn');
-  if(armyPickerState.viewingMap){
-    panel.classList.add('viewingMap');
-    btn.textContent = 'Back to Army Selection';
-    drawArmyZoneHighlights();
-  } else {
-    panel.classList.remove('viewingMap');
-    btn.textContent = 'View Map';
-    draw(); // clear the highlight overlay by redrawing the clean board
+  const off = document.createElement('canvas');
+  off.width = COLS * PREVIEW_CELL;
+  off.height = ROWS * PREVIEW_CELL;
+  try {
+    beginDiagramMode(off, PREVIEW_CELL, { units: [...state.units, ...ghosts], selectedUnitId: null });
+    draw();
+  } finally {
+    endDiagramMode();
   }
-}
-
-// Draws each Brigade's column band (see HARD_DEPLOY_COL_BANDS in
-// ai-deployment.js — the same bands the actual deployment engine uses)
-// as a translucent colour-coded rectangle over the side's own two rows,
-// directly on the real board so the real terrain underneath is what
-// informs the choice, not a generic diagram.
-function drawArmyZoneHighlights(){
-  draw();
-  const { side, index } = armyPickerState;
-  const army = TB_DATA.armyCompositions[index];
   const deployRows = 2;
-  const rowStart = side===SIDES.RED ? ROWS-deployRows : 0;
-  const rowEnd = rowStart + deployRows - 1;
-  const cellW = canvas.width/COLS, cellH = canvas.height/ROWS;
-  const yTop = Math.min(sy(rowStart), sy(rowEnd)) * cellH;
-  army.brigades.forEach((brig,i)=>{
-    const [c0,c1] = ARMY_COL_BANDS[i];
-    ctx.save();
-    ctx.fillStyle = ARMY_ZONE_COLORS[i] + '3d';
-    ctx.strokeStyle = ARMY_ZONE_COLORS[i];
-    ctx.lineWidth = 3;
-    ctx.fillRect(c0*cellW, yTop, (c1-c0+1)*cellW, deployRows*cellH);
-    ctx.strokeRect(c0*cellW, yTop, (c1-c0+1)*cellW, deployRows*cellH);
-    ctx.restore();
+  const rows = side===SIDES.RED
+    ? Array.from({length: deployRows+1}, (_,i)=>ROWS-1-i)
+    : Array.from({length: deployRows+1}, (_,i)=>i);
+  const screenRows = rows.map(r => sy(r));
+  const top = Math.min(...screenRows);
+  const h = rows.length * PREVIEW_CELL;
+  out.width = off.width;
+  out.height = h + PREVIEW_BAR;
+  const octx = out.getContext('2d');
+  octx.clearRect(0, 0, out.width, out.height);
+  octx.drawImage(off, 0, top*PREVIEW_CELL, off.width, h, 0, 0, off.width, h);
+  army.brigades.forEach((_, i)=>{
+    const xs = ghosts.filter(g => g.brigadeIndex === i).map(g => g.x);
+    if(!xs.length) return;
+    const x0 = Math.min(...xs), x1 = Math.max(...xs);
+    octx.fillStyle = ARMY_ZONE_COLORS[i];
+    octx.fillRect(x0*PREVIEW_CELL + 3, h + 1, (x1-x0+1)*PREVIEW_CELL - 6, PREVIEW_BAR - 1);
   });
+  draw(); // the live board, untouched
 }
 
 function closeArmyPicker(manual){

@@ -65,18 +65,22 @@ export function scoreDeployCell(typeKey, x, y, side, bIdx){
   return score;
 }
 
-export function findBestHardDeployCell(zoneRows, colRange, typeKey, side, bIdx){
+export function findBestHardDeployCell(zoneRows, colRange, typeKey, side, bIdx, rng = seededRandom){
   let best=null, bestScore=-Infinity;
   for(const y of zoneRows){
     for(let x=colRange[0]; x<=colRange[1]; x++){
-      const s = scoreDeployCell(typeKey, x, y, side, bIdx) + seededRandom()*0.05;
+      const s = scoreDeployCell(typeKey, x, y, side, bIdx) + rng()*0.05;
       if(s>bestScore && s>-Infinity){ bestScore=s; best={x,y}; }
     }
   }
   return best;
 }
 
-export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
+/* Which square a unit would land on, without placing it. Split out of
+   placeHardDeployUnit so the army picker can plan a whole army in advance
+   (planArmyDeployment) through exactly the same choice the real deployment
+   makes. rng breaks near-ties; it defaults to the match's seeded stream. */
+export function chooseHardDeployCell(side, typeKey, bIdx, forceBack, rng = seededRandom){
   const deployRows = state.boardMode==='grand' ? 3 : 2;
   const frontRow = side===SIDES.RED ? ROWS-deployRows : deployRows-1;   // row nearest the enemy
   const backRows = side===SIDES.RED                                     // remaining row(s), furthest from the enemy
@@ -87,9 +91,13 @@ export function placeHardDeployUnit(side, typeKey, bIdx, forceBack){
   // own front/back rank per unit — undefined keeps today's default behaviour.
   const isBack = forceBack !== undefined ? forceBack : (typeKey==='BRIGADIER' || typeKey==='ARTILLERY');
   const colBand = deployBandFor(bIdx);
-  let cell = findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey, side, bIdx)
-    || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey, side, bIdx)
+  return findBestHardDeployCell(isBack?backRows:[frontRow], colBand, typeKey, side, bIdx, rng)
+    || findBestHardDeployCell([frontRow, ...backRows], colBand, typeKey, side, bIdx, rng)
     || findNearestFreeDeployCell(side, (colBand[0]+colBand[1])/2, isBack?backRows[0]:frontRow, typeKey);
+}
+
+export function placeHardDeployUnit(side, typeKey, bIdx, forceBack, rng){
+  const cell = chooseHardDeployCell(side, typeKey, bIdx, forceBack, rng);
   placeUnit(side, typeKey, cell.x, cell.y);
 }
 
@@ -318,6 +326,22 @@ export function placeAiPlanEntry(side, planEntry){
   placeUnit(side, planEntry.type, cell.x, cell.y);
 }
 
+/* A small deterministic generator per army and side. An army deployed from the
+   picker breaks its near-ties the same way every time, so the formation the
+   picker previews is exactly the one that lands on the board, and browsing
+   the picker never draws from the match's seeded dice stream. */
+export function armyRng(armyId, side){
+  let h = 2166136261;
+  for(const ch of String(armyId)+'|'+String(side)){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // A full named Army — three Brigades' worth of units, each with an explicit
 // front/back rank — placed onto the actual board in one pass. This is the
 // human-facing "auto-deploy" shortcut; it shares placeHardDeployUnit with the
@@ -326,18 +350,50 @@ export function placeAiPlanEntry(side, planEntry){
 export function deployArmyComposition(side, armyId){
   const army = TB_DATA.armyCompositions.find(a => a.id === armyId);
   if(!army) return false;
+  const rng = armyRng(army.id, side);
   state._suppressArmyPicker = true; // this loop's own confirmCurrentBrigade() calls momentarily flip deployTurn to the other side between Brigades — without this, that could flash open the OTHER side's picker mid-loop in a hotseat match before this loop forces the turn back
   for(const brig of army.brigades){
     state.deployTurn = side; // deployment normally alternates sides per Brigade — this places all of THIS side's Brigades in one go, so it must hold the turn itself throughout
     const bIdx = state.deployBrigadeIndex[side];
-    placeHardDeployUnit(side, 'BRIGADIER', bIdx);
+    placeHardDeployUnit(side, 'BRIGADIER', bIdx, undefined, rng);
     for(const entry of brig.units){
-      placeHardDeployUnit(side, entry.type, bIdx, entry.rank !== 'front');
+      placeHardDeployUnit(side, entry.type, bIdx, entry.rank !== 'front', rng);
     }
     confirmCurrentBrigade();
   }
   state._suppressArmyPicker = false;
   return true;
+}
+
+/* Where an army WOULD land, without deploying it: the same choices, in the same
+   order, with the same rng, as deployArmyComposition. Each planned unit is
+   pushed onto state.units as a ghost while the next square is chosen (so
+   brigade cohesion and occupied squares count exactly as they will for real)
+   and every ghost is taken off again before returning. */
+export function planArmyDeployment(side, armyId){
+  const army = TB_DATA.armyCompositions.find(a => a.id === armyId);
+  if(!army) return [];
+  const rng = armyRng(army.id, side);
+  const ghosts = [];
+  let n = 0;
+  try {
+    army.brigades.forEach((brig, i)=>{
+      const bIdx = state.deployBrigadeIndex[side] + i;
+      const entries = [{ type:'BRIGADIER', forceBack:undefined }, ...brig.units.map(e => ({ type:e.type, forceBack:e.rank !== 'front' }))];
+      for(const e of entries){
+        const cell = chooseHardDeployCell(side, e.type, bIdx, e.forceBack, rng);
+        const ghost = {
+          id:'ghost'+(n++), side, type:e.type, brigadeId:bIdx, brigadeIndex:i,
+          x:cell.x, y:cell.y, removed:false, formation:'line', ghost:true,
+        };
+        ghosts.push(ghost);
+        state.units.push(ghost);
+      }
+    });
+  } finally {
+    for(let k = state.units.length - 1; k >= 0; k--){ if(state.units[k].ghost) state.units.splice(k, 1); } // in place: other modules may hold the array
+  }
+  return ghosts;
 }
 
 export function findNearestFreeDeployCell(side, col, row, typeKey){

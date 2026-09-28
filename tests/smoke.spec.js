@@ -354,7 +354,7 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   expect(errors, `errors deploying via Army Picker:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('the Army Picker View Map toggle works without breaking the flow', async ({ page }) => {
+test('the Army Picker previews the formation and browses without errors', async ({ page }) => {
   test.setTimeout(90_000);
   const errors = watchForErrors(page);
   await page.goto('/');
@@ -375,17 +375,22 @@ test('the Army Picker View Map toggle works without breaking the flow', async ({
   }
   expect(pickerShown, 'Army Picker never appeared').toBe(true);
 
-  await page.locator('#armyPickerViewMapBtn').click();
-  await expect(armyPicker).toHaveClass(/viewingMap/);
-  await expect(page.locator('#armyPickerCardBody')).toBeHidden();
+  // Three brigade columns, each a list of units, and a drawn preview strip.
+  await expect(page.locator('#armyPickerBrigadeCards .apCard')).toHaveCount(3);
+  await expect(page.locator('#armyPickerBrigadeCards .apCard').first().locator('li').first()).toBeVisible();
+  const drawn = await page.evaluate(() => {
+    const cv = document.getElementById('armyPickerPreview');
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 0) return true;
+    return false;
+  });
+  expect(drawn, 'preview canvas is blank').toBe(true);
 
-  // The board itself is genuinely visible underneath, not just the toggle
-  // having flipped a class with nothing to actually show.
-  await expect(page.locator('#board')).toBeVisible();
+  const firstName = await page.locator('#armyPickerName').textContent();
+  await page.locator('#armyPickerNext').click();
+  await expect(page.locator('#armyPickerName')).not.toHaveText(firstName);
+  await page.locator('#armyPickerPrev').click();
+  await expect(page.locator('#armyPickerName')).toHaveText(firstName);
 
-  await page.locator('#armyPickerViewMapBtn').click();
-  await expect(armyPicker).not.toHaveClass(/viewingMap/);
-  await expect(page.locator('#armyPickerCardBody')).toBeVisible();
-
-  expect(errors, `errors toggling View Map:\n${errors.join('\n')}`).toEqual([]);
+  expect(errors, `errors browsing the Army Picker:\n${errors.join('\n')}`).toEqual([]);
 });
