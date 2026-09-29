@@ -36,6 +36,10 @@ export const RALLY_ON = { INFANTRY: 4, LIGHT_CAV: 4, GUARD: 3, HEAVY_CAV: 3, ART
 // Clock
 export const TURN_EQUIVALENT_TICKS = s(60);      // converts anything written in turns
 export const MATCH_CLOCK_TICKS = s(30 * 60);
+// Points when the clock runs out: the value of each enemy unit destroyed. The
+// turn-based unit values (ai-tactics AI_UNIT_VALUE), with Light Cavalry raised
+// to match Heavy, so Guard, cavalry and guns are all worth more than line infantry.
+export const POINT_VALUE = { INFANTRY: 4, GUARD: 5, LIGHT_CAV: 5, HEAVY_CAV: 5, ARTILLERY: 6, BRIGADIER: 0 };
 
 // AI (Phase 5)
 export const AI_EVAL_TICKS = s(2);

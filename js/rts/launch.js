@@ -25,7 +25,7 @@ import { emitFloatingText } from '../floating-text.js';
 import { startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
 import { MATCH_CLOCK_TICKS, MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
-import { createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, step } from './sim.js';
+import { columnLead, createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, stackPartner, step } from './sim.js';
 import { turnBasedRules } from './rules-adapter.js';
 
 let battle = null;
@@ -34,6 +34,7 @@ let selected = [];                 // unit ids, in the order they were picked
 let groupMode = false;
 let reachCache = null;             // { id, tick, cells } for the single selected unit's range
 let paintGroupToggle = null;
+let stackMode = false;             // after 'Stack', the next tap on one of your foot units marches onto it
 
 /* For tests and tools: the live battle, and a way to put a saved one back. */
 export const currentBattle = () => battle;
@@ -180,7 +181,25 @@ function attachInput(){
 }
 function onTap(x, y){
   if(!battle || paused) return;
-  const here = battle.units.find(u => !u.removed && ((u.x === x && u.y === y) || (u.step && u.step.toX === x && u.step.toY === y)));
+  const allHere = battle.units.filter(u => !u.removed && ((u.x === x && u.y === y) || (u.step && u.step.toX === x && u.step.toY === y)));
+  let here = allHere[0];
+  // Two of yours stacked in one square: a Column is picked by its lead unit;
+  // an unformed stack cycles between its two units on repeated taps.
+  if(here && here.side === battle.playerSide && allHere.length > 1){
+    if(here.column) here = columnLead(battle, here);
+    else if(selected.length === 1 && allHere.some(u => u.id === selected[0])){
+      const other = allHere.find(u => u.id !== selected[0]);
+      if(other && !groupMode){ selected = [other.id]; reachCache = null; updateActionBar(); return; }
+    }
+  }
+  if(here && here.side === battle.playerSide && stackMode && selected.length === 1 && here.id !== selected[0]){
+    stackMode = false;
+    const res = issueOrder(battle, { unitId: selected[0], type: 'move', target: { x: here.x, y: here.y }, side: battle.playerSide }, turnBasedRules);
+    toast(res.ok ? 'Stacking' : res.reason);
+    updateActionBar();
+    return;
+  }
+  stackMode = false;
   if(here && here.side === battle.playerSide){
     if(groupMode){
       selected = selected.includes(here.id) ? selected.filter(id => id !== here.id) : [...selected, here.id];
@@ -222,16 +241,21 @@ function updateActionBar(){
   }
   const u = selected.length === 1 ? battle.units.find(x => x.id === selected[0]) : null;
   const foot = u && !u.removed && (u.type === 'INFANTRY' || u.type === 'GUARD');
+  const stacked = foot && !u.step && stackPartner(battle, u);
   const opts = [];
-  if(foot) opts.push(u.formation === 'square' ? ['line', 'Form Line'] : ['square', 'Form Square']);
-  if(foot && u.formation !== 'square' && battle.terrain[u.y][u.x] === 'WOODS' && !u.hidden) opts.push(['ambush', 'Lay Ambush']);
+  if(foot && u.column) opts.push(['line', 'Split Column']);
+  else if(stacked) opts.push(['column', 'Form Column']);
+  else if(foot) opts.push(u.formation === 'square' ? ['line', 'Form Line'] : ['square', 'Form Square']);
+  if(foot && !stacked && !u.column && u.formation !== 'square') opts.push(['stack', stackMode ? 'Tap a unit to stack on' : 'Stack']);
+  if(foot && !stacked && !u.column && u.formation !== 'square' && battle.terrain[u.y][u.x] === 'WOODS' && !u.hidden) opts.push(['ambush', 'Lay Ambush']);
   if(u && u.type === 'ARTILLERY') opts.push(['hint', u.lock ? 'Firing: tap an enemy to switch' : 'Tap an enemy to fire']);
   actionBar.innerHTML = '';
   for(const [k, label] of opts){
     const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
     b.style.cssText = 'font:15px "IM Fell English",Georgia,serif;min-height:40px;padding:6px 14px;border-radius:20px;border:1px solid #b8963f;' +
       (k === 'hint' ? 'background:rgba(20,24,20,.75);color:#fbf6ea;pointer-events:none' : 'background:#e0b85a;color:#2a1e14;cursor:pointer');
-    if(k !== 'hint') b.onclick = () => {
+    if(k === 'stack') b.onclick = () => { stackMode = !stackMode; updateActionBar(); };
+    else if(k !== 'hint') b.onclick = () => {
       const res = issueOrder(battle, { unitId: u.id, type: 'form', formation: k, side: battle.playerSide }, turnBasedRules);
       if(!res.ok) toast(res.reason);
       updateActionBar();
@@ -296,10 +320,11 @@ function drawCommandOverlay(){
       ctx.setLineDash([4, 4]); ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(cx, cy, r * 0.8, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
     }
-    if(su.formation === 'square' || su.hidden){
+    if(su.column && !su.column.lead) continue;          // one label and ring for the pair
+    if(su.formation === 'square' || su.hidden || su.column){
       ctx.font = `${Math.round(CELL*0.26)}px "IM Fell English",Georgia,serif`; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(20,16,10,0.75)'; ctx.fillRect(cx - CELL*0.32, cy + r*0.55, CELL*0.64, CELL*0.26);
-      ctx.fillStyle = '#f3d27a'; ctx.fillText(su.hidden ? 'Hidden' : 'Square', cx, cy + r*0.55 + CELL*0.2);
+      ctx.fillStyle = '#f3d27a'; ctx.fillText(su.hidden ? 'Hidden' : su.column ? 'Column' : 'Square', cx, cy + r*0.55 + CELL*0.2);
     }
     if(!chainOk.has(su.id)){
       ctx.fillStyle = '#b3261e'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;

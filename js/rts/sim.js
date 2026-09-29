@@ -36,10 +36,10 @@
 ========================================================= */
 import { ARTILLERY_RELOAD_TICKS, BLOCKED_WAIT_TICKS, COOLDOWN_TICKS, FORM_TICKS, GROUP_SPREAD, LIMBER_TICKS, MATCH_CLOCK_TICKS,
          MELEE_ROUND_TICKS, MID_FORMATION_PENALTY, ORDER_REGEN_TICKS, PUSHBACK_TRAVEL_FACTOR, RALLY_ON, ROAD_TRAVEL_FACTOR,
-         ROUT_TO_RALLY_TICKS, TRAVEL_TICKS, TURNED_AROUND_TICKS, WOODS_OCCUPANCY_TICKS } from './constants.js';
+         POINT_VALUE, ROUT_TO_RALLY_TICKS, TRAVEL_TICKS, TURNED_AROUND_TICKS, WOODS_OCCUPANCY_TICKS } from './constants.js';
 import { nextRandom } from './rng.js';
 
-export const BATTLE_VERSION = 4;
+export const BATTLE_VERSION = 5;
 
 /* terrain: rows of terrain keys; road: rows of booleans (road-like squares);
    units: [{ id, side, type, brigadeId, x, y }] as deployed. */
@@ -76,6 +76,8 @@ export function createBattle({ seed, terrain, road, units, playerSide }){
       limberUntil: 0,      // artillery: limbering up before it moves
       enteredTick: 0,      // when it arrived on its current square (woods defence)
       lastDir: null, straightRun: 0,   // squares crossed in one straight line without stopping (the charge)
+      column: null,        // { partner, lead } once two stacked foot units have formed Column
+      stackInto: null,     // the friendly unit it is marching to stack with
     })),
     pools: {},
     leadershipUsed: {},    // brigade key: its Brigadier's one save has been spent
@@ -83,7 +85,7 @@ export function createBattle({ seed, terrain, road, units, playerSide }){
     homeRow: { red: terrain.length - 1, blue: 0 },
     events: [],            // recent dice results and what they did, for pop-ups and records
     eventCount: 0,
-    stats: { rounds: 0, fights: 0, destroyed: { red: 0, blue: 0 } },
+    stats: { rounds: 0, fights: 0, destroyed: { red: 0, blue: 0 }, lostValue: { red: 0, blue: 0 } },
     over: false,
     winner: null,
     result: null,          // 'break', or 'clock' (points) when the match clock runs out
@@ -122,11 +124,34 @@ const unitById = (b, id) => b.units.find(u => u.id === id);
 const inBounds = (b, x, y) => x >= 0 && y >= 0 && x < b.cols && y < b.rows;
 const DIRS = [[0,-1],[1,0],[0,1],[-1,0],[1,-1],[1,1],[-1,1],[-1,-1]];
 export const isBusy = u => !!(u.step || u.path.length);
+const isFoot = u => u.type === 'INFANTRY' || u.type === 'GUARD';
+
+/* COLUMNS. Two foot units stack in one square first (the second marches onto
+   the first, where the turn-based rules allow doubling), then Form Column:
+   from then on they move as one massed unit, the lead unit carrying the
+   orders and its partner keeping step. Each still fights its own fights; a
+   formed Column gets the turn-based Attack Column bonus and wins ties when it
+   attacks. Only the unit that loses a fight falls back, which breaks the
+   Column; a roundshot strikes both halves (and any stacked pair). */
+export function stackPartner(b, u){
+  return b.units.find(o => !o.removed && o.id !== u.id && o.side === u.side && o.x === u.x && o.y === u.y && !o.step && isFoot(o)) || null;
+}
+export function columnLead(b, u){
+  if(!u || !u.column) return u;
+  return u.column.lead ? u : unitById(b, u.column.partner) || u;
+}
+function breakColumn(b, u){
+  if(!u || !u.column) return;
+  const p = unitById(b, u.column.partner);
+  u.column = null;
+  if(p){ p.column = null; p.forming = null; }
+}
 const cheb = (a, c) => Math.max(Math.abs(a.x - c.x), Math.abs(a.y - c.y));
 
 /* A square is taken if a unit stands on it or is crossing into it. */
 function takenSquares(b, exceptIds){
-  const skip = exceptIds instanceof Set ? exceptIds : new Set(exceptIds ? [exceptIds] : []);
+  const skip = new Set(exceptIds instanceof Set ? exceptIds : (exceptIds ? [exceptIds] : []));
+  for(const id of [...skip]){ const u = unitById(b, id); if(u && u.column) skip.add(u.column.partner); }   // a Column moves as one
   const taken = new Set();
   for(const u of b.units){
     if(u.removed || skip.has(u.id)) continue;
@@ -243,30 +268,44 @@ function fireOrder(b, u, order, rules){
 function formOrder(b, u, order, rules){
   const to = order.formation;
   const foot = u.type === 'INFANTRY' || u.type === 'GUARD';
+  const partner = stackPartner(b, u);
   if(to === 'square'){
     if(!foot) return { ok: false, reason: 'Only infantry form Square' };
     if(u.formation === 'square') return { ok: false, reason: 'Already in Square' };
+    if(partner || u.column) return { ok: false, reason: 'Needs the square to itself' };
+  } else if(to === 'column'){
+    if(!foot) return { ok: false, reason: 'Only infantry form Column' };
+    if(u.column) return { ok: false, reason: 'Already in Column' };
+    if(!partner) return { ok: false, reason: 'Stack two infantry first' };
+    if(partner.formation === 'square' || partner.hidden || partner.column) return { ok: false, reason: 'Partner cannot join' };
+    const pr = readiness(b, partner, rules);
+    if(pr) return { ok: false, reason: 'Partner: ' + pr };
   } else if(to === 'line'){
-    if(u.formation !== 'square') return { ok: false, reason: 'Already in Line' };
+    if(u.formation !== 'square' && !u.column) return { ok: false, reason: 'Already in Line' };
   } else if(to === 'ambush'){
+    if(partner) return { ok: false, reason: 'Needs the square to itself' };
     if(!foot) return { ok: false, reason: 'Only infantry lay ambushes' };
     if(b.terrain[u.y][u.x] !== 'WOODS') return { ok: false, reason: 'Ambush needs woods' };
     if(u.hidden) return { ok: false, reason: 'Already in ambush' };
     if(enemyBeside(b, u)) return { ok: false, reason: 'Enemy too close' };
   } else return { ok: false, reason: 'Unknown formation' };
   if(poolOf(b, u).pool.orders < orderCost(u)) return { ok: false, reason: 'No orders left' };
-  const ticks = to === 'square' ? FORM_TICKS.SQUARE : to === 'ambush' ? FORM_TICKS.AMBUSH : FORM_TICKS.LINE;
-  u.forming = { to, until: b.tick + ticks };
+  const ticks = to === 'square' ? FORM_TICKS.SQUARE : to === 'ambush' ? FORM_TICKS.AMBUSH : to === 'column' ? FORM_TICKS.COLUMN : FORM_TICKS.LINE;
+  u.forming = { to, until: b.tick + ticks, lead: true };
+  const mate = to === 'column' ? partner : (u.column ? unitById(b, u.column.partner) : null);
+  if(mate){ mate.forming = { to, until: u.forming.until, lead: false }; mate.cooldownFrom = b.tick; mate.cooldownUntil = b.tick + (COOLDOWN_TICKS[mate.type] || COOLDOWN_TICKS.INFANTRY); }
+  if(to === 'column') u.forming.partner = partner.id;
   spendOrder(b, u, order, { formation: to });
-  note(b, 'form', u, to === 'square' ? 'Forming Square' : to === 'ambush' ? 'Laying ambush' : 'Forming Line');
+  note(b, 'form', u, to === 'square' ? 'Forming Square' : to === 'ambush' ? 'Laying ambush' : to === 'column' ? 'Forming Column' : 'Forming Line');
   return { ok: true };
 }
 
 /* One unit. order = { unitId, type: 'move', target: { x, y }, side? } */
 export function issueOrder(b, order, rules){
-  const u = unitById(b, order.unitId);
+  let u = unitById(b, order.unitId);
   if(order.side && u && u.side !== order.side) return { ok: false, reason: 'Not your unit' };
-  const notReady = readiness(b, u, rules);
+  if(u && u.column && order.type !== 'form') u = columnLead(b, u);      // a Column takes its orders through its lead unit
+  const notReady = readiness(b, u, rules) || (u && u.column ? readiness(b, unitById(b, u.column.partner), rules) : null);
   if(notReady) return { ok: false, reason: notReady };
   if(order.type === 'fire') return fireOrder(b, u, order, rules);
   if(order.type === 'form') return formOrder(b, u, order, rules);
@@ -276,9 +315,22 @@ export function issueOrder(b, order, rules){
   if(u.x === x && u.y === y) return { ok: false, reason: 'Already there' };
   if(poolOf(b, u).pool.orders < orderCost(u)) return { ok: false, reason: 'No orders left' };
   if(!reachableSet(b, u, rules).has(x + ',' + y)) return { ok: false, reason: 'Out of range' };
-  const path = findPath(b, u, x, y);
+  // Stacking: marching onto a lone friendly foot unit that is standing still.
+  const there = b.units.filter(o => !o.removed && o.id !== u.id && (o.x === x && o.y === y || (o.step && o.step.toX === x && o.step.toY === y)));
+  let stackInto = null;
+  if(there.length){
+    const f = there[0];
+    const canStack = there.length === 1 && f.side === u.side && isFoot(u) && isFoot(f) && !u.column && !f.column &&
+      f.formation !== 'square' && !f.hidden && !f.forming && !isBusy(f);
+    if(!canStack) return { ok: false, reason: 'Square is taken' };
+    stackInto = f.id;
+  }
+  const taken = takenSquares(b, stackInto ? new Set([u.id, stackInto]) : u.id);
+  const path = findPath(b, u, x, y, taken);
   if(!path) return { ok: false, reason: 'No way through' };
   commitMove(b, u, { x, y }, path, order);
+  u.stackInto = stackInto;
+  if(u.column){ const p = unitById(b, u.column.partner); p.cooldownFrom = u.cooldownFrom; p.cooldownUntil = u.cooldownUntil; }
   return { ok: true };
 }
 
@@ -294,6 +346,7 @@ export function issueGroupOrder(b, order, rules){
     const notReady = readiness(b, u, rules);
     if(notReady) return { ok: false, reason: notReady };
     if(u.formation === 'square') return { ok: false, reason: 'In Square: form Line first' };
+    if(u.column) return { ok: false, reason: 'Columns move on their own' };
   }
   // The pool must cover every unit asked to move, brigade by brigade.
   const need = {};
@@ -365,6 +418,7 @@ export function step(b, rules){
   }
   for(const u of b.units){
     if(u.removed) continue;
+    if(u.column && !u.column.lead) continue;            // keeps step with its lead (below)
     if(u.step){
       u.step.elapsed += 1;
       if(u.step.elapsed >= u.step.total){
@@ -379,21 +433,36 @@ export function step(b, rules){
         // (A routing unit is running, not advancing, and keeps going.)
         if(u.path.length && !u.routing && enemyBeside(b, u)) u.path = [];
         if(!u.path.length){
-          u.goal = null;
+          u.goal = null; u.stackInto = null;
           if(u.routing){ u.routing = false; u.rallyUntil = b.tick + ROUT_TO_RALLY_TICKS; u.turnedUntil = Math.max(u.turnedUntil, u.rallyUntil); }
         }
       }
       continue;
     }
     if(u.forming && b.tick >= u.forming.until){
-      if(u.forming.to === 'ambush') u.hidden = true; else u.formation = u.forming.to;
-      note(b, 'form', u, u.forming.to === 'square' ? 'In Square' : u.forming.to === 'ambush' ? 'Hidden' : 'In Line');
+      const f = u.forming;
       u.forming = null;
+      if(f.to === 'ambush'){ u.hidden = true; note(b, 'form', u, 'Hidden'); }
+      else if(f.to === 'column'){
+        const p = unitById(b, f.partner);
+        if(f.lead && p && !p.removed && p.x === u.x && p.y === u.y){
+          u.column = { partner: p.id, lead: true }; p.column = { partner: u.id, lead: false }; p.forming = null;
+          note(b, 'form', u, 'In Column');
+        }
+      } else if(f.to === 'line'){
+        if(u.column){ if(f.lead) note(b, 'form', u, 'Column split'); breakColumn(b, u); }
+        else { u.formation = 'line'; note(b, 'form', u, 'In Line'); }
+      } else { u.formation = f.to; note(b, 'form', u, 'In Square'); }
     }
     if(!u.path.length){ if(b.tick - u.arrivedTick > 1){ u.straightRun = 0; u.lastDir = null; } continue; }
     if(b.tick < u.limberUntil) continue;                // limbering up
     const next = u.path[0];
-    if(takenSquares(b, u.id).has(next.x + ',' + next.y)){
+    const stacking = u.stackInto && u.path.length === 1 && (() => {
+      const f = unitById(b, u.stackInto);
+      const there = b.units.filter(o => !o.removed && o.id !== u.id && (o.x === next.x && o.y === next.y || (o.step && o.step.toX === next.x && o.step.toY === next.y)));
+      return f && there.length === 1 && there[0] === f && !isBusy(f);
+    })();
+    if(!stacking && takenSquares(b, u.id).has(next.x + ',' + next.y)){
       // Someone is in the way: wait a moment, then find another way round.
       if(++u.blocked < BLOCKED_WAIT_TICKS) continue;
       u.blocked = 0;
@@ -411,15 +480,23 @@ export function step(b, rules){
     u.pushed = false;
     u.step = { fromX: u.x, fromY: u.y, toX: next.x, toY: next.y, elapsed: 0, total };
   }
+  // Column partners keep step with their lead unit.
+  for(const f of b.units){
+    if(f.removed || !f.column || f.column.lead) continue;
+    const L = unitById(b, f.column.partner);
+    if(!L || L.removed){ breakColumn(b, f); continue; }
+    f.x = L.x; f.y = L.y; f.step = L.step ? { ...L.step } : null; f.path = [];
+    f.arrivedTick = L.arrivedTick; f.enteredTick = L.enteredTick; f.straightRun = L.straightRun; f.lastDir = L.lastDir;
+  }
   if(rules && rules.fightDice) melee(b, rules);
   if(rules && rules.canFireAt) artillery(b, rules);
   if(!b.over && b.tick >= MATCH_CLOCK_TICKS) clockOut(b);
 }
 
 /* THE MATCH CLOCK. If no army has broken when it runs out, the battle goes on
-   points: one per enemy unit destroyed (provisional: the formula is still to
-   be agreed, and objectives are not on the standard board). Level is a draw. */
-export function points(b, side){ return b.stats.destroyed[side === 'red' ? 'blue' : 'red'] || 0; }
+   points: the value of every enemy unit destroyed (POINT_VALUE: Guard,
+   cavalry and guns worth more than line infantry). Level is a draw. */
+export function points(b, side){ return b.stats.lostValue[side === 'red' ? 'blue' : 'red'] || 0; }
 function clockOut(b){
   b.over = true; b.result = 'clock';
   const r = points(b, 'red'), bl = points(b, 'blue');
@@ -455,15 +532,21 @@ function shoot(b, rules, g, t){
   if(hit < dist){ note(b, 'shot', t, `Miss (${hit})`); return; }
   const crack = hit === 6 ? 1 : 0;
   const eff = rollBest(b, canister ? 2 : 1).best;
-  const bonus = (t.formation === 'square' ? 1 : 0) + (b.tick < t.turnedUntil ? 1 : 0) + crack - (rules.inCover(b, t) ? 1 : 0);
+  // A roundshot goes through a doubled stand: both halves share the effect,
+  // at +1 (and the turned-around +1 only if both already are).
+  const mate = stackPartner(b, t);
+  const stack = mate && !t.step ? [t, mate] : [t];
+  const shaken = stack.every(u => b.tick < u.turnedUntil);
+  const bonus = ((t.formation === 'square' || stack.length > 1) ? 1 : 0) + (shaken ? 1 : 0) + crack - (rules.inCover(b, t) ? 1 : 0);
   const e = Math.max(1, Math.min(6, eff + bonus));
   if(e <= 3){ note(b, 'shot', t, `Hit, no effect (${e})`); return; }
-  if(e === 4){ t.turnedUntil = Math.max(t.turnedUntil, b.tick + TURNED_AROUND_TICKS); t.path = []; t.goal = null; note(b, 'shot', t, 'Shaken: turned around'); return; }
   b.stats.artilleryKills = b.stats.artilleryKills || 0;
-  if(e === 5){ note(b, 'shot', t, 'Roundshot: routed'); rout(b, t); return; }
-  note(b, 'shot', t, 'Roundshot: destroyed');
-  b.stats.artilleryKills += 1;
-  destroy(b, t);
+  for(const u of stack){
+    if(u.removed) continue;
+    if(e === 4){ u.turnedUntil = Math.max(u.turnedUntil, b.tick + TURNED_AROUND_TICKS); u.path = []; u.goal = null; note(b, 'shot', u, 'Shaken: turned around'); }
+    else if(e === 5){ note(b, 'shot', u, 'Roundshot: routed'); rout(b, u); }
+    else { note(b, 'shot', u, 'Roundshot: destroyed'); b.stats.artilleryKills += 1; destroy(b, u); }
+  }
 }
 
 /* =========================================================
@@ -560,6 +643,7 @@ function resolveRound(b, rules, A, D, key, f = {}){
   if(aVal === dVal){
     if(dice.defenderHigher){ note(b, 'melee', A, `${score}: high ground holds`); return pushBackUnit(b, A, D, key); }
     if(f.charge && D.formation !== 'square'){ note(b, 'melee', D, `${score}: the charge carries it`); return pushBackUnit(b, D, A, key); }
+    if(A.column && isFoot(A)){ note(b, 'melee', D, `${score}: the Column carries it`); return pushBackUnit(b, D, A, key); }
     note(b, 'melee', D, `${score}: drawn`);
     return;
   }
@@ -579,6 +663,7 @@ function resolveRound(b, rules, A, D, key, f = {}){
    it holds its square, turned around all the same. */
 function pushBackUnit(b, loser, winner, key){
   delete b.fights[key];
+  breakColumn(b, loser);                                  // only the loser falls back
   loser.turnedUntil = b.tick + TURNED_AROUND_TICKS;
   loser.path = []; loser.goal = null;
   if(loser.step) return;
@@ -593,6 +678,7 @@ function pushBackUnit(b, loser, winner, key){
    before it can be ordered; failed, its Brigadier's once-a-battle Leadership
    Roll saves it where it stands if he judges it worth it; otherwise it is lost. */
 function rout(b, u){
+  breakColumn(b, u);
   const r = d6(b);
   const need = RALLY_ON[u.type] || RALLY_ON.INFANTRY;
   u.turnedUntil = Math.max(u.turnedUntil, b.tick + TURNED_AROUND_TICKS);
@@ -633,6 +719,8 @@ function homeEdgeSquare(b, u){
 function destroy(b, u){
   u.removed = true; u.path = []; u.goal = null; u.step = null; u.routing = false; u.lock = null; u.hidden = false; u.forming = null;
   b.stats.destroyed[u.side] = (b.stats.destroyed[u.side] || 0) + 1;
+  b.stats.lostValue[u.side] = (b.stats.lostValue[u.side] || 0) + (POINT_VALUE[u.type] || 0);
+  breakColumn(b, u);
   note(b, 'destroyed', u, 'Destroyed');
 }
 

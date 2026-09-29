@@ -379,8 +379,94 @@ test('Charge: cavalry that crossed two squares in a straight line into contact c
 
 test('the match clock: at time, the side ahead on points wins', () => {
   const b = field();
-  b.stats.destroyed.blue = 3; b.stats.destroyed.red = 1;
+  b.stats.lostValue.blue = 12; b.stats.lostValue.red = 6;
   b.tick = MATCH_CLOCK_TICKS - 1;
   step(b, loose);
   assert.equal(b.over, true); assert.equal(b.result, 'clock'); assert.equal(b.winner, 'red');
+});
+
+/* ---------------- Columns ---------------- */
+const pair = () => createBattle({ seed: 5, terrain, road: noRoad, playerSide: 'red', units: [
+  { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+  { id: 'p', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 8 },
+  { id: 'q', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 7, y: 8 },
+  { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+  { id: 'e', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 18, y: 1 },
+]});
+const stackUp = b => {
+  assert.equal(issueOrder(b, { unitId: 'q', type: 'move', target: { x: 6, y: 8 } }, loose).ok, true);
+  run(b, TRAVEL_TICKS.INFANTRY + 3, loose);
+  assert.deepEqual([U(b, 'q').x, U(b, 'q').y], [6, 8], 'stacked');
+  run(b, COOLDOWN_TICKS.INFANTRY, loose);
+};
+
+test('Columns: stack two infantry, form Column, and they move as one for one order', () => {
+  const b = pair();
+  stackUp(b);
+  assert.equal(issueOrder(b, { unitId: 'p', type: 'form', formation: 'column' }, loose).ok, true);
+  run(b, FORM_TICKS.COLUMN + 1, loose);
+  assert.ok(U(b, 'p').column && U(b, 'q').column, 'in Column');
+  run(b, COOLDOWN_TICKS.INFANTRY, loose);
+  const before = poolOf(b, U(b, 'p')).pool.orders;
+  assert.equal(issueOrder(b, { unitId: 'q', type: 'move', target: { x: 6, y: 6 } }, loose).ok, true, 'either unit takes the order');
+  assert.equal(poolOf(b, U(b, 'p')).pool.orders, before - 1, 'one order for the Column');
+  for(let t = 0; t < TRAVEL_TICKS.INFANTRY * 3; t++){
+    step(b, loose);
+    assert.deepEqual([U(b, 'q').x, U(b, 'q').y], [U(b, 'p').x, U(b, 'p').y], 'in step');
+  }
+  assert.deepEqual([U(b, 'p').x, U(b, 'p').y], [6, 6]);
+});
+
+test('Columns: nothing else can stack on a pair, and a third unit is refused', () => {
+  const b = createBattle({ seed: 5, terrain, road: noRoad, playerSide: 'red', units: [
+    { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+    { id: 'p', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 8 },
+    { id: 'q', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 7, y: 8 },
+    { id: 'r3', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 5, y: 8 },
+  ]});
+  stackUp(b);
+  assert.equal(issueOrder(b, { unitId: 'r3', type: 'move', target: { x: 6, y: 8 } }, loose).reason, 'Square is taken');
+});
+
+test('Columns: losing a fight breaks the Column and only the loser falls back', () => {
+  let seen = 0;
+  for(let seed = 1; seed <= 60 && seen < 3; seed++){
+    const b = pair(); b.rng = seed;
+    stackUp(b);
+    issueOrder(b, { unitId: 'p', type: 'form', formation: 'column' }, loose);
+    run(b, FORM_TICKS.COLUMN + 1, loose);
+    U(b, 'e').x = 6; U(b, 'e').y = 7;
+    for(let t = 0; t < 400; t++){
+      step(b, loose);
+      const pushed = ['p', 'q'].map(id => U(b, id)).find(u => !u.removed && u.turnedUntil > b.tick);
+      if(!pushed) continue;
+      const other = U(b, pushed.id === 'p' ? 'q' : 'p');
+      assert.equal(U(b, 'p').column, null); assert.equal(U(b, 'q').column, null);
+      if(!other.removed && other.turnedUntil <= b.tick) assert.deepEqual([other.x, other.y], [6, 8], 'the partner held');
+      seen++; break;
+    }
+  }
+  assert.ok(seen >= 1, 'saw a Column lose a fight');
+});
+
+test('Columns: a roundshot strikes both halves of a stack', () => {
+  let seen = 0;
+  for(let seed = 1; seed <= 80 && seen < 3; seed++){
+    const b = createBattle({ seed, terrain, road: noRoad, playerSide: 'blue', units: [
+      { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+      { id: 'p', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 8 },
+      { id: 'q', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 7, y: 8 },
+      { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+      { id: 'gun', side: 'blue', type: 'ARTILLERY', brigadeId: 0, x: 6, y: 6 },
+    ]});
+    stackUp(b);
+    issueOrder(b, { unitId: 'gun', type: 'fire', targetId: 'p' }, loose);
+    run(b, 3, loose);
+    const hits = b.events.filter(e => e.kind === 'shot' && /Shaken|routed|destroyed/.test(e.text));
+    if(!hits.length) continue;
+    const who = new Set(hits.map(e => e.unitId));
+    assert.ok(who.has('p') && who.has('q'), 'both halves took it');
+    seen++;
+  }
+  assert.ok(seen >= 1, 'saw a telling shot');
 });

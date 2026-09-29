@@ -61,7 +61,20 @@ export const turnBasedRules = {
     a.charged = !!opts.charge;
     d.ambushedThisFight = !!opts.ambush;
     d.ambushSpentThisRound = !!opts.defenderFreshInWoods;
+    /* Turn-based treats any two foot units in one square as a Column (the Attack
+       Column bonus reads stackPartner). In Real-Time a stack is only a Column
+       once it has formed one, so an unformed stack's partner is kept out of
+       sight while the bonuses are read. */
+    const hidden = [];
+    for(const su of [sa, sd]){
+      if(su.column) continue;
+      const u = shared(su);
+      for(const o of state.units){
+        if(o !== u && !o.removed && o.side === u.side && o.x === u.x && o.y === u.y){ o.removed = true; hidden.push(o); }
+      }
+    }
     const ab = combatBonuses(a, d, false, []), db = combatBonuses(d, a, true, []);
+    for(const o of hidden) o.removed = false;
     a.charged = false; d.ambushedThisFight = false; d.ambushSpentThisRound = false;
     return {
       aDice: ab.dice, dDice: db.dice,
