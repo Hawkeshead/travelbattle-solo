@@ -34,11 +34,12 @@
      stops there (contact is commitment); a unit whose next square is taken
      waits briefly, then finds another way, or stops if there is none.
 ========================================================= */
-import { BLOCKED_WAIT_TICKS, COOLDOWN_TICKS, GROUP_SPREAD, MELEE_ROUND_TICKS, ORDER_REGEN_TICKS, PUSHBACK_TRAVEL_FACTOR,
-         RALLY_ON, ROAD_TRAVEL_FACTOR, ROUT_TO_RALLY_TICKS, TRAVEL_TICKS, TURNED_AROUND_TICKS } from './constants.js';
+import { ARTILLERY_RELOAD_TICKS, BLOCKED_WAIT_TICKS, COOLDOWN_TICKS, FORM_TICKS, GROUP_SPREAD, LIMBER_TICKS, MATCH_CLOCK_TICKS,
+         MELEE_ROUND_TICKS, MID_FORMATION_PENALTY, ORDER_REGEN_TICKS, PUSHBACK_TRAVEL_FACTOR, RALLY_ON, ROAD_TRAVEL_FACTOR,
+         ROUT_TO_RALLY_TICKS, TRAVEL_TICKS, TURNED_AROUND_TICKS, WOODS_OCCUPANCY_TICKS } from './constants.js';
 import { nextRandom } from './rng.js';
 
-export const BATTLE_VERSION = 3;
+export const BATTLE_VERSION = 4;
 
 /* terrain: rows of terrain keys; road: rows of booleans (road-like squares);
    units: [{ id, side, type, brigadeId, x, y }] as deployed. */
@@ -67,6 +68,14 @@ export function createBattle({ seed, terrain, road, units, playerSide }){
       turnedUntil: 0,      // turned around until this tick: attackers +1, no orders
       routing: false,      // running for its own edge after a rallied rout
       rallyUntil: 0,       // rallying at the edge until this tick: no orders
+      formation: 'line',   // 'line' or 'square'
+      forming: null,       // { to, until } while changing formation (or laying an ambush)
+      hidden: false,       // a laid ambush: unseen, and springs when an enemy steps beside it
+      lock: null,          // artillery: the unit it keeps firing at
+      nextShot: 0,
+      limberUntil: 0,      // artillery: limbering up before it moves
+      enteredTick: 0,      // when it arrived on its current square (woods defence)
+      lastDir: null, straightRun: 0,   // squares crossed in one straight line without stopping (the charge)
     })),
     pools: {},
     leadershipUsed: {},    // brigade key: its Brigadier's one save has been spent
@@ -77,6 +86,7 @@ export function createBattle({ seed, terrain, road, units, playerSide }){
     stats: { rounds: 0, fights: 0, destroyed: { red: 0, blue: 0 } },
     over: false,
     winner: null,
+    result: null,          // 'break', or 'clock' (points) when the match clock runs out
     orderLog: [],
   };
   for(const key of brigadeKeys(b)) b.pools[key] = { orders: poolCap(b, key), sinceRegen: 0 };
@@ -128,13 +138,13 @@ function takenSquares(b, exceptIds){
 function enemyAdjacentSquares(b, side){
   const near = new Set();
   for(const e of b.units){
-    if(e.removed || e.side === side) continue;
+    if(e.removed || e.side === side || e.hidden) continue;   // a hidden ambush is not seen, so not avoided
     for(const [dx, dy] of DIRS) near.add((e.x + dx) + ',' + (e.y + dy));
   }
   return near;
 }
 export function enemyBeside(b, u){
-  return b.units.some(e => !e.removed && e.side !== u.side && cheb(e, u) === 1);
+  return b.units.some(e => !e.removed && !e.hidden && e.side !== u.side && cheb(e, u) === 1);
 }
 
 /* Shortest grid path (eight directions) to a square, around taken squares.
@@ -180,6 +190,7 @@ function readiness(b, u, rules){
   if(u.routing) return 'Routing';
   if(b.tick < u.rallyUntil) return 'Rallying';
   if(b.tick < u.turnedUntil) return 'Turned around';
+  if(u.forming) return 'Changing formation';
   if(isBusy(u)) return 'Still moving';
   if(b.tick < u.cooldownUntil) return 'Not ready yet';
   if(!rules.inChain(b, u)) return 'Out of the chain';
@@ -191,6 +202,8 @@ function reachableSet(b, u, rules){
   return m;
 }
 function commitMove(b, u, target, path, order){
+  if(u.type === 'ARTILLERY'){ u.lock = null; u.limberUntil = b.tick + LIMBER_TICKS; }
+  u.straightRun = 0; u.lastDir = null;
   u.goal = { x: target.x, y: target.y };
   u.path = path;
   u.blocked = 0;
@@ -200,13 +213,65 @@ function commitMove(b, u, target, path, order){
   b.orderLog.push({ type: order.type, group: !!order.group, side: order.side || u.side, unitId: u.id, target: { x: target.x, y: target.y }, tick: b.tick });
 }
 
+function spendOrder(b, u, order, extra){
+  u.cooldownFrom = b.tick;
+  u.cooldownUntil = b.tick + (COOLDOWN_TICKS[u.type] || COOLDOWN_TICKS.INFANTRY);
+  poolOf(b, u).pool.orders -= orderCost(u);
+  b.orderLog.push({ type: order.type, side: order.side || u.side, unitId: u.id, tick: b.tick, ...extra });
+}
+
+/* ARTILLERY: one order locks a gun onto a target; it fires at once and then
+   every ARTILLERY_RELOAD_TICKS until the target is gone, leaves range or line
+   of sight, or the gun is given a new order. */
+function fireOrder(b, u, order, rules){
+  if(u.type !== 'ARTILLERY') return { ok: false, reason: 'Only guns fire' };
+  const t = unitById(b, order.targetId);
+  if(!t || t.removed || t.side === u.side) return { ok: false, reason: 'No target' };
+  if(enemyBeside(b, u)) return { ok: false, reason: 'Gun is in a fight' };
+  if(poolOf(b, u).pool.orders < orderCost(u)) return { ok: false, reason: 'No orders left' };
+  if(!rules.canFireAt(b, u, t)) return { ok: false, reason: 'No line of fire' };
+  u.lock = t.id;
+  u.nextShot = b.tick + 1;
+  spendOrder(b, u, order, { targetId: t.id });
+  return { ok: true };
+}
+
+/* FORMATIONS: Square (infantry and Guard; cannot move, and does not start
+   fights), Line (back out of Square), and Lay Ambush (infantry and Guard in
+   woods, with no enemy beside it). Each costs an order and takes time; a unit
+   caught mid-change fights at a penalty. */
+function formOrder(b, u, order, rules){
+  const to = order.formation;
+  const foot = u.type === 'INFANTRY' || u.type === 'GUARD';
+  if(to === 'square'){
+    if(!foot) return { ok: false, reason: 'Only infantry form Square' };
+    if(u.formation === 'square') return { ok: false, reason: 'Already in Square' };
+  } else if(to === 'line'){
+    if(u.formation !== 'square') return { ok: false, reason: 'Already in Line' };
+  } else if(to === 'ambush'){
+    if(!foot) return { ok: false, reason: 'Only infantry lay ambushes' };
+    if(b.terrain[u.y][u.x] !== 'WOODS') return { ok: false, reason: 'Ambush needs woods' };
+    if(u.hidden) return { ok: false, reason: 'Already in ambush' };
+    if(enemyBeside(b, u)) return { ok: false, reason: 'Enemy too close' };
+  } else return { ok: false, reason: 'Unknown formation' };
+  if(poolOf(b, u).pool.orders < orderCost(u)) return { ok: false, reason: 'No orders left' };
+  const ticks = to === 'square' ? FORM_TICKS.SQUARE : to === 'ambush' ? FORM_TICKS.AMBUSH : FORM_TICKS.LINE;
+  u.forming = { to, until: b.tick + ticks };
+  spendOrder(b, u, order, { formation: to });
+  note(b, 'form', u, to === 'square' ? 'Forming Square' : to === 'ambush' ? 'Laying ambush' : 'Forming Line');
+  return { ok: true };
+}
+
 /* One unit. order = { unitId, type: 'move', target: { x, y }, side? } */
 export function issueOrder(b, order, rules){
   const u = unitById(b, order.unitId);
   if(order.side && u && u.side !== order.side) return { ok: false, reason: 'Not your unit' };
   const notReady = readiness(b, u, rules);
   if(notReady) return { ok: false, reason: notReady };
+  if(order.type === 'fire') return fireOrder(b, u, order, rules);
+  if(order.type === 'form') return formOrder(b, u, order, rules);
   if(order.type !== 'move') return { ok: false, reason: 'Unknown order' };
+  if(u.formation === 'square') return { ok: false, reason: 'In Square: form Line first' };
   const { x, y } = order.target || {};
   if(u.x === x && u.y === y) return { ok: false, reason: 'Already there' };
   if(poolOf(b, u).pool.orders < orderCost(u)) return { ok: false, reason: 'No orders left' };
@@ -228,6 +293,7 @@ export function issueGroupOrder(b, order, rules){
     if(order.side && u && u.side !== order.side) return { ok: false, reason: 'Not your unit' };
     const notReady = readiness(b, u, rules);
     if(notReady) return { ok: false, reason: notReady };
+    if(u.formation === 'square') return { ok: false, reason: 'In Square: form Line first' };
   }
   // The pool must cover every unit asked to move, brigade by brigade.
   const need = {};
@@ -302,8 +368,13 @@ export function step(b, rules){
     if(u.step){
       u.step.elapsed += 1;
       if(u.step.elapsed >= u.step.total){
+        const dir = (u.step.toX - u.step.fromX) + ',' + (u.step.toY - u.step.fromY);
+        u.straightRun = (u.lastDir === dir) ? u.straightRun + 1 : 1;
+        u.lastDir = dir;
         u.x = u.step.toX; u.y = u.step.toY; u.step = null;
         u.arrivedTick = b.tick;
+        u.enteredTick = b.tick;
+        if(u.hidden && b.terrain[u.y][u.x] !== 'WOODS') u.hidden = false;   // an ambush cannot leave the trees
         // Contact is commitment: with an enemy beside it now, it goes no further.
         // (A routing unit is running, not advancing, and keeps going.)
         if(u.path.length && !u.routing && enemyBeside(b, u)) u.path = [];
@@ -314,7 +385,13 @@ export function step(b, rules){
       }
       continue;
     }
-    if(!u.path.length) continue;
+    if(u.forming && b.tick >= u.forming.until){
+      if(u.forming.to === 'ambush') u.hidden = true; else u.formation = u.forming.to;
+      note(b, 'form', u, u.forming.to === 'square' ? 'In Square' : u.forming.to === 'ambush' ? 'Hidden' : 'In Line');
+      u.forming = null;
+    }
+    if(!u.path.length){ if(b.tick - u.arrivedTick > 1){ u.straightRun = 0; u.lastDir = null; } continue; }
+    if(b.tick < u.limberUntil) continue;                // limbering up
     const next = u.path[0];
     if(takenSquares(b, u.id).has(next.x + ',' + next.y)){
       // Someone is in the way: wait a moment, then find another way round.
@@ -335,6 +412,58 @@ export function step(b, rules){
     u.step = { fromX: u.x, fromY: u.y, toX: next.x, toY: next.y, elapsed: 0, total };
   }
   if(rules && rules.fightDice) melee(b, rules);
+  if(rules && rules.canFireAt) artillery(b, rules);
+  if(!b.over && b.tick >= MATCH_CLOCK_TICKS) clockOut(b);
+}
+
+/* THE MATCH CLOCK. If no army has broken when it runs out, the battle goes on
+   points: one per enemy unit destroyed (provisional: the formula is still to
+   be agreed, and objectives are not on the standard board). Level is a draw. */
+export function points(b, side){ return b.stats.destroyed[side === 'red' ? 'blue' : 'red'] || 0; }
+function clockOut(b){
+  b.over = true; b.result = 'clock';
+  const r = points(b, 'red'), bl = points(b, 'blue');
+  b.winner = r > bl ? 'red' : bl > r ? 'blue' : null;
+  note(b, 'break', null, b.winner ? `Time: ${b.winner} ahead on points` : 'Time: drawn');
+}
+
+/* =========================================================
+   ARTILLERY (Phase 4), as fireArtillery in turn-based: range N needs N+ to
+   hit; at 2 squares or less canister rolls two dice for both the hit and the
+   effect; a kept 6 to hit adds +1 to the effect (Crack Shot); effect +1
+   against a Square or a unit already turned around, -1 in woods or a
+   building; 4 turns it around, 5 routs it, 6 destroys it. Line of sight and
+   targeting rules come from the turn-based engine and are checked before
+   every shot. A gun with an enemy beside it holds fire (it is fighting).
+========================================================= */
+function artillery(b, rules){
+  for(const g of b.units){
+    if(g.removed || g.type !== 'ARTILLERY' || !g.lock) continue;
+    const t = unitById(b, g.lock);
+    if(!t || t.removed){ g.lock = null; note(b, 'lock', g, 'Target gone'); continue; }
+    if(isBusy(g) || enemyBeside(b, g) || b.tick < g.nextShot) continue;
+    if(!rules.canFireAt(b, g, t)){ g.lock = null; note(b, 'lock', g, 'Lost the line of fire'); continue; }
+    g.nextShot = b.tick + ARTILLERY_RELOAD_TICKS;
+    shoot(b, rules, g, t);
+  }
+}
+function shoot(b, rules, g, t){
+  b.stats.shots = (b.stats.shots || 0) + 1;
+  const dist = cheb(g, t);
+  const canister = dist <= 2;
+  const hit = rollBest(b, canister ? 2 : 1).best;
+  if(hit < dist){ note(b, 'shot', t, `Miss (${hit})`); return; }
+  const crack = hit === 6 ? 1 : 0;
+  const eff = rollBest(b, canister ? 2 : 1).best;
+  const bonus = (t.formation === 'square' ? 1 : 0) + (b.tick < t.turnedUntil ? 1 : 0) + crack - (rules.inCover(b, t) ? 1 : 0);
+  const e = Math.max(1, Math.min(6, eff + bonus));
+  if(e <= 3){ note(b, 'shot', t, `Hit, no effect (${e})`); return; }
+  if(e === 4){ t.turnedUntil = Math.max(t.turnedUntil, b.tick + TURNED_AROUND_TICKS); t.path = []; t.goal = null; note(b, 'shot', t, 'Shaken: turned around'); return; }
+  b.stats.artilleryKills = b.stats.artilleryKills || 0;
+  if(e === 5){ note(b, 'shot', t, 'Roundshot: routed'); rout(b, t); return; }
+  note(b, 'shot', t, 'Roundshot: destroyed');
+  b.stats.artilleryKills += 1;
+  destroy(b, t);
 }
 
 /* =========================================================
@@ -366,9 +495,23 @@ function note(b, kind, u, text, extra){
   if(b.events.length > 200) b.events.shift();
 }
 const fightsWith = u => u && !u.removed && !u.routing && u.type !== 'BRIGADIER';
+const isCav = u => u.type === 'LIGHT_CAV' || u.type === 'HEAVY_CAV';
 
 function melee(b, rules){
-  const live = b.units.filter(fightsWith);
+  // A laid ambush springs the moment an enemy steps beside it: the ambusher
+  // strikes first, at once, with +1 on that round, and the enemy halts.
+  for(const amb of b.units){
+    if(!amb.hidden || !fightsWith(amb)) continue;
+    const foe = b.units.find(e => fightsWith(e) && e.side !== amb.side && cheb(e, amb) === 1);
+    if(!foe) continue;
+    amb.hidden = false;
+    foe.path = []; foe.goal = null;
+    note(b, 'ambush', amb, 'Ambush!');
+    if(!rules.canAttack(b, amb, foe)) continue;
+    b.fights[pairKey(amb, foe)] = { a: amb.id, d: foe.id, next: b.tick, rounds: 0, ambush: true };
+    b.stats.fights += 1;
+  }
+  const live = b.units.filter(u => fightsWith(u) && !u.hidden);
   // New contacts.
   for(let i = 0; i < live.length; i++) for(let j = i + 1; j < live.length; j++){
     const p = live[i], q = live[j];
@@ -377,11 +520,15 @@ function melee(b, rules){
     if(b.fights[key]) continue;
     let att = p.arrivedTick > q.arrivedTick ? p : q.arrivedTick > p.arrivedTick ? q : (nextRandom(b) < 0.5 ? p : q);
     let def = att === p ? q : p;
-    if(!rules.canAttack(b, att, def)){
-      if(!rules.canAttack(b, def, att)) continue;       // neither may attack the other (e.g. horse against a village)
+    // A Square does not start fights (turn-based house rule W4): the other side attacks it.
+    const mayStart = (x, y) => x.formation !== 'square' && rules.canAttack(b, x, y);
+    if(!mayStart(att, def)){
+      if(!mayStart(def, att)) continue;                  // neither may attack the other (e.g. horse against a village, or two Squares)
       [att, def] = [def, att];
     }
-    b.fights[key] = { a: att.id, d: def.id, next: b.tick + MELEE_ROUND_TICKS, rounds: 0 };
+    // A charge: cavalry that crossed two squares in one straight line and arrived into this contact.
+    const charge = isCav(att) && att.arrivedTick === b.tick && att.straightRun >= 2;
+    b.fights[key] = { a: att.id, d: def.id, next: b.tick + MELEE_ROUND_TICKS, rounds: 0, charge };
     b.stats.fights += 1;
     note(b, 'contact', def, 'Contact');
   }
@@ -393,15 +540,17 @@ function melee(b, rules){
     f.next = b.tick + MELEE_ROUND_TICKS;
     f.rounds += 1;
     b.stats.rounds += 1;
-    resolveRound(b, rules, A, D, key);
+    resolveRound(b, rules, A, D, key, f);
+    f.ambush = false; f.charge = false;                  // first round only
   }
   checkBreak(b);
 }
 
-function resolveRound(b, rules, A, D, key){
-  const dice = rules.fightDice(b, A, D);
-  const aBonus = dice.aBonus + (b.tick < D.turnedUntil ? 1 : 0);
-  const dBonus = dice.dBonus;
+function resolveRound(b, rules, A, D, key, f = {}){
+  const freshInWoods = b.terrain[D.y][D.x] === 'WOODS' && (b.tick - D.enteredTick) < WOODS_OCCUPANCY_TICKS;
+  const dice = rules.fightDice(b, A, D, { charge: !!f.charge, ambush: !!f.ambush, defenderFreshInWoods: freshInWoods });
+  const aBonus = dice.aBonus + (b.tick < D.turnedUntil ? 1 : 0) + (f.ambush ? 1 : 0) - (A.forming ? MID_FORMATION_PENALTY : 0);
+  const dBonus = dice.dBonus - (D.forming ? MID_FORMATION_PENALTY : 0);
   let a = rollBest(b, dice.aDice), d = rollBest(b, dice.dDice);
   let aVal = a.best + aBonus, dVal = d.best + dBonus;
   // Guard and Heavy Cavalry re-roll once when losing, if the die could improve.
@@ -410,11 +559,14 @@ function resolveRound(b, rules, A, D, key){
   const score = `${aVal} v ${dVal}`;
   if(aVal === dVal){
     if(dice.defenderHigher){ note(b, 'melee', A, `${score}: high ground holds`); return pushBackUnit(b, A, D, key); }
+    if(f.charge && D.formation !== 'square'){ note(b, 'melee', D, `${score}: the charge carries it`); return pushBackUnit(b, D, A, key); }
     note(b, 'melee', D, `${score}: drawn`);
     return;
   }
   const winner = aVal > dVal ? A : D, loser = aVal > dVal ? D : A;
   const margin = Math.abs(aVal - dVal);
+  if(loser.formation === 'square'){ loser.formation = 'line'; note(b, 'form', loser, 'Square broken'); }
+  if(loser.forming) loser.forming = null;
   if(margin === 1){ note(b, 'melee', loser, `${score}: pushed back`); return pushBackUnit(b, loser, winner, key); }
   delete b.fights[key];
   if(margin === 2){ note(b, 'melee', loser, `${score}: routed`); return rout(b, loser); }
@@ -479,7 +631,7 @@ function homeEdgeSquare(b, u){
   return best;
 }
 function destroy(b, u){
-  u.removed = true; u.path = []; u.goal = null; u.step = null; u.routing = false;
+  u.removed = true; u.path = []; u.goal = null; u.step = null; u.routing = false; u.lock = null; u.hidden = false; u.forming = null;
   b.stats.destroyed[u.side] = (b.stats.destroyed[u.side] || 0) + 1;
   note(b, 'destroyed', u, 'Destroyed');
 }
@@ -495,7 +647,7 @@ function checkBreak(b){
   for(const side of ['red', 'blue']){
     const { broken, total } = brokenBrigades(b, side);
     if(total && broken >= Math.min(2, total)){
-      b.over = true;
+      b.over = true; b.result = 'break';
       b.winner = side === 'red' ? 'blue' : 'red';
       note(b, 'break', null, `${side} army breaks`);
       return;

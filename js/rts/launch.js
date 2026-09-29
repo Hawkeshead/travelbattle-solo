@@ -24,8 +24,8 @@ import { CELL, SIDE_LABEL } from '../data-core.js';
 import { emitFloatingText } from '../floating-text.js';
 import { startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
-import { MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
-import { createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, poolOf, readiness01, saveBattle, step } from './sim.js';
+import { MATCH_CLOCK_TICKS, MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
+import { createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, step } from './sim.js';
 import { turnBasedRules } from './rules-adapter.js';
 
 let battle = null;
@@ -92,9 +92,32 @@ function start(){
   showGroupToggle();
   requestAnimationFrame(frame);
 }
+/* FOCUS-LOSS AUTO-PAUSE (solo only). A notification, another app or a locked
+   phone stops the clock until the battle is back on screen. Not a tactical
+   pause: no orders are taken while it is paused. */
+let paused = false;
+function setPaused(p){
+  if(paused === p) return;
+  paused = p;
+  let el = document.getElementById('rtsPaused');
+  if(!el){
+    el = document.createElement('div'); el.id = 'rtsPaused';
+    el.style.cssText = 'position:fixed;inset:0;z-index:29;display:none;align-items:center;justify-content:center;background:rgba(10,10,8,.45);' +
+      'font:22px "IM Fell English",Georgia,serif;color:#fbf6ea;pointer-events:none';
+    el.textContent = 'Paused';
+    document.body.appendChild(el);
+  }
+  el.style.display = p ? 'flex' : 'none';
+  if(!p){ lastFrame = performance.now(); acc = 0; }
+}
+document.addEventListener('visibilitychange', () => { if(running) setPaused(document.hidden); });
+window.addEventListener('blur', () => { if(running) setPaused(true); });
+window.addEventListener('focus', () => { if(running && !document.hidden) setPaused(false); });
+
 function frame(now){
   if(!running) return;
-  acc += Math.min(250, now - lastFrame);     // a long gap (tab hidden) never becomes a burst of ticks
+  if(paused){ lastFrame = now; requestAnimationFrame(frame); return; }
+  acc += Math.min(250, now - lastFrame);     // a long gap never becomes a burst of ticks
   lastFrame = now;
   let n = 0;
   while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME && !battle.over){ step(battle, turnBasedRules); acc -= TICK_MS; n++; }
@@ -103,6 +126,7 @@ function frame(now){
   drawCommandOverlay();
   showNewEvents();
   updateClock();
+  if(battle.tick % 5 === 0) updateActionBar();
   if(battle.over){ running = false; showResult(); return; }
   requestAnimationFrame(frame);
 }
@@ -119,6 +143,8 @@ function mirrorUnits(alpha){
     const u = state.units.find(x => x.id === su.id);
     if(!u) continue;
     u.removed = su.removed;
+    u.hidden = !!su.hidden;
+    u.formation = su.formation === 'square' ? 'square' : 'line';
     if(su.removed){ delete unitAnimations[su.id]; continue; }
     if(!su.step){
       u.x = su.x; u.y = su.y;
@@ -153,7 +179,7 @@ function attachInput(){
   }, true);
 }
 function onTap(x, y){
-  if(!battle) return;
+  if(!battle || paused) return;
   const here = battle.units.find(u => !u.removed && ((u.x === x && u.y === y) || (u.step && u.step.toX === x && u.step.toY === y)));
   if(here && here.side === battle.playerSide){
     if(groupMode){
@@ -162,9 +188,19 @@ function onTap(x, y){
       selected = selected.length === 1 && selected[0] === here.id ? [] : [here.id];
     }
     reachCache = null;
+    updateActionBar();
     return;
   }
-  if(here){ toast('That is the enemy'); return; }
+  if(here){
+    const gun = selected.length === 1 ? battle.units.find(u => u.id === selected[0]) : null;
+    if(gun && gun.type === 'ARTILLERY'){
+      const res = issueOrder(battle, { unitId: gun.id, type: 'fire', targetId: here.id, side: battle.playerSide }, turnBasedRules);
+      if(!res.ok) toast(res.reason); else toast('Target locked');
+      return;
+    }
+    toast('That is the enemy');
+    return;
+  }
   if(!selected.length) return;
   const res = (groupMode && selected.length > 1)
     ? issueGroupOrder(battle, { unitIds: selected, type: 'move', target: { x, y }, side: battle.playerSide }, turnBasedRules)
@@ -172,6 +208,37 @@ function onTap(x, y){
   if(!res.ok){ toast(res.reason); return; }
   if(groupMode) selected = [];
   reachCache = null;
+  updateActionBar();
+}
+
+/* Formation buttons for the one unit selected: Square or Line for infantry
+   and Guard, Lay Ambush in woods. Each costs an order and takes time. */
+let actionBar = null;
+function updateActionBar(){
+  if(!actionBar){
+    actionBar = document.createElement('div'); actionBar.id = 'rtsActions';
+    actionBar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:28;display:none;gap:8px';
+    document.body.appendChild(actionBar);
+  }
+  const u = selected.length === 1 ? battle.units.find(x => x.id === selected[0]) : null;
+  const foot = u && !u.removed && (u.type === 'INFANTRY' || u.type === 'GUARD');
+  const opts = [];
+  if(foot) opts.push(u.formation === 'square' ? ['line', 'Form Line'] : ['square', 'Form Square']);
+  if(foot && u.formation !== 'square' && battle.terrain[u.y][u.x] === 'WOODS' && !u.hidden) opts.push(['ambush', 'Lay Ambush']);
+  if(u && u.type === 'ARTILLERY') opts.push(['hint', u.lock ? 'Firing: tap an enemy to switch' : 'Tap an enemy to fire']);
+  actionBar.innerHTML = '';
+  for(const [k, label] of opts){
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+    b.style.cssText = 'font:15px "IM Fell English",Georgia,serif;min-height:40px;padding:6px 14px;border-radius:20px;border:1px solid #b8963f;' +
+      (k === 'hint' ? 'background:rgba(20,24,20,.75);color:#fbf6ea;pointer-events:none' : 'background:#e0b85a;color:#2a1e14;cursor:pointer');
+    if(k !== 'hint') b.onclick = () => {
+      const res = issueOrder(battle, { unitId: u.id, type: 'form', formation: k, side: battle.playerSide }, turnBasedRules);
+      if(!res.ok) toast(res.reason);
+      updateActionBar();
+    };
+    actionBar.appendChild(b);
+  }
+  actionBar.style.display = opts.length ? 'flex' : 'none';
 }
 
 /* ---------------------------------------------------------
@@ -191,6 +258,7 @@ function unitScreen(u){
 function drawCommandOverlay(){
   const mine = battle.units.filter(u => !u.removed && u.side === battle.playerSide);
   drawFightMarkers();
+  drawLocks();
   const byId = id => state.units.find(x => x.id === id);
   const chainOk = new Set(mine.filter(u => turnBasedRules.inChain(battle, u)).map(u => u.id));
   ctx.save();
@@ -224,6 +292,15 @@ function drawCommandOverlay(){
       ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = Math.max(2, CELL * 0.07);
       ctx.strokeRect((toScreen(getUnitVisualPos(u).x, getUnitVisualPos(u).y).x)*CELL + 1, (toScreen(getUnitVisualPos(u).x, getUnitVisualPos(u).y).y)*CELL + 1, CELL - 2, CELL - 2);
     }
+    if(su.forming){
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.8, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(su.formation === 'square' || su.hidden){
+      ctx.font = `${Math.round(CELL*0.26)}px "IM Fell English",Georgia,serif`; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(20,16,10,0.75)'; ctx.fillRect(cx - CELL*0.32, cy + r*0.55, CELL*0.64, CELL*0.26);
+      ctx.fillStyle = '#f3d27a'; ctx.fillText(su.hidden ? 'Hidden' : 'Square', cx, cy + r*0.55 + CELL*0.2);
+    }
     if(!chainOk.has(su.id)){
       ctx.fillStyle = '#b3261e'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(cx + r*0.72, cy - r*0.72, CELL*0.09, 0, Math.PI*2); ctx.fill(); ctx.stroke();
@@ -239,6 +316,23 @@ function drawCommandOverlay(){
         ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
       }
     }
+  }
+  ctx.restore();
+}
+
+/* A faint line from each of your guns to the unit it is locked on. */
+function drawLocks(){
+  const byId = id => state.units.find(x => x.id === id);
+  ctx.save();
+  ctx.setLineDash([CELL*0.12, CELL*0.1]);
+  ctx.lineWidth = Math.max(1.5, CELL*0.035);
+  for(const g of battle.units){
+    if(g.removed || !g.lock) continue;
+    const a = byId(g.id), t = byId(g.lock);
+    if(!a || !t || t.removed) continue;
+    const p = unitScreen(a), q = unitScreen(t);
+    ctx.strokeStyle = g.side === battle.playerSide ? 'rgba(243,210,122,0.55)' : 'rgba(200,70,60,0.55)';
+    ctx.beginPath(); ctx.moveTo(p.cx, p.cy); ctx.lineTo(q.cx, q.cy); ctx.stroke();
   }
   ctx.restore();
 }
@@ -277,10 +371,12 @@ function showNewEvents(){
 /* The result, once an army breaks. */
 function showResult(){
   const won = battle.winner === battle.playerSide;
-  document.getElementById('overlayTitle').textContent = won ? 'Victory' : 'Defeat';
+  document.getElementById('overlayTitle').textContent = !battle.winner ? 'Drawn' : won ? 'Victory' : 'Defeat';
   const secs = Math.floor(battle.tick / TICKS_PER_SECOND);
-  document.getElementById('overlayText').innerHTML =
-    `${SIDE_LABEL[battle.winner]} carries the field after ${Math.floor(secs/60)} min ${secs%60} s. ` +
+  const how = battle.result === 'clock'
+    ? (battle.winner ? `Time is up: ${SIDE_LABEL[battle.winner]} ahead on points (${points(battle, battle.winner)} to ${points(battle, battle.winner === 'red' ? 'blue' : 'red')}). ` : 'Time is up, level on points. ')
+    : `${SIDE_LABEL[battle.winner]} carries the field after ${Math.floor(secs/60)} min ${secs%60} s. `;
+  document.getElementById('overlayText').innerHTML = how +
     `Units lost: ${SIDE_LABEL.red} ${battle.stats.destroyed.red || 0}, ${SIDE_LABEL.blue} ${battle.stats.destroyed.blue || 0}.`;
   const btn = document.getElementById('overlayBtn');
   btn.style.display = ''; btn.textContent = 'New Battle'; btn.onclick = () => location.reload();
@@ -321,8 +417,8 @@ function showClock(){
 }
 function updateClock(){
   if(!clockEl) return;
-  const secs = Math.floor(battle.tick / TICKS_PER_SECOND);
-  clockEl.textContent = `Real-Time \u00b7 ${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')}`;
+  const secs = Math.max(0, Math.ceil((MATCH_CLOCK_TICKS - battle.tick) / TICKS_PER_SECOND));
+  clockEl.textContent = `${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')} left`;
 }
 let toastTimer = null;
 function toast(text){

@@ -9,7 +9,7 @@
    counts as on the square it is entering), with nothing marked as having
    moved. Read-only use of the shared modules: nothing in them is changed. */
 import { state } from '../data-core.js';
-import { canAttackTarget, canRerollFight, combatBonuses, legalMoves, movableUnitsForSide, terrainAt } from '../engine-rules.js';
+import { canAttackTarget, canRerollFight, combatBonuses, hasLOS, isConcealedFromEnemy, isInActiveFight, legalMoves, movableUnitsForSide, terrainAt } from '../engine-rules.js';
 
 function syncShared(b){
   for(const su of b.units){
@@ -19,7 +19,11 @@ function syncShared(b){
     u.x = su.step ? su.step.toX : su.x;
     u.y = su.step ? su.step.toY : su.y;
     u.turnOnly = b.tick < su.turnedUntil;     // turned around: the turn-based name for it
-    u.charged = false;                         // the charge arrives in Phase 4
+    u.formation = su.formation === 'square' ? 'square' : 'line';
+    u.hidden = !!su.hidden;
+    u.charged = false;
+    u.ambushedThisFight = false;
+    u.ambushSpentThisRound = false;
   }
   state.moved = new Set();
 }
@@ -46,10 +50,19 @@ export const turnBasedRules = {
     const a = shared(sa), d = shared(sd);
     return !!(a && d && canAttackTarget(a, d));
   },
-  fightDice(b, sa, sd){
+  fightDice(b, sa, sd, opts = {}){
     syncFight(b);
     const a = shared(sa), d = shared(sd);
+    /* The Phase 4 conversions, passed in through the flags the turn-based code
+       already reads: a charging attacker (charged), cavalry caught by an ambush
+       (ambushedThisFight), and a defender in woods for less than the occupancy
+       time, which gets no woods defence (the same switch that turns it off
+       after springing an ambush, ambushSpentThisRound). */
+    a.charged = !!opts.charge;
+    d.ambushedThisFight = !!opts.ambush;
+    d.ambushSpentThisRound = !!opts.defenderFreshInWoods;
     const ab = combatBonuses(a, d, false, []), db = combatBonuses(d, a, true, []);
+    a.charged = false; d.ambushedThisFight = false; d.ambushSpentThisRound = false;
     return {
       aDice: ab.dice, dDice: db.dice,
       aBonus: ab.valueBonus || 0, dBonus: db.valueBonus || 0,
@@ -58,6 +71,19 @@ export const turnBasedRules = {
     };
   },
 };
+/* Artillery, from the same engine: range and line of sight (hasLOS), never at
+   a Brigadier, never at a unit hidden by woods or an ambush, and never into a
+   fight already going on. Cover (woods or a building) takes 1 off the effect. */
+turnBasedRules.canFireAt = function(b, sg, st){
+  syncFight(b);
+  const g = shared(sg), t = shared(st);
+  return !!(g && t && t.type !== 'BRIGADIER' && !isConcealedFromEnemy(t) && hasLOS(g, t) && !isInActiveFight(t));
+};
+turnBasedRules.inCover = function(b, st){
+  const k = terrainAt(st.x, st.y).key;
+  return k === 'WOODS' || k === 'BUILDING';
+};
+
 function syncFight(b){
   syncShared(b);
   for(const su of b.units){ const u = shared(su); if(u){ u.x = su.x; u.y = su.y; } }

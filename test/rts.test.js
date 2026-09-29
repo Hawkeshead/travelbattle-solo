@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { brokenBrigades, createBattle, issueGroupOrder, issueOrder, loadBattle, poolOf, saveBattle, step, visualPosition } from '../js/rts/sim.js';
-import { COOLDOWN_TICKS, MELEE_ROUND_TICKS, ORDER_REGEN_TICKS, ROAD_TRAVEL_FACTOR, TRAVEL_TICKS } from '../js/rts/constants.js';
+import { ARTILLERY_RELOAD_TICKS, COOLDOWN_TICKS, FORM_TICKS, LIMBER_TICKS, MATCH_CLOCK_TICKS, MELEE_ROUND_TICKS, ORDER_REGEN_TICKS, ROAD_TRAVEL_FACTOR, TRAVEL_TICKS } from '../js/rts/constants.js';
 import { nextRandom } from '../js/rts/rng.js';
 
 const COLS = 20, ROWS = 10;
@@ -26,6 +26,8 @@ const rules = {
     return out;
   },
   canAttack: (b, a, d) => d.type !== 'BRIGADIER',
+  canFireAt: (b, g, t) => cheb(g, t) <= 6 && t.type !== 'BRIGADIER' && !t.hidden,
+  inCover: () => false,
   fightDice: () => ({ aDice: 1, dDice: 1, aBonus: 0, dBonus: 0, aReroll: false, dReroll: false, defenderHigher: false }),
 };
 const withDice = over => ({ ...rules, fightDice: () => ({ aDice: 1, dDice: 1, aBonus: 0, dBonus: 0, aReroll: false, dReroll: false, defenderHigher: false, ...over }) });
@@ -295,4 +297,90 @@ test('battles with fights replay identically from the same seed and orders', () 
     return saveBattle(b);
   };
   assert.equal(play(), play());
+});
+
+/* ---------------- Phase 4: artillery, formations, ambush, charge, clock ---------------- */
+const field = (extra = [], terr = terrain) => createBattle({ seed: 11, terrain: terr, road: noRoad, playerSide: 'red', units: [
+  { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+  { id: 'gun', side: 'red', type: 'ARTILLERY', brigadeId: 0, x: 5, y: 8 },
+  { id: 'inf', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 8, y: 8 },
+  { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+  { id: 't', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 5, y: 4 },
+  ...extra,
+]});
+const loose = { ...rules, inChain: () => true };
+
+test('artillery: one order locks on and it keeps firing on its reload', () => {
+  const b = field();
+  const before = poolOf(b, U(b, 'gun')).pool.orders;
+  assert.equal(issueOrder(b, { unitId: 'gun', type: 'fire', targetId: 't' }, loose).ok, true);
+  assert.equal(poolOf(b, U(b, 'gun')).pool.orders, before - 1);
+  run(b, ARTILLERY_RELOAD_TICKS * 3 + 5, loose);
+  assert.ok((b.stats.shots || 0) >= 3 || U(b, 't').removed, `shots ${b.stats.shots}`);
+});
+
+test('artillery: the lock breaks when the line of fire goes', () => {
+  const b = field();
+  issueOrder(b, { unitId: 'gun', type: 'fire', targetId: 't' }, loose);
+  run(b, 2, loose);
+  const blind = { ...loose, canFireAt: () => false };
+  run(b, ARTILLERY_RELOAD_TICKS + 2, blind);
+  assert.equal(U(b, 'gun').lock, null);
+});
+
+test('artillery: moving drops the lock and limbers up first', () => {
+  const b = field();
+  issueOrder(b, { unitId: 'gun', type: 'fire', targetId: 't' }, loose);
+  run(b, COOLDOWN_TICKS.ARTILLERY + 2, loose);
+  assert.equal(issueOrder(b, { unitId: 'gun', type: 'move', target: { x: 5, y: 7 } }, loose).ok, true);
+  assert.equal(U(b, 'gun').lock, null);
+  run(b, LIMBER_TICKS - 1, loose);
+  assert.equal(U(b, 'gun').step, null, 'still limbering');
+});
+
+test('Square: takes time, cannot move, and does not start fights', () => {
+  const b = field();
+  assert.equal(issueOrder(b, { unitId: 'inf', type: 'form', formation: 'square' }, loose).ok, true);
+  run(b, FORM_TICKS.SQUARE + 1, loose);
+  assert.equal(U(b, 'inf').formation, 'square');
+  run(b, COOLDOWN_TICKS.INFANTRY, loose);
+  assert.equal(issueOrder(b, { unitId: 'inf', type: 'move', target: { x: 8, y: 7 } }, loose).reason, 'In Square: form Line first');
+  // an enemy walks up beside it: the enemy is the attacker, whoever arrived
+  U(b, 't').x = 8; U(b, 't').y = 6; U(b, 't').path = [{ x: 8, y: 7 }];
+  run(b, TRAVEL_TICKS.INFANTRY + 3, loose);
+  const f = Object.values(b.fights)[0];
+  assert.ok(f); assert.equal(f.a, 't');
+});
+
+test('Ambush: laid in woods it hides, then springs on an enemy stepping beside it, striking first', () => {
+  const woods = terrain.map(r => r.slice()); woods[8][8] = 'WOODS';
+  const b = field([], woods);
+  assert.equal(issueOrder(b, { unitId: 'inf', type: 'form', formation: 'ambush' }, loose).ok, true);
+  run(b, FORM_TICKS.AMBUSH + 1, loose);
+  assert.equal(U(b, 'inf').hidden, true);
+  U(b, 't').x = 8; U(b, 't').y = 5; U(b, 't').path = [{ x: 8, y: 6 }, { x: 8, y: 7 }, { x: 8, y: 8 }];
+  let sprung = null;
+  for(let i = 0; i < 400 && !sprung; i++){ step(b, loose); sprung = b.events.find(e => e.text === 'Ambush!'); }
+  assert.ok(sprung, 'ambush sprang');
+  assert.equal(U(b, 'inf').hidden, false);
+  assert.equal(b.stats.rounds, 1, 'the ambusher struck at once');
+  assert.notDeepEqual([U(b, 't').x, U(b, 't').y], [8, 8]);
+  assert.ok(!U(b, 't').path.some(p => p.x === 8 && p.y === 8), 'the enemy no longer marches on');
+});
+
+test('Charge: cavalry that crossed two squares in a straight line into contact charges', () => {
+  const b = field([{ id: 'cav', side: 'red', type: 'LIGHT_CAV', brigadeId: 0, x: 12, y: 8 }]);
+  U(b, 'cav').path = [{ x: 12, y: 7 }, { x: 12, y: 6 }, { x: 12, y: 5 }];
+  U(b, 't').x = 12; U(b, 't').y = 4;
+  let f = null;
+  for(let i = 0; i < 200 && !f; i++){ step(b, loose); f = Object.values(b.fights).find(x => x.a === 'cav'); }
+  assert.ok(f); assert.equal(f.charge, true);
+});
+
+test('the match clock: at time, the side ahead on points wins', () => {
+  const b = field();
+  b.stats.destroyed.blue = 3; b.stats.destroyed.red = 1;
+  b.tick = MATCH_CLOCK_TICKS - 1;
+  step(b, loose);
+  assert.equal(b.over, true); assert.equal(b.result, 'clock'); assert.equal(b.winner, 'red');
 });

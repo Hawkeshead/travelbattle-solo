@@ -23,7 +23,9 @@ export const GROUP_SPREAD = 2;                   // a group order spreads its un
 // Combat (Phases 3 and 4)
 export const MELEE_ROUND_TICKS = s(6);
 export const ARTILLERY_RELOAD_TICKS = s(30);
-export const FORM_TICKS = { SQUARE: s(8), COLUMN: s(5), AMBUSH: s(5) };
+export const FORM_TICKS = { SQUARE: s(8), COLUMN: s(5), AMBUSH: s(5), LINE: s(5) };   // LINE: back out of Square
+export const MID_FORMATION_PENALTY = 1;         // a unit caught changing formation fights at -1
+export const ARTILLERY_RANGE = 6;                // as turn-based hasLOS
 export const WOODS_OCCUPANCY_TICKS = s(10);
 export const TURNED_AROUND_TICKS = s(12);
 export const ROUT_TO_RALLY_TICKS = s(10);
