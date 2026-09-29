@@ -367,10 +367,29 @@ function chevronSvg(n){
     <path d="${rows.join(' ')}"/></g></svg>`;
 }
 
+/* BATTLE MODE (rts-variant branch): Turn-Based, as always, or Real-Time.
+   Turn-Based is the default and nothing about it changes. Real-Time lives
+   entirely in js/rts/, reached through the one dynamic import below. */
+let battleMode = 'turn';
+function modeToggleHtml(){
+  const b = (v, label) => `<button type="button" data-mode="${v}" style="font:inherit;padding:6px 14px;border-radius:4px;cursor:pointer;` +
+    `border:1px solid var(--brass-dim);background:${battleMode===v ? 'var(--brass-bright)' : 'transparent'};color:${battleMode===v ? '#2a1e14' : 'inherit'}">${label}</button>`;
+  return `<div id="battleModeToggle" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:6px">` +
+    `<span style="opacity:.8">Mode</span>${b('turn','Turn-Based')}${b('rts','Real-Time')}</div>`;
+}
+function wireModeToggle(){
+  document.querySelectorAll('#battleModeToggle [data-mode]').forEach(btn => btn.onclick = () => {
+    battleMode = btn.dataset.mode;
+    document.getElementById('overlayText').innerHTML = modeToggleHtml();
+    wireModeToggle();
+  });
+}
+
 export function showDifficultySelect(){
   clearFolio();
   document.getElementById('overlayTitle').textContent = 'Your Opponent';
-  document.getElementById('overlayText').innerHTML = '';
+  document.getElementById('overlayText').innerHTML = modeToggleHtml();
+  wireModeToggle();
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.className = 'as-records';
@@ -390,6 +409,7 @@ export function showDifficultySelect(){
       saveLastSetup();
       extra.style.display='none';
       document.getElementById('overlay').classList.remove('show');
+      if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
       beginBoardSetup();
     };
     extra.appendChild(b);

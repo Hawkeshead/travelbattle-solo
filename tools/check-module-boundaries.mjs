@@ -221,6 +221,10 @@ function findImportWrites(ast) {
 }
 
 const files = (await readdir(jsDir)).filter((f) => f.endsWith('.js')).sort();
+// The Real-Time variant's own folder is checked too, when present.
+try {
+  for (const f of (await readdir(join(jsDir, 'rts'))).filter((f) => f.endsWith('.js')).sort()) files.push('rts/' + f);
+} catch { /* no js/rts here */ }
 const all = [];
 let importCount = 0;
 
@@ -239,6 +243,36 @@ for (const file of files) {
     const line = src.slice(0, v.start).split('\n').length;
     all.push({ file, line, name: v.name, text: src.split('\n')[line - 1].trim().slice(0, 90) });
   }
+}
+
+/* REAL-TIME IS ONE-WAY. js/rts/ may import the shared modules; nothing outside
+   it may import from js/rts/, except the one setup hook that launches
+   Real-Time mode (a dynamic import of ./rts/launch.js from ui-menus.js). This
+   keeps the turn-based game unaware of the variant. */
+const RTS_HOOKS = new Set(['ui-menus.js ./rts/launch.js']);
+const rtsLeaks = [];
+for (const file of files) {
+  if (file.startsWith('rts/')) continue;
+  const src = await readFile(join(jsDir, file), 'utf8');
+  const ast = acorn.parse(src, { ecmaVersion: 2023, sourceType: 'module' });
+  const seen = [];
+  (function walk(n) {
+    if (!n || typeof n.type !== 'string') return;
+    if ((n.type === 'ImportDeclaration' || n.type === 'ExportNamedDeclaration' || n.type === 'ExportAllDeclaration') && n.source) seen.push({ spec: n.source.value, start: n.start, dynamic: false });
+    if (n.type === 'ImportExpression' && n.source && n.source.type === 'Literal') seen.push({ spec: n.source.value, start: n.start, dynamic: true });
+    for (const k in n) { const v = n[k]; if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v.type === 'string') walk(v); }
+  })(ast);
+  for (const imp of seen) {
+    if (!/(^|\/)rts\//.test(imp.spec)) continue;
+    if (imp.dynamic && RTS_HOOKS.has(`${file} ${imp.spec}`)) continue;
+    rtsLeaks.push({ file, line: src.slice(0, imp.start).split('\n').length, spec: imp.spec });
+  }
+}
+if (rtsLeaks.length) {
+  console.error('\nImports into js/rts/ from outside it:\n');
+  for (const v of rtsLeaks) console.error(`  js/${v.file}:${v.line}  imports ${v.spec}`);
+  console.error('\nOnly the setup hook (a dynamic import of ./rts/launch.js in ui-menus.js) may reach into js/rts/.\n');
+  process.exit(1);
 }
 
 if (all.length) {
