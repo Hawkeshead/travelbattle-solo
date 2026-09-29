@@ -1292,6 +1292,76 @@ export function drawHillGlyph(cx, cy, cell){
 }
 
 /* =========================================================
+   TERRAIN ART v2 (2.5D tiles): conventions, from assets/terrain/v2/README.md
+
+   All art is WebP and portrait. The bottom 1024x1024 of each canvas is one
+   grid cell; the space above it is overhang room for features that rise into
+   the square behind.
+   - Grass (grass_1 to 6, 1024x1536): the face is a 960x960 rounded square
+     (radius 56), inset 32px each side, flush with the top of the cell, which
+     leaves a 64px shadow gap between neighbours. Below the face is a 64px turf
+     and earth drop-off facing the viewer. Colour target about #7B730C.
+     Drawn CELL wide x CELL*1.5 tall. Picked per cell by a stable hash of (x,y).
+   - Hill (hill_1 to 7, 1024x1536): a full tile with the grass face included,
+     so no grass tile under it. Rises 0.19 to 0.29 of a cell into the square
+     behind. Drawn CELL x CELL*1.5.
+   - Building (building_1 to 6, 1152x1536): a transparent overlay drawn over
+     a normal grass tile. The cell square is centred (face at x 96 to 1056);
+     it overhangs each neighbour by 64px and rises 0.22 to 0.33 of a cell.
+     Drawn CELL*1.125 x CELL*1.5. Style = the buildingStyles grid (1 church
+     village, 2 mill village, 3 manor village, 4 street village (no lane off
+     the front edge), 5 walled farm, 6 crossroads village).
+   - Every tile is bottom-anchored to the cell's front edge, centred on the
+     cell, and drawn UPRIGHT in screen space whatever the viewpoint or board
+     rotation, so the drop-off always faces the player.
+   - Draw order: back to front by screen row; within a row, first every grass
+     and hill tile, then every building overlay, so a neighbour's grass never
+     paints over a village's overhang.
+   - Board background #34241A (dark earth). No grid lines: the shadow gaps
+     do that job.
+   Woods, farmland and road overlays are still on the old art (v1 below).
+
+   TERRAIN_V2 switches the board to this art. Off by default while the sets
+   are incomplete; add ?terrainV2 to the address to preview it. The old art
+   and its sizing (WOODS_OVERSCAN) are untouched either way.
+========================================================= */
+export const TERRAIN_V2 = (() => {
+  try { return new URLSearchParams(globalThis.location ? location.search : '').has('terrainV2'); }
+  catch { return false; }
+})();
+export const TERRAIN_V2_BG = '#34241A';
+const TERRAIN_V2_COUNTS = { grass: 6, hill: 7, building: 6 };
+/* Loaded on first use, so only a board drawn with the flag on downloads the
+   art (and never at module load, where the circular import with
+   render-units.js could still be settling). */
+let v2Loaded = false;
+function loadV2Art(){
+  v2Loaded = true;
+  let pending = null;
+  const redraw = () => { clearTimeout(pending); pending = setTimeout(() => { try { draw(); } catch { /* board not ready yet */ } }, 60); };
+  for(const [set, n] of Object.entries(TERRAIN_V2_COUNTS)){
+    for(let i = 1; i <= n; i++){
+      const img = new Image();
+      img.onload = redraw;
+      img.src = `assets/terrain/v2/${set}/${set}_${i}.webp`;
+      UNIT_IMAGES[`v2_${set}_${i}`] = img;
+    }
+  }
+}
+function v2Img(set, i){
+  if(!v2Loaded) loadV2Art();
+  const img = UNIT_IMAGES[`v2_${set}_${i}`];
+  return (img && img.complete && img.naturalWidth > 0) ? img : null;
+}
+export function v2GrassIndex(x, y){ return 1 + Math.min(TERRAIN_V2_COUNTS.grass - 1, Math.floor(seededRand(x*73 + y*151 + 11) * TERRAIN_V2_COUNTS.grass)); }
+export function v2HillIndex(x, y){ return 1 + Math.min(TERRAIN_V2_COUNTS.hill - 1, Math.floor(seededRand(x*59 + y*113 + 29) * TERRAIN_V2_COUNTS.hill)); }
+/* One v2 tile, bottom-anchored to the cell's front edge and centred on it. */
+function drawV2Tile(img, x, y, widthCells){
+  const w = CELL * widthCells, h = CELL * 1.5;
+  ctx.drawImage(img, SX(x,y)*CELL + (CELL - w)/2, SY(x,y)*CELL + CELL - h, w, h);
+}
+
+/* =========================================================
    TERRAIN RENDERING HELPERS
    The map is meant to read as geomorphic and analogue, not a rigid
    grid — the grid only matters for movement/LOS/combat range. These
@@ -1454,7 +1524,10 @@ export function draw(){
   // paint over their own cells next. Kept as a fallback fill even for Open
   // cells (drawn over next, once the grass tile images are ready) so there's
   // no flash of blank canvas while those assets are still decoding.
-  for(let y=0;y<ROWS;y++){
+  if(TERRAIN_V2){
+    ctx.fillStyle = TERRAIN_V2_BG;
+    ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+  } else for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
       ctx.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
@@ -1469,7 +1542,7 @@ export function draw(){
   // tiles already fill their full square with real grass/flower detail, so
   // Road keeps the older flat-colour-plus-blade-texture treatment below
   // rather than doubling up on top of this.
-  if(state.grassStyles){
+  if(state.grassStyles && !TERRAIN_V2){
     for(let y=0;y<ROWS;y++){
         for(let x=0;x<COLS;x++){
         // BUILDING as well as OPEN — see assignGrassStyles. Drawn before the
@@ -1488,6 +1561,8 @@ export function draw(){
 
   // Grass texture — a repeating blade pattern clipped to Road cells only
   // now; Open and Hill ground get their detail from the tile images above.
+  // (Under TERRAIN_V2 the same texture is laid per road cell, in row order.)
+  if(!TERRAIN_V2){
   ctx.save();
   ctx.beginPath();
   for(let y=0;y<ROWS;y++){
@@ -1500,15 +1575,24 @@ export function draw(){
   ctx.fillStyle = getGrassTexturePattern();
   ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
   ctx.restore();
+  }
 
   // Ploughed fields: wheat yellow with furrow lines along the field's long axis,
   // computed per contiguous group so a whole field reads as one shape.
   const ploughRegions = findConnectedRegions(terrain, 'PLOUGHED_FIELD');
-  for(const region of ploughRegions){
+  /* The ploughed-field look, clipped to whichever cells are given. v1 draws a
+     whole field at once; v2 draws it one cell at a time in row order (so the
+     rise of a tile in front is not painted over), with the furrows still
+     running along the whole field's long axis so the cells join up. */
+  function drawPlough(region, cells){
     ctx.save();
     ctx.beginPath();
-    for(const [x,y] of region) ctx.rect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
+    for(const [x,y] of cells) ctx.rect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
     ctx.clip();
+    if(TERRAIN_V2){                     // v1 has this colour from the base fill
+      ctx.fillStyle = terrainColor('PLOUGHED_FIELD');
+      ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    }
     const screenYs = region.map(([x,y])=>SY(x,y)), screenXs = region.map(([x,y])=>SX(x,y));
     const minX=Math.min(...screenXs), maxX=Math.max(...screenXs);
     const minSY=Math.min(...screenYs), maxSY=Math.max(...screenYs);
@@ -1528,6 +1612,9 @@ export function draw(){
     }
     ctx.restore();
   }
+  const ploughRegionOf = {};
+  for(const region of ploughRegions) for(const [x,y] of region) ploughRegionOf[x+','+y] = region;
+  if(!TERRAIN_V2) for(const region of ploughRegions) drawPlough(region, region);
 
   // Roads: tile art for genuine 2+ way connections (straight, corner, T,
   // cross), matching whichever cardinal directions are connected on SCREEN —
@@ -1610,7 +1697,7 @@ export function draw(){
     }
     return null;
   }
-  for(let y=0;y<ROWS;y++){
+  if(!TERRAIN_V2) for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       if(terrain[y][x]!=='ROAD') continue;
       const list = roadConn[x+','+y] || [];
@@ -1636,6 +1723,62 @@ export function draw(){
       }
     }
   }
+  /* TERRAIN v2: the whole ground drawn here, row by row from the back of the
+     SCREEN to the front (see the conventions block above drawV2Tile). Pass A
+     per row lays every grass or hill tile, plus the not-yet-replaced flat art
+     (road tiles, ploughed fields) over its grass; pass B lays the building
+     overlays and the old woods art, both of which spill into neighbours. */
+  function drawTerrainV2(){
+    const rows = new Map();
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
+      const r = SY(x,y);
+      if(!rows.has(r)) rows.set(r, []);
+      rows.get(r).push([x,y]);
+    }
+    const order = [...rows.keys()].sort((a,b)=>a-b);
+    for(const r of order){
+      const cells = rows.get(r).sort((a,b)=>SX(a[0],a[1]) - SX(b[0],b[1]));
+      for(const [x,y] of cells){                       // pass A: ground
+        const key = terrain[y][x];
+        if(key === 'HILL'){
+          const img = v2Img('hill', v2HillIndex(x,y));
+          if(img) drawV2Tile(img, x, y, 1);
+          continue;
+        }
+        const g = v2Img('grass', v2GrassIndex(x,y));
+        if(g) drawV2Tile(g, x, y, 1);
+        if(key === 'PLOUGHED_FIELD'){
+          drawPlough(ploughRegionOf[x+','+y] || [[x,y]], [[x,y]]);
+        } else if(key === 'ROAD'){
+          const tkey = roadTileKey(roadArtDirs(x, y, roadConn[x+','+y] || []));
+          const img = tkey ? UNIT_IMAGES[tkey] : null;
+          if(img && img.complete && img.naturalWidth>0){
+            ctx.save();
+            ctx.fillStyle = getGrassTexturePattern();
+            ctx.fillRect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
+            ctx.restore();
+            ctx.drawImage(img, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
+          }
+        }
+      }
+      for(const [x,y] of cells){                       // pass B: overlays
+        const key = terrain[y][x];
+        if(key === 'BUILDING'){
+          const style = state.buildingStyles && state.buildingStyles[y][x];
+          const img = style ? v2Img('building', style) : null;
+          if(img) drawV2Tile(img, x, y, 1.125);
+        } else if(key === 'WOODS'){
+          const img = UNIT_IMAGES['forest_notroops_' + woodsStyleIndex(x,y)];
+          if(img && img.complete && img.naturalWidth>0){
+            const w = CELL*WOODS_OVERSCAN;
+            const h = w*(img.naturalHeight/img.naturalWidth);
+            ctx.drawImage(img, SX(x,y)*CELL-(w-CELL)/2, SY(x,y)*CELL+CELL-h, w, h);
+          }
+        }
+      }
+    }
+  }
+
   /* ---------------------------------------------------------------------
      RAISED FEATURES — one pass, ordered by SCREEN ROW.
 
@@ -1684,7 +1827,8 @@ export function draw(){
   // side bleed, so it has no visual consequence.
   raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.sx_ - b.sx_);
 
-  for(const f of raisedFeatures){
+  if(TERRAIN_V2) drawTerrainV2();
+  else for(const f of raisedFeatures){
     const { x, y, key } = f;
 
     if(key === 'HILL'){
@@ -1767,7 +1911,7 @@ export function draw(){
   // keep the standard gold, squares that would trigger a fight (a target or
   // a charge's resulting contact) draw in red so the consequence of tapping
   // that square is visible before you commit to it.
-  const showFullGrid = state.phase==='deploy';
+  const showFullGrid = state.phase==='deploy' && !TERRAIN_V2;   // v2: the shadow gaps are the grid
   const showSelectionGrid = !showFullGrid && state.selectedUnitId && highlightCells && highlightCells.length;
   if(showFullGrid){
     ctx.strokeStyle = 'rgba(184,147,79,0.18)';
