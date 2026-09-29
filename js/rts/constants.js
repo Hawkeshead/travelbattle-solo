@@ -27,6 +27,9 @@ export const FORM_TICKS = { SQUARE: s(8), COLUMN: s(5), AMBUSH: s(5) };
 export const WOODS_OCCUPANCY_TICKS = s(10);
 export const TURNED_AROUND_TICKS = s(12);
 export const ROUT_TO_RALLY_TICKS = s(10);
+export const PUSHBACK_TRAVEL_FACTOR = 0.5;       // a pushed-back unit crosses its square twice as fast
+// Rally on a d6 (turn-based retreatAndRally): Guard and Heavy Cavalry 3+, Artillery 5+, the rest 4+
+export const RALLY_ON = { INFANTRY: 4, LIGHT_CAV: 4, GUARD: 3, HEAVY_CAV: 3, ARTILLERY: 5, BRIGADIER: 4 };
 
 // Clock
 export const TURN_EQUIVALENT_TICKS = s(60);      // converts anything written in turns

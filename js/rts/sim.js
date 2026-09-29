@@ -34,9 +34,11 @@
      stops there (contact is commitment); a unit whose next square is taken
      waits briefly, then finds another way, or stops if there is none.
 ========================================================= */
-import { BLOCKED_WAIT_TICKS, COOLDOWN_TICKS, GROUP_SPREAD, ORDER_REGEN_TICKS, ROAD_TRAVEL_FACTOR, TRAVEL_TICKS } from './constants.js';
+import { BLOCKED_WAIT_TICKS, COOLDOWN_TICKS, GROUP_SPREAD, MELEE_ROUND_TICKS, ORDER_REGEN_TICKS, PUSHBACK_TRAVEL_FACTOR,
+         RALLY_ON, ROAD_TRAVEL_FACTOR, ROUT_TO_RALLY_TICKS, TRAVEL_TICKS, TURNED_AROUND_TICKS } from './constants.js';
+import { nextRandom } from './rng.js';
 
-export const BATTLE_VERSION = 2;
+export const BATTLE_VERSION = 3;
 
 /* terrain: rows of terrain keys; road: rows of booleans (road-like squares);
    units: [{ id, side, type, brigadeId, x, y }] as deployed. */
@@ -61,8 +63,20 @@ export function createBattle({ seed, terrain, road, units, playerSide }){
       blocked: 0,          // ticks spent waiting for the next square
       cooldownUntil: 0,    // tick from which it can take a new order (once stopped)
       cooldownFrom: 0,
+      arrivedTick: -1,     // when it last finished a square (decides who attacked)
+      turnedUntil: 0,      // turned around until this tick: attackers +1, no orders
+      routing: false,      // running for its own edge after a rallied rout
+      rallyUntil: 0,       // rallying at the edge until this tick: no orders
     })),
     pools: {},
+    leadershipUsed: {},    // brigade key: its Brigadier's one save has been spent
+    fights: {},            // pair key: { a, d, next, rounds }
+    homeRow: { red: terrain.length - 1, blue: 0 },
+    events: [],            // recent dice results and what they did, for pop-ups and records
+    eventCount: 0,
+    stats: { rounds: 0, fights: 0, destroyed: { red: 0, blue: 0 } },
+    over: false,
+    winner: null,
     orderLog: [],
   };
   for(const key of brigadeKeys(b)) b.pools[key] = { orders: poolCap(b, key), sinceRegen: 0 };
@@ -162,6 +176,10 @@ export function findPath(b, u, tx, ty, taken = takenSquares(b, u.id)){
 /* Can this unit take an order at all right now? A refusal reason, or null. */
 function readiness(b, u, rules){
   if(!u || u.removed) return 'No such unit';
+  if(b.over) return 'The battle is over';
+  if(u.routing) return 'Routing';
+  if(b.tick < u.rallyUntil) return 'Rallying';
+  if(b.tick < u.turnedUntil) return 'Turned around';
   if(isBusy(u)) return 'Still moving';
   if(b.tick < u.cooldownUntil) return 'Not ready yet';
   if(!rules.inChain(b, u)) return 'Out of the chain';
@@ -269,7 +287,8 @@ function travelTicks(b, u, toX, toY){
   return Math.max(1, Math.round(onRoad ? base * ROAD_TRAVEL_FACTOR : base));
 }
 
-export function step(b){
+export function step(b, rules){
+  if(b.over) return;
   b.tick += 1;
   // Couriers: every Brigadier's pool gains one order every ORDER_REGEN_TICKS, up to its cap.
   for(const [key, p] of Object.entries(b.pools)){
@@ -284,9 +303,14 @@ export function step(b){
       u.step.elapsed += 1;
       if(u.step.elapsed >= u.step.total){
         u.x = u.step.toX; u.y = u.step.toY; u.step = null;
+        u.arrivedTick = b.tick;
         // Contact is commitment: with an enemy beside it now, it goes no further.
-        if(u.path.length && enemyBeside(b, u)) u.path = [];
-        if(!u.path.length) u.goal = null;
+        // (A routing unit is running, not advancing, and keeps going.)
+        if(u.path.length && !u.routing && enemyBeside(b, u)) u.path = [];
+        if(!u.path.length){
+          u.goal = null;
+          if(u.routing){ u.routing = false; u.rallyUntil = b.tick + ROUT_TO_RALLY_TICKS; u.turnedUntil = Math.max(u.turnedUntil, u.rallyUntil); }
+        }
       }
       continue;
     }
@@ -297,12 +321,185 @@ export function step(b){
       if(++u.blocked < BLOCKED_WAIT_TICKS) continue;
       u.blocked = 0;
       const again = u.goal ? findPath(b, u, u.goal.x, u.goal.y) : null;
-      if(again && again.length) u.path = again; else { u.path = []; u.goal = null; }
+      if(again && again.length) u.path = again;
+      else {
+        u.path = []; u.goal = null;
+        if(u.routing){ u.routing = false; u.rallyUntil = b.tick + ROUT_TO_RALLY_TICKS; u.turnedUntil = Math.max(u.turnedUntil, u.rallyUntil); }
+      }
       continue;
     }
     u.blocked = 0;
     u.path.shift();
-    u.step = { fromX: u.x, fromY: u.y, toX: next.x, toY: next.y, elapsed: 0, total: travelTicks(b, u, next.x, next.y) };
+    const total = u.pushed ? Math.max(1, Math.round(travelTicks(b, u, next.x, next.y) * PUSHBACK_TRAVEL_FACTOR)) : travelTicks(b, u, next.x, next.y);
+    u.pushed = false;
+    u.step = { fromX: u.x, fromY: u.y, toX: next.x, toY: next.y, elapsed: 0, total };
+  }
+  if(rules && rules.fightDice) melee(b, rules);
+}
+
+/* =========================================================
+   MELEE (Phase 3)
+
+   Any two enemy units side by side fight, with no order needed: one fight per
+   pair, each on its own round timer, so a unit with two enemies beside it
+   fights both. The first round comes MELEE_ROUND_TICKS after contact.
+
+   The ATTACKER is the unit that arrived into contact (the later of the two to
+   finish a square), fixed for as long as the pair stays in contact; exact
+   ties are settled by the battle's dice. Dice and bonuses come from the
+   turn-based engine's own combatBonuses through the rules adapter; the round
+   itself follows resolveFight: best die of each side plus bonuses, +1 against
+   a unit turned around, Guard and Heavy Cavalry re-roll when losing (taken
+   automatically: the battle never stops to ask), a tie drawn unless the
+   defender holds higher ground. Margin 1 pushes the loser back, 2 routs it,
+   3 or more destroys it. The winner holds its ground.
+
+   Brigadiers do not fight: the turn-based rules never let one be attacked,
+   and a Brigadier escorts rather than engages.
+========================================================= */
+const pairKey = (p, q) => p.id < q.id ? p.id + '|' + q.id : q.id + '|' + p.id;
+const d6 = b => 1 + Math.floor(nextRandom(b) * 6);
+function rollBest(b, n){ let best = 0; const all = []; for(let i = 0; i < Math.max(1, n); i++){ const r = d6(b); all.push(r); if(r > best) best = r; } return { best, all }; }
+function note(b, kind, u, text, extra){
+  b.eventCount += 1;
+  b.events.push({ n: b.eventCount, tick: b.tick, kind, unitId: u ? u.id : null, side: u ? u.side : null, x: u ? u.x : null, y: u ? u.y : null, text, ...(extra || {}) });
+  if(b.events.length > 200) b.events.shift();
+}
+const fightsWith = u => u && !u.removed && !u.routing && u.type !== 'BRIGADIER';
+
+function melee(b, rules){
+  const live = b.units.filter(fightsWith);
+  // New contacts.
+  for(let i = 0; i < live.length; i++) for(let j = i + 1; j < live.length; j++){
+    const p = live[i], q = live[j];
+    if(p.side === q.side || cheb(p, q) !== 1) continue;
+    const key = pairKey(p, q);
+    if(b.fights[key]) continue;
+    let att = p.arrivedTick > q.arrivedTick ? p : q.arrivedTick > p.arrivedTick ? q : (nextRandom(b) < 0.5 ? p : q);
+    let def = att === p ? q : p;
+    if(!rules.canAttack(b, att, def)){
+      if(!rules.canAttack(b, def, att)) continue;       // neither may attack the other (e.g. horse against a village)
+      [att, def] = [def, att];
+    }
+    b.fights[key] = { a: att.id, d: def.id, next: b.tick + MELEE_ROUND_TICKS, rounds: 0 };
+    b.stats.fights += 1;
+    note(b, 'contact', def, 'Contact');
+  }
+  // Rounds due, and fights that have ended.
+  for(const [key, f] of Object.entries(b.fights)){
+    const A = unitById(b, f.a), D = unitById(b, f.d);
+    if(!fightsWith(A) || !fightsWith(D) || cheb(A, D) !== 1){ delete b.fights[key]; continue; }
+    if(b.tick < f.next) continue;
+    f.next = b.tick + MELEE_ROUND_TICKS;
+    f.rounds += 1;
+    b.stats.rounds += 1;
+    resolveRound(b, rules, A, D, key);
+  }
+  checkBreak(b);
+}
+
+function resolveRound(b, rules, A, D, key){
+  const dice = rules.fightDice(b, A, D);
+  const aBonus = dice.aBonus + (b.tick < D.turnedUntil ? 1 : 0);
+  const dBonus = dice.dBonus;
+  let a = rollBest(b, dice.aDice), d = rollBest(b, dice.dDice);
+  let aVal = a.best + aBonus, dVal = d.best + dBonus;
+  // Guard and Heavy Cavalry re-roll once when losing, if the die could improve.
+  if(aVal < dVal && dice.aReroll && a.best < 6){ a = rollBest(b, dice.aDice); aVal = a.best + aBonus; }
+  else if(dVal < aVal && dice.dReroll && d.best < 6){ d = rollBest(b, dice.dDice); dVal = d.best + dBonus; }
+  const score = `${aVal} v ${dVal}`;
+  if(aVal === dVal){
+    if(dice.defenderHigher){ note(b, 'melee', A, `${score}: high ground holds`); return pushBackUnit(b, A, D, key); }
+    note(b, 'melee', D, `${score}: drawn`);
+    return;
+  }
+  const winner = aVal > dVal ? A : D, loser = aVal > dVal ? D : A;
+  const margin = Math.abs(aVal - dVal);
+  if(margin === 1){ note(b, 'melee', loser, `${score}: pushed back`); return pushBackUnit(b, loser, winner, key); }
+  delete b.fights[key];
+  if(margin === 2){ note(b, 'melee', loser, `${score}: routed`); return rout(b, loser); }
+  note(b, 'melee', loser, `${score}: destroyed`);
+  destroy(b, loser);
+}
+
+/* One square straight away from the winner, quickly, and turned around for
+   TURNED_AROUND_TICKS (attackers +1, no orders). Blocked or at the board edge,
+   it holds its square, turned around all the same. */
+function pushBackUnit(b, loser, winner, key){
+  delete b.fights[key];
+  loser.turnedUntil = b.tick + TURNED_AROUND_TICKS;
+  loser.path = []; loser.goal = null;
+  if(loser.step) return;
+  const tx = loser.x + Math.sign(loser.x - winner.x), ty = loser.y + Math.sign(loser.y - winner.y);
+  if(!inBounds(b, tx, ty) || takenSquares(b, loser.id).has(tx + ',' + ty)) return;
+  loser.path = [{ x: tx, y: ty }];
+  loser.pushed = true;
+}
+
+/* Margin 2. The rally is rolled where the unit stands (as in turn-based):
+   rallied, it runs for its own edge, then rallies there for ROUT_TO_RALLY_TICKS
+   before it can be ordered; failed, its Brigadier's once-a-battle Leadership
+   Roll saves it where it stands if he judges it worth it; otherwise it is lost. */
+function rout(b, u){
+  const r = d6(b);
+  const need = RALLY_ON[u.type] || RALLY_ON.INFANTRY;
+  u.turnedUntil = Math.max(u.turnedUntil, b.tick + TURNED_AROUND_TICKS);
+  u.path = []; u.goal = null;
+  if(r >= need){
+    note(b, 'rally', u, `Rallies (${r})`);
+    const edge = homeEdgeSquare(b, u);
+    const path = edge ? findPath(b, u, edge.x, edge.y) : null;
+    if(path && path.length){ u.routing = true; u.path = path; u.goal = edge; }
+    else u.rallyUntil = b.tick + ROUT_TO_RALLY_TICKS;
+    return;
+  }
+  const key = brigadeKey(u);
+  const brig = b.units.find(o => !o.removed && o.type === 'BRIGADIER' && brigadeKey(o) === key);
+  const left = b.units.filter(o => !o.removed && o.type !== 'BRIGADIER' && brigadeKey(o) === key).length;
+  const worthIt = left <= 2 || u.type === 'GUARD' || u.type === 'HEAVY_CAV' || u.type === 'ARTILLERY';
+  if(brig && !b.leadershipUsed[key] && worthIt){
+    b.leadershipUsed[key] = true;
+    u.rallyUntil = b.tick + ROUT_TO_RALLY_TICKS;
+    note(b, 'rally', u, `Fails (${r}): Leadership saves it`);
+    return;
+  }
+  note(b, 'rally', u, `Fails to rally (${r})`);
+  destroy(b, u);
+}
+function homeEdgeSquare(b, u){
+  const row = b.homeRow[u.side];
+  const brig = b.units.find(o => !o.removed && o.type === 'BRIGADIER' && brigadeKey(o) === brigadeKey(u));
+  const ref = brig || u;
+  const taken = takenSquares(b, u.id);
+  let best = null;
+  for(let x = 0; x < b.cols; x++){
+    if(taken.has(x + ',' + row)) continue;
+    if(!best || Math.abs(x - ref.x) < Math.abs(best.x - ref.x)) best = { x, y: row };
+  }
+  return best;
+}
+function destroy(b, u){
+  u.removed = true; u.path = []; u.goal = null; u.step = null; u.routing = false;
+  b.stats.destroyed[u.side] = (b.stats.destroyed[u.side] || 0) + 1;
+  note(b, 'destroyed', u, 'Destroyed');
+}
+
+/* A Brigade is broken when every unit under its Brigadier is gone; an army
+   is beaten when two of its Brigades are broken (or all, if it has fewer). */
+export function brokenBrigades(b, side){
+  const ids = [...new Set(b.units.filter(u => u.side === side).map(u => u.brigadeId))];
+  const broken = ids.filter(id => !b.units.some(u => u.side === side && u.brigadeId === id && !u.removed && u.type !== 'BRIGADIER'));
+  return { broken: broken.length, total: ids.length };
+}
+function checkBreak(b){
+  for(const side of ['red', 'blue']){
+    const { broken, total } = brokenBrigades(b, side);
+    if(total && broken >= Math.min(2, total)){
+      b.over = true;
+      b.winner = side === 'red' ? 'blue' : 'red';
+      note(b, 'break', null, `${side} army breaks`);
+      return;
+    }
   }
 }
 

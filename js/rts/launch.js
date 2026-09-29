@@ -20,7 +20,8 @@ import { isRoadLike, seededRandom, terrainAt } from '../engine-rules.js';
 import { newUnit, resetHistoricalIdentities } from '../engine-state.js';
 import { planArmyDeployment } from '../ai-deployment.js';
 import { canvas, cellFromClient, consumeGestureFlag, ctx, draw, fromScreen, getUnitVisualPos, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, toScreen, unitAnimations } from '../render-board.js';
-import { CELL } from '../data-core.js';
+import { CELL, SIDE_LABEL } from '../data-core.js';
+import { emitFloatingText } from '../floating-text.js';
 import { startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
 import { MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
@@ -96,11 +97,13 @@ function frame(now){
   acc += Math.min(250, now - lastFrame);     // a long gap (tab hidden) never becomes a burst of ticks
   lastFrame = now;
   let n = 0;
-  while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME){ step(battle); acc -= TICK_MS; n++; }
+  while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME && !battle.over){ step(battle, turnBasedRules); acc -= TICK_MS; n++; }
   mirrorUnits(acc / TICK_MS);
   draw();
   drawCommandOverlay();
+  showNewEvents();
   updateClock();
+  if(battle.over){ running = false; showResult(); return; }
   requestAnimationFrame(frame);
 }
 
@@ -116,6 +119,7 @@ function mirrorUnits(alpha){
     const u = state.units.find(x => x.id === su.id);
     if(!u) continue;
     u.removed = su.removed;
+    if(su.removed){ delete unitAnimations[su.id]; continue; }
     if(!su.step){
       u.x = su.x; u.y = su.y;
       delete unitAnimations[su.id];
@@ -186,6 +190,7 @@ function unitScreen(u){
 }
 function drawCommandOverlay(){
   const mine = battle.units.filter(u => !u.removed && u.side === battle.playerSide);
+  drawFightMarkers();
   const byId = id => state.units.find(x => x.id === id);
   const chainOk = new Set(mine.filter(u => turnBasedRules.inChain(battle, u)).map(u => u.id));
   ctx.save();
@@ -236,6 +241,51 @@ function drawCommandOverlay(){
     }
   }
   ctx.restore();
+}
+
+/* Crossed sabres between every pair in contact. */
+function drawFightMarkers(){
+  const byId = id => state.units.find(x => x.id === id);
+  ctx.save();
+  ctx.font = `${Math.round(CELL * 0.42)}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(const f of Object.values(battle.fights)){
+    const a = byId(f.a), d = byId(f.d);
+    if(!a || !d || a.removed || d.removed) continue;
+    const p = unitScreen(a), q = unitScreen(d);
+    const mx = (p.cx + q.cx) / 2, my = (p.cy + q.cy) / 2;
+    ctx.fillStyle = 'rgba(20,16,10,0.7)';
+    ctx.beginPath(); ctx.arc(mx, my, CELL * 0.24, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f3d27a';
+    ctx.fillText('\u2694', mx, my + 1);
+  }
+  ctx.restore();
+}
+
+/* Dice results as pop-ups over the fight, never pausing the battle. */
+let lastEventShown = 0;
+function showNewEvents(){
+  for(const e of battle.events){
+    if(e.n <= lastEventShown) continue;
+    lastEventShown = e.n;
+    if(e.kind === 'contact' || e.x == null) continue;
+    const bad = e.side === battle.playerSide && /pushed|routed|destroyed|Fails|Destroyed/.test(e.text);
+    emitFloatingText({ col: e.x, row: e.y, text: e.text, kind: bad ? 'penalty' : 'command' });
+  }
+}
+
+/* The result, once an army breaks. */
+function showResult(){
+  const won = battle.winner === battle.playerSide;
+  document.getElementById('overlayTitle').textContent = won ? 'Victory' : 'Defeat';
+  const secs = Math.floor(battle.tick / TICKS_PER_SECOND);
+  document.getElementById('overlayText').innerHTML =
+    `${SIDE_LABEL[battle.winner]} carries the field after ${Math.floor(secs/60)} min ${secs%60} s. ` +
+    `Units lost: ${SIDE_LABEL.red} ${battle.stats.destroyed.red || 0}, ${SIDE_LABEL.blue} ${battle.stats.destroyed.blue || 0}.`;
+  const btn = document.getElementById('overlayBtn');
+  btn.style.display = ''; btn.textContent = 'New Battle'; btn.onclick = () => location.reload();
+  const extra = document.getElementById('modeChoices'); if(extra){ extra.innerHTML = ''; extra.style.display = 'none'; }
+  document.getElementById('overlay').classList.add('show');
 }
 
 /* The Group switch: off, a tap on your unit picks it alone; on, taps add and

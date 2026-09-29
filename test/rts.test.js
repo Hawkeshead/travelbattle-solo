@@ -4,8 +4,8 @@
 // stand-ins; in the game they come from the turn-based engine itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBattle, issueGroupOrder, issueOrder, loadBattle, poolOf, saveBattle, step, visualPosition } from '../js/rts/sim.js';
-import { COOLDOWN_TICKS, ORDER_REGEN_TICKS, ROAD_TRAVEL_FACTOR, TRAVEL_TICKS } from '../js/rts/constants.js';
+import { brokenBrigades, createBattle, issueGroupOrder, issueOrder, loadBattle, poolOf, saveBattle, step, visualPosition } from '../js/rts/sim.js';
+import { COOLDOWN_TICKS, MELEE_ROUND_TICKS, ORDER_REGEN_TICKS, ROAD_TRAVEL_FACTOR, TRAVEL_TICKS } from '../js/rts/constants.js';
 import { nextRandom } from '../js/rts/rng.js';
 
 const COLS = 20, ROWS = 10;
@@ -25,7 +25,10 @@ const rules = {
     for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++) if(cheb(u, { x, y }) <= r && cheb(u, { x, y }) > 0) out.push({ x, y, steps: cheb(u, { x, y }) });
     return out;
   },
+  canAttack: (b, a, d) => d.type !== 'BRIGADIER',
+  fightDice: () => ({ aDice: 1, dDice: 1, aBonus: 0, dBonus: 0, aReroll: false, dReroll: false, defenderHigher: false }),
 };
+const withDice = over => ({ ...rules, fightDice: () => ({ aDice: 1, dDice: 1, aBonus: 0, dBonus: 0, aReroll: false, dReroll: false, defenderHigher: false, ...over }) });
 const units = [
   { id: 'g', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 3, y: 9 },
   { id: 'a', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 2, y: 8 },
@@ -34,7 +37,7 @@ const units = [
   { id: 'c', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 10, y: 1 },
 ];
 const fresh = (road = noRoad) => createBattle({ seed: 42, terrain, road, units, playerSide: 'red' });
-const run = (b, n) => { for (let i = 0; i < n; i++) step(b); };
+const run = (b, n, r = rules) => { for (let i = 0; i < n; i++) step(b, r); };
 const U = (b, id) => b.units.find(u => u.id === id);
 const move = (b, id, x, y) => issueOrder(b, { unitId: id, type: 'move', target: { x, y } }, rules);
 
@@ -194,4 +197,102 @@ test('drawn position moves smoothly between squares', () => {
   run(b, 1 + Math.floor(TRAVEL_TICKS.INFANTRY / 2));
   const p = visualPosition(U(b, 'a'), 0);
   assert.ok(p.y < 8 && p.y > 7, `mid-square y, got ${p.y}`);
+});
+
+/* ---------------- Phase 3: melee ---------------- */
+const duel = () => createBattle({ seed: 7, terrain, road: noRoad, playerSide: 'red', units: [
+  { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+  { id: 'r', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 5, y: 7 },
+  { id: 'r2', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 1, y: 9 },
+  { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+  { id: 'e', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 5, y: 4 },
+  { id: 'e2', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 18, y: 0 },
+]});
+
+test('contact starts a fight; the unit that arrived is the attacker; the first round comes after the round time', () => {
+  const b = duel();
+  U(b, 'r').path = [{ x: 5, y: 6 }, { x: 5, y: 5 }];
+  run(b, TRAVEL_TICKS.INFANTRY * 2 + 3);
+  const f = Object.values(b.fights)[0];
+  assert.ok(f, 'a fight exists');
+  assert.equal(f.a, 'r'); assert.equal(f.d, 'e');
+  assert.equal(f.rounds, 0);
+  run(b, MELEE_ROUND_TICKS);
+  assert.ok(b.stats.rounds >= 1 || !b.fights[Object.keys(b.fights)[0]]);
+});
+
+test('margin 3 or more destroys the loser; the winner holds', () => {
+  const b = duel(), r = withDice({ aBonus: 10 });
+  U(b, 'r').path = [{ x: 5, y: 6 }, { x: 5, y: 5 }];
+  run(b, 200, r);
+  assert.equal(U(b, 'e').removed, true);
+  assert.deepEqual([U(b, 'r').x, U(b, 'r').y], [5, 5]);
+});
+
+test('the defender wins too: a strong defence destroys the attacker', () => {
+  const b = duel(), r = withDice({ dBonus: 10 });
+  U(b, 'r').path = [{ x: 5, y: 6 }, { x: 5, y: 5 }];
+  run(b, 200, r);
+  assert.equal(U(b, 'r').removed, true);
+});
+
+test('a tie against higher ground pushes the attacker back and turns it around (no orders meanwhile)', () => {
+  const b = duel();
+  const r = { ...withDice({ aDice: 1, dDice: 1 }), fightDice: () => ({ aDice: 1, dDice: 1, aBonus: 0, dBonus: 0, aReroll: false, dReroll: false, defenderHigher: true }) };
+  U(b, 'r').path = [{ x: 5, y: 6 }, { x: 5, y: 5 }];
+  let pushedAt = null;
+  for(let t = 0; t < 2000 && pushedAt === null; t++){ step(b, r); if(U(b, 'r').turnedUntil > b.tick) pushedAt = b.tick; }
+  assert.ok(pushedAt !== null, 'pushed back at some point');
+  assert.equal(issueOrder(b, { unitId: 'r', type: 'move', target: { x: 5, y: 9 } }, rules).reason, 'Turned around');
+});
+
+test('Brigadiers never fight', () => {
+  const b = createBattle({ seed: 3, terrain, road: noRoad, playerSide: 'red', units: [
+    { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 5, y: 5 },
+    { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 5, y: 4 },
+    { id: 'e', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 6, y: 4 },
+  ]});
+  run(b, 200);
+  assert.equal(Object.keys(b.fights).length, 0);
+});
+
+test('two-brigade skirmish plays through to a break, with no stuck fights and never two in a square', () => {
+  const mk = (side, bId, x0, y) => [
+    { id: `${side}${bId}g`, side, type: 'BRIGADIER', brigadeId: bId, x: x0 + 2, y: side === 'red' ? 9 : 0 },
+    ...[0, 1, 2, 3].map(i => ({ id: `${side}${bId}u${i}`, side, type: i === 3 ? 'LIGHT_CAV' : 'INFANTRY', brigadeId: bId, x: x0 + i, y })),
+  ];
+  const b = createBattle({ seed: 99, terrain, road: noRoad, playerSide: 'red', units: [
+    ...mk('red', 0, 2, 8), ...mk('red', 1, 10, 8), ...mk('blue', 0, 2, 1), ...mk('blue', 1, 10, 1),
+  ]});
+  const loose = { ...rules, inChain: () => true };
+  let t = 0;
+  for(; t < 20000 && !b.over; t++){
+    if(t % 5 === 0){
+      for(const u of b.units){
+        if(u.removed || u.type === 'BRIGADIER') continue;
+        const foe = b.units.filter(o => !o.removed && o.side !== u.side && o.type !== 'BRIGADIER').sort((p, q) => cheb(u, p) - cheb(u, q))[0];
+        if(!foe || cheb(u, foe) <= 1) continue;
+        const cells = loose.reachable(b, u).sort((p, q) => cheb(p, foe) - cheb(q, foe));
+        for(const c of cells.slice(0, 6)) if(issueOrder(b, { unitId: u.id, type: 'move', target: c }, loose).ok) break;
+      }
+    }
+    step(b, loose);
+    const occ = b.units.filter(u => !u.removed).map(u => u.x + ',' + u.y);
+    assert.equal(new Set(occ).size, occ.length);
+  }
+  assert.equal(b.over, true, `ended within ${t} ticks`);
+  const loser = b.winner === 'red' ? 'blue' : 'red';
+  assert.ok(brokenBrigades(b, loser).broken >= 2);
+  assert.ok(b.stats.rounds > 0);
+  for(const f of Object.values(b.fights)) assert.ok(f.rounds < 200, 'no fight went on for ever');
+});
+
+test('battles with fights replay identically from the same seed and orders', () => {
+  const play = () => {
+    const b = duel();
+    U(b, 'r').path = [{ x: 5, y: 6 }, { x: 5, y: 5 }];
+    run(b, 1500);
+    return saveBattle(b);
+  };
+  assert.equal(play(), play());
 });
