@@ -17,6 +17,8 @@ export const COOLDOWN_TICKS = { INFANTRY: s(15), GUARD: s(15), LIGHT_CAV: s(10),
 export const TRAVEL_TICKS = { INFANTRY: s(5), GUARD: s(5), LIGHT_CAV: s(2.5), HEAVY_CAV: s(2.5), ARTILLERY: s(7), BRIGADIER: s(2.5) };
 export const ROAD_TRAVEL_FACTOR = 2/3;           // about a third faster along a road
 export const LIMBER_TICKS = s(5);                // artillery delay before it moves (Phase 4)
+export const BLOCKED_WAIT_TICKS = s(1.5);        // a unit whose next square is taken waits this long, then finds another way
+export const GROUP_SPREAD = 2;                   // a group order spreads its units over squares up to this far from the one tapped
 
 // Combat (Phases 3 and 4)
 export const MELEE_ROUND_TICKS = s(6);

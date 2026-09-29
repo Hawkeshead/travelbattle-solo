@@ -8,27 +8,38 @@
    tick, and every animation frame the units' drawn positions are placed
    between ticks so movement is smooth at any frame rate.
 
-   Phase 1 scaffold: tap one of your units, then tap a square to send it.
+   Phase 2: tap one of your units, then a square, and it goes if its
+   Brigadier has an order to give, it is ready, on the chain and the square is
+   in range. With Group on, tap several of your units, then a square, and
+   they all go (or none do). Rings show each unit's cooldown and pips show
+   each Brigadier's banked orders.
 ========================================================= */
 import { assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, COLS, ROWS, SIDES,
          TB_DATA, setBoardMode, state } from '../data-core.js';
 import { isRoadLike, seededRandom, terrainAt } from '../engine-rules.js';
 import { newUnit, resetHistoricalIdentities } from '../engine-state.js';
 import { planArmyDeployment } from '../ai-deployment.js';
-import { canvas, cellFromClient, consumeGestureFlag, draw, fromScreen, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, unitAnimations } from '../render-board.js';
+import { canvas, cellFromClient, consumeGestureFlag, ctx, draw, fromScreen, getUnitVisualPos, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, toScreen, unitAnimations } from '../render-board.js';
+import { CELL } from '../data-core.js';
 import { startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
 import { MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
-import { createBattle, issueOrder, loadBattle, saveBattle, step } from './sim.js';
+import { createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, poolOf, readiness01, saveBattle, step } from './sim.js';
+import { turnBasedRules } from './rules-adapter.js';
 
 let battle = null;
 let running = false, lastFrame = 0, acc = 0;
-let selectedId = null;
+let selected = [];                 // unit ids, in the order they were picked
+let groupMode = false;
+let reachCache = null;             // { id, tick, cells } for the single selected unit's range
+let paintGroupToggle = null;
 
 /* For tests and tools: the live battle, and a way to put a saved one back. */
 export const currentBattle = () => battle;
 export function exportBattle(){ return battle ? saveBattle(battle) : null; }
 export function importBattle(json){ battle = loadBattle(json); mirrorUnits(0); draw(); }
+export const rtsSelection = () => selected.slice();
+export function setGroupMode(on){ groupMode = !!on; if(paintGroupToggle) paintGroupToggle(); }
 
 export function launchRealTime(){
   const playerSide = state.aiSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
@@ -77,6 +88,7 @@ export function launchRealTime(){
 function start(){
   running = true; lastFrame = performance.now(); acc = 0;
   showClock();
+  showGroupToggle();
   requestAnimationFrame(frame);
 }
 function frame(now){
@@ -87,6 +99,7 @@ function frame(now){
   while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME){ step(battle); acc -= TICK_MS; n++; }
   mirrorUnits(acc / TICK_MS);
   draw();
+  drawCommandOverlay();
   updateClock();
   requestAnimationFrame(frame);
 }
@@ -114,7 +127,7 @@ function mirrorUnits(alpha){
     unitAnimations[su.id] = { fromX: su.step.fromX, fromY: su.step.fromY, toX: su.step.toX, toY: su.step.toY,
                               startTime: now - t * 1000, duration: 1000, profile: MOVE_PROFILES.march };
   }
-  state.selectedUnitId = selectedId;
+  state.selectedUnitId = selected.length === 1 ? selected[0] : null;
 }
 
 /* ---------------------------------------------------------
@@ -138,10 +151,110 @@ function attachInput(){
 function onTap(x, y){
   if(!battle) return;
   const here = battle.units.find(u => !u.removed && ((u.x === x && u.y === y) || (u.step && u.step.toX === x && u.step.toY === y)));
-  if(here && here.side === battle.playerSide){ selectedId = here.id; return; }
-  if(!selectedId) return;
-  const res = issueOrder(battle, { unitId: selectedId, type: 'move', target: { x, y } });
-  if(!res.ok) toast(res.reason);
+  if(here && here.side === battle.playerSide){
+    if(groupMode){
+      selected = selected.includes(here.id) ? selected.filter(id => id !== here.id) : [...selected, here.id];
+    } else {
+      selected = selected.length === 1 && selected[0] === here.id ? [] : [here.id];
+    }
+    reachCache = null;
+    return;
+  }
+  if(here){ toast('That is the enemy'); return; }
+  if(!selected.length) return;
+  const res = (groupMode && selected.length > 1)
+    ? issueGroupOrder(battle, { unitIds: selected, type: 'move', target: { x, y }, side: battle.playerSide }, turnBasedRules)
+    : issueOrder(battle, { unitId: selected[0], type: 'move', target: { x, y }, side: battle.playerSide }, turnBasedRules);
+  if(!res.ok){ toast(res.reason); return; }
+  if(groupMode) selected = [];
+  reachCache = null;
+}
+
+/* ---------------------------------------------------------
+   The command overlay, drawn over the board each frame:
+   - a ring round each of your units: a thin full ring when it is ready, an
+     arc filling up while it cools down (and it is not ready while moving);
+   - pips over each of your Brigadiers: filled for orders banked, hollow for
+     the rest of the cap;
+   - a red mark on any of your units off its Brigadier's chain;
+   - the selection, and for one ready unit, the squares one order can reach.
+--------------------------------------------------------- */
+function unitScreen(u){
+  const vp = getUnitVisualPos(u);
+  const p = toScreen(vp.x, vp.y);
+  return { cx: (p.x + 0.5) * CELL, cy: (p.y + 0.5) * CELL };
+}
+function drawCommandOverlay(){
+  const mine = battle.units.filter(u => !u.removed && u.side === battle.playerSide);
+  const byId = id => state.units.find(x => x.id === id);
+  const chainOk = new Set(mine.filter(u => turnBasedRules.inChain(battle, u)).map(u => u.id));
+  ctx.save();
+
+  // Range of the one selected unit, if it could take an order now.
+  if(selected.length === 1){
+    const su = battle.units.find(u => u.id === selected[0]);
+    if(su && !su.removed && !isBusy(su) && readiness01(battle, su) >= 1 && chainOk.has(su.id)){
+      if(!reachCache || reachCache.id !== su.id || reachCache.tick !== battle.tick) reachCache = { id: su.id, tick: battle.tick, cells: turnBasedRules.reachable(battle, su) };
+      ctx.fillStyle = 'rgba(235,200,110,0.22)';
+      for(const c of reachCache.cells){ const p = toScreen(c.x, c.y); ctx.fillRect(p.x*CELL + 2, p.y*CELL + 2, CELL - 4, CELL - 4); }
+    }
+  }
+
+  for(const su of mine){
+    const u = byId(su.id); if(!u) continue;
+    const { cx, cy } = unitScreen(u);
+    const r = CELL * 0.46;
+    const ready = readiness01(battle, su);
+    ctx.lineWidth = Math.max(2, CELL * 0.05);
+    if(ready >= 1){
+      ctx.strokeStyle = 'rgba(240,220,150,0.55)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+    } else {
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(240,200,90,0.95)';
+      ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI*2*ready); ctx.stroke();
+    }
+    if(selected.includes(su.id)){
+      ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = Math.max(2, CELL * 0.07);
+      ctx.strokeRect((toScreen(getUnitVisualPos(u).x, getUnitVisualPos(u).y).x)*CELL + 1, (toScreen(getUnitVisualPos(u).x, getUnitVisualPos(u).y).y)*CELL + 1, CELL - 2, CELL - 2);
+    }
+    if(!chainOk.has(su.id)){
+      ctx.fillStyle = '#b3261e'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx + r*0.72, cy - r*0.72, CELL*0.09, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    if(su.type === 'BRIGADIER'){
+      const { pool, cap } = poolOf(battle, su);
+      const pr = Math.max(2.5, CELL * 0.055), gap = pr * 2.6;
+      const x0 = cx - (cap - 1) * gap / 2, y0 = cy - r - pr * 2;
+      for(let i = 0; i < cap; i++){
+        ctx.beginPath(); ctx.arc(x0 + i*gap, y0, pr, 0, Math.PI*2);
+        ctx.fillStyle = i < pool.orders ? '#f3d27a' : 'rgba(20,20,20,0.55)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+/* The Group switch: off, a tap on your unit picks it alone; on, taps add and
+   remove units, and a tap on the ground sends them all. */
+function showGroupToggle(){
+  const btn = document.createElement('button');
+  btn.id = 'rtsGroupToggle';
+  btn.type = 'button';
+  btn.style.cssText = 'position:fixed;right:calc(env(safe-area-inset-right,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:28;' +
+    'font:15px "IM Fell English",Georgia,serif;min-height:40px;padding:6px 14px;border-radius:20px;border:1px solid #b8963f;cursor:pointer';
+  const paint = () => {
+    btn.textContent = groupMode ? 'Group: On' : 'Group: Off';
+    btn.style.background = groupMode ? '#e0b85a' : 'rgba(20,24,20,.75)';
+    btn.style.color = groupMode ? '#2a1e14' : '#fbf6ea';
+  };
+  btn.onclick = () => { groupMode = !groupMode; selected = groupMode ? selected : selected.slice(-1); reachCache = null; paint(); };
+  paintGroupToggle = paint;
+  paint();
+  document.body.appendChild(btn);
 }
 
 /* ---------------------------------------------------------
