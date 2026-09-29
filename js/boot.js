@@ -111,6 +111,8 @@ start();
 {
   const joinCode = new URLSearchParams(location.search).get('join');
   if(joinCode) import('./online.js').then(m => m.openLobby({ joinCode }));
+  const groupCode = new URLSearchParams(location.search).get('group');
+  if(groupCode) import('./online-group.js').then(m => m.openGroupLobby({ joinCode: groupCode }));
 }
 
 /* Before the board is first sized: it decides how much of the screen the board gets. */

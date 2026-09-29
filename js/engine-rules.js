@@ -832,8 +832,8 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
     if(!isHuman){
       /* Online, the other player decides for their own unit on their own phone,
          seeing the same dice. No answer in time takes it, as the AI would. */
-      if(isRemoteSide(unit.side)){
-        askRemote('reroll', { label: `Use Re-roll (${unitLabel(unit)})` }, true, 9000)
+      if(isRemoteSide(unit.side, unit)){
+        askRemote('reroll', { label: `Use Re-roll (${unitLabel(unit)})`, army: unit.army }, true, 9000)
           .then(yes => yes ? doReroll() : next());
         return;
       }
@@ -1466,8 +1466,8 @@ export function offerLeadershipRoll(loser, brig, onComplete){
     const useIt = aiDecideLeadershipRoll(loser, brig);
     /* Online, the owning player spends their own Leadership Roll. The AI's
        judgement is the fallback if they do not answer. */
-    if(isRemoteSide(loser.side)){
-      askRemote('leadership', { loserId: loser.id, brigId: brig.id }, useIt, 30000)
+    if(isRemoteSide(loser.side, loser)){
+      askRemote('leadership', { loserId: loser.id, brigId: brig.id, army: loser.army }, useIt, 30000)
         .then(use => applyLeadershipRollChoice(loser, brig, !!use, onComplete));
       return;
     }

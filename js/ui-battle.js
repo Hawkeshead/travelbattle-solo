@@ -15,7 +15,7 @@ import { askRemote, isOnline, isRemoteSide } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
-import { GROUP_ARMIES, actingArmy, actsFor, armyBrokenCount, armyById, isActing, nextTurnArmy, rollTurnOrder } from './group.js';
+import { GROUP_ARMIES, actingArmy, actsFor, armyBrokenCount, armyById, isActing, nextTurnArmy, refreshGroupControl, rollTurnOrder } from './group.js';
 const armyForBrigade = (side, bId) => state.group ? GROUP_ARMIES.find(a => a.side===side && bId>=a.brigadeOffset && bId<a.brigadeOffset+3) : null;
 
 /* ACKNOWLEDGEMENTS ON SELECT, one per side.
@@ -90,6 +90,7 @@ export function startBattle(){
     state.groupArmyOut = {};
     state.turnArmy = state.groupTurnOrder[0];
     state.turn = armyById(state.turnArmy).side;
+    refreshGroupControl();
     log(`Roll for initiative. Order of play: ${state.groupTurnOrder.map(id => armyById(id).label).join(', ')}.`, 'system');
   } else {
     state.turn = seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE;
@@ -500,7 +501,7 @@ export function beginMovePhase(){
   // they were looking.
   // Group, one phone passed round: the board turns so whoever is acting sits
   // behind their own army's edge.
-  if(state.group && actingArmy()) state.viewEdge = actingArmy().edge;
+  if(state.group && actingArmy() && !state.groupControlled) state.viewEdge = actingArmy().edge;   // online, each phone keeps its own army's view
   if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
   logReplay('turnStart', { side: state.turn, army: state.turnArmy || undefined });
   /* TURN THEMES, at the start of every turn once the battle is under way.
@@ -833,10 +834,10 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
     showAmbushChoice(amb, target, (mode)=>{
       springAmbush(amb, target, mode, ()=> processAmbushSpringsSequentially(springs, idx+1, onDone));
     });
-  } else if(isRemoteSide(amb.side)){
+  } else if(isRemoteSide(amb.side, amb)){
     /* Online: the ambusher belongs to the other player, who chooses Hold or
        Advance on their own phone. Hold if they do not answer in time. */
-    askRemote('ambush', { ambId: amb.id, targetId: target.id }, 'hold', 30000)
+    askRemote('ambush', { ambId: amb.id, targetId: target.id, army: amb.army }, 'hold', 30000)
       .then(mode => springAmbush(amb, target, mode === 'advance' ? 'advance' : 'hold',
                                  ()=> processAmbushSpringsSequentially(springs, idx+1, onDone)));
   } else {
@@ -922,6 +923,7 @@ export function endFightPhase(){
       if(!next) return;          // nobody left to act: the win check has already ended the match
       state.turnArmy = next.id;
       state.turn = armyById(next.id).side;
+      refreshGroupControl();
     } else {
       state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
     }

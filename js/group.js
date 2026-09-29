@@ -141,3 +141,16 @@ export function nextTurnArmy(){
   }
   return null;
 }
+
+/* ONLINE GROUP: which armies this phone commands (state.groupControlled, never
+   shared). The game already treats "the AI side" as the one whose input is
+   locked and whose dice roll themselves, so each phone points aiSide at the
+   other team when one of its own armies is acting, and at the acting team
+   otherwise (nothing to touch, and the AI never acts while online). Called
+   whenever the acting army changes. Does nothing outside online Group. */
+export function refreshGroupControl(){
+  if(!state.group || !Array.isArray(state.groupControlled)) return;
+  const mine = state.groupControlled.includes(state.turnArmy);
+  state.mode = 'ai';
+  state.aiSide = mine ? (state.turn === SIDES.RED ? SIDES.BLUE : SIDES.RED) : state.turn;
+}

@@ -35,8 +35,9 @@ export function showGroupMenu(){
   local.onclick = ()=>{ extra.style.display = 'none'; beginGroupMatch(); };
 
   const online = document.createElement('button');
-  online.textContent = 'Online, four phones (coming next)';
-  online.disabled = true;
+  online.textContent = 'Online (a phone each)';
+  online.onclick = ()=>{ extra.style.display = 'none'; document.getElementById('overlay').classList.remove('show');
+    import('./online-group.js').then(m => m.openGroupLobby()); };
 
   const back = document.createElement('button');
   back.textContent = 'Back';
@@ -49,6 +50,16 @@ export function showGroupMenu(){
 }
 
 export function beginGroupMatch(){
+  prepareGroupBoard();
+  // Armies choose in an alternating order too, so neither side always sees the
+  // other's whole deployment before committing its own.
+  const order = rollTurnOrder(seededRandom).map(armyById);
+  deployNext(order, 0);
+}
+
+/* The four-board map and a clean slate, ready for deployment. Shared by Pass
+   and Play and the online host. */
+export function prepareGroupBoard(){
   state.scenario = null;
   state.campaign = null;
   state.spectate = false;
@@ -76,11 +87,6 @@ export function beginGroupMatch(){
   document.getElementById('unitOverlay').classList.add('hidden');
   const dock = document.getElementById('phaseDock'); if(dock) dock.style.display = 'none';
   log('Online Group: four armies, two sides, on the four-board map.', 'system');
-
-  // Armies choose in an alternating order too, so neither side always sees the
-  // other's whole deployment before committing its own.
-  const order = rollTurnOrder(seededRandom).map(armyById);
-  deployNext(order, 0);
 }
 
 function deployNext(order, i){

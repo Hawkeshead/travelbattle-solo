@@ -33,7 +33,14 @@ export function requestRemoteDeploy(side){ if(remoteDeployHandler) remoteDeployH
    what the game would have chosen for them anyway. */
 let remoteAsker = null;
 export function setRemoteAsker(fn){ remoteAsker = fn; }
-export function isRemoteSide(side){ return !!session && side === session.remoteSide; }
+/* Group (2v2) online: whether a unit's decision belongs to another phone
+   depends on which ARMY it is in, so the session can supply its own test and
+   the unit is passed along. */
+export function isRemoteSide(side, unit){
+  if(!session) return false;
+  if(session.isRemote) return session.isRemote(side, unit);
+  return side === session.remoteSide;
+}
 export function askRemote(kind, data, fallback, timeoutMs){
   if(!remoteAsker) return Promise.resolve(fallback);
   return remoteAsker(kind, data, fallback, timeoutMs);
