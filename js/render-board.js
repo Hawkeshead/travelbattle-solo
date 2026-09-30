@@ -1316,7 +1316,7 @@ export function drawHillGlyph(cx, cy, cell){
    2. By screen row, back to front: that row's ground tiles (hill on HILL,
       grass everywhere else), then that row's farm and woods overlays.
    3. The road layer: one image for the whole map, built once per layout and
-      viewpoint (roadLayerV2) and reused.
+      viewpoint (drawRoadsV2) as part of the cached board.
    4. By screen row, back to front: building overlays.
    5. Craters (effects/crater), then units and UI as before.
 
@@ -1330,33 +1330,49 @@ export const TERRAIN_V2_BG = '#34241A';
    decoded at full size, made the game crawl on a phone (clouds stuttered and
    taps lagged). Two fixes:
    - each image is scaled once, as soon as it loads, to V2_TILE_PX wide (still
-     sharper than any cell can show, even zoomed in) and the full-size original
-     is let go, which cuts decoded image memory to about a seventh;
+     sharper than any cell can show, even zoomed in), kept as an ImageBitmap,
+     and the full-size original is let go;
    - the whole static board (ground, overlays, roads, villages) is drawn once
      into an offscreen canvas and copied each frame; it is redrawn only when the
      layout, viewpoint, cell size or the set of loaded images changes. */
 const V2_TILE_PX = 384;
 let v2LoadedCount = 0;
+const V2_TILES = {};            // key -> the small copy (an ImageBitmap where the browser has them)
+const v2Pending = new Set();
+let v2RedrawTimer = null;
+let v2IntroActive = false;       // the intro draws the board itself; nothing else may redraw over it
 function v2Img(key){
+  if(V2_TILES[key]) return V2_TILES[key];
   const img = UNIT_IMAGES[key];
-  if(!img) return null;
-  if(img.__v2small) return img;
-  if(!(img.complete && img.naturalWidth > 0)) return null;
+  if(!img || v2Pending.has(key) || !(img.complete && img.naturalWidth > 0)) return null;
+  v2Pending.add(key);
   const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
   const g = c.getContext('2d');
   g.imageSmoothingQuality = 'high';
   g.drawImage(img, 0, 0, c.width, c.height);
-  c.__v2small = true; c.complete = true; c.naturalWidth = c.width; c.naturalHeight = c.height;
-  UNIT_IMAGES[key] = c;                 // the full-size original is no longer referenced
-  v2LoadedCount += 1;
-  return c;
+  const done = small => {
+    V2_TILES[key] = small;
+    v2Pending.delete(key);
+    v2LoadedCount += 1;
+    delete UNIT_IMAGES[key];          // let the full-size original go
+    clearTimeout(v2RedrawTimer);
+    v2RedrawTimer = setTimeout(() => { if(v2IntroActive) return; try { draw(); } catch { /* board not up yet */ } }, 60);
+  };
+  /* An ImageBitmap is the cheapest thing to draw from and keeps the tile out
+     of the browser's canvas memory budget; the scratch canvas is released as
+     soon as the bitmap exists. A browser without them keeps the small canvas. */
+  if(typeof createImageBitmap === 'function'){
+    createImageBitmap(c).then(bmp => { c.width = c.height = 1; done(bmp); }, () => done(c));
+  } else done(c);
+  return null;
 }
+
 /* One v2 image on a square: centred on it, bottom on the cell bottom, upright. */
-function drawV2Tile(img, x, y, widthCells, mirror){
+function drawV2Tile(img, x, y, widthCells, mirror, dy = 0){
   const w = CELL * widthCells, hgt = CELL * 1.5;
-  const left = SX(x,y)*CELL + (CELL - w)/2, top = SY(x,y)*CELL + CELL - hgt;
+  const left = SX(x,y)*CELL + (CELL - w)/2, top = SY(x,y)*CELL + CELL - hgt + dy;
   if(!mirror){ ctx.drawImage(img, left, top, w, hgt); return; }
   ctx.save(); ctx.translate(left + w, top); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, w, hgt); ctx.restore();
 }
@@ -1393,72 +1409,185 @@ function v2Layout(){
     grass: grassPicks(t, overlay),
     farms: farmPicks(farmCells),
     roadChains: roadChains(buildRoadGraph(t, (x1, y1, x2, y2) => excluded.has(edgeKey(x1, y1, x2, y2)))),
-    roadLayer: null,
+    roadLines: null,
   };
   return v2LayoutCache;
 }
 
-/* THE ROAD LAYER: every chain drawn once, as three round-capped strokes and
-   two faint ruts, onto an offscreen canvas the size of the board, rebuilt only
-   when the layout, the viewpoint or the cell size changes. Crosses the gaps
-   between tiles. Road rules (movement, dust, roadConn) are untouched. */
-function roadLayerV2(lay){
-  const key = viewEdge() + '|' + CELL + '|' + canvas.width + 'x' + canvas.height;
-  if(lay.roadLayer && lay.roadLayer.key === key) return lay.roadLayer.canvas;
-  const off = document.createElement('canvas');
-  off.width = canvas.width; off.height = canvas.height;      // full device resolution, so roads stay crisp
-  const g = off.getContext('2d');
-  g.setTransform(ctx.getTransform());
-  g.lineCap = 'round'; g.lineJoin = 'round';
-  const lines = lay.roadChains.map(ch => smoothChain(ch, toScreen));
-  const path = pts => { g.beginPath(); g.moveTo(pts[0][0]*CELL, pts[0][1]*CELL); for(let i = 1; i < pts.length; i++) g.lineTo(pts[i][0]*CELL, pts[i][1]*CELL); };
+/* THE ROAD LAYER: every chain as three round-capped strokes and two faint
+   ruts, drawn straight onto the board being built (it crosses the gaps
+   between tiles). The smoothed lines are worked out once per layout and
+   viewpoint. Road rules (movement, dust, roadConn) are untouched. */
+function drawRoadsV2(lay){
+  const key = viewEdge();
+  if(!lay.roadLines || lay.roadLines.key !== key){
+    const lines = lay.roadChains.map(ch => smoothChain(ch, toScreen));
+    const ruts = lines.map(pts => [-1, 1].map(side => pts.map((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      let tx = b[0] - a[0], ty = b[1] - a[1]; const n = Math.hypot(tx, ty) || 1; tx /= n; ty /= n;
+      return [p[0] - ty * ROAD.RUTS.offset * side, p[1] + tx * ROAD.RUTS.offset * side];
+    })));
+    lay.roadLines = { key, lines, ruts };
+  }
+  const { lines, ruts } = lay.roadLines;
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const path = pts => { ctx.beginPath(); ctx.moveTo(pts[0][0]*CELL, pts[0][1]*CELL); for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]*CELL, pts[i][1]*CELL); };
   for(const [w, col] of ROAD.STROKES){
-    g.strokeStyle = col; g.lineWidth = w * CELL;
-    for(const pts of lines){ path(pts); g.stroke(); }
+    ctx.strokeStyle = col; ctx.lineWidth = w * CELL;
+    for(const pts of lines){ path(pts); ctx.stroke(); }
   }
-  g.strokeStyle = ROAD.RUTS.color; g.lineWidth = ROAD.RUTS.width * CELL;
-  for(const pts of lines){
-    for(const side of [-1, 1]){
-      const shifted = pts.map((p, i) => {
-        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-        let tx = b[0] - a[0], ty = b[1] - a[1]; const n = Math.hypot(tx, ty) || 1; tx /= n; ty /= n;
-        return [p[0] - ty * ROAD.RUTS.offset * side, p[1] + tx * ROAD.RUTS.offset * side];
-      });
-      path(shifted); g.stroke();
-    }
-  }
-  lay.roadLayer = { key, canvas: off };
-  return off;
+  ctx.strokeStyle = ROAD.RUTS.color; ctx.lineWidth = ROAD.RUTS.width * CELL;
+  for(const pair of ruts) for(const pts of pair){ path(pts); ctx.stroke(); }
+  ctx.restore();
 }
 
-/* The cached board: one offscreen copy per canvas (the live board, and the
-   army picker's preview when it draws), rebuilt only when something it shows
-   has changed. Craters, units and everything else still draw fresh each frame. */
+/* The cached board: built once into a scratch canvas, then turned into an
+   ImageBitmap (cheap to draw each frame, and outside the canvas memory budget
+   that iPhones enforce) and the scratch canvas released. One per board canvas
+   (the live board, and the army picker's preview). Rebuilt only when the
+   layout, viewpoint, cell size, village styles or the set of loaded tiles
+   changes. Craters, units and everything else still draw fresh each frame. */
 const v2BoardCache = new WeakMap();
+const V2_EXPECTED = 39;
 function drawTerrainV2(){
   const lay = v2Layout();
   const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
   let entry = v2BoardCache.get(canvas);
-  if(!entry || entry.key !== key || entry.lay !== lay || entry.styles !== state.buildingStyles){
-    const off = entry && entry.canvas && entry.canvas.width === canvas.width && entry.canvas.height === canvas.height
-      ? entry.canvas : document.createElement('canvas');
+  // While tiles are still arriving, rebuild at most every 400 ms rather than once per tile.
+  const onlyMoreTiles = entry && entry.lay === lay && entry.styles === state.buildingStyles &&
+    entry.key.split('|').slice(0, 4).join('|') === key.split('|').slice(0, 4).join('|');
+  const tooSoon = onlyMoreTiles && v2LoadedCount < V2_EXPECTED && Date.now() - entry.built < 400;
+  if(!tooSoon && (!entry || entry.key !== key || entry.lay !== lay || entry.styles !== state.buildingStyles)){
+    const off = document.createElement('canvas');
     off.width = canvas.width; off.height = canvas.height;
     const g = off.getContext('2d');
     g.setTransform(ctx.getTransform());
-    g.clearRect(0, 0, COLS*CELL, ROWS*CELL);
     const liveCtx = ctx;
     ctx = g;
     try { drawTerrainV2Board(); } finally { ctx = liveCtx; }
-    // Count what loaded during this pass, so the next frame knows whether to redraw.
-    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|'), lay, styles: state.buildingStyles, canvas: off };
+    if(entry && entry.image && entry.image.close) entry.image.close();
+    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|'), lay, styles: state.buildingStyles, image: off, built: Date.now() };
     v2BoardCache.set(canvas, entry);
+    if(typeof createImageBitmap === 'function'){
+      const mine = entry;
+      createImageBitmap(off).then(bmp => {
+        if(v2BoardCache.get(canvas) === mine || mine.image === off){ mine.image = bmp; off.width = off.height = 1; }
+        else bmp.close();
+      }, () => { /* keep drawing from the canvas */ });
+    }
   }
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(entry.canvas, 0, 0);
+  ctx.drawImage(entry.image, 0, 0, canvas.width, canvas.height);
   ctx.restore();
 }
-const V2_EXPECTED = 39;                  // images in the v2 set; once all have loaded the cache stops changing
+
+/* One square's ground tile (hill, or grass with or without a detail) and its
+   farm or woods overlay; dy lifts or drops them (the intro's falling tiles). */
+function drawV2Ground(lay, terrain, x, y, dy){
+  if(terrain[y][x] === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1, false, dy); return; }
+  const g = lay.grass[y][x];
+  const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
+  if(img) drawV2Tile(img, x, y, 1, false, dy);
+}
+function drawV2Overlay(lay, terrain, x, y, dy){
+  const farm = lay.farms.get(x + ',' + y);
+  if(farm){ const img = v2Img('v2_farm_' + farm); if(img) drawV2Tile(img, x, y, 1.125, farmMirrored(x, y), dy); }
+  else if(terrain[y][x] === 'WOODS'){ const img = v2Img('v2_woods_' + woodsPick(x, y)); if(img) drawV2Tile(img, x, y, 1.125, false, dy); }
+}
+
+/* Every v2 tile turned into its small copy, before anything is shown that
+   needs them all at once (the intro). Waits up to timeoutMs for the art to
+   download; a file that fails is skipped rather than waited for. */
+const V2_ALL_KEYS = [
+  ...[1,2,3,4,5,6].map(i => 'v2_grass_' + i), ...[...Array(11).keys()].map(i => 'v2_detail_' + i),
+  ...[1,2,3,4,5,6,7].map(i => 'v2_hill_' + i), ...[1,2,3,4].map(i => 'v2_farm_' + i),
+  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater',
+];
+export function v2Ready(timeoutMs = 10000){
+  return new Promise(resolve => {
+    const start = Date.now();
+    const poll = () => {
+      let done = true;
+      for(const k of V2_ALL_KEYS){
+        if(V2_TILES[k]) continue;
+        v2Img(k);
+        const img = UNIT_IMAGES[k];
+        const failed = !img || (img.complete && img.naturalWidth === 0);
+        if(!failed) done = false;
+      }
+      if(done || Date.now() - start > timeoutMs) resolve(); else setTimeout(poll, 80);
+    };
+    poll();
+  });
+}
+
+/* THE V2 INTRO. The v1 intro cut a snapshot of the finished board into squares
+   and dropped them; v2 tiles are not squares (each rises into the square
+   behind, and the roads cross the gaps), so here each square's own ground tile
+   and overlay fall in, back row to front row as the player sees it, and the
+   roads and villages fade in once the ground has landed. Nothing is shown
+   until every tile is ready, so no square ever lands empty. */
+function introV2(onComplete){
+  const terrain = state.terrain, lay = v2Layout();
+  const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50, DUST_MS = 200, FADE_MS = 450;
+  const fallDistance = window.innerHeight;
+  const cells = [];
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++) cells.push({ x, y, sx: SX(x, y), sy: SY(x, y) });
+  cells.sort((a, b) => a.sy - b.sy || a.sx - b.sx);
+  cells.forEach((c, i) => { c.delay = i * STAGGER_MS; c.dust = false; });
+  const rows = [];
+  for(const c of cells){ if(!rows.length || rows[rows.length - 1][0].sy !== c.sy) rows.push([]); rows[rows.length - 1].push(c); }
+  const dust = [];
+  const startTime = performance.now();
+  let settledAt = null;
+  const offsetFor = e => {
+    if(e < 0) return null;
+    if(e < FALL_MS){ const t = e / FALL_MS; return -fallDistance * (1 - (1 - Math.pow(1 - t, 2))); }
+    const b1 = e - FALL_MS;
+    if(b1 < BOUNCE1_MS) return -CELL * 0.15 * Math.sin(Math.PI * b1 / BOUNCE1_MS);
+    const b2 = b1 - BOUNCE1_MS;
+    if(b2 < BOUNCE2_MS) return -CELL * 0.05 * Math.sin(Math.PI * b2 / BOUNCE2_MS);
+    return 0;
+  };
+  function tick(){
+    const now = performance.now(), el = now - startTime;
+    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.fillStyle = TERRAIN_V2_BG;
+    ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    let all = true;
+    for(const row of rows){
+      const live = [];
+      for(const c of row){
+        const e = el - c.delay, off = offsetFor(e);
+        if(off === null){ all = false; continue; }
+        if(e < FALL_MS + BOUNCE1_MS + BOUNCE2_MS) all = false;
+        if(!c.dust && e >= FALL_MS){ c.dust = true; dust.push({ x: c.sx*CELL + CELL/2, y: (c.sy + 1)*CELL, t: now }); }
+        live.push([c, off]);
+      }
+      for(const [c, off] of live) drawV2Ground(lay, terrain, c.x, c.y, off);
+      for(const [c, off] of live) drawV2Overlay(lay, terrain, c.x, c.y, off);
+    }
+    for(let i = dust.length - 1; i >= 0; i--){
+      const p = dust[i], age = now - p.t;
+      if(age > DUST_MS){ dust.splice(i, 1); continue; }
+      const t = age / DUST_MS;
+      ctx.save(); ctx.globalAlpha = 0.30 * (1 - t); ctx.fillStyle = '#c9b98a';
+      const r = CELL * 0.16 * (0.4 + 0.6 * t);
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.45, 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    if(all && settledAt === null) settledAt = now;
+    if(settledAt !== null){
+      // Roads and villages come in over the landed ground.
+      const t = Math.min(1, (now - settledAt) / FADE_MS);
+      ctx.save(); ctx.globalAlpha = t; drawTerrainV2(); ctx.restore();
+      if(t >= 1 && !dust.length){ v2IntroActive = false; draw(); onComplete(); return; }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
 
 /* The whole v2 board, in the README's order. */
 function drawTerrainV2Board(){
@@ -1477,21 +1606,11 @@ function drawTerrainV2Board(){
   // 2. ground, then farm and woods overlays, row by row
   for(const r of order){
     const cells = rows.get(r);
-    for(const [x, y] of cells){
-      const key = terrain[y][x];
-      if(key === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1); continue; }
-      const g = lay.grass[y][x];
-      const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
-      if(img) drawV2Tile(img, x, y, 1);
-    }
-    for(const [x, y] of cells){
-      const farm = lay.farms.get(x + ',' + y);
-      if(farm){ const img = v2Img('v2_farm_' + farm); if(img) drawV2Tile(img, x, y, 1.125, farmMirrored(x, y)); }
-      else if(terrain[y][x] === 'WOODS'){ const img = v2Img('v2_woods_' + woodsPick(x, y)); if(img) drawV2Tile(img, x, y, 1.125); }
-    }
+    for(const [x, y] of cells) drawV2Ground(lay, terrain, x, y, 0);
+    for(const [x, y] of cells) drawV2Overlay(lay, terrain, x, y, 0);
   }
   // 3. the road layer
-  { const road = roadLayerV2(lay); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(road, 0, 0); ctx.restore(); }
+  drawRoadsV2(lay);
   // 4. villages, row by row
   for(const r of order){
     for(const [x, y] of rows.get(r)){
@@ -2256,6 +2375,14 @@ export function playBoardIntroAnimation(onComplete){
      harness flag skips straight to the finished board. Inert in real play, where
      FAST_ANIMATION_MODE is never set. */
   if(FAST_ANIMATION_MODE){ draw(); if(onComplete) onComplete(); return; }
+  if(V2){
+    // Start from the bare board colour while the art finishes preparing.
+    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.fillStyle = TERRAIN_V2_BG; ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    v2IntroActive = true;
+    v2Ready().then(() => introV2(() => { v2IntroActive = false; if(onComplete) onComplete(); }));
+    return;
+  }
   draw(); // render the true final board once, to capture as the source for every tile fragment
   const snapshot = document.createElement('canvas');
   snapshot.width = canvas.width;

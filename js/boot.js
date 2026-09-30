@@ -117,3 +117,23 @@ start();
 
 /* Before the board is first sized: it decides how much of the screen the board gets. */
 initSafeArea();
+
+/* ?fps in the address shows a small frame-rate meter in the corner, for
+   checking smoothness on a real phone: frames per second over the last
+   second, and the longest gap between frames (a stutter shows as a big one). */
+if(new URLSearchParams(location.search).has('fps')){
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;left:calc(env(safe-area-inset-left,0px) + 70px);bottom:calc(env(safe-area-inset-bottom,0px) + 4px);z-index:99;' +
+    'font:12px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:4px;pointer-events:none';
+  document.body.appendChild(el);
+  let frames = 0, worst = 0, last = performance.now(), windowStart = last;
+  const tick = now => {
+    frames++; worst = Math.max(worst, now - last); last = now;
+    if(now - windowStart >= 1000){
+      el.textContent = `${Math.round(frames * 1000 / (now - windowStart))} fps  worst ${Math.round(worst)} ms`;
+      frames = 0; worst = 0; windowStart = now;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
