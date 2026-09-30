@@ -470,3 +470,44 @@ test('Columns: a roundshot strikes both halves of a stack', () => {
   }
   assert.ok(seen >= 1, 'saw a telling shot');
 });
+
+/* ---------------- Phase 5: the AI ---------------- */
+import { aiTick, createAi } from '../js/rts/ai.js';
+import { AI_EVAL_TICKS, AI_REACTION_TICKS } from '../js/rts/constants.js';
+const armies = () => createBattle({ seed: 21, terrain, road: noRoad, playerSide: 'red', units: [
+  { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 5, y: 9 },
+  { id: 'r1', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 4, y: 8 },
+  { id: 'r2', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 5, y: 8 },
+  { id: 'r3', side: 'red', type: 'LIGHT_CAV', brigadeId: 0, x: 6, y: 8 },
+  { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 5, y: 0 },
+  { id: 'b1', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 4, y: 1 },
+  { id: 'b2', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 5, y: 1 },
+  { id: 'b3', side: 'blue', type: 'LIGHT_CAV', brigadeId: 0, x: 6, y: 1 },
+]});
+
+test('AI: decides on its evaluation beat and acts after a reaction delay, only through the order gate', () => {
+  const b = armies(), ai = createAi('blue');
+  for (let t = 0; t < AI_REACTION_TICKS[0]; t++) { step(b, loose); aiTick(ai, b, loose); }
+  assert.equal(b.orderLog.length, 0, 'nothing before the reaction delay');
+  for (let t = 0; t < AI_REACTION_TICKS[1] + 2; t++) { step(b, loose); aiTick(ai, b, loose); }
+  assert.ok(b.orderLog.length > 0, 'orders issued');
+  assert.ok(b.orderLog.every(o => o.side === 'blue'), 'only its own side');
+});
+
+test('AI: banks when its pool cannot cover a wave', () => {
+  const b = armies(), ai = createAi('blue');
+  poolOf(b, U(b, 'b1')).pool.orders = 0;
+  for (let t = 0; t < AI_EVAL_TICKS * 2; t++) { step(b, loose); aiTick(ai, b, loose); }
+  assert.equal(b.orderLog.filter(o => o.unitId !== 'bg').length, 0, 'no troop orders until the pool refills');
+});
+
+test('AI against AI plays to a result, and the same seed gives the same battle', () => {
+  const play = () => {
+    const b = armies(), ais = [createAi('red'), createAi('blue', { phase: 10 })];
+    for (let t = 0; t < 20000 && !b.over; t++) { step(b, loose); for (const a of ais) aiTick(a, b, loose); }
+    return b;
+  };
+  const a = play(), c = play();
+  assert.equal(a.over, true);
+  assert.equal(saveBattle(a), saveBattle(c));
+});

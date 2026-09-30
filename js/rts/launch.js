@@ -14,21 +14,20 @@
    they all go (or none do). Rings show each unit's cooldown and pips show
    each Brigadier's banked orders.
 ========================================================= */
-import { assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, COLS, ROWS, SIDES,
-         TB_DATA, setBoardMode, state } from '../data-core.js';
-import { isRoadLike, seededRandom, terrainAt } from '../engine-rules.js';
-import { newUnit, resetHistoricalIdentities } from '../engine-state.js';
-import { planArmyDeployment } from '../ai-deployment.js';
+import { SIDES, state } from '../data-core.js';
+import { setupBattle } from './setup.js';
+import { aiTick, createAi } from './ai.js';
 import { canvas, cellFromClient, consumeGestureFlag, ctx, draw, fromScreen, getUnitVisualPos, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, toScreen, unitAnimations } from '../render-board.js';
 import { CELL, SIDE_LABEL } from '../data-core.js';
 import { emitFloatingText } from '../floating-text.js';
 import { startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
 import { MATCH_CLOCK_TICKS, MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
-import { columnLead, createBattle, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, stackPartner, step } from './sim.js';
+import { columnLead, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, stackPartner, step } from './sim.js';
 import { turnBasedRules } from './rules-adapter.js';
 
 let battle = null;
+let ai = null;                     // the opponent (ai.js)
 let running = false, lastFrame = 0, acc = 0;
 let selected = [];                 // unit ids, in the order they were picked
 let groupMode = false;
@@ -45,35 +44,10 @@ export function setGroupMode(on){ groupMode = !!on; if(paintGroupToggle) paintGr
 
 export function launchRealTime(){
   const playerSide = state.aiSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
-  state.scenario = null; state.campaign = null; state.spectate = false;
-  state.rts = true;                         // marks this page as a Real-Time battle; nothing in turn-based reads it
-  setBoardMode('standard');
+  state.spectate = false;
   AudioManager.stopMusic();
-
-  const keys = seededRandom() < 0.5 ? ['A','B'] : ['B','A'];
-  state.boardAssignment = { red: keys[0], blue: keys[1] };
-  state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
-  state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-  state.grassStyles = assignGrassStyles(state.terrain);
-  state.buildingStyles = assignBuildingStyles(state.terrain);
-  state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
-
-  // Both armies placed by the standard auto-deploy, one after the other so the
-  // second respects the first. Army choice comes later; for now each side
-  // gets one at random.
-  resetHistoricalIdentities();
-  state.units.length = 0;
-  state.deployBrigadeIndex = { red: 0, blue: 0 };
-  state.phase = 'rts';
-  const armies = TB_DATA.armyCompositions;
-  for(const side of [SIDES.RED, SIDES.BLUE]){
-    const army = armies[Math.floor(seededRandom() * armies.length)];
-    for(const g of planArmyDeployment(side, army.id)) state.units.push(newUnit(side, g.type, g.x, g.y, g.brigadeId));
-  }
-
-  const road = [];
-  for(let y=0; y<ROWS; y++){ road.push([]); for(let x=0; x<COLS; x++) road[y].push(isRoadLike(terrainAt(x,y))); }
-  battle = createBattle({ seed: Math.floor(seededRandom() * 4294967296), terrain: state.terrain, road, units: state.units, playerSide });
+  battle = setupBattle(playerSide);
+  ai = createAi(playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED);
 
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
@@ -121,7 +95,7 @@ function frame(now){
   acc += Math.min(250, now - lastFrame);     // a long gap never becomes a burst of ticks
   lastFrame = now;
   let n = 0;
-  while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME && !battle.over){ step(battle, turnBasedRules); acc -= TICK_MS; n++; }
+  while(acc >= TICK_MS && n < MAX_TICKS_PER_FRAME && !battle.over){ step(battle, turnBasedRules); if(ai) aiTick(ai, battle, turnBasedRules); acc -= TICK_MS; n++; }
   mirrorUnits(acc / TICK_MS);
   draw();
   drawCommandOverlay();
