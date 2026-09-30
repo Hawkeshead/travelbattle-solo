@@ -59,6 +59,7 @@ for (const src of sources) {
   for (let i = 1; i <= v2.WOODS_COUNT; i++) want.push(`assets/terrain/v2/woods/woods_${i}.webp`);
   for (let i = 1; i <= 6; i++) want.push(`assets/terrain/v2/building/building_${i}.webp`);
   want.push('assets/terrain/v2/effects/crater.webp');
+  want.push('assets/terrain/v2/effects/death_skull.webp');
   for (const path of want) {
     seen.add(`terrain-v2::${path}`);
     try { await access(join(root, path)); } catch { missing.push({ src: 'js/terrain-v2.js (v2 terrain set)', path }); }

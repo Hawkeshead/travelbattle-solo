@@ -96,6 +96,7 @@ if(TERRAIN_STYLE === 'v2'){
   for(let i = 1; i <= 4; i++) add('v2_woods_' + i, `assets/terrain/v2/woods/woods_${i}.webp`);
   for(let i = 1; i <= 6; i++) add('v2_building_' + i, `assets/terrain/v2/building/building_${i}.webp`);
   add('v2_crater', 'assets/terrain/v2/effects/crater.webp');
+  add('v2_death_skull', 'assets/terrain/v2/effects/death_skull.webp');
 }
 for(const key in UNIT_IMAGE_DATA){
   if(TERRAIN_STYLE === 'v2' && V1_TERRAIN_KEY.test(key)) continue;

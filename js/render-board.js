@@ -1508,7 +1508,7 @@ function drawRoadsV2(lay){
    layout, viewpoint, cell size, village styles or the set of loaded tiles
    changes. Craters, units and everything else still draw fresh each frame. */
 const v2BoardCache = new WeakMap();
-const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 1;   // every v2 image: derived, so a new art set cannot leave it stale
+const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 2;   // + crater and death skull   // every v2 image: derived, so a new art set cannot leave it stale
 function drawTerrainV2(){
   const lay = v2Layout();
   const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
@@ -1562,7 +1562,7 @@ function drawV2Overlay(lay, terrain, x, y, dy){
 const V2_ALL_KEYS = [
   ...[1,2,3,4,5,6].map(i => 'v2_grass_' + i), ...[...Array(GRASS_DETAIL_COUNT).keys()].map(i => 'v2_detail_' + i),
   ...[1,2,3,4,5,6,7].map(i => 'v2_hill_' + i), ...[1,2,3,4].map(i => 'v2_farm_' + i),
-  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater',
+  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater', 'v2_death_skull',
 ];
 export function v2Ready(timeoutMs = 10000){
   return new Promise(resolve => {
@@ -2152,7 +2152,7 @@ export function draw(){
       // effects/crater: half a cell wide, centred on the face centre (0.469 of a cell down)
       const img = v2Img('v2_crater');
       if(img){
-        const w = CELL*0.5, hgt = w*(img.naturalHeight/img.naturalWidth);
+        const w = CELL*0.5, hgt = w*((img.naturalHeight || img.height)/(img.naturalWidth || img.width));   // an ImageBitmap has only width/height
         ctx.drawImage(img, SX(c.x,c.y)*CELL + CELL/2 - w/2, SY(c.x,c.y)*CELL + CELL*ROAD.FACE_CY - hgt/2, w, hgt);
       }
       continue;
@@ -2370,9 +2370,22 @@ export function draw(){
     if(elapsed < DEATH_SKULL_MS){
       ctx.save();
       ctx.globalAlpha = 1;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font = Math.floor(CELL*0.5)+'px sans-serif';
-      ctx.fillText('\u{1F480}', cx, cy);
+      /* v2: the painted skull (effects/death_skull), 0.8 of a cell wide, centred
+         on the face centre like the crater, with a soft dark shadow so it reads
+         over woods and villages. v1, or before the image has loaded: the emoji,
+         exactly as before. */
+      const skull = V2 ? v2Img('v2_death_skull') : null;
+      if(skull){
+        const w = CELL * 0.8, hgt = w * ((skull.naturalHeight || skull.height) / (skull.naturalWidth || skull.width));   // an ImageBitmap has only width/height
+        const fy = SY(d.x,d.y)*CELL + CELL*ROAD.FACE_CY;
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = CELL * 0.12;
+        ctx.drawImage(skull, cx - w/2, fy - hgt/2, w, hgt);
+      } else {
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font = Math.floor(CELL*0.5)+'px sans-serif';
+        ctx.fillText('\u{1F480}', cx, cy);
+      }
       ctx.restore();
     } else {
       const smokeT = (elapsed - DEATH_SKULL_MS) / DEATH_SMOKE_MS; // 0..1
