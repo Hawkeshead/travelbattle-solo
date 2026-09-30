@@ -511,3 +511,58 @@ test('AI against AI plays to a result, and the same seed gives the same battle',
   assert.equal(a.over, true);
   assert.equal(saveBattle(a), saveBattle(c));
 });
+
+/* ---------------- Pushback in full ---------------- */
+import { MELEE_ROUND_TICKS as MR } from '../js/rts/constants.js';
+const pushSeen = (build, check) => {
+  let seen = 0;
+  for (let seed = 1; seed <= 80 && seen < 2; seed++) {
+    const b = build(); b.rng = seed;
+    for (let t = 0; t < MR * 3 + 200; t++) {
+      step(b, loose);
+      const r = check(b);
+      if (r === true) { seen++; break; }
+      if (r === false) break;
+    }
+  }
+  return seen;
+};
+test('pushback: a friendly unit behind the loser is shoved back and turned around', () => {
+  const build = () => createBattle({ seed: 3, terrain, road: noRoad, playerSide: 'red', units: [
+    { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+    { id: 'L', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 6 },
+    { id: 'F', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 7 },
+    { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+    { id: 'W', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 6, y: 5 },
+  ]});
+  const seen = pushSeen(build, b => {
+    const L = U(b, 'L'), F = U(b, 'F');
+    if (L.removed || F.removed || U(b, 'W').removed) return false;
+    if (b.events.some(e => e.text === 'Shoved back by the retreat')) {
+      for (let t = 0; t < 120; t++) step(b, loose);
+      assert.deepEqual([F.x, F.y], [6, 8], 'friend shoved back');
+      assert.deepEqual([L.x, L.y], [6, 7], 'loser in its place');
+      return true;
+    }
+    return undefined;
+  });
+  assert.ok(seen >= 1);
+});
+test('pushback: at the board edge the loser slides along it', () => {
+  const build = () => createBattle({ seed: 3, terrain, road: noRoad, playerSide: 'red', units: [
+    { id: 'rg', side: 'red', type: 'BRIGADIER', brigadeId: 0, x: 0, y: 9 },
+    { id: 'L', side: 'red', type: 'INFANTRY', brigadeId: 0, x: 6, y: 9 },
+    { id: 'bg', side: 'blue', type: 'BRIGADIER', brigadeId: 0, x: 19, y: 0 },
+    { id: 'W', side: 'blue', type: 'INFANTRY', brigadeId: 0, x: 6, y: 8 },
+  ]});
+  const seen = pushSeen(build, b => {
+    if (U(b, 'L').removed || U(b, 'W').removed) return false;
+    if (b.events.some(e => e.text === 'Driven along the edge')) {
+      for (let t = 0; t < 60; t++) step(b, loose);
+      assert.equal(U(b, 'L').y, 9); assert.notEqual(U(b, 'L').x, 6);
+      return true;
+    }
+    return undefined;
+  });
+  assert.ok(seen >= 1);
+});

@@ -15,12 +15,12 @@
    each Brigadier's banked orders.
 ========================================================= */
 import { SIDES, state } from '../data-core.js';
-import { setupBattle } from './setup.js';
+import { finishBattle, placeArmy, setupBoard } from './setup.js';
 import { aiTick, createAi } from './ai.js';
 import { canvas, cellFromClient, consumeGestureFlag, ctx, draw, fromScreen, getUnitVisualPos, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, toScreen, unitAnimations } from '../render-board.js';
 import { CELL, SIDE_LABEL } from '../data-core.js';
 import { emitFloatingText } from '../floating-text.js';
-import { startAmbientLayer } from '../ui-menus.js';
+import { showArmyPickerFor, startAmbientLayer } from '../ui-menus.js';
 import { AudioManager } from '../audio-manager.js';
 import { MATCH_CLOCK_TICKS, MAX_TICKS_PER_FRAME, TICK_MS, TICKS_PER_SECOND } from './constants.js';
 import { columnLead, isBusy, issueGroupOrder, issueOrder, loadBattle, points, poolOf, readiness01, saveBattle, stackPartner, step } from './sim.js';
@@ -46,8 +46,12 @@ export function launchRealTime(){
   const playerSide = state.aiSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
   state.spectate = false;
   AudioManager.stopMusic();
-  battle = setupBattle(playerSide);
-  ai = createAi(playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED);
+  const aiSide = playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  // The board, then the AI's army (chosen at random, as the turn-based AI
+  // does); the player chooses theirs from the Army Picker once the board has
+  // landed, previewed against the enemy already in place.
+  setupBoard();
+  placeArmy(aiSide, null);
 
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
@@ -55,7 +59,17 @@ export function launchRealTime(){
   sizeCanvas();
   attachInput();
   AudioManager.playAmbience('audio/ambience/countryside.mp3');
-  playBoardIntroAnimation(() => { startAmbientLayer(); start(); });
+  playBoardIntroAnimation(() => {
+    startAmbientLayer();
+    draw();
+    showArmyPickerFor(playerSide, army => {
+      placeArmy(playerSide, army.id);
+      battle = finishBattle(playerSide);
+      ai = createAi(aiSide);
+      draw();
+      start();
+    });
+  });
 }
 
 /* ---------------------------------------------------------
@@ -175,6 +189,7 @@ function onTap(x, y){
   }
   stackMode = false;
   if(here && here.side === battle.playerSide){
+    AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui');
     if(groupMode){
       selected = selected.includes(here.id) ? selected.filter(id => id !== here.id) : [...selected, here.id];
     } else {
@@ -204,17 +219,42 @@ function onTap(x, y){
   updateActionBar();
 }
 
+/* A one-line status for the selected unit: what it is, and why it can or
+   cannot take an order right now (the same reasons the gate would give). */
+function unitStatus(u){
+  const name = (state.units.find(x => x.id === u.id) || {}).historicalName || u.type.replace('_', ' ').toLowerCase();
+  const { pool, cap } = poolOf(battle, u);
+  let why = 'Ready';
+  if(u.routing) why = 'Routing';
+  else if(battle.tick < u.rallyUntil) why = 'Rallying';
+  else if(battle.tick < u.turnedUntil) why = 'Turned around';
+  else if(u.forming) why = 'Changing formation';
+  else if(isBusy(u)) why = 'Moving';
+  else if(battle.tick < u.cooldownUntil) why = `Ready in ${Math.ceil((u.cooldownUntil - battle.tick) / TICKS_PER_SECOND)}s`;
+  else if(!turnBasedRules.inChain(battle, u)) why = 'Out of the chain';
+  const orders = u.type === 'BRIGADIER' ? 'moves free' : `${pool.orders}/${cap} orders`;
+  return `${name}: ${why} \u00b7 ${orders}`;
+}
+
 /* Formation buttons for the one unit selected: Square or Line for infantry
    and Guard, Lay Ambush in woods. Each costs an order and takes time. */
 let actionBar = null;
+let actionSig = '';
 function updateActionBar(){
   if(!actionBar){
     actionBar = document.createElement('div'); actionBar.id = 'rtsActions';
-    actionBar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:28;display:none;gap:8px';
+    // At the top: your own army always sits at the bottom of the screen, so the bar
+    // would otherwise cover it; the far side is the enemy's rear.
+    actionBar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 34px);z-index:28;' +
+      'display:none;flex-direction:column;align-items:center;gap:4px;max-width:calc(100vw - 260px)';
+    actionBar.innerHTML = '<div id="rtsStatus" style="font:13px \'IM Fell English\',Georgia,serif;color:#fbf6ea;background:rgba(20,24,20,.75);padding:2px 10px;border-radius:10px;white-space:nowrap;pointer-events:none"></div>' +
+      '<div id="rtsButtons" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"></div>';
     document.body.appendChild(actionBar);
   }
   const u = selected.length === 1 ? battle.units.find(x => x.id === selected[0]) : null;
-  const foot = u && !u.removed && (u.type === 'INFANTRY' || u.type === 'GUARD');
+  const status = actionBar.querySelector('#rtsStatus'), row = actionBar.querySelector('#rtsButtons');
+  if(!u || u.removed){ actionBar.style.display = 'none'; actionSig = ''; return; }
+  const foot = u.type === 'INFANTRY' || u.type === 'GUARD';
   const stacked = foot && !u.step && stackPartner(battle, u);
   const opts = [];
   if(foot && u.column) opts.push(['line', 'Split Column']);
@@ -222,8 +262,15 @@ function updateActionBar(){
   else if(foot) opts.push(u.formation === 'square' ? ['line', 'Form Line'] : ['square', 'Form Square']);
   if(foot && !stacked && !u.column && u.formation !== 'square') opts.push(['stack', stackMode ? 'Tap a unit to stack on' : 'Stack']);
   if(foot && !stacked && !u.column && u.formation !== 'square' && battle.terrain[u.y][u.x] === 'WOODS' && !u.hidden) opts.push(['ambush', 'Lay Ambush']);
-  if(u && u.type === 'ARTILLERY') opts.push(['hint', u.lock ? 'Firing: tap an enemy to switch' : 'Tap an enemy to fire']);
-  actionBar.innerHTML = '';
+  if(u.type === 'ARTILLERY') opts.push(['hint', u.lock ? 'Firing: tap an enemy to switch' : 'Tap an enemy to fire']);
+  // The status line updates in place; the buttons are only rebuilt when they
+  // change, so a button is never replaced under a finger.
+  status.textContent = unitStatus(u);
+  actionBar.style.display = 'flex';
+  const sig = u.id + '|' + JSON.stringify(opts);
+  if(sig === actionSig) return;
+  actionSig = sig;
+  row.innerHTML = '';
   for(const [k, label] of opts){
     const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
     b.style.cssText = 'font:15px "IM Fell English",Georgia,serif;min-height:40px;padding:6px 14px;border-radius:20px;border:1px solid #b8963f;' +
@@ -234,9 +281,8 @@ function updateActionBar(){
       if(!res.ok) toast(res.reason);
       updateActionBar();
     };
-    actionBar.appendChild(b);
+    row.appendChild(b);
   }
-  actionBar.style.display = opts.length ? 'flex' : 'none';
 }
 
 /* ---------------------------------------------------------
@@ -361,10 +407,43 @@ function showNewEvents(){
   for(const e of battle.events){
     if(e.n <= lastEventShown) continue;
     lastEventShown = e.n;
+    soundFor(e);
     if(e.kind === 'contact' || e.x == null) continue;
     const bad = e.side === battle.playerSide && /pushed|routed|destroyed|Fails|Destroyed/.test(e.text);
     emitFloatingText({ col: e.x, row: e.y, text: e.text, kind: bad ? 'penalty' : 'command' });
   }
+}
+
+/* SOUND, from the same files turn-based uses: the clash of a melee round,
+   the gun and its impact, the death cry, a British rally. Melee clashes are
+   spaced out so a busy line does not become a wall of noise. */
+let lastClash = 0;
+function soundFor(e){
+  const now = performance.now();
+  if(e.kind === 'melee' && now - lastClash > 1500){ lastClash = now; AudioManager.playEffect('battle-resolve', 'audio/effects/battle-resolve.wav', 'majorCombat'); }
+  else if(e.kind === 'shot'){
+    AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon');
+    if(/Shaken|routed|destroyed/.test(e.text)) setTimeout(() => AudioManager.playEffect('artillery-impact', 'audio/effects/artillery-impact.wav', 'majorCombat'), 350);
+  }
+  else if(e.kind === 'destroyed') AudioManager.playEffect('unit-destroyed', 'audio/effects/unit-destroyed.wav', 'majorCombat');
+  else if(e.kind === 'rally' && e.side === 'red' && /Rallies|saves/.test(e.text)) AudioManager.playEffect('rally-red', 'audio/effects/rally-british-1.m4a', 'majorCombat');
+}
+
+/* THE BATTLE RECORD for analysis, like the turn-based Full Match Log: what
+   happened, every order both sides gave, every dice result, and the AI's own
+   counters, as JSON. */
+export function battleRecord(){
+  if(!battle) return null;
+  const secs = Math.floor(battle.tick / TICKS_PER_SECOND);
+  return JSON.stringify({
+    kind: 'field-command-realtime-record', version: battle.version,
+    seed: battle.seed, playerSide: battle.playerSide, board: { assignment: state.boardAssignment, rotation: state.boardRotation },
+    result: battle.result, winner: battle.winner, seconds: secs,
+    points: { red: points(battle, 'red'), blue: points(battle, 'blue') },
+    stats: battle.stats, ai: ai ? ai.stats : null,
+    units: battle.units.map(u => ({ id: u.id, side: u.side, type: u.type, brigadeId: u.brigadeId, x: u.x, y: u.y, removed: u.removed })),
+    orders: battle.orderLog, events: battle.events,
+  }, null, 1);
 }
 
 /* The result, once an army breaks. */
@@ -376,10 +455,23 @@ function showResult(){
     ? (battle.winner ? `Time is up: ${SIDE_LABEL[battle.winner]} ahead on points (${points(battle, battle.winner)} to ${points(battle, battle.winner === 'red' ? 'blue' : 'red')}). ` : 'Time is up, level on points. ')
     : `${SIDE_LABEL[battle.winner]} carries the field after ${Math.floor(secs/60)} min ${secs%60} s. `;
   document.getElementById('overlayText').innerHTML = how +
-    `Units lost: ${SIDE_LABEL.red} ${battle.stats.destroyed.red || 0}, ${SIDE_LABEL.blue} ${battle.stats.destroyed.blue || 0}.`;
+    `Units lost: ${SIDE_LABEL.red} ${battle.stats.destroyed.red || 0}, ${SIDE_LABEL.blue} ${battle.stats.destroyed.blue || 0}. ` +
+    `Orders given: ${battle.orderLog.filter(o => o.side === battle.playerSide).length} by you, ${battle.orderLog.filter(o => o.side !== battle.playerSide).length} by the enemy. ` +
+    `Guns fired ${battle.stats.shots || 0} times.`;
   const btn = document.getElementById('overlayBtn');
   btn.style.display = ''; btn.textContent = 'New Battle'; btn.onclick = () => location.reload();
-  const extra = document.getElementById('modeChoices'); if(extra){ extra.innerHTML = ''; extra.style.display = 'none'; }
+  const extra = document.getElementById('modeChoices');
+  if(extra){
+    extra.innerHTML = ''; extra.style.display = 'flex';
+    const exp = document.createElement('button');
+    exp.textContent = 'Export Battle Record';
+    exp.onclick = () => {
+      document.getElementById('aiLogExportTitle').textContent = 'Real-Time Battle Record';
+      document.getElementById('aiLogExportText').value = battleRecord();
+      document.getElementById('aiLogExportPanel').classList.remove('hidden');
+    };
+    extra.appendChild(exp);
+  }
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -389,7 +481,7 @@ function showGroupToggle(){
   const btn = document.createElement('button');
   btn.id = 'rtsGroupToggle';
   btn.type = 'button';
-  btn.style.cssText = 'position:fixed;right:calc(env(safe-area-inset-right,0px) + 10px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:28;' +
+  btn.style.cssText = 'position:fixed;right:calc(env(safe-area-inset-right,0px) + 10px);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:28;' +
     'font:15px "IM Fell English",Georgia,serif;min-height:40px;padding:6px 14px;border-radius:20px;border:1px solid #b8963f;cursor:pointer';
   const paint = () => {
     btn.textContent = groupMode ? 'Group: On' : 'Group: Off';
@@ -424,7 +516,7 @@ function toast(text){
   let el = document.getElementById('rtsToast');
   if(!el){
     el = document.createElement('div'); el.id = 'rtsToast';
-    el.style.cssText = 'position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:50%;transform:translateX(-50%);z-index:28;' +
+    el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 120px);left:50%;transform:translateX(-50%);z-index:29;' +
       'font:14px "IM Fell English",Georgia,serif;color:#fbf6ea;background:rgba(90,30,24,.85);padding:4px 12px;border-radius:12px;pointer-events:none;transition:opacity .3s';
     document.body.appendChild(el);
   }

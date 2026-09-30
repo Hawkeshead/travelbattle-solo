@@ -28,11 +28,17 @@ function syncShared(b){
   state.moved = new Set();
 }
 const shared = su => state.units.find(x => x.id === su.id);
+const chainCache = new WeakMap();
 
 export const turnBasedRules = {
+  /* Worked out once per side per tick and kept: units only change square in
+     step(), so within a tick the answer cannot change, and the overlay and the
+     AI ask it many times a frame. */
   inChain(b, su){
-    syncShared(b);
-    return movableUnitsForSide(su.side).has(su.id);
+    let c = chainCache.get(b);
+    if(!c || c.tick !== b.tick){ c = { tick: b.tick, sides: {} }; chainCache.set(b, c); }
+    if(!c.sides[su.side]){ syncShared(b); c.sides[su.side] = movableUnitsForSide(su.side); }
+    return c.sides[su.side].has(su.id);
   },
   reachable(b, su){
     syncShared(b);

@@ -464,7 +464,7 @@ export function step(b, rules){
     })();
     if(!stacking && takenSquares(b, u.id).has(next.x + ',' + next.y)){
       // Someone is in the way: wait a moment, then find another way round.
-      if(++u.blocked < BLOCKED_WAIT_TICKS) continue;
+      if(++u.blocked < (u.pushed ? BLOCKED_WAIT_TICKS * 3 : BLOCKED_WAIT_TICKS)) continue;   // a pushed unit waits for the unit it shoved
       u.blocked = 0;
       const again = u.goal ? findPath(b, u, u.goal.x, u.goal.y) : null;
       if(again && again.length) u.path = again;
@@ -659,18 +659,41 @@ function resolveRound(b, rules, A, D, key, f = {}){
 }
 
 /* One square straight away from the winner, quickly, and turned around for
-   TURNED_AROUND_TICKS (attackers +1, no orders). Blocked or at the board edge,
-   it holds its square, turned around all the same. */
+   TURNED_AROUND_TICKS (attackers +1, no orders), as turn-based pushBack does:
+   - a friendly unit in the way is shoved back one square itself (and turned
+     around) if the square behind it is free; if not, neither moves;
+   - at the board edge the unit slides one square along its own edge, away
+     from the winner if it can;
+   - an enemy in the way, or nowhere to go, and it holds, turned around. */
 function pushBackUnit(b, loser, winner, key){
   delete b.fights[key];
   breakColumn(b, loser);                                  // only the loser falls back
   loser.turnedUntil = b.tick + TURNED_AROUND_TICKS;
   loser.path = []; loser.goal = null;
   if(loser.step) return;
-  const tx = loser.x + Math.sign(loser.x - winner.x), ty = loser.y + Math.sign(loser.y - winner.y);
-  if(!inBounds(b, tx, ty) || takenSquares(b, loser.id).has(tx + ',' + ty)) return;
-  loser.path = [{ x: tx, y: ty }];
-  loser.pushed = true;
+  const dx = Math.sign(loser.x - winner.x), dy = Math.sign(loser.y - winner.y);
+  let tx = loser.x + dx, ty = loser.y + dy;
+  const occupant = (x, y) => b.units.find(o => !o.removed && o.id !== loser.id && (o.x === x && o.y === y || (o.step && o.step.toX === x && o.step.toY === y)));
+  const send = (u, x, y) => { u.path = [{ x, y }]; u.pushed = true; u.goal = null; };
+  if(!inBounds(b, tx, ty)){
+    // Pinned against the edge: slide along it, away from the winner first.
+    const alongX = inBounds(b, loser.x, ty) ? 0 : 1;   // the edge is top/bottom: slide sideways
+    const opts = alongX
+      ? [loser.x + (Math.sign(loser.x - winner.x) || 1), loser.x - (Math.sign(loser.x - winner.x) || 1)].map(x => [x, loser.y])
+      : [loser.y + (Math.sign(loser.y - winner.y) || 1), loser.y - (Math.sign(loser.y - winner.y) || 1)].map(y => [loser.x, y]);
+    for(const [x, y] of opts){ if(inBounds(b, x, y) && !occupant(x, y)){ send(loser, x, y); note(b, 'push', loser, 'Driven along the edge'); return; } }
+    return;
+  }
+  const o = occupant(tx, ty);
+  if(!o){ send(loser, tx, ty); return; }
+  if(o.side !== loser.side || o.step || o.column) return;
+  const bx = tx + dx, by = ty + dy;
+  if(!inBounds(b, bx, by) || occupant(bx, by)) return;
+  // Shove the friendly unit back a square, then fall back into its place.
+  send(o, bx, by);
+  o.turnedUntil = Math.max(o.turnedUntil, b.tick + TURNED_AROUND_TICKS);
+  loser.path = [{ x: tx, y: ty }]; loser.pushed = true;
+  note(b, 'push', o, 'Shoved back by the retreat');
 }
 
 /* Margin 2. The rally is rolled where the unit stands (as in turn-based):

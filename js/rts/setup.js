@@ -10,7 +10,8 @@ import { newUnit, resetHistoricalIdentities } from '../engine-state.js';
 import { planArmyDeployment } from '../ai-deployment.js';
 import { createBattle } from './sim.js';
 
-export function setupBattle(playerSide){
+/* The board on its own, with no armies yet. */
+export function setupBoard(){
   state.scenario = null; state.campaign = null;
   state.rts = true;                         // marks a Real-Time battle; nothing in turn-based reads it
   setBoardMode('standard');
@@ -21,18 +22,31 @@ export function setupBattle(playerSide){
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
-
-  // Army choice comes later; for now each side gets one at random.
   resetHistoricalIdentities();
   state.units.length = 0;
   state.deployBrigadeIndex = { red: 0, blue: 0 };
   state.phase = 'rts';
+}
+
+/* One side's army, placed by the turn-based auto-deploy around whatever is
+   already on the board. armyId null: one at random (the AI's way). */
+export function placeArmy(side, armyId){
   const armies = TB_DATA.armyCompositions;
-  for(const side of [SIDES.RED, SIDES.BLUE]){
-    const army = armies[Math.floor(seededRandom() * armies.length)];
-    for(const g of planArmyDeployment(side, army.id)) state.units.push(newUnit(side, g.type, g.x, g.y, g.brigadeId));
-  }
+  const army = armyId ? armies.find(a => a.id === armyId) : armies[Math.floor(seededRandom() * armies.length)];
+  for(const g of planArmyDeployment(side, army.id)) state.units.push(newUnit(side, g.type, g.x, g.y, g.brigadeId));
+  return army;
+}
+
+/* The battle itself, from the board and armies as they stand. */
+export function finishBattle(playerSide){
   const road = [];
   for(let y=0; y<ROWS; y++){ road.push([]); for(let x=0; x<COLS; x++) road[y].push(isRoadLike(terrainAt(x,y))); }
   return createBattle({ seed: Math.floor(seededRandom() * 4294967296), terrain: state.terrain, road, units: state.units, playerSide });
+}
+
+/* All at once, both armies at random: the simulator's way. */
+export function setupBattle(playerSide){
+  setupBoard();
+  for(const side of [SIDES.RED, SIDES.BLUE]) placeArmy(side, null);
+  return finishBattle(playerSide);
 }
