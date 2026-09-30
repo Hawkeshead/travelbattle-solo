@@ -27,7 +27,7 @@ Every image is centred on its cell, top edge at cell top minus half a cell, alwa
 
 Grass picking:
 - Plain grass (grass_1..6): hash of (x,y) mod 6, bumped to the next variant if it matches the left or above neighbour.
-- Detail grass (grass/detail, 11 files): only on OPEN squares that are not farm overlay squares. If hash(x,y,7) % 5 == 0 and none of the left, above, above-left or above-right squares already has a detail, use detail number hash(x,y,8) % 11. Put the 5 in a named constant (GRASS_DETAIL_ONE_IN); it will be lowered later for more detail.
+- Detail grass (grass/detail, 16 files, grass v4 of 1 Oct 2026): only on OPEN squares that are not farm overlay squares. If hash(x,y,7) % 100 < GRASS_DETAIL_PERCENT (30) and none of the left, above, above-left or above-right squares already has a detail, use detail number hash(x,y,8) % 16 (GRASS_DETAIL_FILES order). Raise or lower GRASS_DETAIL_PERCENT for more or less detail; it scales predictably, where the old one-in-N rule did not. See docs/terrain-v2/grass-v4/.
 - ROAD, WOODS, BUILDING and farm squares always get plain grass underneath.
 
 Farm picking: port reference/farms_reference.py. The farm set is every PLOUGHED_FIELD square plus every farm overlay square, on the assembled map. Contiguous blocks are split into fields of 2 or 3 squares along each row; blocks of 3 or more squares use all four farm tiles, smaller blocks keep one set; touching fields never share a tile. Mirror the farm image horizontally on squares where x+y is odd. This replaces the old farm grouping rule.

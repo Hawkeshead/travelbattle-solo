@@ -19,14 +19,19 @@ export function h(x, y, salt){
 const hPos = (x, y, s) => { const v = h(x, y, s); return v < 0 ? v + 1000003 : v; };
 
 export const GRASS_PLAIN_COUNT = 6;
-export const GRASS_DETAIL_COUNT = 11;           // grass/detail: grass_7 .. grass_17
-export const GRASS_DETAIL_ONE_IN = 5;           // one open square in this many may get a detail; lower it for more
+export const GRASS_DETAIL_COUNT = 16;           // grass/detail: grass_7 .. grass_22 (grass v4)
+/* The share of eligible squares that get a detail, as a percentage of the
+   h(x,y,7) range. A percentage scales predictably; the old "one in N" rule did
+   not (one in 4 gave fewer details than one in 5 on the 1v1 map, because of
+   where the hash lands). 30 gives 20 detail squares on the 1v1 map. */
+export const GRASS_DETAIL_PERCENT = 30;
 export const HILL_COUNT = 7;
 export const WOODS_COUNT = 4;
 export const FARM_COUNT = 4;
-export const GRASS_DETAIL_FILES = ['grass_7_lone_oak', 'grass_8_hawthorn', 'grass_9_poplars', 'grass_10_weeds_thistles',
-  'grass_11_campfire', 'grass_12_reed_pond', 'grass_13_shattered_stump', 'grass_14_broken_cart', 'grass_15_haystack',
-  'grass_16_fallen_posts', 'grass_17_stone_trough'];
+export const GRASS_DETAIL_FILES = ['grass_7_oak_single', 'grass_8_oak_pair', 'grass_9_oak_trio', 'grass_10_oak_pair_right',
+  'grass_11_poplars_weeds', 'grass_12_poplars_oak', 'grass_13_hedge_solo', 'grass_14_hedge_solo_left', 'grass_15_campfire_oak',
+  'grass_16_campfire_poplars_cart', 'grass_17_haystack_oak', 'grass_18_trough_oak', 'grass_19_pond_oak', 'grass_20_stump_weeds',
+  'grass_21_cart_stump', 'grass_22_posts_oak'];   // index = detail number
 
 /* ---------------------------------------------------------
    Farm overlay squares on the assembled map. Local board coordinates are
@@ -47,10 +52,11 @@ export function farmOverlaySet(layouts, placements, half, rotatePoint){
 
 /* ---------------------------------------------------------
    Grass. Plain: h(x,y,0) % 6, moved on to the next variant while it matches
-   the square to the left or above. Detail (grass/detail): only on OPEN squares
-   that are not farm overlay squares, one in GRASS_DETAIL_ONE_IN by h(x,y,7),
-   never beside another detail to the left, above, above-left or above-right;
-   which detail by h(x,y,8). Returns rows of { plain: 1..6, detail: 0..10 | -1 }.
+   the square to the left or above. Detail (grass/detail, 16 files): only on
+   OPEN squares that are not farm overlay squares, when h(x,y,7) % 100 is below
+   GRASS_DETAIL_PERCENT, never beside another detail to the left, above,
+   above-left or above-right; which detail by h(x,y,8) % GRASS_DETAIL_COUNT.
+   Returns rows of { plain: 1..6, detail: 0..15 | -1 }.
 --------------------------------------------------------- */
 export function grassPicks(terrain, overlay){
   const rows = terrain.length, cols = terrain[0].length;
@@ -62,7 +68,7 @@ export function grassPicks(terrain, overlay){
       const left = x > 0 ? row[x - 1].plain - 1 : -1, above = y > 0 ? out[y - 1][x].plain - 1 : -1;
       for(let k = 0; k < GRASS_PLAIN_COUNT && (p === left || p === above); k++) p = (p + 1) % GRASS_PLAIN_COUNT;
       let detail = -1;
-      if(terrain[y][x] === 'OPEN' && !overlay.has(x + ',' + y) && hPos(x, y, 7) % GRASS_DETAIL_ONE_IN === 0){
+      if(terrain[y][x] === 'OPEN' && !overlay.has(x + ',' + y) && hPos(x, y, 7) % 100 < GRASS_DETAIL_PERCENT){
         const near = [[x - 1, y], [x, y - 1], [x - 1, y - 1], [x + 1, y - 1]].some(([nx, ny]) =>
           ny >= 0 && nx >= 0 && nx < cols && (ny === y ? row[nx] : out[ny][nx]).detail >= 0);
         if(!near) detail = hPos(x, y, 8) % GRASS_DETAIL_COUNT;

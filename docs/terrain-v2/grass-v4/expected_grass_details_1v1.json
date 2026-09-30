@@ -1,0 +1,26 @@
+{
+ "_note": "Expected grass detail squares on the 1v1 map (Board A left, Board B right, rotation 0), assembled coords, using hPos exactly as terrain-v2.js does with GRASS_DETAIL_PERCENT = 30 and the 16 new files.",
+ "count": 20,
+ "details": {
+  "3,0": "grass_19_pond_oak",
+  "5,0": "grass_7_oak_single",
+  "13,0": "grass_19_pond_oak",
+  "16,0": "grass_16_campfire_poplars_cart",
+  "19,0": "grass_19_pond_oak",
+  "14,2": "grass_11_poplars_weeds",
+  "16,2": "grass_9_oak_trio",
+  "19,3": "grass_15_campfire_oak",
+  "0,4": "grass_11_poplars_weeds",
+  "3,4": "grass_12_poplars_oak",
+  "6,4": "grass_17_haystack_oak",
+  "10,4": "grass_10_oak_pair_right",
+  "17,4": "grass_18_trough_oak",
+  "4,6": "grass_10_oak_pair_right",
+  "0,7": "grass_15_campfire_oak",
+  "13,7": "grass_15_campfire_oak",
+  "8,8": "grass_13_hedge_solo",
+  "11,8": "grass_19_pond_oak",
+  "5,9": "grass_10_oak_pair_right",
+  "15,9": "grass_16_campfire_poplars_cart"
+ }
+}

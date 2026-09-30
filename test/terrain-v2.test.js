@@ -65,3 +65,13 @@ test('grass: plain never matches the left or above neighbour; details are spaced
     }
   }
 });
+
+test('grass v4: exactly the expected 20 detail squares and files on the 1v1 map', async () => {
+  const { GRASS_DETAIL_FILES } = await import('../js/terrain-v2.js');
+  const want = JSON.parse(readFileSync(new URL('../docs/terrain-v2/grass-v4/expected_grass_details_1v1.json', import.meta.url)));
+  const g = grassPicks(map, overlay);
+  const got = {};
+  for (let y = 0; y < 10; y++) for (let x = 0; x < 20; x++) if (g[y][x].detail >= 0) got[`${x},${y}`] = GRASS_DETAIL_FILES[g[y][x].detail];
+  assert.equal(Object.keys(got).length, want.count);
+  assert.deepEqual(got, want.details);
+});
