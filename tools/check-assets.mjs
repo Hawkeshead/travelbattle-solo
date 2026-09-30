@@ -66,6 +66,15 @@ for (const src of sources) {
   }
 }
 
+/* The dice art is also loaded by pattern (js/dice-art.js). */
+{
+  const dice = await import(new URL('../js/dice-art.js', import.meta.url));
+  for (const path of dice.diceArtPaths()) {
+    seen.add(`dice-art::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/dice-art.js (dice art)', path }); }
+  }
+}
+
 if (missing.length) {
   console.error('\nMissing asset files referenced in source:\n');
   for (const { src, path } of missing) {

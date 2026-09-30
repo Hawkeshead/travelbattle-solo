@@ -975,6 +975,19 @@
   .die.kept{ border-color:var(--brass-bright); box-shadow:0 0 0 2px var(--brass-bright); }
   .die.discard{ opacity:0.4; }
   .die .pip{ border-radius:50%; background:var(--ink); align-self:center; justify-self:center; width:65%; height:65%; }
+  /* Dice art (js/dice-art.js): the same 32 px box, but the die image is drawn
+     larger than it (a face fills about 71% of its canvas) so the die itself is
+     the size the old box was. Kept = a gold glow round the die; discarded
+     keeps the 0.4 fade; pending shows face 1, dimmed. */
+  .die.die-art{ display:block; position:relative; background:transparent; border-color:transparent; box-shadow:none; padding:0; overflow:visible; }
+  .die.die-art img{ position:absolute; left:50%; top:50%; width:140%; height:140%; transform:translate(-50%,-50%); pointer-events:none; user-select:none; }
+  .die.die-art.pending{ border-style:solid; }
+  .die.die-art.pending img{ opacity:0.45; filter:saturate(0.6); }
+  .die.die-art.kept{ box-shadow:none; }
+  .die.die-art.kept img{ filter:drop-shadow(0 0 2px var(--brass-bright)) drop-shadow(0 0 4px var(--brass-bright)); }
+  .die.die-art.settle img{ animation:dieSettle 120ms ease-out; }
+  @keyframes dieSettle{ from{ transform:translate(-50%,-50%) scale(1.08); } to{ transform:translate(-50%,-50%) scale(1); } }
+  @media (prefers-reduced-motion:reduce){ .die.die-art.settle img{ animation:none; } }
   .dice-result{ margin-top:5px; font-family:'Cormorant Garamond',serif; font-weight:700; font-size:14px; color:var(--ink); min-height:18px; }
   .dice-result.win{ color:var(--ok); }
   .dice-result.lose{ color:var(--danger); }

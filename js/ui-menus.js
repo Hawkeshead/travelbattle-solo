@@ -481,8 +481,8 @@ function rollOrientationOrder(){
   const firstSide = redRoll===blueRoll ? null : (redRoll>blueRoll ? SIDES.RED : SIDES.BLUE);
   const resultText = firstSide===null ? 'Tied \u2014 rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
   showDice([
-    {label:'Britain', rolls:[redRoll], keptValue:redRoll},
-    {label:'France', rolls:[blueRoll], keptValue:blueRoll}
+    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
+    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
   ], resultText, firstSide===null?'draw':'win', ()=>{
     if(firstSide===null){ rollOrientationOrder(); return; }
     log(`${SIDE_LABEL[firstSide]} rolls higher and goes first for table orientation.`, 'system');
@@ -498,8 +498,8 @@ function rollRotationEligibility(firstSide){
     : blueEligible ? 'Only France may rotate their board'
     : 'Neither rolled high enough \u2014 both boards stay as they are';
   showDice([
-    {label:'Britain', rolls:[redRoll], keptValue:redRoll},
-    {label:'France', rolls:[blueRoll], keptValue:blueRoll}
+    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
+    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
   ], resultText, 'draw', ()=>{
     log(`Britain rolls ${redRoll}, France rolls ${blueRoll} for the right to rotate their board.`, 'system');
     const order = firstSide===SIDES.BLUE ? [SIDES.BLUE, SIDES.RED] : [SIDES.RED, SIDES.BLUE];
