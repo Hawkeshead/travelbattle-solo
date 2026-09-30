@@ -46,3 +46,37 @@ The trade-off to judge in playtests: one order per Brigadier every 40 s is
 four times scarcer than the plan's starting figure (about 37 orders per
 Brigadier in a 25 minute battle, where the plan's pace check assumed 150).
 The plan's two targets cannot both be met at 10 s with this AI.
+
+## Second pass (30 Sep 2026, overnight review)
+
+AI behaviour settings (js/rts/ai.js AI_DEFAULTS) measured head to head, the
+variant on one side swapped every match against the shipped AI
+(`RTS_AI_VARIANT='{...}' node tools/sim/rts-run.mjs 80 <seed>`):
+
+| Variant | Won (of decided) | Verdict |
+|---|---|---|
+| waveShare 0.4 (spend sooner) | 31 of 65, 48% | no change |
+| waveShare 0.8 (bank longer) | 33 of 70, 47% | no change |
+| gunsAdvance (a gun with no target moves up, never within 2 of the enemy) | 54 of 79, **68%** | adopted |
+| then gangUp 1.5 (prefer a second attacker on an enemy already fighting) | 49 of 80, **61%** | adopted |
+| then weakTarget 1.5 (aim for turned-around, cut-off or lone enemies) | 45 of 80, 56% | not adopted (not clear of noise) |
+| then gangUp + weakTarget | 45 of 80, 56% | not adopted |
+
+The stronger AI ends battles sooner (15.8 min at the first-pass settings) and
+its guns kill more (45%), so the pace was swept again. Slower marching
+(TRAVEL_SCALE 1.5 and 2) did not lengthen battles; the order rate is still
+the pace.
+
+| Setting (with the new AI) | Minutes | Artillery share |
+|---|---|---|
+| regen 40, reload 25 | 16.6 | 40% |
+| regen 50, reload 30 | 18.6 | 42% |
+| regen 50, reload 35 | 20.2 | 41% |
+| regen 55, reload 40 | 21.7 | 37% |
+| regen 60, reload 30 | 22.7 | 45% |
+
+Chosen: ORDER_REGEN 50 s, ARTILLERY_RELOAD 35 s. On 80 fresh seeds (7000 on):
+**20.2 min average, artillery 42% of kills**, 79 of 80 decided (76 by a
+break), none stalled. Artillery sits a little above the turn-based 37%;
+bringing it lower needs a 40 s reload and a 55 s regen (21.7 min, 37%),
+which makes orders scarcer still. Left for playtesting to decide.

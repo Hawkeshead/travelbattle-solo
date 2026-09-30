@@ -30,7 +30,11 @@ for(let i = 0; i < N; i++){
   g.rules.seedRng(seed);
   state.mode = 'ai'; state.aiSide = SIDES.BLUE;
   const b = setupBattle(i % 2 ? SIDES.BLUE : SIDES.RED);
-  const ais = [createAi('red', { phase: 0 }), createAi('blue', { phase: 10 })];
+  /* RTS_AI_VARIANT='{"waveShare":0.4}' puts that variant on one side, swapped
+     every match, against the shipped AI on the other. */
+  const variant = process.env.RTS_AI_VARIANT ? JSON.parse(process.env.RTS_AI_VARIANT) : null;
+  const variantSide = variant ? (i % 2 ? 'blue' : 'red') : null;
+  const ais = [createAi('red', { phase: 0, tune: variantSide === 'red' ? variant : {} }), createAi('blue', { phase: 10, tune: variantSide === 'blue' ? variant : {} })];
   let idle = 0, samples = 0, bankSum = 0, bankN = 0;
   const t0 = Date.now();
   while(!b.over && b.tick < MATCH_CLOCK_TICKS + 1){
@@ -44,7 +48,7 @@ for(let i = 0; i < N; i++){
   const destroyed = (b.stats.destroyed.red || 0) + (b.stats.destroyed.blue || 0);
   const spent = ais.reduce((s, a) => s + a.stats.ordersIssued, 0);
   const row = {
-    seed, minutes: +(b.tick / TICKS_PER_SECOND / 60).toFixed(1), result: b.result, winner: b.winner || 'draw',
+    seed, variantSide, minutes: +(b.tick / TICKS_PER_SECOND / 60).toFixed(1), result: b.result, winner: b.winner || 'draw',
     stalled: b.result === 'clock' && destroyed < 4,
     ordersSpent: spent, refused: ais.reduce((s, a) => s + a.stats.refused, 0),
     avgBanked: +(bankSum / Math.max(1, bankN)).toFixed(2),
@@ -61,5 +65,10 @@ const decided = rows.filter(r => r.winner !== 'draw');
 console.log('\nSUMMARY');
 console.log(`matches ${rows.length}  decided ${decided.length}  by break ${rows.filter(r => r.result === 'break').length}  on the clock ${rows.filter(r => r.result === 'clock').length}  stalled ${rows.filter(r => r.stalled).length}`);
 console.log(`minutes avg ${avg('minutes')}  orders spent avg ${avg('ordersSpent')}  refused avg ${avg('refused')}  banked avg ${avg('avgBanked')}  idle ${avg('idlePct')}%`);
+if(rows.some(r => r.variantSide)){
+  const dec = rows.filter(r => r.winner !== 'draw');
+  const w = dec.filter(r => r.winner === r.variantSide).length;
+  console.log(`VARIANT ${process.env.RTS_AI_VARIANT}: won ${w} of ${dec.length} decided (${dec.length ? Math.round(100 * w / dec.length) : 0}%)`);
+}
 console.log(`artillery share of kills ${avg('artilleryShare')}%  melee rounds per fight ${avg('roundsPerFight')}  wall ${avg('wallSec')}s per match`);
 process.exit(0);

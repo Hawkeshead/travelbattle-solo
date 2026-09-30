@@ -56,6 +56,8 @@ export function launchRealTime(){
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
   const dock = document.getElementById('phaseDock'); if(dock) dock.style.display = 'none';
+  // Turn-based undo has no meaning in real time (and would rewind shared state).
+  const undo = document.getElementById('undoBtnBattle'); if(undo) undo.style.display = 'none';
   sizeCanvas();
   attachInput();
   AudioManager.playAmbience('audio/ambience/countryside.mp3');

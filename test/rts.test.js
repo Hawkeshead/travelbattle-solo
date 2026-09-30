@@ -407,6 +407,7 @@ test('Columns: stack two infantry, form Column, and they move as one for one ord
   run(b, FORM_TICKS.COLUMN + 1, loose);
   assert.ok(U(b, 'p').column && U(b, 'q').column, 'in Column');
   run(b, COOLDOWN_TICKS.INFANTRY, loose);
+  poolOf(b, U(b, 'p')).pool.orders = 2;            // whatever the regeneration rate, the pool can pay
   const before = poolOf(b, U(b, 'p')).pool.orders;
   assert.equal(issueOrder(b, { unitId: 'q', type: 'move', target: { x: 6, y: 6 } }, loose).ok, true, 'either unit takes the order');
   assert.equal(poolOf(b, U(b, 'p')).pool.orders, before - 1, 'one order for the Column');

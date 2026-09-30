@@ -40,11 +40,19 @@ const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const isFoot = u => u.type === 'INFANTRY' || u.type === 'GUARD';
 const isCav = u => u.type === 'LIGHT_CAV' || u.type === 'HEAVY_CAV';
-const WAVE_SHARE = 0.6;              // spend once the pool covers this share of the Brigade's ready units
 const TERRAIN_PREF = { HILL: -0.35, WOODS: -0.25, BUILDING: -0.3 };
 
-export function createAi(side, { phase = 0 } = {}){
-  return { side, queue: [], nextEval: phase, stats: { ordersIssued: 0, refused: 0, waves: 0 } };
+/* Behaviour settings, so variants can be measured head to head in the
+   simulator (tools/sim/rts-run.mjs with RTS_AI_VARIANT). DEFAULTS is the
+   shipped AI. */
+export const AI_DEFAULTS = {
+  waveShare: 0.6,          // bank until the pool covers this share of the ready units
+  gangUp: 1.5,             // bonus for a square beside an enemy already in a fight (a second attacker); won 61% of 80 decided vs. 0
+  weakTarget: 0,           // pull toward enemies that are turned around, off their chain or alone
+  gunsAdvance: true,       // a gun with nothing in its line of fire moves up (won 68% of 79 decided vs. staying put)
+};
+export function createAi(side, { phase = 0, tune = {} } = {}){
+  return { side, tune: { ...AI_DEFAULTS, ...tune }, queue: [], nextEval: phase, stats: { ordersIssued: 0, refused: 0, waves: 0 } };
 }
 
 /* Called once per tick, after step(). */
@@ -85,11 +93,24 @@ function decide(ai, b, rules){
   const canPay = u => { const k = brigadeKey(u); if(!budget.has(k)) budget.set(k, poolOf(b, u).pool.orders); return budget.get(k) > 0; };
   const pay = u => budget.set(brigadeKey(u), budget.get(brigadeKey(u)) - 1);
 
-  // Artillery: keep a lock on the best target.
+  // Artillery: keep a lock on the best target; with nothing in its line of
+  // fire, optionally move up (never to within two squares of the enemy).
   for(const g of mine){
     if(g.type !== 'ARTILLERY' || g.lock || !ready(b, g, rules) || !canPay(g)) continue;
     const targets = foes.filter(t => rules.canFireAt(b, g, t));
-    if(!targets.length) continue;
+    if(!targets.length){
+      if(!ai.tune.gunsAdvance) continue;
+      const near = foes.slice().sort((p, q) => dist(p, g) - dist(q, g))[0];
+      let best = null, bd = dist(g, near);
+      for(const c of rules.reachable(b, g)){
+        if(claimed.has(c.x + ',' + c.y) || b.units.some(o => !o.removed && o.x === c.x && o.y === c.y)) continue;
+        if(foes.some(f => cheb(f, c) <= 2)) continue;
+        const d = dist(c, near) - (b.terrain[c.y][c.x] === 'HILL' ? 0.6 : 0);
+        if(d < bd - 0.1){ bd = d; best = c; }
+      }
+      if(best){ claimed.add(best.x + ',' + best.y); orders.push({ unitId: g.id, type: 'move', target: { x: best.x, y: best.y } }); pay(g); }
+      continue;
+    }
     targets.sort((p, q) => targetValue(b, rules, g, q) - targetValue(b, rules, g, p));
     orders.push({ unitId: g.id, type: 'fire', targetId: targets[0].id });
     pay(g);
@@ -102,7 +123,11 @@ function decide(ai, b, rules){
     const brig = units.find(u => u.type === 'BRIGADIER');
     if(!troops.length) continue;
     const cx = troops.reduce((s, u) => s + u.x, 0) / troops.length, cy = troops.reduce((s, u) => s + u.y, 0) / troops.length;
-    const target = foes.slice().sort((p, q) => cheb(p, { x: cx, y: cy }) - cheb(q, { x: cx, y: cy }))[0];
+    const centre = { x: cx, y: cy };
+    const weakness = f => (b.tick < f.turnedUntil ? 1 : 0) + (rules.inChain(b, f) ? 0 : 1) +
+      (foes.some(o => o !== f && cheb(o, f) === 1) ? 0 : 0.5);
+    const target = foes.slice().sort((p, q) =>
+      (dist(p, centre) - ai.tune.weakTarget * weakness(p)) - (dist(q, centre) - ai.tune.weakTarget * weakness(q)))[0];
 
     // Threat answers, paid for straight away: foot with enemy cavalry close forms Square.
     for(const u of troops){
@@ -116,7 +141,7 @@ function decide(ai, b, rules){
     const movers = troops.filter(u => u.type !== 'ARTILLERY' && u.formation !== 'square' && ready(b, u, rules) && !foes.some(f => cheb(f, u) === 1));
     canPay(troops[0]);
     const left = budget.get(brigadeKey(troops[0]));
-    const wave = Math.max(1, Math.ceil(movers.length * WAVE_SHARE));
+    const wave = Math.max(1, Math.ceil(movers.length * ai.tune.waveShare));
     if(movers.length && left >= Math.min(wave, movers.length)){
       ai.stats.waves += 1;
       // Rear units first, so the line closes up rather than strings out.
@@ -125,7 +150,7 @@ function decide(ai, b, rules){
       const planned = new Map(units.map(u => [u.id, { x: u.x, y: u.y }]));
       for(const u of movers){
         if(spend <= 0) break;
-        const dest = bestSquare(b, rules, u, target, units, planned, foes, claimed);
+        const dest = bestSquare(b, rules, u, target, units, planned, foes, claimed, ai.tune);
         if(!dest) continue;
         claimed.add(dest.x + ',' + dest.y);
         planned.set(u.id, dest);
@@ -163,7 +188,7 @@ function scoreBrigadier(c, troops, target, anchor){
 /* Where one unit should go: closer to the target, next to a Brigade mate or
    its Brigadier (where they will be), onto good ground if it can. A square
    beside the enemy is a chosen fight: taken when the unit can win it. */
-function bestSquare(b, rules, u, target, brigade, planned, foes, claimed){
+function bestSquare(b, rules, u, target, brigade, planned, foes, claimed, tune = AI_DEFAULTS){
   const here = dist(u, target);
   let best = null, bestScore = Infinity;
   for(const c of rules.reachable(b, u)){
@@ -176,6 +201,7 @@ function bestSquare(b, rules, u, target, brigade, planned, foes, claimed){
     const touching = foes.filter(f => cheb(f, c) === 1);
     let score = d + (linked ? 0 : 2.5) + (TERRAIN_PREF[b.terrain[c.y][c.x]] || 0);
     if(touching.length > 1) score += 1.5;                    // do not walk into two fights at once
+    if(tune.gangUp && touching.length === 1 && Object.values(b.fights).some(f => f.a === touching[0].id || f.d === touching[0].id)) score -= tune.gangUp;
     if(touching.length && u.type === 'LIGHT_CAV' && touching.some(f => f.formation === 'square')) score += 3;
     if(score < bestScore){ bestScore = score; best = { x: c.x, y: c.y }; }
   }
