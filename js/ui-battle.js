@@ -47,6 +47,15 @@ export const FOOT_ACK = {
   ],
 };
 
+/* A second answer a side's foot soldiers can give instead of the one above,
+   chosen half the time at random (Matthew, 30 Sep 2026: the French alternate
+   their "oui" with a honk). Kept apart from FOOT_ACK rather than added to its
+   list, because the list plays one take at random: one honk among four ouis
+   would come up a fifth of the time, not half. */
+export const FOOT_ACK_ALT = {
+  blue: ['audio/effects/ack-french-honk.m4a'],
+};
+
 /* The acknowledgement list for this unit, or null if it should click instead.
    INFANTRY and GUARD only: these are men on foot being given an order, and a
    gun crew or a squadron answering the same way would flatten the distinction
@@ -54,6 +63,8 @@ export const FOOT_ACK = {
 export function footAckFor(u){
   const key = UNIT_TYPES[u.type].key;
   if(key !== 'INFANTRY' && key !== 'GUARD') return null;
+  const alt = FOOT_ACK_ALT[u.side];
+  if(alt && alt.length && Math.random() < 0.5) return alt;   // a sound choice, so not the game's seeded dice
   const list = FOOT_ACK[u.side];
   return (list && list.length) ? list : null;
 }
