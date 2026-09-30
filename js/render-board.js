@@ -956,14 +956,72 @@ export function fctSquareToPixel(col, row){
   };
 }
 
+/* =========================================================
+   ZOOM-AWARE BACKING RESOLUTION
+
+   Pinch-zoom is a CSS transform on the canvas (see MAP ZOOM & PAN below), so
+   at zoom > 1 the browser stretches pixels drawn for zoom 1: on an iPhone 15
+   Pro a square drawn at about 120 device pixels was shown at about 275, which
+   is why the board went soft and blocky when zoomed in.
+
+   So the canvas's BACKING resolution follows the zoom: renderScale =
+   min(devicePixelRatio x mapZoom, the largest scale that keeps the canvas
+   under MAX_BACKING_PX pixels). Its CSS size, the CSS transform and every bit
+   of hit-testing are exactly as before; only canvas.width/height and the base
+   transform (setTransform(renderScale, ...)) change. It is not resized during
+   a pinch, pan or camera move (the transform stretches as before, so gestures
+   stay smooth); 150 ms after zoom settles at a new level, it is resized once
+   and redrawn. Back at zoom 1 it is the normal dpr resolution again.
+
+   If a canvas that large cannot be made (the browser refuses the memory), the
+   limit drops to MAX_BACKING_PX_FALLBACK for the rest of the session.
+========================================================= */
+export const MAX_BACKING_PX = 12_000_000;
+export const MAX_BACKING_PX_FALLBACK = 8_000_000;
+let backingLimit = MAX_BACKING_PX;
+export let renderScale = window.devicePixelRatio || 1;
+export function targetRenderScale(zoom = mapZoom){
+  const dpr = window.devicePixelRatio || 1;
+  const cap = Math.sqrt(backingLimit / Math.max(1, COLS * CELL * ROWS * CELL));
+  return Math.min(dpr * Math.max(1, zoom), cap);
+}
+/* Sets the backing store to a scale, checking the browser really gave it the
+   memory (on failure the canvas silently stays unusable), and falling back to
+   the lower limit if not. Returns the scale in use. */
+function applyRenderScale(scale){
+  const set = sc => {
+    canvas.width = Math.round(COLS * CELL * sc);
+    canvas.height = Math.round(ROWS * CELL * sc);
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.getImageData(0, 0, 1, 1);          // throws if the backing store was not allocated
+    return canvas.width === Math.round(COLS * CELL * sc);
+  };
+  try { if(set(scale)){ renderScale = scale; return scale; } } catch { /* too big for this device */ }
+  backingLimit = MAX_BACKING_PX_FALLBACK;
+  const lower = Math.min(scale, targetRenderScale());
+  try { if(set(lower)){ renderScale = lower; return lower; } } catch { /* fall through to dpr */ }
+  const dpr = window.devicePixelRatio || 1;
+  set(dpr); renderScale = dpr;
+  return dpr;
+}
+let backingTimer = null;
+/* Called whenever zoom or pan changes; acts only once things have settled. */
+function scheduleBackingUpdate(){
+  clearTimeout(backingTimer);
+  backingTimer = setTimeout(() => {
+    if(mapGesturePointers.size || cameraRaf){ scheduleBackingUpdate(); return; }   // still moving: wait
+    const want = targetRenderScale();
+    if(Math.abs(want - renderScale) < 0.01) return;
+    applyRenderScale(want);
+    draw();
+  }, 150);
+}
+
 export function sizeCanvas(){
   setCell(computeCellSize());
-  const dpr = window.devicePixelRatio || 1;
   canvas.style.width = (COLS*CELL) + 'px';
   canvas.style.height = (ROWS*CELL) + 'px';
-  canvas.width = COLS*CELL*dpr;
-  canvas.height = ROWS*CELL*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  applyRenderScale(targetRenderScale(1));   // a new board starts at zoom 1 (resetMapView below)
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
   syncFctLayer();
@@ -1189,6 +1247,7 @@ export function applyMapTransform(){
   clampMapPan();
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
   syncFctLayer();   // the label layer rides the same transform or it drifts off the board
+  scheduleBackingUpdate();   // sharpen to the new zoom once it settles
 }
 
 canvas.addEventListener('pointerdown', (e)=>{
@@ -2389,7 +2448,7 @@ export function playBoardIntroAnimation(onComplete){
   snapshot.height = canvas.height;
   snapshot.getContext('2d').drawImage(canvas, 0, 0);
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = renderScale;   // the snapshot's own pixels per CSS pixel (was devicePixelRatio; the same thing at zoom 1)
   const fallDistance = window.innerHeight; // always starts fully off the top of the current viewport, whatever the phone's orientation
   const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50;
   const DUST_MS = 200;
