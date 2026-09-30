@@ -305,6 +305,7 @@ function drawCommandOverlay(){
   const mine = battle.units.filter(u => !u.removed && u.side === battle.playerSide);
   drawFightMarkers();
   drawLocks();
+  drawThreats(mine);
   const byId = id => state.units.find(x => x.id === id);
   const chainOk = new Set(mine.filter(u => turnBasedRules.inChain(battle, u)).map(u => u.id));
   ctx.save();
@@ -365,6 +366,47 @@ function drawCommandOverlay(){
     }
   }
   ctx.restore();
+}
+
+/* THREAT WARNINGS: enemy cavalry within two squares of one of your guns (the
+   plan's example of a threat worth an alarm). The gun gets a pulsing red
+   ring; if it is off screen (the map zoomed in), a red marker sits on the
+   screen edge in its direction; and a note says so, at most once a gun every
+   20 s. */
+const threatNoted = new Map();
+function drawThreats(mine){
+  const guns = mine.filter(u => u.type === 'ARTILLERY');
+  const cav = battle.units.filter(u => !u.removed && !u.hidden && u.side !== battle.playerSide && (u.type === 'LIGHT_CAV' || u.type === 'HEAVY_CAV'));
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+  const rect = canvas.getBoundingClientRect();
+  for(const g of guns){
+    if(!cav.some(c => Math.max(Math.abs(c.x - g.x), Math.abs(c.y - g.y)) <= 2)) continue;
+    const u = state.units.find(x => x.id === g.id); if(!u) continue;
+    const { cx, cy } = unitScreen(u);
+    ctx.save();
+    ctx.strokeStyle = `rgba(210,40,30,${0.45 + 0.5 * pulse})`; ctx.lineWidth = Math.max(2.5, CELL * 0.08);
+    ctx.beginPath(); ctx.arc(cx, cy, CELL * (0.52 + 0.06 * pulse), 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    // Where that is on the screen, through the map's zoom and pan.
+    const px = rect.left + cx / (COLS_PX()) * rect.width, py = rect.top + cy / (ROWS_PX()) * rect.height;
+    const off = px < 0 || py < 0 || px > innerWidth || py > innerHeight;
+    edgeMarker(g.id, off ? Math.min(innerWidth - 14, Math.max(14, px)) : null, off ? Math.min(innerHeight - 14, Math.max(14, py)) : null);
+    const last = threatNoted.get(g.id) || -Infinity;
+    if(battle.tick - last > 20 * TICKS_PER_SECOND){ threatNoted.set(g.id, battle.tick); toast('Cavalry closing on your guns'); }
+  }
+  for(const [id, el] of edgeMarkers) if(!guns.some(g => g.id === id && cav.some(c => Math.max(Math.abs(c.x - g.x), Math.abs(c.y - g.y)) <= 2))){ el.remove(); edgeMarkers.delete(id); }
+}
+const COLS_PX = () => battle.cols * CELL, ROWS_PX = () => battle.rows * CELL;
+const edgeMarkers = new Map();
+function edgeMarker(id, x, y){
+  let el = edgeMarkers.get(id);
+  if(x === null){ if(el){ el.style.display = 'none'; } return; }
+  if(!el){
+    el = document.createElement('div');
+    el.style.cssText = 'position:fixed;z-index:29;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:#c8281e;box-shadow:0 0 10px #c8281e;pointer-events:none';
+    document.body.appendChild(el); edgeMarkers.set(id, el);
+  }
+  el.style.display = 'block'; el.style.left = x + 'px'; el.style.top = y + 'px';
 }
 
 /* A faint line from each of your guns to the unit it is locked on. */
