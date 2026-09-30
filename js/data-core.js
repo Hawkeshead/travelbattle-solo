@@ -329,6 +329,16 @@ export function buildExcludedRoadEdgeSetGrand(quadrants){
   edges.forEach(e=> set.add(edgeKey(e.x1,e.y1,e.x2,e.y2)));
   return set;
 }
+/* TERRAIN STYLE: which board art is drawn. 'v2' (the 2.5D tiles, map-wide road
+   overlay and farm strips, assets/terrain/v2/) or 'v1' (the board exactly as it
+   was at the visuals-v1 tag). Visual only: terrain types, rules and movement are
+   the same either way. Set it back to 'v1' here to restore the old look; adding
+   ?terrain=v1 to the address does the same for one visit, for comparison. */
+export const TERRAIN_STYLE = (() => {
+  try { const q = new URLSearchParams(globalThis.location ? location.search : '').get('terrain'); if(q === 'v1' || q === 'v2') return q; }
+  catch { /* no address: the default stands */ }
+  return 'v2';
+})();
 export const SIDES = { RED: 'red', BLUE: 'blue' };
 export const SIDE_LABEL = { red: 'Britain', blue: 'France' };
 export const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };

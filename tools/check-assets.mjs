@@ -46,6 +46,25 @@ for (const src of sources) {
   }
 }
 
+/* The v2 terrain art is loaded by pattern (grass_1..6 and so on) rather than
+   by literal path, so the pattern above cannot see it. Every file the v2 board
+   will ask for is listed here from the same counts the game uses. */
+{
+  const v2 = await import(new URL('../js/terrain-v2.js', import.meta.url));
+  const want = [];
+  for (let i = 1; i <= v2.GRASS_PLAIN_COUNT; i++) want.push(`assets/terrain/v2/grass/grass_${i}.webp`);
+  for (const f of v2.GRASS_DETAIL_FILES) want.push(`assets/terrain/v2/grass/detail/${f}.webp`);
+  for (let i = 1; i <= v2.HILL_COUNT; i++) want.push(`assets/terrain/v2/hill/hill_${i}.webp`);
+  for (let i = 1; i <= v2.FARM_COUNT; i++) want.push(`assets/terrain/v2/farm/farm_${i}.webp`);
+  for (let i = 1; i <= v2.WOODS_COUNT; i++) want.push(`assets/terrain/v2/woods/woods_${i}.webp`);
+  for (let i = 1; i <= 6; i++) want.push(`assets/terrain/v2/building/building_${i}.webp`);
+  want.push('assets/terrain/v2/effects/crater.webp');
+  for (const path of want) {
+    seen.add(`terrain-v2::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/terrain-v2.js (v2 terrain set)', path }); }
+  }
+}
+
 if (missing.length) {
   console.error('\nMissing asset files referenced in source:\n');
   for (const { src, path } of missing) {
