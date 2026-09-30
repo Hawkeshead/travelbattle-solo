@@ -197,9 +197,10 @@ export function unitPortraitHTML(u){
 
 /* =========================================================
    UNIT STATUS BADGES (assets/icons/status/). One column down the right side
-   of the unit's square: the first badge in the top right corner of the face,
-   inset CELL x 0.04 from its top and right edges, each further badge directly
-   below with a gap of 5% of the badge size. Order, top to bottom: elite
+   of the unit's square: the first badge pinned over the top right corner of
+   the tile's face (Matthew's choice of 30 Sep 2026: option C from the
+   placement mock-up, pushed further right), so it clears the flag and the
+   men; each further badge directly below with a gap of 5% of the badge size. Order, top to bottom: elite
    (Guard or Heavy Cavalry), turned around (turnOnly), charged (cavalry with
    charged set). Only the badges that apply are drawn, so a single status is
    always in the top right. Any number stack cleanly; in the rules as they
@@ -211,7 +212,11 @@ export function unitPortraitHTML(u){
    no marker before).
 ========================================================= */
 export const STATUS_BADGE_SIZE = 0.3;      // x CELL, square
-const STATUS_BADGE_INSET = 0.04;           // x CELL, from the face's top and right edges
+/* Where the first badge sits, measured from the face's top and right edges in
+   CELL units; negative means past the edge, over the corner. Started at +0.04
+   (inside the face); moved up and out over the corner. */
+const STATUS_BADGE_TOP = -0.06;
+const STATUS_BADGE_RIGHT = -0.07;
 const STATUS_BADGE_GAP = 0.05;             // x the badge size
 const FACE_INSET = 32 / 1024;              // the tile face's side inset (terrain v2 README)
 export function statusBadgesFor(units){
@@ -224,8 +229,8 @@ export function statusBadgesFor(units){
 /* cellLeft/cellTop: the unit's square on screen, in canvas units. */
 export function drawStatusColumn(badges, cellLeft, cellTop){
   const size = CELL * STATUS_BADGE_SIZE;
-  const right = cellLeft + CELL - CELL * FACE_INSET - CELL * STATUS_BADGE_INSET;
-  let top = cellTop + CELL * STATUS_BADGE_INSET;
+  const right = cellLeft + CELL - CELL * FACE_INSET - CELL * STATUS_BADGE_RIGHT;
+  let top = cellTop + CELL * STATUS_BADGE_TOP;
   for(const b of badges){
     const img = UNIT_IMAGES['status_' + b];
     if(img && img.complete && img.naturalWidth > 0){
