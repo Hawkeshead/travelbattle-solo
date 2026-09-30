@@ -88,3 +88,22 @@ ambush: foot standing alone in woods lays an ambush when the nearest enemy is
 weaker. Kept on for variety (the turn-based Marshal lays ambushes too): about
 1.6 laid a match. Stability run with everything on, 200 matches from seed 9000:
 199 decided, none stalled, 20.4 min average, artillery 39.7% of kills.
+
+## Playtest change (Matthew, 30 Sep 2026)
+
+First hands-on playtest: after moving every Brigade the army sat idle for a
+long time waiting for orders. Orders must refresh faster.
+
+| Order every | AI v AI minutes | Guns' share (reload 35 s) |
+|---|---|---|
+| 12 s | 7.7 | 19% |
+| 15 s | 8.5 | 19% |
+| 20 s | 9.1 | 25% |
+| 25 s | 12.9 | 30% |
+
+Chosen: **ORDER_REGEN 15 s**, and the gun reload brought down with it to
+**15 s** to keep artillery near the turn-based share (15 s reload: 36%, 20 s:
+31%, 25 s: 27%, all at a 15 s order rate). AI-against-AI battles now last
+about 8 minutes; the 20 to 30 minute target is dropped in favour of feel.
+Battles against a person will run differently from AI against AI; the next
+playtest will say how long they actually take.

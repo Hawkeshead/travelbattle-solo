@@ -16,7 +16,7 @@ export const TICK_MS = 1000 / TICKS_PER_SECOND;
 const s = seconds => Math.round(seconds * TICKS_PER_SECOND);
 
 // Command (built in Phase 2)
-export const ORDER_REGEN_TICKS = s(tuned('ORDER_REGEN', 50));          // one order per Brigadier every 50s (tuned, see RTS_TUNING.md; plan start 10s); the pool starts full
+export const ORDER_REGEN_TICKS = s(tuned('ORDER_REGEN', 15));          // one order per Brigadier every 15s (Matthew, 30 Sep: orders must refresh faster; see RTS_TUNING.md); the pool starts full
 const CD = tuned('COOLDOWN_SCALE', 1);
 export const COOLDOWN_TICKS = { INFANTRY: s(15*CD), GUARD: s(15*CD), LIGHT_CAV: s(10*CD), HEAVY_CAV: s(10*CD), ARTILLERY: s(15*CD), BRIGADIER: s(8*CD) };
 
@@ -30,7 +30,7 @@ export const GROUP_SPREAD = 2;                   // a group order spreads its un
 
 // Combat (Phases 3 and 4)
 export const MELEE_ROUND_TICKS = s(tuned('MELEE_ROUND', 6));
-export const ARTILLERY_RELOAD_TICKS = s(tuned('ARTILLERY_RELOAD', 35));   // tuned (plan start 30s), see RTS_TUNING.md
+export const ARTILLERY_RELOAD_TICKS = s(tuned('ARTILLERY_RELOAD', 15));   // re-tuned with the 15s order rate: guns 36% of kills (turn-based 37%)
 export const FORM_TICKS = { SQUARE: s(8), COLUMN: s(5), AMBUSH: s(5), LINE: s(5) };   // LINE: back out of Square
 export const MID_FORMATION_PENALTY = 1;         // a unit caught changing formation fights at -1
 export const ARTILLERY_RANGE = 6;                // as turn-based hasLOS

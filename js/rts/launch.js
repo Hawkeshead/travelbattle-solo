@@ -17,6 +17,7 @@
 import { SIDES, state } from '../data-core.js';
 import { finishBattle, placeArmy, setupBoard } from './setup.js';
 import { aiTick, createAi } from './ai.js';
+import { guideSeen, showGuide } from './guide.js';
 import { canvas, cellFromClient, consumeGestureFlag, ctx, draw, fromScreen, getUnitVisualPos, MOVE_PROFILES, playBoardIntroAnimation, sizeCanvas, toScreen, unitAnimations } from '../render-board.js';
 import { CELL, SIDE_LABEL } from '../data-core.js';
 import { emitFloatingText } from '../floating-text.js';
@@ -64,13 +65,15 @@ export function launchRealTime(){
   playBoardIntroAnimation(() => {
     startAmbientLayer();
     draw();
-    showArmyPickerFor(playerSide, army => {
+    const pick = () => showArmyPickerFor(playerSide, army => {
       placeArmy(playerSide, army.id);
       battle = finishBattle(playerSide);
       ai = createAi(aiSide);
       draw();
       start();
     });
+    // The first Real-Time battle on this device opens with the guide.
+    if(guideSeen()) pick(); else showGuide(pick);
   });
 }
 
@@ -86,8 +89,10 @@ function start(){
 /* FOCUS-LOSS AUTO-PAUSE (solo only). A notification, another app or a locked
    phone stops the clock until the battle is back on screen. Not a tactical
    pause: no orders are taken while it is paused. */
-let paused = false;
-function setPaused(p){
+let paused = false, guideOpen = false;
+function setPaused(p, fromGuide){
+  if(fromGuide) guideOpen = p;
+  if(!p && guideOpen) return;            // the guide keeps the battle paused until it is closed
   if(paused === p) return;
   paused = p;
   let el = document.getElementById('rtsPaused');
@@ -536,6 +541,13 @@ function showGroupToggle(){
   paintGroupToggle = paint;
   paint();
   document.body.appendChild(btn);
+  // The guide, any time: the battle pauses while it is open.
+  const help = document.createElement('button');
+  help.id = 'rtsHelp'; help.type = 'button'; help.textContent = '?'; help.setAttribute('aria-label', 'How Real-Time works');
+  help.style.cssText = 'position:fixed;right:calc(env(safe-area-inset-right,0px) + 150px);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:28;' +
+    'font:bold 18px Georgia,serif;width:40px;height:40px;border-radius:50%;border:1px solid #b8963f;background:rgba(20,24,20,.75);color:#fbf6ea;cursor:pointer';
+  help.onclick = () => { setPaused(true, true); showGuide(() => setPaused(false, true)); };
+  document.body.appendChild(help);
 }
 
 /* ---------------------------------------------------------

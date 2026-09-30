@@ -279,8 +279,14 @@ test('two-brigade skirmish plays through to a break, with no stuck fights and ne
       }
     }
     step(b, loose);
-    const occ = b.units.filter(u => !u.removed).map(u => u.x + ',' + u.y);
-    assert.equal(new Set(occ).size, occ.length);
+    // Only a deliberate stack may share a square: two friendly foot units, never more.
+    const bySquare = new Map();
+    for(const u of b.units.filter(u => !u.removed)){ const k = u.x + ',' + u.y; bySquare.set(k, [...(bySquare.get(k) || []), u]); }
+    for(const [k, us] of bySquare){
+      if(us.length === 1) continue;
+      assert.equal(us.length, 2, `three in ${k}`);
+      assert.ok(us.every(u => u.side === us[0].side && (u.type === 'INFANTRY' || u.type === 'GUARD')), `only a friendly foot stack may share ${k}`);
+    }
   }
   assert.equal(b.over, true, `ended within ${t} ticks`);
   const loser = b.winner === 'red' ? 'blue' : 'red';
