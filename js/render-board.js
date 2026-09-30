@@ -1325,9 +1325,33 @@ export function drawHillGlyph(cx, cy, cell){
 ========================================================= */
 const V2 = TERRAIN_STYLE === 'v2';
 export const TERRAIN_V2_BG = '#34241A';
+/* PERFORMANCE. The v2 art is large (1024 to 1152 pixels wide per tile), and
+   drawing hundreds of those scaled down every frame, plus holding every one
+   decoded at full size, made the game crawl on a phone (clouds stuttered and
+   taps lagged). Two fixes:
+   - each image is scaled once, as soon as it loads, to V2_TILE_PX wide (still
+     sharper than any cell can show, even zoomed in) and the full-size original
+     is let go, which cuts decoded image memory to about a seventh;
+   - the whole static board (ground, overlays, roads, villages) is drawn once
+     into an offscreen canvas and copied each frame; it is redrawn only when the
+     layout, viewpoint, cell size or the set of loaded images changes. */
+const V2_TILE_PX = 384;
+let v2LoadedCount = 0;
 function v2Img(key){
   const img = UNIT_IMAGES[key];
-  return (img && img.complete && img.naturalWidth > 0) ? img : null;
+  if(!img) return null;
+  if(img.__v2small) return img;
+  if(!(img.complete && img.naturalWidth > 0)) return null;
+  const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, 0, 0, c.width, c.height);
+  c.__v2small = true; c.complete = true; c.naturalWidth = c.width; c.naturalHeight = c.height;
+  UNIT_IMAGES[key] = c;                 // the full-size original is no longer referenced
+  v2LoadedCount += 1;
+  return c;
 }
 /* One v2 image on a square: centred on it, bottom on the cell bottom, upright. */
 function drawV2Tile(img, x, y, widthCells, mirror){
@@ -1382,8 +1406,9 @@ function roadLayerV2(lay){
   const key = viewEdge() + '|' + CELL + '|' + canvas.width + 'x' + canvas.height;
   if(lay.roadLayer && lay.roadLayer.key === key) return lay.roadLayer.canvas;
   const off = document.createElement('canvas');
-  off.width = COLS * CELL; off.height = ROWS * CELL;
+  off.width = canvas.width; off.height = canvas.height;      // full device resolution, so roads stay crisp
   const g = off.getContext('2d');
+  g.setTransform(ctx.getTransform());
   g.lineCap = 'round'; g.lineJoin = 'round';
   const lines = lay.roadChains.map(ch => smoothChain(ch, toScreen));
   const path = pts => { g.beginPath(); g.moveTo(pts[0][0]*CELL, pts[0][1]*CELL); for(let i = 1; i < pts.length; i++) g.lineTo(pts[i][0]*CELL, pts[i][1]*CELL); };
@@ -1406,8 +1431,37 @@ function roadLayerV2(lay){
   return off;
 }
 
-/* The whole v2 board, in the README's order. */
+/* The cached board: one offscreen copy per canvas (the live board, and the
+   army picker's preview when it draws), rebuilt only when something it shows
+   has changed. Craters, units and everything else still draw fresh each frame. */
+const v2BoardCache = new WeakMap();
 function drawTerrainV2(){
+  const lay = v2Layout();
+  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
+  let entry = v2BoardCache.get(canvas);
+  if(!entry || entry.key !== key || entry.lay !== lay || entry.styles !== state.buildingStyles){
+    const off = entry && entry.canvas && entry.canvas.width === canvas.width && entry.canvas.height === canvas.height
+      ? entry.canvas : document.createElement('canvas');
+    off.width = canvas.width; off.height = canvas.height;
+    const g = off.getContext('2d');
+    g.setTransform(ctx.getTransform());
+    g.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    const liveCtx = ctx;
+    ctx = g;
+    try { drawTerrainV2Board(); } finally { ctx = liveCtx; }
+    // Count what loaded during this pass, so the next frame knows whether to redraw.
+    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|'), lay, styles: state.buildingStyles, canvas: off };
+    v2BoardCache.set(canvas, entry);
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(entry.canvas, 0, 0);
+  ctx.restore();
+}
+const V2_EXPECTED = 39;                  // images in the v2 set; once all have loaded the cache stops changing
+
+/* The whole v2 board, in the README's order. */
+function drawTerrainV2Board(){
   const terrain = state.terrain;
   const lay = v2Layout();
   ctx.fillStyle = TERRAIN_V2_BG;
@@ -1437,7 +1491,7 @@ function drawTerrainV2(){
     }
   }
   // 3. the road layer
-  ctx.drawImage(roadLayerV2(lay), 0, 0);
+  { const road = roadLayerV2(lay); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(road, 0, 0); ctx.restore(); }
   // 4. villages, row by row
   for(const r of order){
     for(const [x, y] of rows.get(r)){
