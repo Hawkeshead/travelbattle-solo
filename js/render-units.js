@@ -5,6 +5,10 @@ import { isConcealedFromEnemy } from './engine-rules.js';
 import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
+  // Unit status badges (drawStatusColumn)
+  status_elite: 'assets/icons/status/status_elite.webp',
+  status_turned: 'assets/icons/status/status_turned.webp',
+  status_charged: 'assets/icons/status/status_charged.webp',
   cannon_red: 'assets/icons/cannon_red.png',
   cannon_blue: 'assets/icons/cannon_blue.png',
   artillery_red: 'assets/icons/artillery_red.png',
@@ -190,6 +194,51 @@ export function unitPortraitHTML(u){
 }
 
 
+
+/* =========================================================
+   UNIT STATUS BADGES (assets/icons/status/). One column down the right side
+   of the unit's square: the first badge in the top right corner of the face,
+   inset CELL x 0.04 from its top and right edges, each further badge directly
+   below with a gap of 5% of the badge size. Order, top to bottom: elite
+   (Guard or Heavy Cavalry), turned around (turnOnly), charged (cavalry with
+   charged set). Only the badges that apply are drawn, so a single status is
+   always in the top right. Any number stack cleanly; in the rules as they
+   stand a cavalry unit is never turned and charged at once (a unit that is
+   turned around cannot move, so cannot charge, and a charge is spent in the
+   fight that could turn it), but three would simply show as three.
+   If a badge image has not loaded, the old marker is drawn in its place: the
+   gold asterisk for elite, the gold pip for turned (and for charged, which had
+   no marker before).
+========================================================= */
+export const STATUS_BADGE_SIZE = 0.3;      // x CELL, square
+const STATUS_BADGE_INSET = 0.04;           // x CELL, from the face's top and right edges
+const STATUS_BADGE_GAP = 0.05;             // x the badge size
+const FACE_INSET = 32 / 1024;              // the tile face's side inset (terrain v2 README)
+export function statusBadgesFor(units){
+  const list = [];
+  if(units.some(u => u.type === 'GUARD' || u.type === 'HEAVY_CAV')) list.push('elite');
+  if(units.some(u => u.turnOnly)) list.push('turned');
+  if(units.some(u => (u.type === 'LIGHT_CAV' || u.type === 'HEAVY_CAV') && u.charged)) list.push('charged');
+  return list;
+}
+/* cellLeft/cellTop: the unit's square on screen, in canvas units. */
+export function drawStatusColumn(badges, cellLeft, cellTop){
+  const size = CELL * STATUS_BADGE_SIZE;
+  const right = cellLeft + CELL - CELL * FACE_INSET - CELL * STATUS_BADGE_INSET;
+  let top = cellTop + CELL * STATUS_BADGE_INSET;
+  for(const b of badges){
+    const img = UNIT_IMAGES['status_' + b];
+    if(img && img.complete && img.naturalWidth > 0){
+      ctx.drawImage(img, right - size, top, size, size);
+    } else if(b === 'elite'){
+      drawGoldAsterisk(CELL * 0.62, right - size / 2, top + size / 2);   // the old marker, at its old size
+    } else {
+      ctx.save(); ctx.fillStyle = '#c9a24a';
+      ctx.beginPath(); ctx.arc(right - size / 2, top + size / 2, 5, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    top += size * (1 + STATUS_BADGE_GAP);
+  }
+}
 
 // Small gold asterisk badge, positioned in a unit's corner — marks Guard Infantry
 // and Heavy Cavalry as the "upgraded" tier, replacing the old ring/reroll-star convention.
@@ -570,16 +619,8 @@ function drawUnitInner(u, off){
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Guard / Heavy Cavalry tier marker — gold asterisk in the corner
-  if((t.key==='GUARD') || (t.key==='HEAVY_CAV')){
-    drawGoldAsterisk(size, cx + size*0.36, cy - size*0.34);
-  }
-
-  // status pip: turned-around indicator, kept clear of the guard/heavy asterisk corner
-  if(u.turnOnly){
-    ctx.fillStyle = '#c9a24a';
-    ctx.beginPath(); ctx.arc(cx-size*0.36, cy-size*0.34, 5, 0, Math.PI*2); ctx.fill();
-  }
+  // Status badges: elite, turned around, charged (see drawStatusColumn).
+  drawStatusColumn(statusBadgesFor([u]), cx - off.dx*CELL - CELL/2, cy - off.dy*CELL - CELL/2);
 }
 
 // Attack Column: two Infantry/Guard units sharing a square. Drawn as the same
@@ -638,13 +679,8 @@ function drawColumnUnitPairInner(u1, u2){
     ctx.restore();
   }
 
-  if(u1.type==='GUARD' || u2.type==='GUARD'){
-    drawGoldAsterisk(size, cx + size*0.5, cy - size*0.5);
-  }
-  if(u1.turnOnly || u2.turnOnly){
-    ctx.fillStyle = '#c9a24a';
-    ctx.beginPath(); ctx.arc(cx-size*0.5, cy-size*0.5, 5, 0, Math.PI*2); ctx.fill();
-  }
+  // Status badges for the pair, one column (see drawStatusColumn).
+  drawStatusColumn(statusBadgesFor([u1, u2]), cx - CELL/2, cy - CELL/2);
 }
 
 // Selection highlights. Written from ui-battle.js, engine-state.js and
