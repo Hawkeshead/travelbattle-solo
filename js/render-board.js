@@ -1340,6 +1340,7 @@ let v2LoadedCount = 0;
 const V2_TILES = {};            // key -> the small copy (an ImageBitmap where the browser has them)
 const v2Pending = new Set();
 let v2RedrawTimer = null;
+let v2IntroActive = false;       // the intro draws the board itself; nothing else may redraw over it
 function v2Img(key){
   if(V2_TILES[key]) return V2_TILES[key];
   const img = UNIT_IMAGES[key];
@@ -1357,7 +1358,7 @@ function v2Img(key){
     v2LoadedCount += 1;
     delete UNIT_IMAGES[key];          // let the full-size original go
     clearTimeout(v2RedrawTimer);
-    v2RedrawTimer = setTimeout(() => { try { draw(); } catch { /* board not up yet */ } }, 60);
+    v2RedrawTimer = setTimeout(() => { if(v2IntroActive) return; try { draw(); } catch { /* board not up yet */ } }, 60);
   };
   /* An ImageBitmap is the cheapest thing to draw from and keeps the tile out
      of the browser's canvas memory budget; the scratch canvas is released as
@@ -1369,9 +1370,9 @@ function v2Img(key){
 }
 
 /* One v2 image on a square: centred on it, bottom on the cell bottom, upright. */
-function drawV2Tile(img, x, y, widthCells, mirror){
+function drawV2Tile(img, x, y, widthCells, mirror, dy = 0){
   const w = CELL * widthCells, hgt = CELL * 1.5;
-  const left = SX(x,y)*CELL + (CELL - w)/2, top = SY(x,y)*CELL + CELL - hgt;
+  const left = SX(x,y)*CELL + (CELL - w)/2, top = SY(x,y)*CELL + CELL - hgt + dy;
   if(!mirror){ ctx.drawImage(img, left, top, w, hgt); return; }
   ctx.save(); ctx.translate(left + w, top); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, w, hgt); ctx.restore();
 }
@@ -1482,6 +1483,112 @@ function drawTerrainV2(){
   ctx.restore();
 }
 
+/* One square's ground tile (hill, or grass with or without a detail) and its
+   farm or woods overlay; dy lifts or drops them (the intro's falling tiles). */
+function drawV2Ground(lay, terrain, x, y, dy){
+  if(terrain[y][x] === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1, false, dy); return; }
+  const g = lay.grass[y][x];
+  const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
+  if(img) drawV2Tile(img, x, y, 1, false, dy);
+}
+function drawV2Overlay(lay, terrain, x, y, dy){
+  const farm = lay.farms.get(x + ',' + y);
+  if(farm){ const img = v2Img('v2_farm_' + farm); if(img) drawV2Tile(img, x, y, 1.125, farmMirrored(x, y), dy); }
+  else if(terrain[y][x] === 'WOODS'){ const img = v2Img('v2_woods_' + woodsPick(x, y)); if(img) drawV2Tile(img, x, y, 1.125, false, dy); }
+}
+
+/* Every v2 tile turned into its small copy, before anything is shown that
+   needs them all at once (the intro). Waits up to timeoutMs for the art to
+   download; a file that fails is skipped rather than waited for. */
+const V2_ALL_KEYS = [
+  ...[1,2,3,4,5,6].map(i => 'v2_grass_' + i), ...[...Array(11).keys()].map(i => 'v2_detail_' + i),
+  ...[1,2,3,4,5,6,7].map(i => 'v2_hill_' + i), ...[1,2,3,4].map(i => 'v2_farm_' + i),
+  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater',
+];
+export function v2Ready(timeoutMs = 10000){
+  return new Promise(resolve => {
+    const start = Date.now();
+    const poll = () => {
+      let done = true;
+      for(const k of V2_ALL_KEYS){
+        if(V2_TILES[k]) continue;
+        v2Img(k);
+        const img = UNIT_IMAGES[k];
+        const failed = !img || (img.complete && img.naturalWidth === 0);
+        if(!failed) done = false;
+      }
+      if(done || Date.now() - start > timeoutMs) resolve(); else setTimeout(poll, 80);
+    };
+    poll();
+  });
+}
+
+/* THE V2 INTRO. The v1 intro cut a snapshot of the finished board into squares
+   and dropped them; v2 tiles are not squares (each rises into the square
+   behind, and the roads cross the gaps), so here each square's own ground tile
+   and overlay fall in, back row to front row as the player sees it, and the
+   roads and villages fade in once the ground has landed. Nothing is shown
+   until every tile is ready, so no square ever lands empty. */
+function introV2(onComplete){
+  const terrain = state.terrain, lay = v2Layout();
+  const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50, DUST_MS = 200, FADE_MS = 450;
+  const fallDistance = window.innerHeight;
+  const cells = [];
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++) cells.push({ x, y, sx: SX(x, y), sy: SY(x, y) });
+  cells.sort((a, b) => a.sy - b.sy || a.sx - b.sx);
+  cells.forEach((c, i) => { c.delay = i * STAGGER_MS; c.dust = false; });
+  const rows = [];
+  for(const c of cells){ if(!rows.length || rows[rows.length - 1][0].sy !== c.sy) rows.push([]); rows[rows.length - 1].push(c); }
+  const dust = [];
+  const startTime = performance.now();
+  let settledAt = null;
+  const offsetFor = e => {
+    if(e < 0) return null;
+    if(e < FALL_MS){ const t = e / FALL_MS; return -fallDistance * (1 - (1 - Math.pow(1 - t, 2))); }
+    const b1 = e - FALL_MS;
+    if(b1 < BOUNCE1_MS) return -CELL * 0.15 * Math.sin(Math.PI * b1 / BOUNCE1_MS);
+    const b2 = b1 - BOUNCE1_MS;
+    if(b2 < BOUNCE2_MS) return -CELL * 0.05 * Math.sin(Math.PI * b2 / BOUNCE2_MS);
+    return 0;
+  };
+  function tick(){
+    const now = performance.now(), el = now - startTime;
+    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.fillStyle = TERRAIN_V2_BG;
+    ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    let all = true;
+    for(const row of rows){
+      const live = [];
+      for(const c of row){
+        const e = el - c.delay, off = offsetFor(e);
+        if(off === null){ all = false; continue; }
+        if(e < FALL_MS + BOUNCE1_MS + BOUNCE2_MS) all = false;
+        if(!c.dust && e >= FALL_MS){ c.dust = true; dust.push({ x: c.sx*CELL + CELL/2, y: (c.sy + 1)*CELL, t: now }); }
+        live.push([c, off]);
+      }
+      for(const [c, off] of live) drawV2Ground(lay, terrain, c.x, c.y, off);
+      for(const [c, off] of live) drawV2Overlay(lay, terrain, c.x, c.y, off);
+    }
+    for(let i = dust.length - 1; i >= 0; i--){
+      const p = dust[i], age = now - p.t;
+      if(age > DUST_MS){ dust.splice(i, 1); continue; }
+      const t = age / DUST_MS;
+      ctx.save(); ctx.globalAlpha = 0.30 * (1 - t); ctx.fillStyle = '#c9b98a';
+      const r = CELL * 0.16 * (0.4 + 0.6 * t);
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.45, 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    if(all && settledAt === null) settledAt = now;
+    if(settledAt !== null){
+      // Roads and villages come in over the landed ground.
+      const t = Math.min(1, (now - settledAt) / FADE_MS);
+      ctx.save(); ctx.globalAlpha = t; drawTerrainV2(); ctx.restore();
+      if(t >= 1 && !dust.length){ v2IntroActive = false; draw(); onComplete(); return; }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 /* The whole v2 board, in the README's order. */
 function drawTerrainV2Board(){
   const terrain = state.terrain;
@@ -1499,18 +1606,8 @@ function drawTerrainV2Board(){
   // 2. ground, then farm and woods overlays, row by row
   for(const r of order){
     const cells = rows.get(r);
-    for(const [x, y] of cells){
-      const key = terrain[y][x];
-      if(key === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1); continue; }
-      const g = lay.grass[y][x];
-      const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
-      if(img) drawV2Tile(img, x, y, 1);
-    }
-    for(const [x, y] of cells){
-      const farm = lay.farms.get(x + ',' + y);
-      if(farm){ const img = v2Img('v2_farm_' + farm); if(img) drawV2Tile(img, x, y, 1.125, farmMirrored(x, y)); }
-      else if(terrain[y][x] === 'WOODS'){ const img = v2Img('v2_woods_' + woodsPick(x, y)); if(img) drawV2Tile(img, x, y, 1.125); }
-    }
+    for(const [x, y] of cells) drawV2Ground(lay, terrain, x, y, 0);
+    for(const [x, y] of cells) drawV2Overlay(lay, terrain, x, y, 0);
   }
   // 3. the road layer
   drawRoadsV2(lay);
@@ -2278,6 +2375,14 @@ export function playBoardIntroAnimation(onComplete){
      harness flag skips straight to the finished board. Inert in real play, where
      FAST_ANIMATION_MODE is never set. */
   if(FAST_ANIMATION_MODE){ draw(); if(onComplete) onComplete(); return; }
+  if(V2){
+    // Start from the bare board colour while the art finishes preparing.
+    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.fillStyle = TERRAIN_V2_BG; ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    v2IntroActive = true;
+    v2Ready().then(() => introV2(() => { v2IntroActive = false; if(onComplete) onComplete(); }));
+    return;
+  }
   draw(); // render the true final board once, to capture as the source for every tile fragment
   const snapshot = document.createElement('canvas');
   snapshot.width = canvas.width;
