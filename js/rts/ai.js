@@ -79,14 +79,20 @@ function decide(ai, b, rules){
   const foes = b.units.filter(u => !u.removed && u.side !== ai.side && u.type !== 'BRIGADIER' && !u.hidden);
   if(!foes.length) return orders;
   const claimed = new Set();        // squares already chosen this evaluation
+  // Orders left in each Brigade's pool this evaluation, so nothing is queued
+  // that the pool cannot pay for (it would only be refused at the gate).
+  const budget = new Map();
+  const canPay = u => { const k = brigadeKey(u); if(!budget.has(k)) budget.set(k, poolOf(b, u).pool.orders); return budget.get(k) > 0; };
+  const pay = u => budget.set(brigadeKey(u), budget.get(brigadeKey(u)) - 1);
 
   // Artillery: keep a lock on the best target.
   for(const g of mine){
-    if(g.type !== 'ARTILLERY' || g.lock || !ready(b, g, rules)) continue;
+    if(g.type !== 'ARTILLERY' || g.lock || !ready(b, g, rules) || !canPay(g)) continue;
     const targets = foes.filter(t => rules.canFireAt(b, g, t));
     if(!targets.length) continue;
     targets.sort((p, q) => targetValue(b, rules, g, q) - targetValue(b, rules, g, p));
     orders.push({ unitId: g.id, type: 'fire', targetId: targets[0].id });
+    pay(g);
   }
 
   const brigades = new Map();
@@ -100,30 +106,31 @@ function decide(ai, b, rules){
 
     // Threat answers, paid for straight away: foot with enemy cavalry close forms Square.
     for(const u of troops){
-      if(!isFoot(u) || !ready(b, u, rules) || u.column || stackPartner(b, u)) continue;
+      if(!isFoot(u) || !ready(b, u, rules) || u.column || stackPartner(b, u) || !canPay(u)) continue;
       const cavNear = foes.some(f => isCav(f) && cheb(f, u) <= 2);
-      if(u.formation !== 'square' && cavNear && !foes.some(f => cheb(f, u) === 1)) orders.push({ unitId: u.id, type: 'form', formation: 'square' });
-      else if(u.formation === 'square' && !foes.some(f => isCav(f) && cheb(f, u) <= 3)) orders.push({ unitId: u.id, type: 'form', formation: 'line' });
+      if(u.formation !== 'square' && cavNear && !foes.some(f => cheb(f, u) === 1)){ orders.push({ unitId: u.id, type: 'form', formation: 'square' }); pay(u); }
+      else if(u.formation === 'square' && !foes.some(f => isCav(f) && cheb(f, u) <= 3)){ orders.push({ unitId: u.id, type: 'form', formation: 'line' }); pay(u); }
     }
 
     // Bank or spend.
     const movers = troops.filter(u => u.type !== 'ARTILLERY' && u.formation !== 'square' && ready(b, u, rules) && !foes.some(f => cheb(f, u) === 1));
-    const { pool } = poolOf(b, troops[0]);
+    canPay(troops[0]);
+    const left = budget.get(brigadeKey(troops[0]));
     const wave = Math.max(1, Math.ceil(movers.length * WAVE_SHARE));
-    if(movers.length && pool.orders >= Math.min(wave, movers.length)){
+    if(movers.length && left >= Math.min(wave, movers.length)){
       ai.stats.waves += 1;
       // Rear units first, so the line closes up rather than strings out.
       movers.sort((p, q) => cheb(q, target) - cheb(p, target));
-      let budget = pool.orders;
+      let spend = left;
       const planned = new Map(units.map(u => [u.id, { x: u.x, y: u.y }]));
       for(const u of movers){
-        if(budget <= 0) break;
+        if(spend <= 0) break;
         const dest = bestSquare(b, rules, u, target, units, planned, foes, claimed);
         if(!dest) continue;
         claimed.add(dest.x + ',' + dest.y);
         planned.set(u.id, dest);
         orders.push({ unitId: u.id, type: 'move', target: dest });
-        budget -= 1;
+        spend -= 1; pay(u);
       }
     }
 

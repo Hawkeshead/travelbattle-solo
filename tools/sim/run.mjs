@@ -141,6 +141,11 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     stall: finished === 'win' ? null : snapshotStall(state, SIDES),
     remnants: remnantsOf(state, SIDES),
     turnedAround: turnedAroundBonuses(state, SIDES),
+    /* How each destroyed unit was destroyed (the reason removeUnit logged): the
+       turn-based reference for the Real-Time tuning target on artillery's share
+       of kills. */
+    destroyedBy: (state.matchLog || []).filter(e => e.type === 'status' && e.newStatus === 'Destroyed')
+      .reduce((m, e) => (m[e.reason] = (m[e.reason] || 0) + 1, m), {}),
     reach: reach.result(),
   };
 }
