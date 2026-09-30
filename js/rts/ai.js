@@ -49,6 +49,7 @@ export const AI_DEFAULTS = {
   waveShare: 0.6,          // bank until the pool covers this share of the ready units
   gangUp: 1.5,             // bonus for a square beside an enemy already in a fight (a second attacker); won 61% of 80 decided vs. 0
   weakTarget: 0,           // pull toward enemies that are turned around, off their chain or alone
+  ambush: true,            // foot standing in woods with the enemy 3 to 5 squares off lays an ambush (neutral on strength: 42 of 80, 53%; kept for variety, about 1.6 a match)
   gunsAdvance: true,       // a gun with nothing in its line of fire moves up (won 68% of 79 decided vs. staying put)
 };
 export function createAi(side, { phase = 0, tune = {} } = {}){
@@ -135,6 +136,16 @@ function decide(ai, b, rules){
       const cavNear = foes.some(f => isCav(f) && cheb(f, u) <= 2);
       if(u.formation !== 'square' && cavNear && !foes.some(f => cheb(f, u) === 1)){ orders.push({ unitId: u.id, type: 'form', formation: 'square' }); pay(u); }
       else if(u.formation === 'square' && !foes.some(f => isCav(f) && cheb(f, u) <= 3)){ orders.push({ unitId: u.id, type: 'form', formation: 'line' }); pay(u); }
+    }
+
+    // Ambush: foot alone in woods, enemy coming but not yet close.
+    if(ai.tune.ambush){
+      for(const u of troops){
+        if(!isFoot(u) || u.hidden || u.column || u.formation === 'square' || !ready(b, u, rules) || !canPay(u)) continue;
+        if(b.terrain[u.y][u.x] !== 'WOODS' || stackPartner(b, u)) continue;
+        const d = Math.min(...foes.map(f => cheb(f, u)));
+        if(d >= 3 && d <= 5){ orders.push({ unitId: u.id, type: 'form', formation: 'ambush' }); pay(u); }
+      }
     }
 
     // Bank or spend.

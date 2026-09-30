@@ -80,3 +80,11 @@ Chosen: ORDER_REGEN 50 s, ARTILLERY_RELOAD 35 s. On 80 fresh seeds (7000 on):
 break), none stalled. Artillery sits a little above the turn-based 37%;
 bringing it lower needs a 40 s reload and a 55 s regen (21.7 min, 37%),
 which makes orders scarcer still. Left for playtesting to decide.
+
+### AI ambushes (review pass 4)
+
+ambush: foot standing alone in woods lays an ambush when the nearest enemy is
+3 to 5 squares away. Head to head: 42 of 80 decided, 53%, so no stronger or
+weaker. Kept on for variety (the turn-based Marshal lays ambushes too): about
+1.6 laid a match. Stability run with everything on, 200 matches from seed 9000:
+199 decided, none stalled, 20.4 min average, artillery 39.7% of kills.
