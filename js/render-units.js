@@ -1,4 +1,5 @@
-import { CELL, SIDES, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
+import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './data-core.js';
+import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
 import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
@@ -81,7 +82,23 @@ export const BRIGADIER_PORTRAIT_KEY = {
   'Soult': 'brig_soult',
   'Murat': 'brig_murat',
 };
+/* Terrain art: only the style in use is downloaded. Under v2 the old per-square
+   terrain images (grass, hills, villages, forests, road tiles) are not drawn,
+   so they are skipped, and the v2 set (about 17 MB) is preloaded here instead,
+   the same way. */
+const V1_TERRAIN_KEY = /^(grass_|hill_|building_|forest_|road_)/;
+if(TERRAIN_STYLE === 'v2'){
+  const add = (key, path) => { UNIT_IMAGE_DATA[key] = path; };
+  for(let i = 1; i <= 6; i++) add('v2_grass_' + i, `assets/terrain/v2/grass/grass_${i}.webp`);
+  GRASS_DETAIL_FILES.forEach((f, i) => add('v2_detail_' + i, `assets/terrain/v2/grass/detail/${f}.webp`));
+  for(let i = 1; i <= 7; i++) add('v2_hill_' + i, `assets/terrain/v2/hill/hill_${i}.webp`);
+  for(let i = 1; i <= 4; i++) add('v2_farm_' + i, `assets/terrain/v2/farm/farm_${i}.webp`);
+  for(let i = 1; i <= 4; i++) add('v2_woods_' + i, `assets/terrain/v2/woods/woods_${i}.webp`);
+  for(let i = 1; i <= 6; i++) add('v2_building_' + i, `assets/terrain/v2/building/building_${i}.webp`);
+  add('v2_crater', 'assets/terrain/v2/effects/crater.webp');
+}
 for(const key in UNIT_IMAGE_DATA){
+  if(TERRAIN_STYLE === 'v2' && V1_TERRAIN_KEY.test(key)) continue;
   const img = new Image();
   img.src = UNIT_IMAGE_DATA[key];
   UNIT_IMAGES[key] = img;

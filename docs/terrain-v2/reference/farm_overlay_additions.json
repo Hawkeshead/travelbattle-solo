@@ -1,0 +1,5 @@
+{
+  "_note": "Extra squares that draw FARM visuals on top of their existing terrain. Local 10x10 board coordinates, transformed exactly like boardATerrain/boardBTerrain. Visual only: terrain type in play is unchanged (see HANDOVER open decision).",
+  "boardAFarmOverlay": [[2,7],[3,7],[4,7],[1,8],[2,8],[1,9],[2,9]],
+  "boardBFarmOverlay": [[3,3],[3,4],[4,4],[3,5],[4,5],[2,6],[3,6]]
+}

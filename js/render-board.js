@@ -1,5 +1,6 @@
 import { AudioManager } from './audio-manager.js';
-import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, setCell, state } from './data-core.js';
+import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
+import { ROAD, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
 import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
@@ -1292,73 +1293,214 @@ export function drawHillGlyph(cx, cy, cell){
 }
 
 /* =========================================================
-   TERRAIN ART v2 (2.5D tiles): conventions, from assets/terrain/v2/README.md
+   TERRAIN ART v2 (TERRAIN_STYLE 'v2', the default). From
+   assets/terrain/v2/README.md; the layout rules live in js/terrain-v2.js.
 
-   All art is WebP and portrait. The bottom 1024x1024 of each canvas is one
-   grid cell; the space above it is overhang room for features that rise into
-   the square behind.
-   - Grass (grass_1 to 6, 1024x1536): the face is a 960x960 rounded square
-     (radius 56), inset 32px each side, flush with the top of the cell, which
-     leaves a 64px shadow gap between neighbours. Below the face is a 64px turf
-     and earth drop-off facing the viewer. Colour target about #7B730C.
-     Drawn CELL wide x CELL*1.5 tall. Picked per cell by a stable hash of (x,y).
-   - Hill (hill_1 to 7, 1024x1536): a full tile with the grass face included,
-     so no grass tile under it. Rises 0.19 to 0.29 of a cell into the square
-     behind. Drawn CELL x CELL*1.5.
-   - Building (building_1 to 6, 1152x1536): a transparent overlay drawn over
-     a normal grass tile. The cell square is centred (face at x 96 to 1056);
-     it overhangs each neighbour by 64px and rises 0.22 to 0.33 of a cell.
-     Drawn CELL*1.125 x CELL*1.5. Style = the buildingStyles grid (1 church
-     village, 2 mill village, 3 manor village, 4 street village (no lane off
-     the front edge), 5 walled farm, 6 crossroads village).
-   - Every tile is bottom-anchored to the cell's front edge, centred on the
-     cell, and drawn UPRIGHT in screen space whatever the viewpoint or board
-     rotation, so the drop-off always faces the player.
-   - Draw order: back to front by screen row; within a row, first every grass
-     and hill tile, then every building overlay, so a neighbour's grass never
-     paints over a village's overhang.
-   - Board background #34241A (dark earth). No grid lines: the shadow gaps
-     do that job.
-   Woods, farmland and road overlays are still on the old art (v1 below).
+   Every image is portrait: the bottom square of the canvas is one grid cell,
+   the space above is overhang room. Every image is centred horizontally on
+   its cell with its top edge at cellTop - 0.5 x CELL (so the canvas bottom
+   sits on the bottom of the cell), always upright in screen space.
 
-   TERRAIN_V2 switches the board to this art. Off by default while the sets
-   are incomplete; add ?terrainV2 to the address to preview it. The old art
-   and its sizing (WOODS_OVERSCAN) are untouched either way.
+   | Set          | Files         | Canvas    | Draw width   | Draw height |
+   | grass        | grass_1..6    | 1024x1536 | CELL         | CELL x 1.5  |  face 960x960 r56, inset 32, flush with the cell top; 64px drop-off below
+   | grass/detail | grass_7..17   | 1024x1536 | CELL         | CELL x 1.5  |  one small feature at the back or side, centre kept clear
+   | hill         | hill_1..7     | 1024x1536 | CELL         | CELL x 1.5  |  full tile, grass included; rises 0.19-0.29 cell behind
+   | farm         | farm_1..4     | 1152x1536 | CELL x 1.125 | CELL x 1.5  |  overlay: 1 ploughed, 2 wheat, 3 young crop, 4 hay
+   | woods        | woods_1..4    | 1152x1536 | CELL x 1.125 | CELL x 1.5  |  overlay, one set for both sides
+   | building     | building_1..6 | 1152x1536 | CELL x 1.125 | CELL x 1.5  |  overlay: church, mill, manor, street, walled farm, crossroads
+   | effects      | crater        | 501x394   | CELL x 0.5   | to aspect   |  centred on the face centre
+   Board background #34241A. No grid lines. Face centre: 0.469 of a cell below the cell top.
+
+   Draw order:
+   1. Background fill.
+   2. By screen row, back to front: that row's ground tiles (hill on HILL,
+      grass everywhere else), then that row's farm and woods overlays.
+   3. The road layer: one image for the whole map, built once per layout and
+      viewpoint (roadLayerV2) and reused.
+   4. By screen row, back to front: building overlays.
+   5. Craters (effects/crater), then units and UI as before.
+
+   The v1 path below is the board exactly as it was at the visuals-v1 tag; it
+   runs when TERRAIN_STYLE is 'v1' (data-core.js) and is otherwise untouched.
 ========================================================= */
-export const TERRAIN_V2 = (() => {
-  try { return new URLSearchParams(globalThis.location ? location.search : '').has('terrainV2'); }
-  catch { return false; }
-})();
+const V2 = TERRAIN_STYLE === 'v2';
 export const TERRAIN_V2_BG = '#34241A';
-const TERRAIN_V2_COUNTS = { grass: 6, hill: 7, building: 6 };
-/* Loaded on first use, so only a board drawn with the flag on downloads the
-   art (and never at module load, where the circular import with
-   render-units.js could still be settling). */
-let v2Loaded = false;
-function loadV2Art(){
-  v2Loaded = true;
-  let pending = null;
-  const redraw = () => { clearTimeout(pending); pending = setTimeout(() => { try { draw(); } catch { /* board not ready yet */ } }, 60); };
-  for(const [set, n] of Object.entries(TERRAIN_V2_COUNTS)){
-    for(let i = 1; i <= n; i++){
-      const img = new Image();
-      img.onload = redraw;
-      img.src = `assets/terrain/v2/${set}/${set}_${i}.webp`;
-      UNIT_IMAGES[`v2_${set}_${i}`] = img;
+/* PERFORMANCE. The v2 art is large (1024 to 1152 pixels wide per tile), and
+   drawing hundreds of those scaled down every frame, plus holding every one
+   decoded at full size, made the game crawl on a phone (clouds stuttered and
+   taps lagged). Two fixes:
+   - each image is scaled once, as soon as it loads, to V2_TILE_PX wide (still
+     sharper than any cell can show, even zoomed in) and the full-size original
+     is let go, which cuts decoded image memory to about a seventh;
+   - the whole static board (ground, overlays, roads, villages) is drawn once
+     into an offscreen canvas and copied each frame; it is redrawn only when the
+     layout, viewpoint, cell size or the set of loaded images changes. */
+const V2_TILE_PX = 384;
+let v2LoadedCount = 0;
+function v2Img(key){
+  const img = UNIT_IMAGES[key];
+  if(!img) return null;
+  if(img.__v2small) return img;
+  if(!(img.complete && img.naturalWidth > 0)) return null;
+  const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+  const g = c.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, 0, 0, c.width, c.height);
+  c.__v2small = true; c.complete = true; c.naturalWidth = c.width; c.naturalHeight = c.height;
+  UNIT_IMAGES[key] = c;                 // the full-size original is no longer referenced
+  v2LoadedCount += 1;
+  return c;
+}
+/* One v2 image on a square: centred on it, bottom on the cell bottom, upright. */
+function drawV2Tile(img, x, y, widthCells, mirror){
+  const w = CELL * widthCells, hgt = CELL * 1.5;
+  const left = SX(x,y)*CELL + (CELL - w)/2, top = SY(x,y)*CELL + CELL - hgt;
+  if(!mirror){ ctx.drawImage(img, left, top, w, hgt); return; }
+  ctx.save(); ctx.translate(left + w, top); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, w, hgt); ctx.restore();
+}
+
+/* The farm overlay squares on the map in play, from the boards' own layout
+   data, placed and rotated exactly as the boards are (two boards, or four). */
+function farmOverlayForState(){
+  const layouts = TB_DATA.terrainLayouts;
+  let placements = null;
+  if(state.boardMode === 'grand' && state.grandQuadrants){
+    const q = state.grandQuadrants;
+    placements = [['topLeft',0,0],['topRight',HALF_COLS,0],['bottomLeft',0,HALF_COLS],['bottomRight',HALF_COLS,HALF_COLS]]
+      .map(([k, c, r]) => ({ board: q[k].board, rotation: q[k].rotation, colOffset: c, rowOffset: r }));
+  } else if(state.boardAssignment){
+    const a = state.boardAssignment, r = state.boardRotation || { red:0, blue:0 };
+    placements = [{ board: a.red, rotation: r.red, colOffset: 0, rowOffset: 0 }, { board: a.blue, rotation: r.blue, colOffset: HALF_COLS, rowOffset: 0 }];
+  }
+  return placements ? farmOverlaySet(layouts, placements, HALF_COLS, rotatePointCW) : new Set();
+}
+
+/* Everything that depends only on the layout (not the viewpoint or the cell
+   size) is worked out once per terrain and kept. */
+let v2LayoutCache = null;
+function v2Layout(){
+  const t = state.terrain;
+  const sig = JSON.stringify([state.boardMode, state.boardAssignment, state.boardRotation, state.grandQuadrants]);
+  if(v2LayoutCache && v2LayoutCache.terrain === t && v2LayoutCache.sig === sig) return v2LayoutCache;
+  const overlay = farmOverlayForState();
+  const farmCells = new Set(overlay);
+  t.forEach((row, y) => row.forEach((k, x) => { if(k === 'PLOUGHED_FIELD') farmCells.add(x + ',' + y); }));
+  const excluded = state.excludedRoadEdges || new Set();
+  v2LayoutCache = {
+    terrain: t, sig, overlay,
+    grass: grassPicks(t, overlay),
+    farms: farmPicks(farmCells),
+    roadChains: roadChains(buildRoadGraph(t, (x1, y1, x2, y2) => excluded.has(edgeKey(x1, y1, x2, y2)))),
+    roadLayer: null,
+  };
+  return v2LayoutCache;
+}
+
+/* THE ROAD LAYER: every chain drawn once, as three round-capped strokes and
+   two faint ruts, onto an offscreen canvas the size of the board, rebuilt only
+   when the layout, the viewpoint or the cell size changes. Crosses the gaps
+   between tiles. Road rules (movement, dust, roadConn) are untouched. */
+function roadLayerV2(lay){
+  const key = viewEdge() + '|' + CELL + '|' + canvas.width + 'x' + canvas.height;
+  if(lay.roadLayer && lay.roadLayer.key === key) return lay.roadLayer.canvas;
+  const off = document.createElement('canvas');
+  off.width = canvas.width; off.height = canvas.height;      // full device resolution, so roads stay crisp
+  const g = off.getContext('2d');
+  g.setTransform(ctx.getTransform());
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const lines = lay.roadChains.map(ch => smoothChain(ch, toScreen));
+  const path = pts => { g.beginPath(); g.moveTo(pts[0][0]*CELL, pts[0][1]*CELL); for(let i = 1; i < pts.length; i++) g.lineTo(pts[i][0]*CELL, pts[i][1]*CELL); };
+  for(const [w, col] of ROAD.STROKES){
+    g.strokeStyle = col; g.lineWidth = w * CELL;
+    for(const pts of lines){ path(pts); g.stroke(); }
+  }
+  g.strokeStyle = ROAD.RUTS.color; g.lineWidth = ROAD.RUTS.width * CELL;
+  for(const pts of lines){
+    for(const side of [-1, 1]){
+      const shifted = pts.map((p, i) => {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+        let tx = b[0] - a[0], ty = b[1] - a[1]; const n = Math.hypot(tx, ty) || 1; tx /= n; ty /= n;
+        return [p[0] - ty * ROAD.RUTS.offset * side, p[1] + tx * ROAD.RUTS.offset * side];
+      });
+      path(shifted); g.stroke();
     }
   }
+  lay.roadLayer = { key, canvas: off };
+  return off;
 }
-function v2Img(set, i){
-  if(!v2Loaded) loadV2Art();
-  const img = UNIT_IMAGES[`v2_${set}_${i}`];
-  return (img && img.complete && img.naturalWidth > 0) ? img : null;
+
+/* The cached board: one offscreen copy per canvas (the live board, and the
+   army picker's preview when it draws), rebuilt only when something it shows
+   has changed. Craters, units and everything else still draw fresh each frame. */
+const v2BoardCache = new WeakMap();
+function drawTerrainV2(){
+  const lay = v2Layout();
+  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
+  let entry = v2BoardCache.get(canvas);
+  if(!entry || entry.key !== key || entry.lay !== lay || entry.styles !== state.buildingStyles){
+    const off = entry && entry.canvas && entry.canvas.width === canvas.width && entry.canvas.height === canvas.height
+      ? entry.canvas : document.createElement('canvas');
+    off.width = canvas.width; off.height = canvas.height;
+    const g = off.getContext('2d');
+    g.setTransform(ctx.getTransform());
+    g.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    const liveCtx = ctx;
+    ctx = g;
+    try { drawTerrainV2Board(); } finally { ctx = liveCtx; }
+    // Count what loaded during this pass, so the next frame knows whether to redraw.
+    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|'), lay, styles: state.buildingStyles, canvas: off };
+    v2BoardCache.set(canvas, entry);
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(entry.canvas, 0, 0);
+  ctx.restore();
 }
-export function v2GrassIndex(x, y){ return 1 + Math.min(TERRAIN_V2_COUNTS.grass - 1, Math.floor(seededRand(x*73 + y*151 + 11) * TERRAIN_V2_COUNTS.grass)); }
-export function v2HillIndex(x, y){ return 1 + Math.min(TERRAIN_V2_COUNTS.hill - 1, Math.floor(seededRand(x*59 + y*113 + 29) * TERRAIN_V2_COUNTS.hill)); }
-/* One v2 tile, bottom-anchored to the cell's front edge and centred on it. */
-function drawV2Tile(img, x, y, widthCells){
-  const w = CELL * widthCells, h = CELL * 1.5;
-  ctx.drawImage(img, SX(x,y)*CELL + (CELL - w)/2, SY(x,y)*CELL + CELL - h, w, h);
+const V2_EXPECTED = 39;                  // images in the v2 set; once all have loaded the cache stops changing
+
+/* The whole v2 board, in the README's order. */
+function drawTerrainV2Board(){
+  const terrain = state.terrain;
+  const lay = v2Layout();
+  ctx.fillStyle = TERRAIN_V2_BG;
+  ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+  const rows = new Map();
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
+    const r = SY(x, y);
+    if(!rows.has(r)) rows.set(r, []);
+    rows.get(r).push([x, y]);
+  }
+  const order = [...rows.keys()].sort((a, b) => a - b);
+  for(const r of order) rows.get(r).sort((a, b) => SX(a[0], a[1]) - SX(b[0], b[1]));
+  // 2. ground, then farm and woods overlays, row by row
+  for(const r of order){
+    const cells = rows.get(r);
+    for(const [x, y] of cells){
+      const key = terrain[y][x];
+      if(key === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1); continue; }
+      const g = lay.grass[y][x];
+      const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
+      if(img) drawV2Tile(img, x, y, 1);
+    }
+    for(const [x, y] of cells){
+      const farm = lay.farms.get(x + ',' + y);
+      if(farm){ const img = v2Img('v2_farm_' + farm); if(img) drawV2Tile(img, x, y, 1.125, farmMirrored(x, y)); }
+      else if(terrain[y][x] === 'WOODS'){ const img = v2Img('v2_woods_' + woodsPick(x, y)); if(img) drawV2Tile(img, x, y, 1.125); }
+    }
+  }
+  // 3. the road layer
+  { const road = roadLayerV2(lay); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(road, 0, 0); ctx.restore(); }
+  // 4. villages, row by row
+  for(const r of order){
+    for(const [x, y] of rows.get(r)){
+      if(terrain[y][x] !== 'BUILDING') continue;
+      const style = state.buildingStyles && state.buildingStyles[y][x];
+      const img = style ? v2Img('v2_building_' + style) : null;
+      if(img) drawV2Tile(img, x, y, 1.125);
+    }
+  }
 }
 
 /* =========================================================
@@ -1524,10 +1666,8 @@ export function draw(){
   // paint over their own cells next. Kept as a fallback fill even for Open
   // cells (drawn over next, once the grass tile images are ready) so there's
   // no flash of blank canvas while those assets are still decoding.
-  if(TERRAIN_V2){
-    ctx.fillStyle = TERRAIN_V2_BG;
-    ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
-  } else for(let y=0;y<ROWS;y++){
+  if(V2){ /* the whole v2 ground is drawn by drawTerrainV2, below */ }
+  else for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const key = terrain[y][x];
       ctx.fillStyle = terrainColor(key==='ROAD' ? 'OPEN' : key);
@@ -1542,7 +1682,7 @@ export function draw(){
   // tiles already fill their full square with real grass/flower detail, so
   // Road keeps the older flat-colour-plus-blade-texture treatment below
   // rather than doubling up on top of this.
-  if(state.grassStyles && !TERRAIN_V2){
+  if(state.grassStyles && !V2){
     for(let y=0;y<ROWS;y++){
         for(let x=0;x<COLS;x++){
         // BUILDING as well as OPEN — see assignGrassStyles. Drawn before the
@@ -1561,8 +1701,7 @@ export function draw(){
 
   // Grass texture — a repeating blade pattern clipped to Road cells only
   // now; Open and Hill ground get their detail from the tile images above.
-  // (Under TERRAIN_V2 the same texture is laid per road cell, in row order.)
-  if(!TERRAIN_V2){
+  if(!V2){
   ctx.save();
   ctx.beginPath();
   for(let y=0;y<ROWS;y++){
@@ -1589,10 +1728,6 @@ export function draw(){
     ctx.beginPath();
     for(const [x,y] of cells) ctx.rect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
     ctx.clip();
-    if(TERRAIN_V2){                     // v1 has this colour from the base fill
-      ctx.fillStyle = terrainColor('PLOUGHED_FIELD');
-      ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
-    }
     const screenYs = region.map(([x,y])=>SY(x,y)), screenXs = region.map(([x,y])=>SX(x,y));
     const minX=Math.min(...screenXs), maxX=Math.max(...screenXs);
     const minSY=Math.min(...screenYs), maxSY=Math.max(...screenYs);
@@ -1612,9 +1747,7 @@ export function draw(){
     }
     ctx.restore();
   }
-  const ploughRegionOf = {};
-  for(const region of ploughRegions) for(const [x,y] of region) ploughRegionOf[x+','+y] = region;
-  if(!TERRAIN_V2) for(const region of ploughRegions) drawPlough(region, region);
+  if(!V2) for(const region of ploughRegions) drawPlough(region, region);
 
   // Roads: tile art for genuine 2+ way connections (straight, corner, T,
   // cross), matching whichever cardinal directions are connected on SCREEN —
@@ -1697,7 +1830,7 @@ export function draw(){
     }
     return null;
   }
-  if(!TERRAIN_V2) for(let y=0;y<ROWS;y++){
+  if(!V2) for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       if(terrain[y][x]!=='ROAD') continue;
       const list = roadConn[x+','+y] || [];
@@ -1723,62 +1856,6 @@ export function draw(){
       }
     }
   }
-  /* TERRAIN v2: the whole ground drawn here, row by row from the back of the
-     SCREEN to the front (see the conventions block above drawV2Tile). Pass A
-     per row lays every grass or hill tile, plus the not-yet-replaced flat art
-     (road tiles, ploughed fields) over its grass; pass B lays the building
-     overlays and the old woods art, both of which spill into neighbours. */
-  function drawTerrainV2(){
-    const rows = new Map();
-    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++){
-      const r = SY(x,y);
-      if(!rows.has(r)) rows.set(r, []);
-      rows.get(r).push([x,y]);
-    }
-    const order = [...rows.keys()].sort((a,b)=>a-b);
-    for(const r of order){
-      const cells = rows.get(r).sort((a,b)=>SX(a[0],a[1]) - SX(b[0],b[1]));
-      for(const [x,y] of cells){                       // pass A: ground
-        const key = terrain[y][x];
-        if(key === 'HILL'){
-          const img = v2Img('hill', v2HillIndex(x,y));
-          if(img) drawV2Tile(img, x, y, 1);
-          continue;
-        }
-        const g = v2Img('grass', v2GrassIndex(x,y));
-        if(g) drawV2Tile(g, x, y, 1);
-        if(key === 'PLOUGHED_FIELD'){
-          drawPlough(ploughRegionOf[x+','+y] || [[x,y]], [[x,y]]);
-        } else if(key === 'ROAD'){
-          const tkey = roadTileKey(roadArtDirs(x, y, roadConn[x+','+y] || []));
-          const img = tkey ? UNIT_IMAGES[tkey] : null;
-          if(img && img.complete && img.naturalWidth>0){
-            ctx.save();
-            ctx.fillStyle = getGrassTexturePattern();
-            ctx.fillRect(SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
-            ctx.restore();
-            ctx.drawImage(img, SX(x,y)*CELL, SY(x,y)*CELL, CELL, CELL);
-          }
-        }
-      }
-      for(const [x,y] of cells){                       // pass B: overlays
-        const key = terrain[y][x];
-        if(key === 'BUILDING'){
-          const style = state.buildingStyles && state.buildingStyles[y][x];
-          const img = style ? v2Img('building', style) : null;
-          if(img) drawV2Tile(img, x, y, 1.125);
-        } else if(key === 'WOODS'){
-          const img = UNIT_IMAGES['forest_notroops_' + woodsStyleIndex(x,y)];
-          if(img && img.complete && img.naturalWidth>0){
-            const w = CELL*WOODS_OVERSCAN;
-            const h = w*(img.naturalHeight/img.naturalWidth);
-            ctx.drawImage(img, SX(x,y)*CELL-(w-CELL)/2, SY(x,y)*CELL+CELL-h, w, h);
-          }
-        }
-      }
-    }
-  }
-
   /* ---------------------------------------------------------------------
      RAISED FEATURES — one pass, ordered by SCREEN ROW.
 
@@ -1827,7 +1904,7 @@ export function draw(){
   // side bleed, so it has no visual consequence.
   raisedFeatures.sort((a,b) => a.sy_ - b.sy_ || a.sx_ - b.sx_);
 
-  if(TERRAIN_V2) drawTerrainV2();
+  if(V2) drawTerrainV2();
   else for(const f of raisedFeatures){
     const { x, y, key } = f;
 
@@ -1893,6 +1970,15 @@ export function draw(){
 
   // craters: every square Artillery has hit this match, above terrain, below units
   for(const c of state.craters){
+    if(V2){
+      // effects/crater: half a cell wide, centred on the face centre (0.469 of a cell down)
+      const img = v2Img('v2_crater');
+      if(img){
+        const w = CELL*0.5, hgt = w*(img.naturalHeight/img.naturalWidth);
+        ctx.drawImage(img, SX(c.x,c.y)*CELL + CELL/2 - w/2, SY(c.x,c.y)*CELL + CELL*ROAD.FACE_CY - hgt/2, w, hgt);
+      }
+      continue;
+    }
     const cx = SX(c.x,c.y)*CELL+CELL/2, cy = SY(c.x,c.y)*CELL+CELL/2;
     ctx.save();
     ctx.globalAlpha = 0.5;
@@ -1911,7 +1997,7 @@ export function draw(){
   // keep the standard gold, squares that would trigger a fight (a target or
   // a charge's resulting contact) draw in red so the consequence of tapping
   // that square is visible before you commit to it.
-  const showFullGrid = state.phase==='deploy' && !TERRAIN_V2;   // v2: the shadow gaps are the grid
+  const showFullGrid = state.phase==='deploy' && !V2;   // v2: the shadow gaps are the grid
   const showSelectionGrid = !showFullGrid && state.selectedUnitId && highlightCells && highlightCells.length;
   if(showFullGrid){
     ctx.strokeStyle = 'rgba(184,147,79,0.18)';

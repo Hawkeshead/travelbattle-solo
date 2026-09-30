@@ -1,33 +1,38 @@
-# Field Command terrain art v2
+# Field Command terrain art v2 (final pack, 30 Sep 2026)
 
-Replaces the square-plate terrain tiles with 2.5D tiles that sit on a dark earth board with shadow gaps between squares. All art is WebP.
+All art is WebP. Every image is portrait; the bottom square of the canvas is one grid cell, the space above is overhang room.
 
-## Canvas conventions
+## Folders
 
-Every image is portrait. The bottom 1024x1024 of the canvas is one grid cell; the space above is overhang room for features that rise into the square behind.
-
-Grass square (the "face"): 960x960 rounded square, radius 56, inset 32px each side, flush with the top of the cell square. This leaves a 64px shadow gap between neighbouring squares. Below the face is a 64px turf and earth drop-off that faces the viewer.
-
-Colour target for grass: about #7B730C. Everything is colour-matched to this.
-
-| Set | Files | Canvas | Draw width | Draw height | Notes |
+| Folder | Files | Canvas | Draw width | Draw height | Notes |
 |---|---|---|---|---|---|
-| grass | grass_1 to 6 | 1024x1536 | CELL | CELL x 1.5 | Full tile, opaque face, transparent elsewhere. Pick per cell by a stable hash of (x,y). |
-| hill | hill_1 to 7 | 1024x1536 | CELL | CELL x 1.5 | Full tile, grass face already included; do not draw a grass tile under a Hill cell. Rise 0.19 to 0.29 of a cell into the square behind. |
-| building | building_1 to 6 | 1152x1536 | CELL x 1.125 | CELL x 1.5 | Transparent overlay only. Draw a normal grass tile under it first. The cell square is centred (face at x 96 to 1056). Overhangs neighbours by 64px each side and rises 0.22 to 0.33 of a cell. |
+| grass | grass_1..6 | 1024x1536 | CELL | CELL x 1.5 | Plain grass. Face 960x960, radius 56, inset 32px, flush with the top of the cell; 64px earth drop-off below the front edge. |
+| grass/detail | grass_7..17 | 1024x1536 | CELL | CELL x 1.5 | Plain grass with one small feature at the back or a side (oak, hawthorn, poplars, weeds, campfire, reed pond, stump, cart, haystack, fallen posts, trough). Centre kept clear for units. |
+| hill | hill_1..7 | 1024x1536 | CELL | CELL x 1.5 | Full tile, grass included. Rises 0.19 to 0.29 cell into the square behind. |
+| farm | farm_1..4 | 1152x1536 | CELL x 1.125 | CELL x 1.5 | Overlay. 1 ploughed, 2 wheat with cart track, 3 young crop with wall, 4 hay meadow. |
+| woods | woods_1..4 | 1152x1536 | CELL x 1.125 | CELL x 1.5 | Overlay. One set for both sides. |
+| building | building_1..6 | 1152x1536 | CELL x 1.125 | CELL x 1.5 | Overlay. 1 church, 2 mill, 3 manor, 4 street, 5 walled farm, 6 crossroads. |
+| effects | crater.webp | 501x394 | CELL x 0.5 | to aspect | Cannon blast crater, transparent. Centred on the face centre. |
+| reference | *.py, *.json | | | | Rules for roads and farm fields, the farm overlay data, and the expected result on the 1v1 map. Port the rules; do not ship the Python. |
+| mockups | *.jpg | | | | The target look. |
 
-Draw rule for all three: bottom-anchored to the cell's front edge, centred horizontally on the cell, always upright in screen space (never rotated with the board), so the drop-off faces the player from every viewpoint.
+Placement for every image: centred horizontally on the cell, top edge at cellTop - 0.5 x CELL (so the canvas bottom sits on the bottom of the cell), always upright in screen space.
+
+Board background: #34241A. No grid lines. Face centre is 0.469 of a cell below the cell top.
 
 ## Draw order
 
-Back to front by screen row. Within a row, two passes: first every grass and hill tile, then every building overlay. This stops a neighbour's grass painting over a village's overhang.
+1. Background fill.
+2. By screen row, back to front: that row's ground tiles (grass or hill), then that row's farm and woods overlays.
+3. Road layer (one image for the whole map).
+4. By screen row, back to front: building overlays.
+5. Craters, then units and UI as today.
 
-Board background behind the tiles: dark earth, about #34241A. Grid lines are removed; the shadow gaps do that job.
+## Picking rules
 
-## Building set
-
-1 church village, 2 mill village, 3 manor village, 4 street village, 5 walled farm, 6 crossroads village. Building 4 has no lane leaving the front edge.
-
-## Not yet in this pack
-
-Woods, farmland and road overlays are still on the old art and will follow in the same format.
+- Plain grass: hash(x,y) % 6, bumped to the next variant if it matches the left or above neighbour.
+- Detail grass: only on OPEN squares that are not farm overlay squares. If hash(x,y,7) % 5 == 0 and no detail on the left, above, above-left or above-right square, use detail hash(x,y,8) % 11. Keep the 5 as a constant; density will go up later.
+- Road, woods, building and farm squares get plain grass underneath.
+- Hills, woods, buildings: hash % count as before.
+- Farms: see reference/farms_reference.py (fields of 2 to 3 squares per row, all four tiles in blocks of 3+ squares, mirror on odd x+y).
+- Roads: see reference/roads_reference.py.
