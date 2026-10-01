@@ -1150,7 +1150,15 @@
   #overlay .box .mode-btn{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:.05em; padding:5px 12px; border-radius:4px; cursor:pointer;
     background:rgba(240,228,198,.85); color:#2e2010; border:1px solid #9a7a36; box-shadow:none; text-shadow:none; }
   #overlay .box .mode-btn.on{ background:linear-gradient(180deg,#c8a24e,#9c7a2e); color:#2a1e14; border-color:#7a5a1e; }
-  #modeChoices.as-sides{ flex-direction:column; gap:10px; width:100%; }
+  #modeChoices.as-sides{ flex-direction:row; justify-content:center; gap:16px; width:100%; }
+  html.panel-art #overlay .box.as-folio #modeChoices.as-sides{ display:flex !important; }   /* the folio's landscape grid is for its four buttons */
+  #overlay .box.as-sides-screen #overlaySubtitle{ display:none !important; }   /* inline display:block from the start screen */
+  /* The two flags are the buttons: framed in brass, lifting a little on press. */
+  html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag{ width:132px; height:88px; padding:0; border:3px solid #9a7a36; border-radius:3px;
+    background:#222; overflow:hidden; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.45); transition:transform .12s ease, box-shadow .12s ease; }
+  html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag svg{ display:block; width:100%; height:100%; }
+  html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag:active{ transform:translateY(1px) scale(.98); box-shadow:0 1px 4px rgba(0,0,0,.45); }
+  html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag:focus-visible{ outline:3px solid #e8c46a; outline-offset:2px; }
   #modeChoices.as-sides .side-choice{ display:flex; align-items:center; gap:12px; text-align:left; padding:10px 14px; width:100%; }
   .side-seal{ flex:none; width:34px; height:34px; border-radius:48% 52% 51% 49% / 50% 48% 52% 50%;
     box-shadow:0 2px 4px rgba(0,0,0,.5), inset 0 -2px 4px rgba(0,0,0,.4), inset 0 1px 2px rgba(255,200,180,.3); }
@@ -1160,8 +1168,7 @@
   .side-name{ font-family:'Cinzel',serif; font-size:16px; letter-spacing:.08em; }
   .side-line{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:14px; letter-spacing:0; text-transform:none; opacity:.85; }
   @media (max-height:430px){
-    #modeChoices.as-sides .side-choice{ padding:7px 10px; }
-    .side-name{ font-size:14px; } .side-line{ font-size:12.5px; }
+    html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag{ width:120px; height:80px; }
     .mode-toggle{ margin:6px 0 0; }
   }
 

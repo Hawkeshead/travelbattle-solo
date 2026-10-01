@@ -312,10 +312,12 @@ export function clearFolio(){
    enough to become the top of a ladder of easier levels. The old rank
    screen (showDifficultySelect) is kept below for that day, but is no longer
    reached. */
+const FLAG_BRITAIN = '<svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true"><clipPath id="ujc"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="ujt"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#ujc)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#ujt)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>';
+const FLAG_FRANCE = '<svg viewBox="0 0 3 2" preserveAspectRatio="none" aria-hidden="true"><rect width="1" height="2" x="0" fill="#002395"/><rect width="1" height="2" x="1" fill="#fff"/><rect width="1" height="2" x="2" fill="#ED2939"/></svg>';
 export function showSideSelect(){
   clearFolio();
   const box = document.querySelector('#overlay .box');
-  box.classList.add('as-folio');
+  box.classList.add('as-folio', 'as-sides-screen');   // as-sides-screen: no strapline (index.html)
   document.getElementById('overlayTitle').textContent = 'Choose Your Side';
   document.getElementById('overlayText').innerHTML =
     'The AI takes the other side and will deploy, move, fire and fight on its own turns.' + modeToggleHtml();
@@ -324,13 +326,15 @@ export function showSideSelect(){
   extra.innerHTML = '';
   extra.className = 'as-sides';
   extra.style.display = 'flex';
-  const side = (cls, name, line, aiSide) => {
+  /* Each side is just its flag (Matthew, 1 Oct): the Union Flag and the
+     tricolour, drawn as SVG so they stay crisp at any size. The name is there
+     for screen readers. */
+  const side = (flagSvg, name, aiSide) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'primary side-choice';
-    b.innerHTML = `<span class="side-seal ${cls}" aria-hidden="true"></span><span class="side-text"><span class="side-name"></span><span class="side-line"></span></span>`;
-    b.querySelector('.side-name').textContent = name;
-    b.querySelector('.side-line').textContent = line;
+    b.className = 'side-flag';
+    b.setAttribute('aria-label', name);
+    b.innerHTML = flagSvg;
     b.onclick = ()=>{
       state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
       saveLastSetup();
@@ -341,8 +345,8 @@ export function showSideSelect(){
     };
     return b;
   };
-  extra.appendChild(side('red', 'Britain', 'Steady lines and disciplined volleys.', SIDES.BLUE));
-  extra.appendChild(side('blue', 'France', 'The weight of the column, and its speed.', SIDES.RED));
+  extra.appendChild(side(FLAG_BRITAIN, 'Britain', SIDES.BLUE));
+  extra.appendChild(side(FLAG_FRANCE, 'France', SIDES.RED));
 }
 
 // Difficulty is presented as the opponent's rank on a service record. Chevrons
