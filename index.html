@@ -1143,6 +1143,28 @@
     html.panel-art #overlay .box.as-folio .sa-seal{ width:30px; height:30px; }
   }
 
+  /* Choose Your Side, on the map panel: the battle mode as a small two-way
+     switch, then the two sides as walnut buttons, each with its wax seal. */
+  .mode-toggle{ display:flex; gap:6px; justify-content:center; align-items:center; margin:10px 0 2px; }
+  .mode-label{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:.75; margin-right:4px; }
+  #overlay .box .mode-btn{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:.05em; padding:5px 12px; border-radius:4px; cursor:pointer;
+    background:rgba(240,228,198,.85); color:#2e2010; border:1px solid #9a7a36; box-shadow:none; text-shadow:none; }
+  #overlay .box .mode-btn.on{ background:linear-gradient(180deg,#c8a24e,#9c7a2e); color:#2a1e14; border-color:#7a5a1e; }
+  #modeChoices.as-sides{ flex-direction:column; gap:10px; width:100%; }
+  #modeChoices.as-sides .side-choice{ display:flex; align-items:center; gap:12px; text-align:left; padding:10px 14px; width:100%; }
+  .side-seal{ flex:none; width:34px; height:34px; border-radius:48% 52% 51% 49% / 50% 48% 52% 50%;
+    box-shadow:0 2px 4px rgba(0,0,0,.5), inset 0 -2px 4px rgba(0,0,0,.4), inset 0 1px 2px rgba(255,200,180,.3); }
+  .side-seal.red{ background:radial-gradient(circle at 38% 34%, #c0453f, #7a1414 58%, #4a0a0a); }
+  .side-seal.blue{ background:radial-gradient(circle at 38% 34%, #4f6fb3, #1c2f66 58%, #0d1a3d); }
+  .side-text{ display:flex; flex-direction:column; gap:2px; }
+  .side-name{ font-family:'Cinzel',serif; font-size:16px; letter-spacing:.08em; }
+  .side-line{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:14px; letter-spacing:0; text-transform:none; opacity:.85; }
+  @media (max-height:430px){
+    #modeChoices.as-sides .side-choice{ padding:7px 10px; }
+    .side-name{ font-size:14px; } .side-line{ font-size:12.5px; }
+    .mode-toggle{ margin:6px 0 0; }
+  }
+
   /* Victory: a wax seal in the winner's colour under the plaque, then the
      result, then what the match cost each side. */
   .victory-seal, .victory-stats{ display:none; }

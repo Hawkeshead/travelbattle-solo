@@ -90,8 +90,6 @@ function loadLastSetup(){
   } catch { return null; }
 }
 
-const RANK_LABEL = { easy:'Lieutenant', medium:'Colonel', hard:'Marshal' };
-
 export const OPERATIONS_ENABLED = false;
 // Grand Strategy joins Operations and Campaigns in being parked for the
 // Commander's Desk pass. Same treatment: the entry point is simply not
@@ -211,12 +209,12 @@ export function showModeSelect(isSplash){
     again.className = 'same-again';
     again.innerHTML = '<span class="sa-seal" aria-hidden="true"></span><span class="sa-label"></span>';
     again.querySelector('.sa-label').textContent =
-      'Same Again \u00B7 ' + side + ', ' + RANK_LABEL[last.difficulty];
+      'Same Again \u00B7 ' + side;
     again.onclick = ()=>{
       state.scenario = null; state.campaign = null;
       state.mode = 'ai';
       state.aiSide = last.aiSide;
-      state.aiDifficulty = last.difficulty;
+      state.aiDifficulty = 'hard';      // one AI level for now (see showSideSelect)
       extra.style.display = 'none';
       document.getElementById('overlay').classList.remove('show');
       beginBoardSetup();
@@ -301,44 +299,50 @@ export function showOperationModeSelect(scenario){
   document.getElementById('overlay').classList.add('show');
 }
 
-// Each side is a sealed despatch lying on the desk rather than a labelled
-// button. The period address line does the faction characterisation without
-// needing a caption, and the whole sheet is the tap target so nothing has to
-// be aimed at on a phone. Same handlers as before — only the markup changed.
-function makeDespatch(cls, addressee, name, line, onClick){
-  const b = document.createElement('button');
-  b.className = 'despatch ' + cls;
-  b.innerHTML =
-    '<span class="d-sup"></span>' +
-    '<span class="d-name"></span>' +
-    '<span class="d-line"></span>' +
-    '<span class="d-wax" aria-hidden="true"></span>';
-  b.querySelector('.d-sup').textContent  = addressee;
-  b.querySelector('.d-name').textContent = name;
-  b.querySelector('.d-line').textContent = line;
-  b.onclick = onClick;
-  return b;
-}
 
 export function clearFolio(){
   const box = document.querySelector('#overlay .box');
   if(box) box.classList.remove('as-folio', 'as-victory');
 }
 
+/* CHOOSE YOUR SIDE, on the map panel like the start screen (Matthew, 1 Oct).
+   It also carries the battle mode (Turn-Based or Real-Time), and choosing a
+   side starts the battle: there is one AI level for now, the one all the AI
+   work has gone into (Marshal, 'hard'), until it beats Matthew regularly
+   enough to become the top of a ladder of easier levels. The old rank
+   screen (showDifficultySelect) is kept below for that day, but is no longer
+   reached. */
 export function showSideSelect(){
   clearFolio();
+  const box = document.querySelector('#overlay .box');
+  box.classList.add('as-folio');
   document.getElementById('overlayTitle').textContent = 'Choose Your Side';
-  document.getElementById('overlayText').innerHTML = 'The AI takes the other side and will deploy, move, fire and fight on its own turns.';
+  document.getElementById('overlayText').innerHTML =
+    'The AI takes the other side and will deploy, move, fire and fight on its own turns.' + modeToggleHtml();
+  wireModeToggle();
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
-  extra.className = 'as-despatches';
+  extra.className = 'as-sides';
   extra.style.display = 'flex';
-  extra.appendChild(makeDespatch('brit', 'To the Officer Commanding', 'Britain',
-    'Steady lines and disciplined volleys.',
-    ()=>{ state.mode='ai'; state.aiSide=SIDES.BLUE; extra.style.display='none'; showDifficultySelect(); }));
-  extra.appendChild(makeDespatch('fran', 'Au Commandant en Chef', 'France',
-    'The weight of the column, and its speed.',
-    ()=>{ state.mode='ai'; state.aiSide=SIDES.RED; extra.style.display='none'; showDifficultySelect(); }));
+  const side = (cls, name, line, aiSide) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'primary side-choice';
+    b.innerHTML = `<span class="side-seal ${cls}" aria-hidden="true"></span><span class="side-text"><span class="side-name"></span><span class="side-line"></span></span>`;
+    b.querySelector('.side-name').textContent = name;
+    b.querySelector('.side-line').textContent = line;
+    b.onclick = ()=>{
+      state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
+      saveLastSetup();
+      extra.style.display = 'none';
+      document.getElementById('overlay').classList.remove('show');
+      if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
+      beginBoardSetup();
+    };
+    return b;
+  };
+  extra.appendChild(side('red', 'Britain', 'Steady lines and disciplined volleys.', SIDES.BLUE));
+  extra.appendChild(side('blue', 'France', 'The weight of the column, and its speed.', SIDES.RED));
 }
 
 // Difficulty is presented as the opponent's rank on a service record. Chevrons
@@ -373,15 +377,13 @@ function chevronSvg(n){
    entirely in js/rts/, reached through the one dynamic import below. */
 let battleMode = 'turn';
 function modeToggleHtml(){
-  const b = (v, label) => `<button type="button" data-mode="${v}" style="font:inherit;padding:6px 14px;border-radius:4px;cursor:pointer;` +
-    `border:1px solid var(--brass-dim);background:${battleMode===v ? 'var(--brass-bright)' : 'transparent'};color:${battleMode===v ? '#2a1e14' : 'inherit'}">${label}</button>`;
-  return `<div id="battleModeToggle" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:6px">` +
-    `<span style="opacity:.8">Mode</span>${b('turn','Turn-Based')}${b('rts','Real-Time')}</div>`;
+  const b = (v, label) => `<button type="button" class="mode-btn${battleMode === v ? ' on' : ''}" data-mode="${v}" aria-pressed="${battleMode === v}">${label}</button>`;
+  return `<span id="battleModeToggle" class="mode-toggle"><span class="mode-label">Battle</span>${b('turn','Turn-Based')}${b('rts','Real-Time')}</span>`;
 }
 function wireModeToggle(){
   document.querySelectorAll('#battleModeToggle [data-mode]').forEach(btn => btn.onclick = () => {
     battleMode = btn.dataset.mode;
-    document.getElementById('overlayText').innerHTML = modeToggleHtml();
+    document.getElementById('battleModeToggle').outerHTML = modeToggleHtml();
     wireModeToggle();
   });
 }
