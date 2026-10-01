@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="panel-art">
 <head>
 <meta charset="UTF-8">
 <link rel="icon" type="image/png" href="favicon.png">
@@ -943,15 +943,16 @@
   }
   /* The framed panel (assets/ui/): a desk frame drawn as a border image (no
      fill) and the map parchment in the centre, cover-fitted and clipped to
-     the padding box so it is never stretched. Switched on by prompt-panel.js
-     only once both images have loaded; otherwise the plain panel above. */
+     the padding box so it is never stretched. On from the first paint; if an
+     image fails to load prompt-panel.js switches it off, and the plain panel
+     above takes over. */
   .dice-panel{ position:relative; }
   /* Held at one size through a roll (dice.js lockDicePanelTo): the content sits in the middle of it. */
   .dice-panel.size-locked{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
   html.panel-art .dice-panel{
-    border:13px solid transparent; border-radius:0;
+    border:13px solid #3b2416; border-radius:0;
     border-image:url(assets/ui/panel_frame.webp) 75 / 13px stretch;
-    background:url(assets/ui/panel_map_centre.webp) center / cover no-repeat;
+    background:#e3d4ae url(assets/ui/panel_map_centre.webp) center / cover no-repeat;
     background-clip:padding-box;
   }
   /* Compact prompts (Leadership Roll, Ambush) in the same panel. */
@@ -1086,17 +1087,18 @@
      The walnut frame and map parchment of the dice panel and prompts
      (assets/ui/), carried to the start screen, the victory screen, the Army
      Picker and the unit card. Everything here is under html.panel-art, which
-     prompt-panel.js sets only once both images have loaded, so a failed load
-     leaves the earlier styling exactly as it was.
+     is on from the first paint (the <html> tag) and taken away by
+     prompt-panel.js only if an image fails to load, putting back the earlier
+     styling exactly as it was.
      Large panels: the parchment cover-fitted. Small panels (Army Picker, unit
      card): 230% wide and centred, so the map's drawn detail (rivers, woods,
      the compass) stays out to the sides and never sits behind the text.
   ================================================================== */
   html.panel-art #overlay .box.as-folio, html.panel-art #overlay .box.as-victory,
   html.panel-art #armyPickerCard, html.panel-art #unitOverlayPanel{
-    border:14px solid transparent; border-radius:0;
+    border:14px solid #3b2416; border-radius:0;   /* walnut and parchment colours show until the images arrive */
     border-image:url(assets/ui/panel_frame.webp) 75 / 14px stretch;
-    background:url(assets/ui/panel_map_centre.webp) center / cover no-repeat;
+    background:#e3d4ae url(assets/ui/panel_map_centre.webp) center / cover no-repeat;
     background-clip:padding-box;
     box-shadow:0 16px 34px rgba(0,0,0,.7);
   }
@@ -1209,6 +1211,8 @@
     });
   }
 </script>
+  <link rel="preload" as="image" href="assets/ui/panel_frame.webp">
+  <link rel="preload" as="image" href="assets/ui/panel_map_centre.webp">
 </head>
 <body>
 <div id="app">

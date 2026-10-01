@@ -30,14 +30,15 @@ const UI = 'assets/ui/';
 export const PROMPT_ART = ['assets/ui/panel_frame.webp', 'assets/ui/panel_map_centre.webp', 'assets/ui/icon_save.webp',
   'assets/ui/icon_letgo.webp', 'assets/ui/icon_hold.webp', 'assets/ui/icon_advance.webp'];
 
-/* The frame and parchment: preloaded, and the styled panel turned on only
-   when both are really there. */
+/* The frame and parchment. The styled panels are on from the first paint
+   (index.html starts with <html class="panel-art">, and the panels show plain
+   walnut and parchment colours until the images arrive), so the old panels
+   never flash up first. Only if an image fails to load is the class taken
+   away again, putting back the old styling. */
 if(typeof Image !== 'undefined' && typeof document !== 'undefined'){
-  let ok = 0;
-  const need = [`${UI}panel_frame.webp`, `${UI}panel_map_centre.webp`];
-  for(const src of need){
+  for(const src of ['assets/ui/panel_frame.webp', 'assets/ui/panel_map_centre.webp']){
     const img = new Image();
-    img.onload = () => { if(++ok === need.length) document.documentElement.classList.add('panel-art'); };
+    img.onerror = () => document.documentElement.classList.remove('panel-art');
     img.src = src;
   }
   for(const src of PROMPT_ART.slice(2)){ const i = new Image(); i.src = src; }
