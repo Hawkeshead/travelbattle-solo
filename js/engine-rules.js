@@ -7,6 +7,7 @@ import { log, logNarration, logReplay } from './engine-state.js';
 import { GROUP_ARMIES, armyBrokenCount, armyOf, homeEdgeCells } from './group.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
+import { showPanelPrompt } from './prompt-panel.js';
 import { askRemote, isRemoteSide } from './online-session.js';
 import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
@@ -1477,27 +1478,26 @@ export function offerLeadershipRoll(loser, brig, onComplete){
   showLeadershipRollPrompt(loser, brig, use => applyLeadershipRollChoice(loser, brig, use, onComplete));
 }
 
-/* The question itself, on whichever phone belongs to the unit's owner. */
-export function showLeadershipRollPrompt(loser, brig, choose){
-  document.getElementById('overlayTitle').textContent = 'Use Leadership Roll?';
-  document.getElementById('overlayText').innerHTML =
-    `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`;
-  document.getElementById('overlayBtn').style.display = 'none';
-  const canvas = document.getElementById('rotationPreviewCanvas');
-  if(canvas) canvas.style.display = 'none';
-  let extra = document.getElementById('modeChoices');
-  extra.innerHTML = '';
-  extra.style.display = 'flex';
-  const yesBtn = document.createElement('button');
-  yesBtn.className = 'primary';
-  yesBtn.textContent = 'Use Leadership Roll';
-  yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(true); };
-  const noBtn = document.createElement('button');
-  noBtn.textContent = 'Let the Unit Go';
-  noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(false); };
-  extra.appendChild(yesBtn);
-  extra.appendChild(noBtn);
-  document.getElementById('overlay').classList.add('show');
+/* The question itself, on whichever phone belongs to the unit's owner: a
+   compact card in the dice panel (prompt-panel.js). opts.answerMs: the online
+   answer window, when answering for the phone that asked. */
+export function showLeadershipRollPrompt(loser, brig, choose, opts = {}){
+  showPanelPrompt({
+    title: 'Leadership Roll',
+    portraits: [unitPortraitHTML(loser), unitPortraitHTML(brig)],
+    joiner: '+',
+    line: `${unitLabel(loser)} failed to rally.`,
+    small: 'One save per Brigade, per match',
+    buttons: [
+      { label: 'Save', caption: 'spend the roll', icon: 'icon_save', primary: true, value: true },
+      { label: 'Let go', caption: 'unit is lost', icon: 'icon_letgo', primary: false, value: false },
+    ],
+    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
+    units: [loser, brig],
+    answerMs: opts.answerMs || 0,
+    afterChoose: 'close',
+    onChoose: choose,
+  });
 }
 
 export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){

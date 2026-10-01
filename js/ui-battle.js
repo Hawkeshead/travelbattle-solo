@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
@@ -7,7 +8,7 @@ import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
-import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
+import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
@@ -855,28 +856,28 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
   }
 }
 
-export function showAmbushChoice(ambusher, target, callback){
-  document.getElementById('overlayTitle').textContent = `AMBUSH! ${SIDE_LABEL[ambusher.side]}`;
-  document.getElementById('overlayText').innerHTML =
-    `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. `+
-    `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`;
-  document.getElementById('overlayBtn').style.display = 'none';
-  const canvas = document.getElementById('rotationPreviewCanvas');
-  if(canvas) canvas.style.display = 'none';
-  let extra = document.getElementById('modeChoices');
-  extra.innerHTML = '';
-  extra.style.display = 'flex';
-  extra.style.flexWrap = 'wrap';
-  const holdBtn = document.createElement('button');
-  holdBtn.textContent = 'Hold Position';
-  holdBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('hold'); };
-  const advBtn = document.createElement('button');
-  advBtn.className = 'primary';
-  advBtn.textContent = 'Commit to Advance';
-  advBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('advance'); };
-  extra.appendChild(holdBtn);
-  extra.appendChild(advBtn);
-  document.getElementById('overlay').classList.add('show');
+/* The ambusher's owner chooses: a compact card in the dice panel
+   (prompt-panel.js) that runs straight on into the fight's roll in the same
+   panel. opts.answerMs: the online answer window, when answering for the
+   phone that asked. */
+export function showAmbushChoice(ambusher, target, callback, opts = {}){
+  showPanelPrompt({
+    title: 'Ambush!',
+    portraits: [unitPortraitHTML(ambusher), unitPortraitHTML(target)],
+    joiner: 'vs',
+    line: '+1 to your roll either way',
+    small: `${unitLabel(ambusher)} spring from the wood`,
+    buttons: [
+      { label: 'Hold', caption: '1 die, stay hidden', icon: 'icon_hold', primary: false, value: 'hold' },
+      { label: 'Advance', caption: '2 dice, take ground', icon: 'icon_advance', primary: true, value: 'advance' },
+    ],
+    rulesHTML: `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. ` +
+      `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`,
+    units: [ambusher, target],
+    answerMs: opts.answerMs || 0,
+    afterChoose: 'roll',
+    onChoose: callback,
+  });
 }
 
 export function springAmbush(ambusher, target, mode, onComplete){

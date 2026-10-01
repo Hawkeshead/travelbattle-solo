@@ -25,6 +25,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
 import { ONLINE_VERSION } from './online.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
          draw, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas } from './render-board.js';
+import { ANSWER_WINDOW_MS } from './prompt-panel.js';
 import { playMovementAudio, seededRandom, showLeadershipRollPrompt } from './engine-rules.js';
 import { noteBrigadeBreaks, playTurnTheme, selectUnit, showAmbushChoice, startBattle, updateHeader } from './ui-battle.js';
 import { log, syncPhaseButtons } from './engine-state.js';
@@ -561,10 +562,10 @@ function onAsk(p){
   if(p.kind === 'reroll') showDiceRerollButton(p.data.label, () => reply(true), () => reply(false));
   else if(p.kind === 'leadership'){
     const loser = find(p.data.loserId), brig = find(p.data.brigId);
-    if(loser && brig) showLeadershipRollPrompt(loser, brig, reply);
+    if(loser && brig) showLeadershipRollPrompt(loser, brig, reply, { answerMs: ANSWER_WINDOW_MS });
   } else if(p.kind === 'ambush'){
     const amb = find(p.data.ambId), target = find(p.data.targetId);
-    if(amb && target) showAmbushChoice(amb, target, reply);
+    if(amb && target) showAmbushChoice(amb, target, reply, { answerMs: ANSWER_WINDOW_MS });
   }
 }
 

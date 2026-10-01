@@ -941,6 +941,44 @@
     background:rgba(233,223,196,0.97); border:2px solid var(--brass-dim); border-radius:6px;
     padding:9px 16px 8px; box-shadow:0 6px 22px rgba(0,0,0,0.4); text-align:center;
   }
+  /* The framed panel (assets/ui/): a desk frame drawn as a border image (no
+     fill) and the map parchment in the centre, cover-fitted and clipped to
+     the padding box so it is never stretched. Switched on by prompt-panel.js
+     only once both images have loaded; otherwise the plain panel above. */
+  .dice-panel{ position:relative; }
+  html.panel-art .dice-panel{
+    border:13px solid transparent; border-radius:0;
+    border-image:url(assets/ui/panel_frame.webp) 75 / 13px stretch;
+    background:url(assets/ui/panel_map_centre.webp) center / cover no-repeat;
+    background-clip:padding-box;
+  }
+  /* Compact prompts (Leadership Roll, Ambush) in the same panel. */
+  .dice-panel.prompting > .dice-groups, .dice-panel.prompting > #diceLegend,
+  .dice-panel.prompting > .dice-result, .dice-panel.prompting > #diceRollBtn{ display:none !important; }
+  .panel-prompt:empty{ display:none; }
+  .panel-prompt{ min-width:272px; }
+  .pp-help{ position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0; border-radius:50%;
+    border:1px solid var(--brass-dim); background:rgba(244,234,210,0.9); color:var(--ink);
+    font-family:'Cinzel',serif; font-size:12px; line-height:20px; cursor:pointer; }
+  .pp-title{ font-family:'Cinzel',serif; font-size:15px; letter-spacing:.04em; color:var(--ink); }
+  .pp-faces{ display:flex; align-items:center; justify-content:center; gap:8px; margin:4px 0 3px; }
+  .dice-face.pp-face{ width:40px; height:40px; margin:0; }
+  .pp-join{ font-family:'Cinzel',serif; font-size:13px; color:var(--ink-dim); }
+  .pp-line{ font-family:'Cormorant Garamond',serif; font-weight:700; font-size:15px; color:var(--ink); line-height:1.2; }
+  .pp-small{ font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink-dim); margin:1px 0 6px; }
+  .pp-buttons{ display:flex; gap:8px; justify-content:center; }
+  .pp-btn{ width:136px; height:40px; display:flex; align-items:center; gap:6px; padding:3px 8px 3px 4px;
+    border:1px solid #b8963f; border-radius:5px; cursor:pointer; text-align:left; }
+  .pp-btn img{ width:32px; height:32px; flex:none; }
+  .pp-text{ display:flex; flex-direction:column; line-height:1.05; }
+  .pp-label{ font-family:'Cinzel',serif; font-size:13px; }
+  .pp-caption{ font-family:'Cormorant Garamond',serif; font-size:10.5px; white-space:nowrap; }
+  .pp-primary{ background:linear-gradient(#5b3b25,#3a2416); color:#f3e7cc; box-shadow:inset 0 0 0 1px rgba(255,230,170,.15); }
+  .pp-secondary{ background:linear-gradient(#f5ecd6,#e5d6b2); color:var(--ink); }
+  .pp-rules{ max-width:300px; margin:7px auto 0; font-family:'Cormorant Garamond',serif; font-size:12.5px;
+    line-height:1.3; color:var(--ink); text-align:left; }
+  .pp-timer{ position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(90,60,30,.25); }
+  .pp-timer-fill{ height:100%; width:100%; background:linear-gradient(90deg,#b8963f,#e8c46a); }
   .dice-groups{ display:flex; align-items:center; justify-content:center; gap:12px; }
   .dice-group{ display:flex; flex-direction:column; align-items:center; gap:4px; }
   .dice-group .glabel{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-dim); letter-spacing:0.03em; }

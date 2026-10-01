@@ -686,6 +686,36 @@ export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
     fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs };
   ensureAnimationLoopRunning();
 }
+/* PROMPT GLOW: while a Leadership or Ambush prompt is open (prompt-panel.js),
+   the squares of the units it is about pulse a soft brass glow. The board is
+   not dimmed. */
+let promptGlowIds = null;
+export function setPromptGlow(ids){
+  promptGlowIds = ids && ids.length ? ids.slice() : null;
+  ensureAnimationLoopRunning();
+  draw();
+}
+function drawPromptGlow(){
+  if(!promptGlowIds) return;
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 260);
+  for(const id of promptGlowIds){
+    const u = state.units.find(x => x.id === id);
+    if(!u || u.removed) continue;
+    const vp = getUnitVisualPos(u);
+    const x = SX(vp.x, vp.y) * CELL, y = SY(vp.x, vp.y) * CELL;
+    ctx.save();
+    ctx.shadowColor = `rgba(226,188,96,${0.55 + 0.35 * pulse})`;
+    ctx.shadowBlur = CELL * (0.18 + 0.12 * pulse);
+    ctx.strokeStyle = `rgba(232,196,106,${0.55 + 0.4 * pulse})`;
+    ctx.lineWidth = Math.max(2, CELL * 0.06);
+    const r = CELL * 0.12, i = CELL * 0.05, w = CELL - 2 * i;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x + i, y + i, w, w, r); else ctx.rect(x + i, y + i, w, w);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /* GUNFIRE (render-gunfire.js): the blast or flashes and the drifting smoke.
    Recorded on state, numbered like the action line, so an online opponent's
    phone plays the same shot when it sees a new number arrive. */
@@ -724,7 +754,7 @@ export function ensureAnimationLoopRunning(){
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
     const spriteAnimActive = state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
-    if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive()){
+    if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive() || promptGlowIds){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;
@@ -2399,6 +2429,8 @@ export function draw(){
       ctx.restore();
     }
   }
+
+  drawPromptGlow();
 
   // Gunfire and battlefield smoke: above the units and effects, below the UI.
   drawGunfire({ ctx, CELL, toScreen, zoom: mapZoom, units: state.units.filter(u => !u.removed) });
