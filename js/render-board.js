@@ -1,6 +1,6 @@
 import { AudioManager } from './audio-manager.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
-import { drawGunfire, gunfireActive, spawnGunfire } from './render-gunfire.js';
+import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
 import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
@@ -83,6 +83,7 @@ export function clearTransientRenderState(){
 }
 
 export const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
+const DEATH_SKULL_DISSOLVE_MS = 600;   // v2: the skull fades into its smoke over this long
 export function addDeathEffect(x, y){
   deathEffects.push({x, y, startTime: Date.now()});
   /* The death cry belongs WITH the skull, not beside it.
@@ -2416,7 +2417,27 @@ export function draw(){
         ctx.fillText('\u{1F480}', cx, cy);
       }
       ctx.restore();
+    } else if(V2){
+      /* v2: the skull dissolves into gunsmoke. As it starts to fade, two clouds
+         are spawned into the drifting smoke (render-gunfire.js spawnDeathSmoke);
+         the skull fades over the first DEATH_SKULL_DISSOLVE_MS while they fade
+         in. With reduced motion or in fast animation mode, no clouds: the skull
+         just fades. */
+      if(!d.smokeSpawned){ d.smokeSpawned = true; if(!FAST_ANIMATION_MODE) spawnDeathSmoke({ x: d.x, y: d.y }); }
+      const k = 1 - (elapsed - DEATH_SKULL_MS) / DEATH_SKULL_DISSOLVE_MS;
+      const skull = k > 0 ? v2Img('v2_death_skull') : null;
+      if(skull){
+        const w = CELL * 0.8, hgt = w * ((skull.naturalHeight || skull.height) / (skull.naturalWidth || skull.width));
+        const fy = SY(d.x,d.y)*CELL + CELL*ROAD.FACE_CY;
+        ctx.save();
+        ctx.globalAlpha = k;
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = CELL * 0.12;
+        ctx.drawImage(skull, cx - w/2, fy - hgt/2, w, hgt);
+        ctx.restore();
+      }
     } else {
+      // v1: the old drifting grey circles, unchanged.
       const smokeT = (elapsed - DEATH_SKULL_MS) / DEATH_SMOKE_MS; // 0..1
       const fade = 1 - smokeT;
       ctx.save();

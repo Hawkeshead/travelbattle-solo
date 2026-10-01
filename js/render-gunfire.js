@@ -74,13 +74,36 @@ export function spawnGunfire(kind, from, to, { noSmoke = false } = {}){
 }
 function newCloud(img, from, to, along, side, start, cfg){
   return { img, fx: from.x, fy: from.y, tx: to.x, ty: to.y, along, side, start, w0: cfg.from, w1: cfg.to, alpha: cfg.alpha,
-    push: cfg.push, speed: 1 + (Math.random() * 2 - 1) * SPEED_JITTER, turn: (Math.random() * 2 - 1) * MAX_TURN, wx: 0, wy: 0, last: start };
+    push: cfg.push, speed: 1 + (Math.random() * 2 - 1) * SPEED_JITTER, turn: (Math.random() * 2 - 1) * MAX_TURN, wx: 0, wy: 0, px: 0, py: 0, last: start };
+}
+
+/* DEATH SMOKE: where a unit has just been destroyed, as its skull fades, two
+   clouds of the same smoke (a random pick from the cannon clouds and musket
+   puffs, never the same image twice in one death) rise on its square a few
+   pixels apart. Lighter than a cannon's (0.45 at most) and smaller (CELL x 0.6
+   growing to 1.3), so a death reads as a puff rather than a barrage. No push:
+   they only drift with the wind. Same life, fades, cap and per-unit limit as
+   all the other smoke. Not spawned with prefers-reduced-motion. */
+export const DEATH_SMOKE = { clouds: 2, from: 0.6, to: 1.3, alpha: 0.45, spreadPx: 5 };
+export function spawnDeathSmoke(at){
+  if(reducedMotion()) return;
+  const pool = [...SMOKE_FILES.cannonCloud, ...SMOKE_FILES.musketPuff];
+  const t = now();
+  for(let i = 0; i < DEATH_SMOKE.clouds; i++){
+    const img = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    const c = newCloud(img, at, at, 0, 0, t, { from: DEATH_SMOKE.from, to: DEATH_SMOKE.to, alpha: DEATH_SMOKE.alpha, push: 0 });
+    const a = Math.random() * Math.PI * 2;                                       // a few pixels apart
+    c.px = Math.cos(a) * DEATH_SMOKE.spreadPx * (i ? -1 : 1); c.py = Math.sin(a) * DEATH_SMOKE.spreadPx * (i ? -1 : 1);
+    clouds.push(c);
+  }
+  if(clouds.length > SMOKE_MAX_CLOUDS) clouds = clouds.slice(clouds.length - SMOKE_MAX_CLOUDS);   // oldest go first
 }
 
 export function gunfireActive(){
   const t = now();
   return blasts.length > 0 || clouds.some(c => t - c.start < LIFE_MS);
 }
+export const smokeCount = () => clouds.length;   // for checks and tests
 export function clearGunfire(){ blasts.length = 0; clouds = []; }
 
 /* Called from draw(), above the units and effects and below the UI.
@@ -110,8 +133,8 @@ export function drawGunfire(v){
     const ease = 1 - Math.pow(1 - Math.min(1, age / PUSH_MS), 3);
     const along = (c.along + c.push * ease) * CELL;
     const px = -g.dy, py = g.dx;                                          // across the line, for a volley's three points
-    const x = g.cx + g.dx * along + px * c.side * MUSKET.spread * CELL + c.wx;
-    const y = g.cy + g.dy * along + py * c.side * MUSKET.spread * CELL + c.wy;
+    const x = g.cx + g.dx * along + px * c.side * MUSKET.spread * CELL + c.wx + c.px;
+    const y = g.cy + g.dy * along + py * c.side * MUSKET.spread * CELL + c.wy + c.py;
     const w = (c.w0 + (c.w1 - c.w0) * Math.min(1, age / LIFE_MS)) * CELL;
     const fade = age < FADE_IN_MS ? age / FADE_IN_MS : age > LIFE_MS - FADE_OUT_MS ? Math.max(0, (LIFE_MS - age) / FADE_OUT_MS) : 1;
     live.push({ c, x, y, w, a: c.alpha * fade, k: 1 });
