@@ -145,6 +145,7 @@ export function endGame(winner){
     return;
   }
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
+  showVictoryDressing(winner);
   const bodyText = state.scenario
     ? `${SIDE_LABEL[winner]} achieves the objective: ${state.scenario.title}.`
     : `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
@@ -176,6 +177,39 @@ export function endGame(winner){
   }
   renderEndButtons();
   document.getElementById('overlay').classList.add('show');
+}
+
+/* THE VICTORY SCREEN'S DRESSING (index.html, MAP PANELS): the map panel, a wax
+   seal in the winner's colour under the plaque, and a row of what the match
+   cost, using only what the game already tracks: side-turns played
+   (state.turnNumber, the same count the match log calls "Turn"), Brigades
+   broken on each side (a Brigade with every unit under its Brigadier gone,
+   the test checkWinCondition uses), and units lost on each side. */
+function showVictoryDressing(winner){
+  const box = document.querySelector('#overlay .box');
+  box.classList.remove('as-folio');
+  box.classList.add('as-victory');
+  let seal = box.querySelector('.victory-seal');
+  if(!seal){ seal = document.createElement('div'); seal.setAttribute('aria-hidden', 'true'); box.insertBefore(seal, document.getElementById('overlaySubtitle')); }
+  seal.className = 'victory-seal ' + (winner === SIDES.BLUE ? 'blue' : 'red');
+  let stats = box.querySelector('.victory-stats');
+  if(!stats){ stats = document.createElement('div'); stats.className = 'victory-stats'; document.getElementById('overlayText').after(stats); }
+  const sides = [SIDES.RED, SIDES.BLUE];
+  const broken = side => {
+    const keys = new Set(state.units.filter(u => u.side === side).map(u => (u.army || '') + ':' + u.brigadeId));
+    let n = 0;
+    for(const k of keys){
+      const group = state.units.filter(u => u.side === side && (u.army || '') + ':' + u.brigadeId === k && u.type !== 'BRIGADIER');
+      if(group.length && group.every(u => u.removed)) n++;
+    }
+    return n;
+  };
+  const lost = side => state.units.filter(u => u.side === side && u.removed && u.type !== 'BRIGADIER').length;
+  const pair = f => sides.map(f).join(' \u00b7 ');
+  const who = `${SIDE_LABEL[SIDES.RED]} \u00b7 ${SIDE_LABEL[SIDES.BLUE]}`;
+  stats.innerHTML = `<div><b>${state.turnNumber || 0}</b>turns</div>` +
+    `<div><b>${pair(broken)}</b>Brigades broken<small>${who}</small></div>` +
+    `<div><b>${pair(lost)}</b>units lost<small>${who}</small></div>`;
 }
 
 /* The victory screen's buttons. Split out so an online match can rebuild them

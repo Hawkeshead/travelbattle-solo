@@ -142,7 +142,7 @@ function watchOverlayClose(){
     const open = overlay.classList.contains('show');
     if(wasOpen && !open){
       const box = overlay.querySelector('.box');
-      if(box) box.classList.remove('as-folio');
+      if(box) box.classList.remove('as-folio', 'as-victory');
     }
     wasOpen = open;
   }).observe(overlay, { attributes:true, attributeFilter:['class'] });
