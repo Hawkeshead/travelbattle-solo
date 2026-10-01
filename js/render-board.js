@@ -1447,7 +1447,15 @@ let v2IntroActive = false;       // the intro draws the board itself; nothing el
 function v2Img(key){
   if(V2_TILES[key]) return V2_TILES[key];
   const img = UNIT_IMAGES[key];
-  if(!img || v2Pending.has(key) || !(img.complete && img.naturalWidth > 0)) return null;
+  if(!img || v2Pending.has(key)) return null;
+  if(!(img.complete && img.naturalWidth > 0)){
+    /* Not downloaded yet. Prepare it the moment it arrives. Without this a
+       tile that arrived after the board's last rebuild was never prepared:
+       only a rebuild asks for tiles, and only a newly prepared tile triggers
+       a rebuild, so on a slow connection squares could stay bare for good. */
+    if(!img.__v2Waiting){ img.__v2Waiting = true; img.addEventListener('load', () => v2Img(key), { once: true }); }
+    return null;
+  }
   v2Pending.add(key);
   const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
   const c = document.createElement('canvas');

@@ -946,6 +946,8 @@
      the padding box so it is never stretched. Switched on by prompt-panel.js
      only once both images have loaded; otherwise the plain panel above. */
   .dice-panel{ position:relative; }
+  /* Held at one size through a roll (dice.js lockDicePanelTo): the content sits in the middle of it. */
+  .dice-panel.size-locked{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
   html.panel-art .dice-panel{
     border:13px solid transparent; border-radius:0;
     border-image:url(assets/ui/panel_frame.webp) 75 / 13px stretch;

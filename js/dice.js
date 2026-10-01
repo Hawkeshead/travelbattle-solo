@@ -173,6 +173,7 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   flushPendingSettle();
   clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
   clearTimeout(presentRollTrigger._aiT);
+  unlockDicePanel();   // a new question sizes itself; the roll that follows then holds that size or grows once
 
   /* THE BED STARTS HERE, in the one function that opens the panel for a fight.
 
@@ -265,6 +266,32 @@ function adjustmentHTML(g){
   return `<div class="dice-adjust">${bestRaw} ${delta>0?'+':''}${delta} = <b>${counts}</b></div>`;
 }
 
+/* ONE PANEL SIZE PER ROLL. The panel used to grow when the dice landed (the
+   notes and the result line only appear then), so it jumped in size between
+   the tumble and the result. Now, before the tumble starts, the final frame is
+   laid out once in the same tick (never painted), its size measured, and the
+   panel held at that size (or the size it already had, if larger) until it
+   closes or the next question takes it over. min-height rather than height, so
+   a re-roll that adds a note can still grow it rather than spill. */
+export function unlockDicePanel(){
+  const panel = document.querySelector('#diceOverlay .dice-panel');
+  if(!panel) return;
+  panel.style.width = ''; panel.style.minHeight = ''; panel.style.boxSizing = '';
+  panel.classList.remove('size-locked');
+}
+function lockDicePanelTo(layoutFinal){
+  const panel = document.querySelector('#diceOverlay .dice-panel');
+  const before = panel.classList.contains('size-locked') || document.getElementById('diceOverlay').classList.contains('show')
+    ? { w: panel.offsetWidth, h: panel.offsetHeight } : { w: 0, h: 0 };
+  panel.style.width = ''; panel.style.minHeight = '';
+  layoutFinal();
+  const w = Math.max(before.w, panel.offsetWidth), h = Math.max(before.h, panel.offsetHeight);
+  panel.style.boxSizing = 'border-box';
+  panel.style.width = w + 'px';
+  panel.style.minHeight = h + 'px';
+  panel.classList.add('size-locked');
+}
+
 export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   emit('show', { groups, resultText, resultCls, holdOpen });
   const overlay = document.getElementById('diceOverlay');
@@ -314,6 +341,14 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
     if(!holdOpen){ overlay.classList.remove('show'); if(onSettled) onSettled(); }
     return;
   }
+  // Held at the size the result will need, so it does not jump when the dice land.
+  lockDicePanelTo(() => {
+    renderFrame(true);
+    resultEl.textContent = resultText || '';
+    resultEl.className = 'dice-result ' + (resultCls||'');
+  });
+  resultEl.textContent = '';
+  resultEl.className = 'dice-result';
   const settleNow = settling => {
     clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
     renderFrame(true, settling);
@@ -453,6 +488,7 @@ export function finishDice(onSettled){
   pendingSettle = onSettled || null;
   showDice._fadeT = setTimeout(()=>{
     overlay.classList.remove('show');
+    setTimeout(()=>{ if(!overlay.classList.contains('show')) unlockDicePanel(); }, 400);   // after the slide-out, and only if nothing new has opened
     flushPendingSettle();
   }, 2900);
 }

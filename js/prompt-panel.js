@@ -23,7 +23,7 @@
    styling stays.
 ========================================================= */
 import { setPromptGlow } from './render-board.js';
-import { flushPendingSettle, showDice } from './dice.js';
+import { flushPendingSettle, showDice, unlockDicePanel } from './dice.js';
 
 const UI = 'assets/ui/';
 // Written out in full so check-assets.mjs can find every file.
@@ -67,6 +67,7 @@ export function showPanelPrompt(opts){
      is cancelled so it cannot close the panel under the question. */
   clearTimeout(showDice._fadeT);
   flushPendingSettle();
+  unlockDicePanel();
   const { overlay, panel, el } = parts();
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   el.innerHTML = `
