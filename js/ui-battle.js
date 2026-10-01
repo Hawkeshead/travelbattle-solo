@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
@@ -6,8 +7,8 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
-import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
+import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
+import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
@@ -47,6 +48,15 @@ export const FOOT_ACK = {
   ],
 };
 
+/* A second answer a side's foot soldiers can give instead of the one above,
+   chosen half the time at random (Matthew, 30 Sep 2026: the French alternate
+   their "oui" with a honk). Kept apart from FOOT_ACK rather than added to its
+   list, because the list plays one take at random: one honk among four ouis
+   would come up a fifth of the time, not half. */
+export const FOOT_ACK_ALT = {
+  blue: ['audio/effects/ack-french-honk.m4a'],
+};
+
 /* The acknowledgement list for this unit, or null if it should click instead.
    INFANTRY and GUARD only: these are men on foot being given an order, and a
    gun crew or a squadron answering the same way would flatten the distinction
@@ -54,6 +64,8 @@ export const FOOT_ACK = {
 export function footAckFor(u){
   const key = UNIT_TYPES[u.type].key;
   if(key !== 'INFANTRY' && key !== 'GUARD') return null;
+  const alt = FOOT_ACK_ALT[u.side];
+  if(alt && alt.length && Math.random() < 0.5) return alt;   // a sound choice, so not the game's seeded dice
   const list = FOOT_ACK[u.side];
   return (list && list.length) ? list : null;
 }
@@ -550,7 +562,6 @@ export function clearPendingTurnaroundFlagsIfDue(){
     // ambush cooldown and stand-down both last only until this side's next turn
     u.ambushSpentThisRound = false;
     u.noActionThisTurn = false;
-    u.smokeActive = false;
     u.charged = false; // a declared charge only counts for the turn it was made
   }
   state.ploughEscortUsed = {};
@@ -845,28 +856,28 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
   }
 }
 
-export function showAmbushChoice(ambusher, target, callback){
-  document.getElementById('overlayTitle').textContent = `AMBUSH! ${SIDE_LABEL[ambusher.side]}`;
-  document.getElementById('overlayText').innerHTML =
-    `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. `+
-    `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`;
-  document.getElementById('overlayBtn').style.display = 'none';
-  const canvas = document.getElementById('rotationPreviewCanvas');
-  if(canvas) canvas.style.display = 'none';
-  let extra = document.getElementById('modeChoices');
-  extra.innerHTML = '';
-  extra.style.display = 'flex';
-  extra.style.flexWrap = 'wrap';
-  const holdBtn = document.createElement('button');
-  holdBtn.textContent = 'Hold Position';
-  holdBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('hold'); };
-  const advBtn = document.createElement('button');
-  advBtn.className = 'primary';
-  advBtn.textContent = 'Commit to Advance';
-  advBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); callback('advance'); };
-  extra.appendChild(holdBtn);
-  extra.appendChild(advBtn);
-  document.getElementById('overlay').classList.add('show');
+/* The ambusher's owner chooses: a compact card in the dice panel
+   (prompt-panel.js) that runs straight on into the fight's roll in the same
+   panel. opts.answerMs: the online answer window, when answering for the
+   phone that asked. */
+export function showAmbushChoice(ambusher, target, callback, opts = {}){
+  showPanelPrompt({
+    title: 'Ambush!',
+    portraits: [unitPortraitHTML(ambusher), unitPortraitHTML(target)],
+    joiner: 'vs',
+    line: '+1 to your roll either way',
+    small: `${unitLabel(ambusher)} spring from the wood`,
+    buttons: [
+      { label: 'Hold', caption: '1 die, stay hidden', icon: 'icon_hold', primary: false, value: 'hold' },
+      { label: 'Advance', caption: '2 dice, take ground', icon: 'icon_advance', primary: true, value: 'advance' },
+    ],
+    rulesHTML: `Your ${unitLabel(ambusher)} springs on ${unitLabel(target)}. +1 to the roll either way. ` +
+      `<b>Hold</b> stays in the wood with a single die. <b>Advance</b> gets a genuine second die for this attack, and moves your unit into the open ground if it wins. Either way, the ambush ends and the wood's defence bonus won't apply again until your next turn.`,
+    units: [ambusher, target],
+    answerMs: opts.answerMs || 0,
+    afterChoose: 'roll',
+    onChoose: callback,
+  });
 }
 
 export function springAmbush(ambusher, target, mode, onComplete){
@@ -1276,8 +1287,7 @@ export function fireArtillery(gun, target, onComplete){
     resolveFight(gun, target, undefined, ()=>{ state.fired.add(gun.id); selectUnit(null); onComplete(); });
     return;
   }
-  gun.smokeActive = true;
-  ensureAnimationLoopRunning();
+  recordGunfire('cannon', gun, target);   // the blast, then drifting smoke (render-gunfire.js)
   /* Brighter and longer than the melee line. #a33330 is a muted brick that sits
      too close to the board's browns and reds to read at a glance; #ff2a20 is a
      signal red that nothing else on the map uses. Held for 5800ms rather than
@@ -1305,7 +1315,7 @@ export function fireArtillery(gun, target, onComplete){
   const canister = dist <= 2;
   if(canister) hitNotes.push('Canister Shot: extra die');
 
-  presentRollTrigger([{label:'To Hit', diceCount: canister ? 2 : 1, notes:hitNotes}], gun.side, ()=>{
+  presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes:hitNotes}], gun.side, ()=>{
     const hitRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
     const roll = Math.max(...hitRolls);
     const hit = roll >= needed;
@@ -1319,7 +1329,7 @@ export function fireArtillery(gun, target, onComplete){
        target, for the same reason. */
     AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
       { pan: AudioManager.panForBoardX(gun.x) });
-    showDice([{label:'To Hit', rolls:hitRolls, keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
+    showDice([{label:'To Hit', side:gun.side, rolls:hitRolls, keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
       log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
       if(!hit){
         /* A MISS IS A SHOT. It used to return here without ever reaching
@@ -1373,7 +1383,7 @@ export function fireArtillery(gun, target, onComplete){
       if(canister) effNotes.push('Canister Shot: extra die');
       if(crackShotBonus) effNotes.push('+1 effect: Crack Shot (kept a 6 to hit)');
 
-      presentRollTrigger([{label:'Effect', diceCount: canister ? 2 : 1, notes:effNotes}], gun.side, ()=>{
+      presentRollTrigger([{label:'Effect', side:gun.side, diceCount: canister ? 2 : 1, notes:effNotes}], gun.side, ()=>{
         const effRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
         const rawRoll = Math.max(...effRolls);
         /* CAP LAST, AFTER THE COVER PENALTY.
@@ -1405,7 +1415,7 @@ export function fireArtillery(gun, target, onComplete){
            The melee panel has always split these (keptValue is the die that
            counts, finalValue absorbs bonuses and re-rolls). Artillery now does
            the same, so the arithmetic on screen adds up. */
-        showDice([{label:'Effect', rolls:effRolls, keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+        showDice([{label:'Effect', side:gun.side, rolls:effRolls, keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
@@ -1460,8 +1470,9 @@ export function resolveVolley(shooter, target, onComplete){
   if(turnedBonus && coverPenalty) notes.push('(these cancel — base table)');
 
   showActionLine(shooter, target, '#e8c46a', 3800, true);
+  recordGunfire('musket', shooter, target);   // three muzzle flashes along the front, then smoke (render-gunfire.js)
 
-  presentRollTrigger([{label:'Volley', diceCount:dice, notes}], shooter.side, ()=>{
+  presentRollTrigger([{label:'Volley', side:shooter.side, diceCount:dice, notes}], shooter.side, ()=>{
     const rolls = dice === 2 ? [rollD6(), rollD6()] : [rollD6()];
     const rawRoll = Math.max(...rolls);
     /* Capped at 6 and floored at 1. "A natural 6 with +1 does nothing beyond
@@ -1520,7 +1531,7 @@ export function resolveVolley(shooter, target, onComplete){
        into a knock back. */
     const outcome = effRoll >= 6 ? 'knockback' : effRoll >= 4 ? 'disrupt' : 'none';
     const label = outcome==='knockback' ? 'Knocked back' : outcome==='disrupt' ? 'Turned around' : 'No effect';
-    showDice([{label:'Volley', rolls, keptValue:rawRoll, notes}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
+    showDice([{label:'Volley', side:shooter.side, rolls, keptValue:rawRoll, notes}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
       log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''} (${label.toLowerCase()}).`, 'combat');
       state.volleyed.add(shooter.id);
       logReplay('fire', {

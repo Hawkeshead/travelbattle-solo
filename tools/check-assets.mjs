@@ -59,9 +59,31 @@ for (const src of sources) {
   for (let i = 1; i <= v2.WOODS_COUNT; i++) want.push(`assets/terrain/v2/woods/woods_${i}.webp`);
   for (let i = 1; i <= 6; i++) want.push(`assets/terrain/v2/building/building_${i}.webp`);
   want.push('assets/terrain/v2/effects/crater.webp');
+  want.push('assets/terrain/v2/effects/death_skull.webp');
   for (const path of want) {
     seen.add(`terrain-v2::${path}`);
     try { await access(join(root, path)); } catch { missing.push({ src: 'js/terrain-v2.js (v2 terrain set)', path }); }
+  }
+}
+
+/* The gunfire and smoke frames are named by pattern too (js/render-gunfire.js
+   builds the list; it imports nothing that needs a browser at load time). */
+{
+  const smoke = await import(new URL('../js/render-gunfire.js', import.meta.url)).catch(() => null);
+  const list = smoke ? smoke.smokeFileList() : [];
+  if(!smoke) missing.push({ src: 'js/render-gunfire.js', path: '(could not load the smoke file list)' });
+  for (const path of list) {
+    seen.add(`smoke::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/render-gunfire.js (smoke art)', path }); }
+  }
+}
+
+/* The dice art is also loaded by pattern (js/dice-art.js). */
+{
+  const dice = await import(new URL('../js/dice-art.js', import.meta.url));
+  for (const path of dice.diceArtPaths()) {
+    seen.add(`dice-art::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/dice-art.js (dice art)', path }); }
   }
 }
 

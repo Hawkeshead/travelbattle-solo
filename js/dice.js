@@ -1,8 +1,35 @@
 import { AudioManager } from './audio-manager.js';
 import { state } from './data-core.js';
+import { DICE_FACES, DICE_NATION, DICE_TUMBLE_FRAMES, diceArtPaths, diceFacePath, diceTumblePath } from './dice-art.js';
 
 export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
-export function dieFaceHTML(value, extraClass){
+
+/* =========================================================
+   DICE ART. Each die is drawn with the rolling side's own dice (js/dice-art.js):
+   red with silver pips for Britain, blue with gold for France. The art is
+   preloaded here; any die whose images are not ready yet falls back to the
+   old pip grid, so a die never shows blank.
+========================================================= */
+const DICE_IMG = {};
+if(typeof Image !== 'undefined'){
+  for(const path of diceArtPaths()){ const img = new Image(); img.src = path; DICE_IMG[path] = img; }
+}
+const imgReady = path => { const i = DICE_IMG[path]; return !!(i && i.complete && i.naturalWidth > 0); };
+const nationOf = side => (side && DICE_NATION[side]) || null;
+/* Every face and every tumble frame of that nation is ready. */
+function artReady(nation){
+  if(!nation) return false;
+  for(let v = 1; v <= DICE_FACES; v++) if(!imgReady(diceFacePath(nation, v))) return false;
+  for(let i = 1; i <= DICE_TUMBLE_FRAMES; i++) if(!imgReady(diceTumblePath(nation, i))) return false;
+  return true;
+}
+
+/* value: the face (null before the roll: face 1, dimmed); side: who rolled. */
+export function dieFaceHTML(value, extraClass, side){
+  const nation = nationOf(side);
+  if(nation && artReady(nation)){
+    return `<div class="die die-art ${extraClass||''}"><img src="${diceFacePath(nation, value || 1)}" alt="${value || ''}" draggable="false"></div>`;
+  }
   const active = PIP_LAYOUT[value] || [];
   let cells = '';
   for(let i=0;i<9;i++) cells += active.includes(i) ? '<span class="pip"></span>' : '<span></span>';
@@ -144,8 +171,9 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   // over. Cancelling the timer without this is what voided the previous fight.
   clearTimeout(showDice._fadeT);
   flushPendingSettle();
-  clearInterval(showDice._rollT);
+  clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
   clearTimeout(presentRollTrigger._aiT);
+  unlockDicePanel();   // a new question sizes itself; the roll that follows then holds that size or grows once
 
   /* THE BED STARTS HERE, in the one function that opens the panel for a fight.
 
@@ -173,7 +201,7 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
     // "who against whom" while the player is still deciding whether to roll.
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
     const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
-    const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending')).join('');
+    const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending', g.side)).join('');
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
@@ -238,6 +266,32 @@ function adjustmentHTML(g){
   return `<div class="dice-adjust">${bestRaw} ${delta>0?'+':''}${delta} = <b>${counts}</b></div>`;
 }
 
+/* ONE PANEL SIZE PER ROLL. The panel used to grow when the dice landed (the
+   notes and the result line only appear then), so it jumped in size between
+   the tumble and the result. Now, before the tumble starts, the final frame is
+   laid out once in the same tick (never painted), its size measured, and the
+   panel held at that size (or the size it already had, if larger) until it
+   closes or the next question takes it over. min-height rather than height, so
+   a re-roll that adds a note can still grow it rather than spill. */
+export function unlockDicePanel(){
+  const panel = document.querySelector('#diceOverlay .dice-panel');
+  if(!panel) return;
+  panel.style.width = ''; panel.style.minHeight = ''; panel.style.boxSizing = '';
+  panel.classList.remove('size-locked');
+}
+function lockDicePanelTo(layoutFinal){
+  const panel = document.querySelector('#diceOverlay .dice-panel');
+  const before = panel.classList.contains('size-locked') || document.getElementById('diceOverlay').classList.contains('show')
+    ? { w: panel.offsetWidth, h: panel.offsetHeight } : { w: 0, h: 0 };
+  panel.style.width = ''; panel.style.minHeight = '';
+  layoutFinal();
+  const w = Math.max(before.w, panel.offsetWidth), h = Math.max(before.h, panel.offsetHeight);
+  panel.style.boxSizing = 'border-box';
+  panel.style.width = w + 'px';
+  panel.style.minHeight = h + 'px';
+  panel.classList.add('size-locked');
+}
+
 export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   emit('show', { groups, resultText, resultCls, holdOpen });
   const overlay = document.getElementById('diceOverlay');
@@ -251,15 +305,18 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   // second showDice inside the window would otherwise void the first result.
   clearTimeout(showDice._fadeT);
   flushPendingSettle();
-  clearInterval(showDice._rollT);
+  clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
 
-  function renderFrame(final){
+  function renderFrame(final, settling){
+    let k = 0;
     groupsEl.innerHTML = groups.map((g,i)=>{
       const { bestRaw } = diceValueParts(g);
       const diceHTML = g.rolls.map(v=>{
         const shown = final ? v : (1+Math.floor(Math.random()*6));
         const cls = final ? (v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
-        return dieFaceHTML(shown, cls);
+        const settle = final && settling && settling.has(k) ? ' settle' : '';
+        k++;
+        return dieFaceHTML(shown, cls + settle, g.side);
       }).join('');
       const adjustHTML = final ? adjustmentHTML(g) : '';
       // Portrait and regiment name, so a fight reads as "who against whom"
@@ -284,21 +341,89 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
     if(!holdOpen){ overlay.classList.remove('show'); if(onSettled) onSettled(); }
     return;
   }
+  // Held at the size the result will need, so it does not jump when the dice land.
+  lockDicePanelTo(() => {
+    renderFrame(true);
+    resultEl.textContent = resultText || '';
+    resultEl.className = 'dice-result ' + (resultCls||'');
+  });
+  resultEl.textContent = '';
+  resultEl.className = 'dice-result';
+  const settleNow = settling => {
+    clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
+    renderFrame(true, settling);
+    resultEl.textContent = resultText || '';
+    resultEl.className = 'dice-result ' + (resultCls||'');
+    if(!holdOpen) finishDice(onSettled);
+  };
+  if(groups.every(g => artReady(nationOf(g.side)))){ tumble(settleNow); return; }
+  // Without the art: the old flicker of random faces.
   renderFrame(false);
   let ticks = 0;
   showDice._rollT = setInterval(()=>{
     ticks++;
-    if(ticks>=4){
-      clearInterval(showDice._rollT);
-      renderFrame(true);
-      resultEl.textContent = resultText || '';
-      resultEl.className = 'dice-result ' + (resultCls||'');
-      if(!holdOpen) finishDice(onSettled);
-    } else {
-      renderFrame(false);
-    }
+    if(ticks>=4) settleNow(null);
+    else renderFrame(false);
   }, 180);
+
+  /* THE TUMBLE. Each die cycles its own nation's tumble frames (never the same
+     frame twice running) every TUMBLE_FRAME_MS, each frame turned up to 25
+     degrees and nudged a few pixels, so every die moves on its own. The dice
+     land one after another, TUMBLE_STAGGER_MS apart, the last exactly when
+     the old flicker ended (ROLL_MS), so the result appears at the same moment
+     as before and the pace of play is unchanged. A die lands on its real face
+     with a quick settle (1.08 back to 1 over 120 ms). */
+  function tumble(done){
+    renderFrame(false);
+    const dieEls = [...groupsEl.querySelectorAll('.die')];
+    const nations = [];
+    groups.forEach(g => g.rolls.forEach(() => nations.push(nationOf(g.side))));
+    const values = [];
+    groups.forEach(g => g.rolls.forEach(v => values.push(v)));
+    const n = dieEls.length;
+    const landAt = dieEls.map((_, k) => Math.max(TUMBLE_FRAME_MS * 3, ROLL_MS - (n - 1 - k) * TUMBLE_STAGGER_MS));
+    const lastFrame = dieEls.map(() => 0);
+    const landed = new Set();
+    const t0 = performance.now();
+    const step = () => {
+      const el = performance.now() - t0;
+      dieEls.forEach((d, k) => {
+        const img = d.querySelector('img');
+        if(!img || landed.has(k)) return;
+        if(el >= landAt[k]){
+          landed.add(k);
+          img.src = diceFacePath(nations[k], values[k]);
+          img.style.transform = '';
+          d.classList.remove('rolling');
+          d.classList.add('settle');
+          return;
+        }
+        let f;
+        do { f = 1 + Math.floor(Math.random() * DICE_TUMBLE_FRAMES); } while(f === lastFrame[k] && DICE_TUMBLE_FRAMES > 1);
+        lastFrame[k] = f;
+        img.src = diceTumblePath(nations[k], f);
+        const rot = (Math.random() * 2 - 1) * TUMBLE_MAX_TURN_DEG;
+        const dx = (Math.random() * 2 - 1) * TUMBLE_MAX_NUDGE_PX, dy = (Math.random() * 2 - 1) * TUMBLE_MAX_NUDGE_PX;
+        img.style.transform = `translate(calc(-50% + ${dx.toFixed(1)}px), calc(-50% + ${dy.toFixed(1)}px)) rotate(${rot.toFixed(1)}deg)`;
+      });
+    };
+    step();
+    showDice._rollT = setInterval(step, TUMBLE_FRAME_MS);
+    // The end is timed on its own, not on the 70 ms beat, so the result shows at
+    // exactly ROLL_MS as before (a beat would land it up to 70 ms late).
+    showDice._rollEndT = setTimeout(() => {
+      // The last die lands now: it is still settling in the final frame.
+      const settling = new Set(dieEls.map((_, k) => k).filter(k => ROLL_MS - landAt[k] < TUMBLE_SETTLE_MS));
+      done(settling);
+    }, ROLL_MS);
+  }
 }
+const ROLL_MS = 720;                // 4 x 180 ms: when the old flicker ended and the result appeared
+const TUMBLE_FRAME_MS = 70;
+const TUMBLE_STAGGER_MS = 80;
+const TUMBLE_SETTLE_MS = 120;
+const TUMBLE_MAX_TURN_DEG = 25;
+const TUMBLE_MAX_NUDGE_PX = 3;
 
 // Instantly updates the dice already on screen — no flicker, no fade timer.
 // Used after a re-roll (the die already "rolled", we're just showing the new
@@ -313,7 +438,7 @@ export function refreshDiceFrame(groups, resultText, resultCls){
     const { bestRaw } = diceValueParts(g);
     const diceHTML = g.rolls.map(v=>{
       const cls = v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '');
-      return dieFaceHTML(v, cls);
+      return dieFaceHTML(v, cls, g.side);
     }).join('');
     const adjustHTML = adjustmentHTML(g);
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
@@ -363,6 +488,7 @@ export function finishDice(onSettled){
   pendingSettle = onSettled || null;
   showDice._fadeT = setTimeout(()=>{
     overlay.classList.remove('show');
+    setTimeout(()=>{ if(!overlay.classList.contains('show')) unlockDicePanel(); }, 400);   // after the slide-out, and only if nothing new has opened
     flushPendingSettle();
   }, 2900);
 }

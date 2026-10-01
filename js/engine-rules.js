@@ -7,6 +7,7 @@ import { log, logNarration, logReplay } from './engine-state.js';
 import { GROUP_ARMIES, armyBrokenCount, armyOf, homeEdgeCells } from './group.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
+import { showPanelPrompt } from './prompt-panel.js';
 import { askRemote, isRemoteSide } from './online-session.js';
 import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
@@ -812,9 +813,9 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
   function currentGroups(){
     return [
-      {label:aLabel, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+      {label:aLabel, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
        portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
-      {label:dLabel, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+      {label:dLabel, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
     ];
   }
@@ -968,9 +969,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
      ends without reaching here cannot leave it armed for the next one. */
   armBattleBed();
   presentRollTrigger([
-    {label:aName, diceCount:aDice, notes:aReasons,
+    {label:aName, side:attacker.side, diceCount:aDice, notes:aReasons,
      portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
-    {label:dName, diceCount:dDice, notes:dReasons,
+    {label:dName, side:defender.side, diceCount:dDice, notes:dReasons,
      portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
   ], attacker.side, ()=>{
     const aRoll = rollBest(aDice);
@@ -1020,9 +1021,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const rerollPending = canRerollFight(attacker, aRoll) || canRerollFight(defender, dRoll);
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
+      {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
        portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
+      {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
        rerollPending ? 'draw' : interim.resultCls, null, true);
@@ -1051,10 +1052,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
 
     refreshDiceFrame([
       // finalValue from the frozen pair, so the headline, the highlighted die and
-      {label:aName, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:finalA, notes:aReasons,
+      {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:finalA, notes:aReasons,
        portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       // the adjustment beneath it all describe the same fight.
-      {label:dName, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:finalD, notes:dReasons,
+      {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:finalD, notes:dReasons,
        portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
 
@@ -1393,7 +1394,7 @@ export function retreatAndRally(loser, onComplete){
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
-  presentRollTrigger([{label:'Rally', diceCount:1, notes:rallyNote}], loser.side, ()=>{
+  presentRollTrigger([{label:'Rally', side:loser.side, diceCount:1, notes:rallyNote}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
     /* The rally in full: the roll, the threshold and its reason, whether a
@@ -1408,7 +1409,7 @@ export function retreatAndRally(loser, onComplete){
       leadershipAvailable: !!(brig && !brig.leadershipUsed),
       note: rallyNote[0] || null,
     });
-    showDice([{label:'Rally', rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
+    showDice([{label:'Rally', side:loser.side, rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
         logNarration('rally_success');
         /* Played on the SUCCESS branch, before the outcome splits, so it covers
@@ -1477,27 +1478,26 @@ export function offerLeadershipRoll(loser, brig, onComplete){
   showLeadershipRollPrompt(loser, brig, use => applyLeadershipRollChoice(loser, brig, use, onComplete));
 }
 
-/* The question itself, on whichever phone belongs to the unit's owner. */
-export function showLeadershipRollPrompt(loser, brig, choose){
-  document.getElementById('overlayTitle').textContent = 'Use Leadership Roll?';
-  document.getElementById('overlayText').innerHTML =
-    `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`;
-  document.getElementById('overlayBtn').style.display = 'none';
-  const canvas = document.getElementById('rotationPreviewCanvas');
-  if(canvas) canvas.style.display = 'none';
-  let extra = document.getElementById('modeChoices');
-  extra.innerHTML = '';
-  extra.style.display = 'flex';
-  const yesBtn = document.createElement('button');
-  yesBtn.className = 'primary';
-  yesBtn.textContent = 'Use Leadership Roll';
-  yesBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(true); };
-  const noBtn = document.createElement('button');
-  noBtn.textContent = 'Let the Unit Go';
-  noBtn.onclick = ()=>{ extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); choose(false); };
-  extra.appendChild(yesBtn);
-  extra.appendChild(noBtn);
-  document.getElementById('overlay').classList.add('show');
+/* The question itself, on whichever phone belongs to the unit's owner: a
+   compact card in the dice panel (prompt-panel.js). opts.answerMs: the online
+   answer window, when answering for the phone that asked. */
+export function showLeadershipRollPrompt(loser, brig, choose, opts = {}){
+  showPanelPrompt({
+    title: 'Leadership Roll',
+    portraits: [unitPortraitHTML(loser), unitPortraitHTML(brig)],
+    joiner: '+',
+    line: `${unitLabel(loser)} failed to rally.`,
+    small: 'One save per Brigade, per match',
+    buttons: [
+      { label: 'Save', caption: 'spend the roll', icon: 'icon_save', primary: true, value: true },
+      { label: 'Let go', caption: 'unit is lost', icon: 'icon_letgo', primary: false, value: false },
+    ],
+    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
+    units: [loser, brig],
+    answerMs: opts.answerMs || 0,
+    afterChoose: 'close',
+    onChoose: choose,
+  });
 }
 
 export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){

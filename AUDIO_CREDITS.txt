@@ -77,6 +77,12 @@ UNIT ACKNOWLEDGEMENT, FRENCH. audio/effects/ack-french-1.m4a through -4.m4a.
   variants of the same recording and inherit whatever -1 carries.
   Re-encoded from WAV to AAC 128k.
 
+UNIT ACKNOWLEDGEMENT, FRENCH, SECOND ANSWER. audio/effects/ack-french-honk.m4a.
+  Plays instead of the "oui" half the time, chosen at random. Supplied by
+  Matthew on 30 Sep 2026 as "Paul honk noise" (own recording). Re-encoded from
+  MP3 to AAC 128k and lowered 6.5 dB so it plays at the same loudness as the
+  oui takes (mean about -21.5 dB).
+
 RALLY CALL, BRITISH. audio/effects/rally-british-1.m4a.
   Plays when a unit on a side the PLAYER is commanding rallies successfully.
   Freesound 397302 "I need to fall back at once" by theuncertainman — CHECK AND

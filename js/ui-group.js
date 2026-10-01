@@ -17,7 +17,7 @@ import { ensureModeChoices, showGroupArmyPicker, showModeSelect, startAmbientLay
 ========================================================= */
 export function showGroupMenu(){
   const box = document.querySelector('#overlay .box');
-  if(box) box.classList.remove('as-folio');
+  if(box) box.classList.remove('as-folio', 'as-victory');
   document.getElementById('overlayTitle').textContent = 'Online Group';
   document.getElementById('overlaySubtitle').style.display = 'none';
   document.getElementById('overlayText').innerHTML =

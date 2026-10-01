@@ -1,6 +1,7 @@
 import { AudioManager } from './audio-manager.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
-import { ROAD, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
+import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
+import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
 import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
@@ -82,6 +83,7 @@ export function clearTransientRenderState(){
 }
 
 export const DEATH_SKULL_MS = 2000, DEATH_SMOKE_MS = 2000;
+const DEATH_SKULL_DISSOLVE_MS = 600;   // v2: the skull fades into its smoke over this long
 export function addDeathEffect(x, y){
   deathEffects.push({x, y, startTime: Date.now()});
   /* The death cry belongs WITH the skull, not beside it.
@@ -685,6 +687,48 @@ export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
     fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs };
   ensureAnimationLoopRunning();
 }
+/* PROMPT GLOW: while a Leadership or Ambush prompt is open (prompt-panel.js),
+   the squares of the units it is about pulse a soft brass glow. The board is
+   not dimmed. */
+let promptGlowIds = null;
+export function setPromptGlow(ids){
+  promptGlowIds = ids && ids.length ? ids.slice() : null;
+  ensureAnimationLoopRunning();
+  draw();
+}
+function drawPromptGlow(){
+  if(!promptGlowIds) return;
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 260);
+  for(const id of promptGlowIds){
+    const u = state.units.find(x => x.id === id);
+    if(!u || u.removed) continue;
+    const vp = getUnitVisualPos(u);
+    const x = SX(vp.x, vp.y) * CELL, y = SY(vp.x, vp.y) * CELL;
+    ctx.save();
+    ctx.shadowColor = `rgba(226,188,96,${0.55 + 0.35 * pulse})`;
+    ctx.shadowBlur = CELL * (0.18 + 0.12 * pulse);
+    ctx.strokeStyle = `rgba(232,196,106,${0.55 + 0.4 * pulse})`;
+    ctx.lineWidth = Math.max(2, CELL * 0.06);
+    const r = CELL * 0.12, i = CELL * 0.05, w = CELL - 2 * i;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x + i, y + i, w, w, r); else ctx.rect(x + i, y + i, w, w);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* GUNFIRE (render-gunfire.js): the blast or flashes and the drifting smoke.
+   Recorded on state, numbered like the action line, so an online opponent's
+   phone plays the same shot when it sees a new number arrive. */
+export function recordGunfire(kind, from, to){
+  state.lastGunfire = { n: ((state.lastGunfire && state.lastGunfire.n) || 0) + 1, kind, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y };
+  replayGunfire(state.lastGunfire);
+}
+export function replayGunfire(g){
+  if(!g) return;
+  spawnGunfire(g.kind, { x: g.fromX, y: g.fromY }, { x: g.toX, y: g.toY }, { noSmoke: FAST_ANIMATION_MODE });
+  ensureAnimationLoopRunning();
+}
 /* Draw a line recorded by the other phone (see showActionLine). */
 export function replayActionLine(l){
   if(!l) return;
@@ -711,7 +755,7 @@ export function ensureAnimationLoopRunning(){
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
     const spriteAnimActive = state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
-    if(stillAnimating || lineActive || deathActive || spriteAnimActive){
+    if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive() || promptGlowIds){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;
@@ -956,14 +1000,72 @@ export function fctSquareToPixel(col, row){
   };
 }
 
+/* =========================================================
+   ZOOM-AWARE BACKING RESOLUTION
+
+   Pinch-zoom is a CSS transform on the canvas (see MAP ZOOM & PAN below), so
+   at zoom > 1 the browser stretches pixels drawn for zoom 1: on an iPhone 15
+   Pro a square drawn at about 120 device pixels was shown at about 275, which
+   is why the board went soft and blocky when zoomed in.
+
+   So the canvas's BACKING resolution follows the zoom: renderScale =
+   min(devicePixelRatio x mapZoom, the largest scale that keeps the canvas
+   under MAX_BACKING_PX pixels). Its CSS size, the CSS transform and every bit
+   of hit-testing are exactly as before; only canvas.width/height and the base
+   transform (setTransform(renderScale, ...)) change. It is not resized during
+   a pinch, pan or camera move (the transform stretches as before, so gestures
+   stay smooth); 150 ms after zoom settles at a new level, it is resized once
+   and redrawn. Back at zoom 1 it is the normal dpr resolution again.
+
+   If a canvas that large cannot be made (the browser refuses the memory), the
+   limit drops to MAX_BACKING_PX_FALLBACK for the rest of the session.
+========================================================= */
+export const MAX_BACKING_PX = 12_000_000;
+export const MAX_BACKING_PX_FALLBACK = 8_000_000;
+let backingLimit = MAX_BACKING_PX;
+export let renderScale = window.devicePixelRatio || 1;
+export function targetRenderScale(zoom = mapZoom){
+  const dpr = window.devicePixelRatio || 1;
+  const cap = Math.sqrt(backingLimit / Math.max(1, COLS * CELL * ROWS * CELL));
+  return Math.min(dpr * Math.max(1, zoom), cap);
+}
+/* Sets the backing store to a scale, checking the browser really gave it the
+   memory (on failure the canvas silently stays unusable), and falling back to
+   the lower limit if not. Returns the scale in use. */
+function applyRenderScale(scale){
+  const set = sc => {
+    canvas.width = Math.round(COLS * CELL * sc);
+    canvas.height = Math.round(ROWS * CELL * sc);
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.getImageData(0, 0, 1, 1);          // throws if the backing store was not allocated
+    return canvas.width === Math.round(COLS * CELL * sc);
+  };
+  try { if(set(scale)){ renderScale = scale; return scale; } } catch { /* too big for this device */ }
+  backingLimit = MAX_BACKING_PX_FALLBACK;
+  const lower = Math.min(scale, targetRenderScale());
+  try { if(set(lower)){ renderScale = lower; return lower; } } catch { /* fall through to dpr */ }
+  const dpr = window.devicePixelRatio || 1;
+  set(dpr); renderScale = dpr;
+  return dpr;
+}
+let backingTimer = null;
+/* Called whenever zoom or pan changes; acts only once things have settled. */
+function scheduleBackingUpdate(){
+  clearTimeout(backingTimer);
+  backingTimer = setTimeout(() => {
+    if(mapGesturePointers.size || cameraRaf){ scheduleBackingUpdate(); return; }   // still moving: wait
+    const want = targetRenderScale();
+    if(Math.abs(want - renderScale) < 0.01) return;
+    applyRenderScale(want);
+    draw();
+  }, 150);
+}
+
 export function sizeCanvas(){
   setCell(computeCellSize());
-  const dpr = window.devicePixelRatio || 1;
   canvas.style.width = (COLS*CELL) + 'px';
   canvas.style.height = (ROWS*CELL) + 'px';
-  canvas.width = COLS*CELL*dpr;
-  canvas.height = ROWS*CELL*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
+  applyRenderScale(targetRenderScale(1));   // a new board starts at zoom 1 (resetMapView below)
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
   syncFctLayer();
@@ -1189,6 +1291,7 @@ export function applyMapTransform(){
   clampMapPan();
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
   syncFctLayer();   // the label layer rides the same transform or it drifts off the board
+  scheduleBackingUpdate();   // sharpen to the new zoom once it settles
 }
 
 canvas.addEventListener('pointerdown', (e)=>{
@@ -1344,7 +1447,15 @@ let v2IntroActive = false;       // the intro draws the board itself; nothing el
 function v2Img(key){
   if(V2_TILES[key]) return V2_TILES[key];
   const img = UNIT_IMAGES[key];
-  if(!img || v2Pending.has(key) || !(img.complete && img.naturalWidth > 0)) return null;
+  if(!img || v2Pending.has(key)) return null;
+  if(!(img.complete && img.naturalWidth > 0)){
+    /* Not downloaded yet. Prepare it the moment it arrives. Without this a
+       tile that arrived after the board's last rebuild was never prepared:
+       only a rebuild asks for tiles, and only a newly prepared tile triggers
+       a rebuild, so on a slow connection squares could stay bare for good. */
+    if(!img.__v2Waiting){ img.__v2Waiting = true; img.addEventListener('load', () => v2Img(key), { once: true }); }
+    return null;
+  }
   v2Pending.add(key);
   const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
   const c = document.createElement('canvas');
@@ -1449,7 +1560,7 @@ function drawRoadsV2(lay){
    layout, viewpoint, cell size, village styles or the set of loaded tiles
    changes. Craters, units and everything else still draw fresh each frame. */
 const v2BoardCache = new WeakMap();
-const V2_EXPECTED = 39;
+const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 2;   // + crater and death skull   // every v2 image: derived, so a new art set cannot leave it stale
 function drawTerrainV2(){
   const lay = v2Layout();
   const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
@@ -1501,9 +1612,9 @@ function drawV2Overlay(lay, terrain, x, y, dy){
    needs them all at once (the intro). Waits up to timeoutMs for the art to
    download; a file that fails is skipped rather than waited for. */
 const V2_ALL_KEYS = [
-  ...[1,2,3,4,5,6].map(i => 'v2_grass_' + i), ...[...Array(11).keys()].map(i => 'v2_detail_' + i),
+  ...[1,2,3,4,5,6].map(i => 'v2_grass_' + i), ...[...Array(GRASS_DETAIL_COUNT).keys()].map(i => 'v2_detail_' + i),
   ...[1,2,3,4,5,6,7].map(i => 'v2_hill_' + i), ...[1,2,3,4].map(i => 'v2_farm_' + i),
-  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater',
+  ...[1,2,3,4].map(i => 'v2_woods_' + i), ...[1,2,3,4,5,6].map(i => 'v2_building_' + i), 'v2_crater', 'v2_death_skull',
 ];
 export function v2Ready(timeoutMs = 10000){
   return new Promise(resolve => {
@@ -2093,7 +2204,7 @@ export function draw(){
       // effects/crater: half a cell wide, centred on the face centre (0.469 of a cell down)
       const img = v2Img('v2_crater');
       if(img){
-        const w = CELL*0.5, hgt = w*(img.naturalHeight/img.naturalWidth);
+        const w = CELL*0.5, hgt = w*((img.naturalHeight || img.height)/(img.naturalWidth || img.width));   // an ImageBitmap has only width/height
         ctx.drawImage(img, SX(c.x,c.y)*CELL + CELL/2 - w/2, SY(c.x,c.y)*CELL + CELL*ROAD.FACE_CY - hgt/2, w, hgt);
       }
       continue;
@@ -2289,20 +2400,6 @@ export function draw(){
   }
   for(const u of moving) drawUnit(u);
 
-  // muzzle smoke: lingers around a gun from the moment it fires until its side's next turn
-  for(const u of state.units){
-    if(u.removed || !u.smokeActive) continue;
-    const vp = getUnitVisualPos(u);
-    const cx = SX(vp.x,vp.y)*CELL+CELL/2, cy = SY(vp.x,vp.y)*CELL+CELL/2;
-    ctx.save();
-    ctx.fillStyle = '#f4f1e8';
-    [[-0.22,-0.30,0.16],[0.10,-0.36,0.13],[0.28,-0.18,0.11]].forEach(([ox,oy,r])=>{
-      ctx.globalAlpha = 0.45;
-      ctx.beginPath(); ctx.arc(cx+ox*CELL, cy+oy*CELL, r*CELL, 0, Math.PI*2); ctx.fill();
-    });
-    ctx.restore();
-  }
-
   // death markers: skull holds for a beat, then fades into drifting smoke
   const now = Date.now();
   for(const d of deathEffects){
@@ -2311,11 +2408,44 @@ export function draw(){
     if(elapsed < DEATH_SKULL_MS){
       ctx.save();
       ctx.globalAlpha = 1;
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font = Math.floor(CELL*0.5)+'px sans-serif';
-      ctx.fillText('\u{1F480}', cx, cy);
+      /* v2: the painted skull (effects/death_skull), 0.8 of a cell wide, centred
+         on the face centre like the crater, with a soft dark shadow so it reads
+         over woods and villages. v1, or before the image has loaded: the emoji,
+         exactly as before. */
+      const skull = V2 ? v2Img('v2_death_skull') : null;
+      if(skull){
+        const w = CELL * 0.8, hgt = w * ((skull.naturalHeight || skull.height) / (skull.naturalWidth || skull.width));   // an ImageBitmap has only width/height
+        const fy = SY(d.x,d.y)*CELL + CELL*ROAD.FACE_CY;
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = CELL * 0.12;
+        ctx.drawImage(skull, cx - w/2, fy - hgt/2, w, hgt);
+      } else {
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font = Math.floor(CELL*0.5)+'px sans-serif';
+        ctx.fillText('\u{1F480}', cx, cy);
+      }
       ctx.restore();
+    } else if(V2){
+      /* v2: the skull dissolves into gunsmoke. As it starts to fade, two clouds
+         are spawned into the drifting smoke (render-gunfire.js spawnDeathSmoke);
+         the skull fades over the first DEATH_SKULL_DISSOLVE_MS while they fade
+         in. With reduced motion or in fast animation mode, no clouds: the skull
+         just fades. */
+      if(!d.smokeSpawned){ d.smokeSpawned = true; if(!FAST_ANIMATION_MODE) spawnDeathSmoke({ x: d.x, y: d.y }); }
+      const k = 1 - (elapsed - DEATH_SKULL_MS) / DEATH_SKULL_DISSOLVE_MS;
+      const skull = k > 0 ? v2Img('v2_death_skull') : null;
+      if(skull){
+        const w = CELL * 0.8, hgt = w * ((skull.naturalHeight || skull.height) / (skull.naturalWidth || skull.width));
+        const fy = SY(d.x,d.y)*CELL + CELL*ROAD.FACE_CY;
+        ctx.save();
+        ctx.globalAlpha = k;
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = CELL * 0.12;
+        ctx.drawImage(skull, cx - w/2, fy - hgt/2, w, hgt);
+        ctx.restore();
+      }
     } else {
+      // v1: the old drifting grey circles, unchanged.
       const smokeT = (elapsed - DEATH_SKULL_MS) / DEATH_SMOKE_MS; // 0..1
       const fade = 1 - smokeT;
       ctx.save();
@@ -2328,6 +2458,11 @@ export function draw(){
       ctx.restore();
     }
   }
+
+  drawPromptGlow();
+
+  // Gunfire and battlefield smoke: above the units and effects, below the UI.
+  drawGunfire({ ctx, CELL, toScreen, zoom: mapZoom, units: state.units.filter(u => !u.removed) });
 
   // vignette: a soft darkening toward the board's outer edge, so the map reads
   // as a physical object sitting on a table rather than a flat filled rectangle
@@ -2389,7 +2524,7 @@ export function playBoardIntroAnimation(onComplete){
   snapshot.height = canvas.height;
   snapshot.getContext('2d').drawImage(canvas, 0, 0);
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = renderScale;   // the snapshot's own pixels per CSS pixel (was devicePixelRatio; the same thing at zoom 1)
   const fallDistance = window.innerHeight; // always starts fully off the top of the current viewport, whatever the phone's orientation
   const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50;
   const DUST_MS = 200;
