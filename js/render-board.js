@@ -1,5 +1,6 @@
 import { AudioManager } from './audio-manager.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
+import { drawGunfire, gunfireActive, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
 import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
@@ -685,6 +686,18 @@ export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
     fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs };
   ensureAnimationLoopRunning();
 }
+/* GUNFIRE (render-gunfire.js): the blast or flashes and the drifting smoke.
+   Recorded on state, numbered like the action line, so an online opponent's
+   phone plays the same shot when it sees a new number arrive. */
+export function recordGunfire(kind, from, to){
+  state.lastGunfire = { n: ((state.lastGunfire && state.lastGunfire.n) || 0) + 1, kind, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y };
+  replayGunfire(state.lastGunfire);
+}
+export function replayGunfire(g){
+  if(!g) return;
+  spawnGunfire(g.kind, { x: g.fromX, y: g.fromY }, { x: g.toX, y: g.toY }, { noSmoke: FAST_ANIMATION_MODE });
+  ensureAnimationLoopRunning();
+}
 /* Draw a line recorded by the other phone (see showActionLine). */
 export function replayActionLine(l){
   if(!l) return;
@@ -711,7 +724,7 @@ export function ensureAnimationLoopRunning(){
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
     const spriteAnimActive = state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
-    if(stillAnimating || lineActive || deathActive || spriteAnimActive){
+    if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive()){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;
@@ -2348,20 +2361,6 @@ export function draw(){
   }
   for(const u of moving) drawUnit(u);
 
-  // muzzle smoke: lingers around a gun from the moment it fires until its side's next turn
-  for(const u of state.units){
-    if(u.removed || !u.smokeActive) continue;
-    const vp = getUnitVisualPos(u);
-    const cx = SX(vp.x,vp.y)*CELL+CELL/2, cy = SY(vp.x,vp.y)*CELL+CELL/2;
-    ctx.save();
-    ctx.fillStyle = '#f4f1e8';
-    [[-0.22,-0.30,0.16],[0.10,-0.36,0.13],[0.28,-0.18,0.11]].forEach(([ox,oy,r])=>{
-      ctx.globalAlpha = 0.45;
-      ctx.beginPath(); ctx.arc(cx+ox*CELL, cy+oy*CELL, r*CELL, 0, Math.PI*2); ctx.fill();
-    });
-    ctx.restore();
-  }
-
   // death markers: skull holds for a beat, then fades into drifting smoke
   const now = Date.now();
   for(const d of deathEffects){
@@ -2400,6 +2399,9 @@ export function draw(){
       ctx.restore();
     }
   }
+
+  // Gunfire and battlefield smoke: above the units and effects, below the UI.
+  drawGunfire({ ctx, CELL, toScreen, zoom: mapZoom, units: state.units.filter(u => !u.removed) });
 
   // vignette: a soft darkening toward the board's outer edge, so the map reads
   // as a physical object sitting on a table rather than a flat filled rectangle

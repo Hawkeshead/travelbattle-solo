@@ -6,7 +6,7 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { checkScenarioTurnLimit } from './engine-objectives.js';
 import { playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, ensureAnimationLoopRunning, moveAnimationMs, observeBoardResize, resetMapView, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
+import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -561,7 +561,6 @@ export function clearPendingTurnaroundFlagsIfDue(){
     // ambush cooldown and stand-down both last only until this side's next turn
     u.ambushSpentThisRound = false;
     u.noActionThisTurn = false;
-    u.smokeActive = false;
     u.charged = false; // a declared charge only counts for the turn it was made
   }
   state.ploughEscortUsed = {};
@@ -1287,8 +1286,7 @@ export function fireArtillery(gun, target, onComplete){
     resolveFight(gun, target, undefined, ()=>{ state.fired.add(gun.id); selectUnit(null); onComplete(); });
     return;
   }
-  gun.smokeActive = true;
-  ensureAnimationLoopRunning();
+  recordGunfire('cannon', gun, target);   // the blast, then drifting smoke (render-gunfire.js)
   /* Brighter and longer than the melee line. #a33330 is a muted brick that sits
      too close to the board's browns and reds to read at a glance; #ff2a20 is a
      signal red that nothing else on the map uses. Held for 5800ms rather than
@@ -1471,6 +1469,7 @@ export function resolveVolley(shooter, target, onComplete){
   if(turnedBonus && coverPenalty) notes.push('(these cancel — base table)');
 
   showActionLine(shooter, target, '#e8c46a', 3800, true);
+  recordGunfire('musket', shooter, target);   // three muzzle flashes along the front, then smoke (render-gunfire.js)
 
   presentRollTrigger([{label:'Volley', side:shooter.side, diceCount:dice, notes}], shooter.side, ()=>{
     const rolls = dice === 2 ? [rollD6(), rollD6()] : [rollD6()];

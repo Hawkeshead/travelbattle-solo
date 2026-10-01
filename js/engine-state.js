@@ -102,7 +102,6 @@ export function newUnit(side, typeKey, x, y, brigadeId){
     hidden:false,           // Woodland Ambush — invisible to artillery and to the AI's own targeting
     ambushSpentThisRound:false, // sprang an ambush this round — no woods defence bonus until side's next turn
     noActionThisTurn:false, // stood down an ambush without springing — can't move or fight for the rest of this turn
-    smokeActive:false,      // fired this cycle — shows muzzle smoke until this unit's side's next turn
     historicalName: historical ? historical.name : null,
     historicalBio: historical ? historical.bio : null
   };

@@ -66,6 +66,18 @@ for (const src of sources) {
   }
 }
 
+/* The gunfire and smoke frames are named by pattern too (js/render-gunfire.js
+   builds the list; it imports nothing that needs a browser at load time). */
+{
+  const smoke = await import(new URL('../js/render-gunfire.js', import.meta.url)).catch(() => null);
+  const list = smoke ? smoke.smokeFileList() : [];
+  if(!smoke) missing.push({ src: 'js/render-gunfire.js', path: '(could not load the smoke file list)' });
+  for (const path of list) {
+    seen.add(`smoke::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/render-gunfire.js (smoke art)', path }); }
+  }
+}
+
 /* The dice art is also loaded by pattern (js/dice-art.js). */
 {
   const dice = await import(new URL('../js/dice-art.js', import.meta.url));

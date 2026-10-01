@@ -24,7 +24,7 @@ import { setOnlineSession, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
 import { ONLINE_VERSION } from './online.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
-         draw, playBoardIntroAnimation, replayActionLine, sizeCanvas } from './render-board.js';
+         draw, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas } from './render-board.js';
 import { playMovementAudio, seededRandom, showLeadershipRollPrompt } from './engine-rules.js';
 import { noteBrigadeBreaks, playTurnTheme, selectUnit, showAmbushChoice, startBattle, updateHeader } from './ui-battle.js';
 import { log, syncPhaseButtons } from './engine-state.js';
@@ -466,6 +466,7 @@ function applyIncoming(json, incomingSeq){
   if(!setupShown) enterSetupView();
 
   const prevLine = state.lastActionLine && state.lastActionLine.n;
+  const prevGunfire = state.lastGunfire && state.lastGunfire.n;
   const prevFocus = state.focusUnitId;
   const moved = [];
   if(inBattle){
@@ -490,6 +491,8 @@ function applyIncoming(json, incomingSeq){
     lastTurnArmy = state.turnArmy;
     announceTurn();
   }
+  // The opponent's shot: the same blast and smoke on this phone (render-gunfire.js).
+  if(state.lastGunfire && state.lastGunfire.n !== prevGunfire) replayGunfire(state.lastGunfire);
   if(!controls(state.turnArmy)){
     const line = state.lastActionLine;
     if(line && line.n !== prevLine){
