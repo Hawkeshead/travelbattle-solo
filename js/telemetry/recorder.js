@@ -37,6 +37,13 @@ let faults = 0;
 const lastConnected = new Map();   // unit id -> connected, for chain_break
 const lostUnits = new Set();       // failed a rally: their Destroyed is a failed_rally
 let lastTurnSeen = null, lastSide = null;
+/* Listeners the browser's write path (telemetry/sender.js) registers: a
+   checkpoint after every turn, and the finished record. None in the simulator. */
+let checkpointCb = null, finalisedCb = null;
+const pendingNotes = [];   // flags to attach to the next finished record (a rejected upload)
+export function onRecorderCheckpoint(cb){ checkpointCb = cb; }
+export function onRecorderFinalised(cb){ finalisedCb = cb; }
+export function recNote(flag){ pendingNotes.push(flag); }
 
 /* The simulator's on/off switch for the identical-match gate. */
 export function setRecorderEnabled(on){ enabled = !!on; if(!enabled) rec = null; }
@@ -132,6 +139,7 @@ export const recFromReplay = guard(ev => {
       if(lastTurnSeen != null){
         pushEvent('turn_end', lastSide, null, { wall_ts: now() });
         snapshotNow(lastTurnSeen);
+        if(checkpointCb){ try { checkpointCb(rec); } catch(e){ fault(e); } }
       }
       lastTurnSeen = state.turnNumber; lastSide = ev.side || null;
       pushEvent('turn_start', ev.side, null, { wall_ts: now(), army: ev.army || null });
@@ -289,11 +297,28 @@ export const recFinalise = guard(outcome => {
   rec.text = { exportText: (outcome && outcome.exportText) || null, moveLog: (outcome && outcome.moveLog) || null };
   try { rec.terms = termRows(outcome && outcome.termSummary); } catch(e){ fault(e); }
   const keep = { duration_s: Math.round((now() - t0) / 1000), active_s: Math.round(activeMs() / 1000) };
-  try { rec.derived = Object.assign(deriveMeasures(rec, { flags: flagsFromExport(rec.text.exportText) }), keep); }
+  const flags = flagsFromExport(rec.text.exportText).concat(pendingNotes.splice(0));
+  try { rec.derived = Object.assign(deriveMeasures(rec, { flags }), keep); }
   catch(e){ rec.derived = keep; fault(e); }
   if(faults) rec.derived.recorder_faults = faults;
+  if(finalisedCb){ try { finalisedCb(rec); } catch(e){ fault(e); } }
   return rec;
 });
+
+/* A checkpointed record from a page that died mid-match: finished as well as
+   it can be, as 'incomplete' (no export text: the game that made it is gone). */
+export function recoverIncomplete(live){
+  const r = JSON.parse(JSON.stringify(live));
+  r.endedAt = r.endedAt || new Date().toISOString();
+  r.endReason = 'incomplete';
+  r.isComplete = false;
+  r.winner = null;
+  const last = r.events.length ? r.events[r.events.length - 1] : null;
+  r.turns = last ? last.turn : null;
+  const keep = { duration_s: Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / 1000) || null, recovered: true };
+  try { r.derived = Object.assign(deriveMeasures(r, { flags: [] }), keep); } catch(_e){ r.derived = keep; }
+  return r;
+}
 
 /* Missed-opportunity flags (telemetry/missed.js), one event each. */
 export const recMissed = guard((side, flags) => {
