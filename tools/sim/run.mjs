@@ -99,7 +99,15 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
 
   const t0 = Date.now();
   const reach = installReachTracker(state, g, SIDES);
-  menus.beginBoardSetup();
+  /* --scenario <card id> (SIM_SCENARIO): an Operation instead of a standard
+     match. Its map, forces and placement come from the card, so there is no
+     board setup or deployment: set it up and start the battle. */
+  if (process.env.SIM_SCENARIO) {
+    const ops = await import('../../js/operations.js');
+    const ui = await import('../../js/ui-battle.js');
+    ops.setupOperation(process.env.SIM_SCENARIO, null);
+    ui.startBattle();
+  } else menus.beginBoardSetup();
 
   /* SIM_MIRROR=1 FLIPS THE BOARD TOP TO BOTTOM AND LEAVES THE ARMIES WHERE THEY
      ARE. France still deploys on rows 0-1 and Britain on rows 8-9; only the
@@ -133,6 +141,9 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     variant, variantSide, variantWon, vsRef: (oldEntry ? (process.env.SIM_VS_LABEL || 'older build') : null),
     finished,                       // 'win' | 'stalled' | 'hung'
     winner: state.winner || null,
+    scenario: process.env.SIM_SCENARIO || null,
+    rounds: state.scenarioResult ? state.scenarioResult.round : (state.scenario ? Math.ceil((state.turnNumber || 1) / 2) : null),
+    reason: state.scenarioResult ? state.scenarioResult.reason.replace(/, round \d+.*$/, '') : null,
     turns: state.turnNumber,
     wallMs: Date.now() - t0,
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
@@ -570,6 +581,8 @@ export async function main() {
   }
   if(Object.keys(sets).length) process.env.SIM_SET = JSON.stringify(sets);
 
+  const scenAt = args.indexOf('--scenario');
+  if (scenAt > -1) process.env.SIM_SCENARIO = args[scenAt + 1];
   const seedAt = args.indexOf('--seed');
   const firstSeed = seedAt > -1 ? Number(args[seedAt + 1]) : 1;
 

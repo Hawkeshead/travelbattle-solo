@@ -5,7 +5,7 @@ import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { fctSquareToPixel, sizeCanvas } from './render-board.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
-import { OPERATIONS_ENABLED, showModeSelect } from './ui-menus.js';
+import { CAMPAIGNS_ENABLED, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { initSafeArea } from './safe-area.js';
 import { FOOT_ACK, FOOT_ACK_ALT, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
@@ -90,7 +90,7 @@ export function start(){
   // feature on every single load, with no route out. The save itself is left
   // alone rather than cleared — it is their progress, and it should still be
   // there when Campaigns come back.
-  const savedCampaignProgress = OPERATIONS_ENABLED ? loadCampaignProgress() : null;
+  const savedCampaignProgress = CAMPAIGNS_ENABLED ? loadCampaignProgress() : null;   // Campaigns stay hidden until step 6
   if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
   } else {

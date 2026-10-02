@@ -1,12 +1,16 @@
 import { showCampaignMenu } from './campaign.js';
-import { SCENARIOS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
+import { readyCards } from './scenario-cards.js';
+import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
+import { showObjectivePanel } from './operation-panel.js';
+import { isOnline } from './online-session.js';
+import { SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log } from './engine-state.js';
 import { beginDiagramMode, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
-import { endMovePhase } from './ui-battle.js';
+import { endMovePhase, startBattle } from './ui-battle.js';
 import { deployArmyComposition, planArmyDeployment, planGroupArmy } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
 
@@ -90,7 +94,10 @@ function loadLastSetup(){
   } catch { return null; }
 }
 
-export const OPERATIONS_ENABLED = false;
+export const OPERATIONS_ENABLED = true;    // Operations: the ready Scenario Cards (Operations and Campaigns brief, step 2)
+/* Campaigns stay hidden until step 6 (campaign play from the logs). This gates
+   the Campaigns button and the boot-time resume path. */
+export const CAMPAIGNS_ENABLED = false;
 // Grand Strategy joins Operations and Campaigns in being parked for the
 // Commander's Desk pass. Same treatment: the entry point is simply not
 // offered, showGrandMatchTypeSelect and everything downstream are untouched
@@ -193,10 +200,8 @@ export function showModeSelect(isSplash){
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,
   // so restoring them is deleting one line.
-  if(OPERATIONS_ENABLED){
-    extra.appendChild(opsBtn);
-    extra.appendChild(campBtn);
-  }
+  if(OPERATIONS_ENABLED) extra.appendChild(opsBtn);
+  if(CAMPAIGNS_ENABLED) extra.appendChild(campBtn);
   if(GRAND_STRATEGY_ENABLED) extra.appendChild(grandBtn);
 
   // Same Again: one tap back into the last setup. Deliberately smaller and lower
@@ -224,60 +229,80 @@ export function showModeSelect(isSplash){
   document.getElementById('overlay').classList.add('show');
 }
 
+/* OPERATIONS (Operations and Campaigns brief, 2.7): the ready Operation
+   cards, then a pre-battle brief (name, date, intro, both sides' objectives,
+   the round limit) where the player picks a side. One AI level (Marshal), so
+   there is no difficulty step. */
 export function showOperationsMenu(){
+  clearFolio();
+  const box = document.querySelector('#overlay .box');
+  box.classList.add('as-folio', 'as-sides-screen');
   document.getElementById('overlayTitle').textContent = 'Operations';
   document.getElementById('overlayText').innerHTML =
-    'Smaller, asymmetrical scenarios drawn from real actions of the period — different forces, different objectives, not always "break 2 of 3 Brigades."';
-  let extra = document.getElementById('modeChoices');
+    'Smaller actions from the period: unequal forces, each side with its own objective, a fixed number of rounds.';
+  const extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
+  extra.className = 'as-ops';
   extra.style.display = 'flex';
-  extra.style.flexDirection = 'column';
-  extra.style.gap = '6px';
-  const campaigns = [...new Set(SCENARIOS.map(s=>s.campaign))];
-  for(const camp of campaigns){
-    const header = document.createElement('div');
-    header.textContent = camp;
-    header.style.cssText = 'font-family:Cinzel,serif;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--brass-dim);margin-top:6px;text-align:left;';
-    extra.appendChild(header);
-    for(const s of SCENARIOS.filter(x=>x.campaign===camp)){
-      const b = document.createElement('button');
-      b.style.textAlign = 'left';
-      b.textContent = `${s.title} — ${s.objectiveText}`;
-      b.onclick = ()=>{ showOperationBrief(s); };
-      extra.appendChild(b);
-    }
+  for(const card of readyCards('operation')){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'op-choice';
+    b.innerHTML = '<span class="op-name"></span><span class="op-arch"></span>';
+    b.querySelector('.op-name').textContent = card.name;
+    b.querySelector('.op-arch').textContent = `${card.archetype || 'Operation'} · ${card.date}`;
+    b.onclick = ()=> showOperationBrief(card);
+    extra.appendChild(b);
   }
-  const backBtn = document.createElement('button');
-  backBtn.textContent = '← Back';
-  backBtn.onclick = ()=>{ showModeSelect(); };
-  extra.appendChild(backBtn);
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'op-back';
+  back.textContent = 'Back';
+  back.onclick = ()=> showModeSelect();
+  extra.appendChild(back);
   document.getElementById('overlay').classList.add('show');
 }
 
-export function showOperationBrief(scenario){
-  document.getElementById('overlayTitle').textContent = scenario.title;
-  document.getElementById('overlayText').innerHTML =
-    `<b>${scenario.date}</b><br><br>${scenario.brief}<br><br><b>Objective:</b> ${scenario.objectiveText}` +
-    (scenario.turnLimit ? `<br><b>Turn limit:</b> ${scenario.turnLimit}` : '');
-  let extra = document.getElementById('modeChoices');
+export function showOperationBrief(card){
+  clearFolio();
+  const box = document.querySelector('#overlay .box');
+  box.classList.add('as-folio', 'as-sides-screen');
+  document.getElementById('overlayTitle').textContent = card.name;
+  document.getElementById('overlayText').innerHTML = operationBriefHTML(card, null) + '<div class="op-pick">Choose your side</div>';
+  const extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
+  extra.className = 'as-sides';
   extra.style.display = 'flex';
-  extra.style.flexDirection = 'row';
-  extra.style.gap = '8px';
-  const beginBtn = document.createElement('button');
-  beginBtn.className = 'primary';
-  beginBtn.textContent = 'Begin Operation';
-  beginBtn.onclick = ()=>{
-    state.scenario = scenario;
-    extra.style.display = 'none';
-    showOperationModeSelect(scenario);
+  const side = (flagSvg, name, mine) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'side-flag';
+    b.setAttribute('aria-label', name);
+    b.innerHTML = flagSvg;
+    b.onclick = ()=> beginOperation(card, mine);
+    return b;
   };
-  const backBtn = document.createElement('button');
-  backBtn.textContent = '← Back';
-  backBtn.onclick = ()=>{ showOperationsMenu(); };
-  extra.appendChild(beginBtn);
-  extra.appendChild(backBtn);
+  extra.appendChild(side(FLAG_BRITAIN, 'Britain', SIDES.RED));
+  extra.appendChild(side(FLAG_FRANCE, 'France', SIDES.BLUE));
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'op-back';
+  back.textContent = 'Back';
+  back.onclick = ()=> showOperationsMenu();
+  extra.appendChild(back);
   document.getElementById('overlay').classList.add('show');
+}
+
+/* Sets the Operation up (locked map, both armies placed) and starts it: no
+   orientation roll, no falling-tile intro, no deployment screen. */
+export function beginOperation(card, playerSide){
+  if(isOnline() || state.group || state.rts) return;   // Online, Group and Real-Time never take a card
+  AudioManager.stopMusic();
+  setupOperation(card, playerSide);
+  document.getElementById('overlay').classList.remove('show');
+  redrawOperation();
+  startAmbientLayer();
+  setTimeout(()=>{ startBattle(); showObjectivePanel(); }, 700);
 }
 
 export function showOperationModeSelect(scenario){

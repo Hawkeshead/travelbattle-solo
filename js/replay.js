@@ -1,4 +1,5 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit } from './engine-rules.js';
@@ -203,7 +204,42 @@ function sectionMetadata(){
   out.push(`Board           : ${m.boardMode}, ${COLS}x${ROWS}`);
   if(m.aiSide!=null) out.push(`Sides           : player ${SIDE_LABEL[m.playerSide]}, AI ${SIDE_LABEL[m.aiSide]}`);
   out.push(`Turns played    : ${state.turnNumber}`);
+  /* OPERATIONS (Operations and Campaigns brief, 2.9). Field names are stable:
+     the telemetry and the step 4 campaign fields build on them. */
+  if(state.scenario && state.scenario.kind === 'operation'){
+    const sc = state.scenario, m = sc.map || {};
+    out.push(`Operation       : ${sc.id}  (${sc.name})`);
+    out.push(`Card hash       : ${cardHash(sc.id)}`);
+    out.push(`Map             : Britain board ${m.boards && m.boards.red} rotation ${m.rotation && m.rotation.red}, France board ${m.boards && m.boards.blue} rotation ${m.rotation && m.rotation.blue}; ${(m.overrides || []).length} overrides`);
+    out.push(`Round limit     : ${sc.turnLimit}`);
+  }
   out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
+  return out;
+}
+
+/* A short, stable fingerprint of a card's content as shipped (FNV-1a over its
+   JSON), so an export says exactly which version of a scenario was played. */
+function cardHash(id){
+  const card = getCard(id);
+  const text = JSON.stringify(card || {});
+  let h = 0x811c9dc5;
+  for(let i = 0; i < text.length; i++){ h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+}
+
+/* The Operation's per-round objective status and its result (2.9). */
+function sectionOperation(){
+  const sc = state.scenario;
+  if(!sc || sc.kind !== 'operation') return [];
+  const out = ['', 'Operation result'];
+  const r = state.scenarioResult;
+  out.push(`  winner        : ${r ? SIDE_LABEL[r.winner] : 'none yet'}`);
+  out.push(`  reason        : ${r ? r.reason : 'in progress'}`);
+  out.push(`  round reached : ${r ? r.round : Math.ceil((state.turnNumber || 1) / 2)}`);
+  const esc = state.units.filter(u => u.escaped);
+  out.push(`  marched off   : ${esc.length ? esc.map(u => `${u.historicalName || u.type} (${SIDE_LABEL[u.side]})`).join(', ') : 'none'}`);
+  out.push('Objective status by round');
+  for(const line of (state.scenarioRounds || [])) out.push('  ' + line);
   return out;
 }
 
@@ -745,6 +781,7 @@ export function exportFullMatchLog(){
   }
   lines.push('');
   lines.push(...sectionSummary(state.matchLog, label));
+  lines.push(...sectionOperation());
   lines.push('');
   lines.push(...sectionFlags(state.matchLog, label));
   lines.push('');

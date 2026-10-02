@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { brigadeIdsFor, operationFirstMover, canMarchOff, marchOff } from './operations.js';
 import { currentRecord } from './telemetry/recorder.js';
 import { resendCurrent } from './telemetry/sender.js';
 import { telemetryFightEnds, telemetryMoveBegins, telemetryMoveEnds } from './telemetry/hooks.js';
@@ -10,7 +11,7 @@ const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
-import { checkScenarioTurnLimit } from './engine-objectives.js';
+import { scenarioRoundEnded } from './engine-objectives.js';
 import { playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -110,6 +111,10 @@ export function startBattle(){
     state.turn = armyById(state.turnArmy).side;
     refreshGroupControl();
     log(`Roll for initiative. Order of play: ${state.groupTurnOrder.map(id => armyById(id).label).join(', ')}.`, 'system');
+  } else if(state.scenario){
+    // An Operation names who goes first (or a die roll for "diceOff").
+    state.turn = operationFirstMover();
+    log(`${SIDE_LABEL[state.turn]} moves first.`, 'system');
   } else {
     state.turn = seededRandom()<0.5 ? SIDES.RED : SIDES.BLUE;
     log(`Roll for initiative: ${SIDE_LABEL[state.turn]} moves first.`, 'system');
@@ -196,7 +201,9 @@ export function brigadeBrokenStatus(side){
   // excluding "Brigadier-only" here, every single Brigade briefly, incorrectly
   // read as already broken the instant its Brigadier went down.
   const out = [];
-  const count = state.group ? 6 : 3;   // Group: two armies per side, brigades 0-2 and 3-5
+  // Group: two armies per side, brigades 0-2 and 3-5. Operations: the Brigades
+  // the card gives the side (one pip each; usually just one).
+  const count = state.group ? 6 : (state.scenario && state.scenario.forces && state.scenario.forces.british ? brigadeIdsFor(side).length : 3);
   for(let bId=0; bId<count; bId++){
     const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
     const combatUnits = group.filter(u=>u.type!=='BRIGADIER');
@@ -335,7 +342,7 @@ export function renderBrigadeStatus(){
     const statuses = brigadeBrokenStatus(side);
     const pips = statuses.map(broken=>`<span class="pip ${broken?'broken':'alive'}"></span>`).join('');
     const brokenCount = statuses.filter(Boolean).length;
-    return `<span class="side-status" style="color:${SIDE_COLOR[side]}">${SIDE_LABEL[side]}: ${pips} <span style="color:var(--ink-dim);margin-left:2px;">(${brokenCount}/3 broken)</span></span>`;
+    return `<span class="side-status" style="color:${SIDE_COLOR[side]}">${SIDE_LABEL[side]}: ${pips} <span style="color:var(--ink-dim);margin-left:2px;">(${brokenCount}/${statuses.length} broken)</span></span>`;
   };
   if(state.group){
     el.innerHTML = GROUP_ARMIES.map(a=>{
@@ -955,7 +962,9 @@ export function endFightPhase(){
        misses some. Undefined in the browser, so this is a no-op in play. Lives
        on globalThis rather than state so undo snapshots never carry a function. */
     if(typeof globalThis.__fcTurnHook === 'function') globalThis.__fcTurnHook(state);
-    if(state.scenario && !state.gameOver) checkScenarioTurnLimit();
+    /* Operations: a round is both sides' turns, so one has just ended when the
+       side-turn count is now odd again (the round's first side is about to move). */
+    if(state.scenario && !state.gameOver && (state.turnNumber - 1) % 2 === 0) scenarioRoundEnded((state.turnNumber - 1) / 2);
     if(!state.gameOver) beginMovePhase();
   }, 300);
 }
@@ -1129,6 +1138,15 @@ export function renderUnitInfo(u){
     chargeBtn.disabled = false;
   } else {
     chargeBtn.style.display = 'none';
+  }
+
+  /* March Off (Operations, operations.js): shown only when it is legal, on the
+     unit's side's exit edge with its move unspent. */
+  const marchBtn = document.getElementById('marchOffBtn');
+  if(marchBtn){
+    const can = isActing(u) && canMarchOff(u);
+    marchBtn.style.display = can ? 'inline-block' : 'none';
+    marchBtn.disabled = !can;
   }
 }
 
@@ -1884,6 +1902,12 @@ export function initBattleControls(){
     draw();
   };
 
+  document.getElementById('marchOffBtn').onclick = ()=>{
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(!u || !marchOff(u)) return;
+    selectUnit(null);
+    maybeStartAutoEnd();
+  };
   document.getElementById('endMoveBtn').onclick = endMovePhase;
   document.getElementById('endFireBtn').onclick = endFirePhase;
   document.getElementById('endFightBtn').onclick = endFightPhase;

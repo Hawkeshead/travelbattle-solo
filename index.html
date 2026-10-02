@@ -1202,6 +1202,29 @@
     .mode-toggle{ margin:6px 0 0; }
   }
 
+  /* OPERATIONS: the menu list, the pre-battle brief and the objective panel. */
+  #modeChoices.as-ops{ flex-direction:column; gap:8px; width:100%; }
+  html #overlay .box.as-sides-screen #modeChoices button.op-choice{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:9px 14px; text-align:left; width:100%;
+    background:linear-gradient(180deg,#4a2e1a,#2f1c10); color:#f2e3c0; border:1px solid #b8913f; border-radius:4px; }
+  .op-name{ font-family:'Cinzel',serif; font-size:15px; letter-spacing:.06em; }
+  .op-arch{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:13px; opacity:.85; text-transform:none; letter-spacing:0; }
+  html #overlay .box.as-sides-screen #modeChoices button.op-back{ font-family:'Cinzel',serif; font-size:12px; padding:6px 14px; background:rgba(240,228,198,.85); color:#2e2010; border:1px solid #9a7a36; border-radius:4px; align-self:center; }
+  .op-brief{ text-align:left; font-size:14px; line-height:1.35; }
+  .op-date{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.04em; color:#6b5636; margin-bottom:6px; }
+  .op-obj{ margin:5px 0; } .op-obj.you{ font-weight:600; }
+  .op-limit{ margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6b5636; }
+  .op-pick{ margin-top:10px; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.08em; text-transform:uppercase; text-align:center; }
+  #opPanel{ position:fixed; right:calc(12px + env(safe-area-inset-right, 0px)); bottom:calc(10px + env(safe-area-inset-bottom, 0px)); z-index:18; max-width:min(250px, calc(100vw - 150px));
+    padding:6px 12px 7px; color:#2a1e14; font-family:'Cormorant Garamond',serif; font-size:13px; line-height:1.25; cursor:pointer;
+    border:10px solid #3b2416; border-image:url(assets/ui/panel_frame.webp) 75 / 10px stretch; background:#e3d4ae url(assets/ui/panel_map_centre.webp) center / 230% auto no-repeat; background-clip:padding-box;
+    box-shadow:0 6px 16px rgba(0,0,0,.55); -webkit-tap-highlight-color:transparent; }
+  #opPanel .opp-round{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#6b4a14; text-align:center; }
+  #opPanel .opp-side{ margin-top:3px; } #opPanel .opp-side + .opp-side{ border-top:1px solid rgba(120,90,40,.35); padding-top:4px; margin-top:5px; }
+  #opPanel .opp-who{ font-family:'Cinzel',serif; font-size:11px; letter-spacing:.06em; }
+  #opPanel .opp-status{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#5a4630; margin-top:2px; }
+  #opPanel .opp-hint{ font-size:11px; font-style:italic; opacity:.7; text-align:center; margin-top:2px; }
+  #opPanel.open{ max-width:min(420px, calc(100vw - 150px)); }
+
   /* Victory: a wax seal in the winner's colour under the plaque, then the
      result, then what the match cost each side. */
   .victory-seal, .victory-stats{ display:none; }
@@ -1340,6 +1363,7 @@
           <button id="squareBtn" disabled>Form Square</button>
           <button id="ambushBtn" style="display:none;" disabled>Lay Ambush</button>
           <button id="chargeBtn" style="display:none;" disabled>Charge</button>
+          <button id="marchOffBtn" style="display:none;" disabled>March Off</button>
         </div>
       </div>
     </div>

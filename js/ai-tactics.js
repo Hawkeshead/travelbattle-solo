@@ -340,27 +340,55 @@ export function findRaidableEnemyGun(side, from){
   return guns.sort((a,b) => chebyshev(from,a) - chebyshev(from,b))[0];
 }
 
-// Operations: how much a candidate position or fight target actually serves the
-// active scenario's objective — generalizes brigadeBreakBonus to whatever the
-// real win condition is, rather than always assuming "break 2 of 3 Brigades."
+/* OPERATIONS (Operations and Campaigns brief, 2.8): how much a candidate
+   square serves the side's objective, driven by the card's aiRoles:
+     attack  pull toward the objective area
+     hold    lean into defensible squares inside the area, and back toward it
+     escape  pull toward the side's exit edge (the Brigadier less, so he goes last)
+     hunt    pull toward the enemy units the side must destroy
+   No weight tuning in this step: the pulls are modest and sit beside the
+   standard scoring. */
+const OP_SIDE_KEY = { red: 'british', blue: 'french' };
+export function operationRole(side){
+  const r = state.scenario && state.scenario.aiRoles;
+  return r ? r[OP_SIDE_KEY[side]] || null : null;
+}
+function operationAreaFor(side){
+  const w = state.scenario && state.scenario.win && state.scenario.win[OP_SIDE_KEY[side]];
+  const c = w && (w.conditions || []).find(x => x.area);
+  const other = state.scenario && state.scenario.win && state.scenario.win[OP_SIDE_KEY[side === 'red' ? 'blue' : 'red']];
+  const c2 = !c && other ? (other.conditions || []).find(x => x.area) : null;
+  const name = (c || c2 || {}).area;
+  return name ? ((state.scenario.map.areas || {})[name] || []).map(([x, y]) => ({ x, y })) : [];
+}
 export function scenarioMoveBonus(mover, side, pos){
-  if(!state.scenario) return 0;
-  let bonus = 0;
-  for(const cond of state.scenario.objective.conditions){
-    if(cond.type==='CAPTURE_ZONE'){
-      const dists = cond.params.zoneSquares.map(z=>chebyshev(pos,z));
-      bonus += Math.max(0, 3 - Math.min(...dists)) * 0.25; // pull toward the zone as it gets close
-    } else if(cond.type==='ESCAPE_ZONE' && cond.params.escapingSide===side){
-      const edgeDist = Math.min(...cond.params.edgeRows.map(r=>Math.abs(pos.y-r)));
-      bonus += Math.max(0, 4 - edgeDist) * 0.2; // pull toward the exit edge
-    } else if(cond.type==='PROTECT_UNIT' && cond.params.protectSide===side){
-      const asset = state.units.find(o=>!o.removed && o.side===side && cond.params.unitTypes.includes(o.type));
-      if(asset && UNIT_TYPES[mover.type].key!=='BRIGADIER' && !UNIT_TYPES[mover.type].isArtillery && isAdjacent(pos,asset)) bonus += 0.4;
-    } else if(cond.type==='SURVIVE_TURNS' && cond.params.defender===side){
-      bonus += terrainSeekBonus(mover.type, pos.x, pos.y) * 0.6; // lean harder into defensible ground
-    }
+  if(!state.scenario || !state.scenario.aiRoles) return 0;
+  const role = operationRole(side);
+  const t = UNIT_TYPES[mover.type];
+  if(role === 'attack' || role === 'hold'){
+    const area = operationAreaFor(side);
+    if(!area.length) return 0;
+    const d = Math.min(...area.map(z => chebyshev(pos, z)));
+    if(role === 'attack') return Math.max(0, 6 - d) * 0.25;
+    if(d === 0) return 0.6 + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.6;
+    return Math.max(0, 4 - d) * 0.2;
   }
-  return bonus;
+  if(role === 'escape'){
+    const ex = state.scenario.map.exits && state.scenario.map.exits[OP_SIDE_KEY[side]];
+    if(!ex) return 0;
+    const row = ex === 'britishEdge' ? state.terrain.length - 1 : 0;
+    const pull = Math.max(0, 10 - Math.abs(pos.y - row)) * 0.25;
+    return t.key === 'BRIGADIER' ? pull * 0.5 : pull;
+  }
+  if(role === 'hunt'){
+    const w = state.scenario.win[OP_SIDE_KEY[side]];
+    const types = new Set((w.conditions || []).filter(c => c.type === 'DESTROY').flatMap(c => c.unitTypes || []));
+    const prey = state.units.filter(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && (!types.size || types.has(o.type)));
+    if(!prey.length) return 0;
+    const d = Math.min(...prey.map(o => chebyshev(pos, o)));
+    return Math.max(0, 5 - d) * 0.15;
+  }
+  return 0;
 }
 
 // The defensive mirror of findVulnerableEnemyUnits — is THIS unit itself

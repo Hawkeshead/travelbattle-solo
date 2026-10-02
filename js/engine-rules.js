@@ -1,4 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
+import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
@@ -142,6 +143,7 @@ export function setStrandedRejoinDefault(v){ STRANDED_REJOIN_DEFAULT = !!v; }
 export function movableUnitsForSide(side){
   const mine = state.units.filter(u=>!u.removed && u.side===side);
   if(strandedMayRejoin(side)) return new Set(mine.map(u=>u.id));
+  if(chainWaived(side)) return new Set(mine.map(u=>u.id));   // Operations: chainWaivedTurn1 (operations.js)
   const brigadeIds = [...new Set(mine.map(u=>u.brigadeId))];
   const connected = new Set();
   for(const bId of brigadeIds){
@@ -1567,7 +1569,9 @@ export function removeUnit(u, reason){
   log(`${unitLabel(u)} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
   if(u.type!=='BRIGADIER'){
     const brig = state.units.find(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type==='BRIGADIER');
-    if(brig){
+    /* Not in an Operation: there the break rule does not apply, and a Brigadier
+       may still be needed on the field (Beaumont's must march off himself). */
+    if(brig && !state.scenario){
       const remaining = state.units.filter(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type!=='BRIGADIER');
       if(remaining.length===0){
         brig.removed = true; // withdraws, not killed — no death effect for a non-combat unit

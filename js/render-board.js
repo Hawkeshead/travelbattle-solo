@@ -687,6 +687,42 @@ export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
     fromX:fromUnit.x, fromY:fromUnit.y, toX:toUnit.x, toY:toUnit.y, color, dashed:!!dashed, durationMs: lineMs };
   ensureAnimationLoopRunning();
 }
+/* OPERATION AREAS (Operations and Campaigns brief, 2.7): every named area on
+   the card outlined with a dashed parchment line round its outer edge, and
+   tinted by whoever holds it now (red Britain, blue France; none if empty or
+   contested). Line widths are in board units, so the outline scales with the
+   zoom and stays legible. */
+function drawOperationAreas(){
+  const sc = state.scenario;
+  if(!sc || !sc.map || !sc.map.areas) return;
+  for(const [, cells] of Object.entries(sc.map.areas)){
+    const set = new Set(cells.map(([x, y]) => x + ',' + y));
+    const here = state.units.filter(u => !u.removed && u.type !== 'BRIGADIER' && set.has(u.x + ',' + u.y));
+    const b = here.some(u => u.side === SIDES.RED), f = here.some(u => u.side === SIDES.BLUE);
+    const tint = b && !f ? 'rgba(178,34,34,0.16)' : f && !b ? 'rgba(30,60,140,0.16)' : null;
+    ctx.save();
+    for(const [x, y] of cells){
+      const px = SX(x, y) * CELL, py = SY(x, y) * CELL;
+      if(tint){ ctx.fillStyle = tint; ctx.fillRect(px, py, CELL, CELL); }
+    }
+    ctx.strokeStyle = 'rgba(244,232,200,0.9)';
+    ctx.lineWidth = Math.max(1.5, CELL * 0.05);
+    ctx.setLineDash([CELL * 0.16, CELL * 0.1]);
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = CELL * 0.06;
+    for(const [x, y] of cells){
+      const px = SX(x, y) * CELL, py = SY(x, y) * CELL;
+      // Draw each edge whose neighbour (in screen terms) is outside the area.
+      const edges = [[0, -1, px, py, px + CELL, py], [0, 1, px, py + CELL, px + CELL, py + CELL], [-1, 0, px, py, px, py + CELL], [1, 0, px + CELL, py, px + CELL, py + CELL]];
+      for(const [dx, dy, x1, y1, x2, y2] of edges){
+        const nb = cells.find(([cx, cy]) => SX(cx, cy) === SX(x, y) + dx && SY(cx, cy) === SY(x, y) + dy);
+        if(nb) continue;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
 /* PROMPT GLOW: while a Leadership or Ambush prompt is open (prompt-panel.js),
    the squares of the units it is about pulse a soft brass glow. The board is
    not dimmed. */
@@ -2458,6 +2494,7 @@ export function draw(){
      overscan problem first: the tile art, not the sort, is what hides them.
 
      Stacked squares (doubled infantry) are offset so both are visible. */
+  drawOperationAreas();   // Operations: the named areas, under the units
   const stackGroups = {};
   for(const u of state.units){
     if(u.removed) continue;

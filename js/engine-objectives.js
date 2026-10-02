@@ -1,111 +1,145 @@
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
+import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
 import { saveCampaignProgress } from './campaign.js';
 import { SIDES, SIDE_LABEL, state } from './data-core.js';
-import { unitsAt } from './engine-rules.js';
+import { log, logReplay } from './engine-state.js';
 import { exportFullMatchLog, startReplay } from './replay.js';
 
 /* =========================================================
-   OPERATIONS — pluggable scenario objectives.
-   Five reusable objective types cover all 14 catalogued Operations
-   without needing bespoke code per scenario. A scenario's `objective`
-   field is { combinator:'all'|'any', conditions:[{type,params}, ...] }.
-   Each condition checker returns 'red', 'blue', or null (undecided).
+   OPERATIONS: THE OBJECTIVE ENGINE (Operations and Campaigns brief, 2.4)
+
+   state.scenario is a Scenario Card (js/scenario-cards.js). Each side has its
+   own list of conditions with its own combinator ('any' or 'all'); the first
+   side to complete its list wins.
+
+   ROUNDS. A round is both sides having moved, fired and fought. The engine's
+   state.turnNumber counts side-turns, so round = ceil(turnNumber / 2), and a
+   round ends as the second side's fight phase ends (ui-battle calls
+   scenarioRoundEnded then).
+
+   WHEN THINGS ARE CHECKED
+   - Instant conditions (DESTROY, MARCH_OFF) after every removal or march off
+     (checkScenarioObjective, from checkWinCondition and marchOff). A list whose
+     combinator is 'any' can win there; an 'all' list wins there only if every
+     condition in it is instant.
+   - Area conditions (HOLD_AREA, CLEAR_AREA, CONTROL_AREA) once at the end of
+     each round, after both fight phases, when the whole of each list is
+     evaluated. If both sides complete at the same check, ifBothMet decides.
+   - At the end of round turnLimit with no winner, ifTimeExpires decides.
+   - Then, at either check: a side with no non-Brigadier units left on the
+     board (units that marched off are not lost) loses.
+   The standard "break 2 of 3 Brigades" rule does not apply in Operations.
+
+   Every result carries a reason ("British win: village cleared, round 6"),
+   kept on state.scenarioResult for the log, the victory screen and the export.
+   Step 8 adds condition types to CONDITIONS; nothing else should change.
 ========================================================= */
 export function otherSide(side){ return side===SIDES.RED ? SIDES.BLUE : SIDES.RED; }
+const SIDE_KEY = { [SIDES.RED]: 'british', [SIDES.BLUE]: 'french' };
+const KEY_SIDE = { british: SIDES.RED, french: SIDES.BLUE };
+export const sideKey = side => SIDE_KEY[side];
+export const keySide = key => KEY_SIDE[key];
+export const currentRound = () => Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
+/* The conditions themselves are in objective-core.js (pure); this file points
+   them at the live game before each check. */
+const world = () => useWorld({ units: state.units, card: state.scenario, streaks: (state.scenarioStreaks = state.scenarioStreaks || {}) });
+const CONDITIONS = new Proxy({}, { get: (_t, k) => (world(), CONDITION_TABLE()[k]) });
+export function areaHolders(name){ world(); return coreAreaHolders(name); }
+export function destroyedCount(bySide, types){ world(); return coreDestroyed(bySide, types); }
+export function marchedOff(side){ world(); return coreMarchedOff(side); }
+function startingFighters(side){ world(); return coreStartingFighters(side); }
+function listMet(side, ctx){ world(); return coreListMet(side, ctx); }
+const fighters = side => state.units.filter(u => u.side === side && u.type !== 'BRIGADIER');
+const onBoard = u => !u.removed;
 
-export function checkCaptureZone(params){
-  const { zoneSquares, holdForTurns } = params;
-  for(const side of [SIDES.RED, SIDES.BLUE]){
-    const enemy = otherSide(side);
-    const controls = zoneSquares.every(({x,y}) => {
-      const here = unitsAt(x,y).filter(u=>!u.removed);
-      return here.some(u=>u.side===side) && !here.some(u=>u.side===enemy);
-    });
-    if(controls){
-      state.captureHoldCounter[side]++;
-      state.captureHoldCounter[enemy] = 0;
-      if(state.captureHoldCounter[side] >= holdForTurns) return side;
-    } else if(state.captureHoldCounter[side] > 0 && zoneSquares.some(({x,y})=>unitsAt(x,y).some(u=>!u.removed && u.side===side))){
-      // partial presence, no full control this check — hold streak broken but not reset by the enemy specifically
-      state.captureHoldCounter[side] = 0;
-    }
-  }
+/* The plain-words reason for a side's win. */
+function reasonFor(side, ctx, how){
+  const label = SIDE_LABEL[side];
+  if(how === 'time') return `${label} win: time ran out, round ${ctx.round}`;
+  if(how === 'wiped') return `${label} win: no enemy units left on the field, round ${ctx.round}`;
+  const w = state.scenario.win[SIDE_KEY[side]];
+  const met = (w.conditions || []).filter(c => CONDITIONS[c.type](side, c, Object.assign({}, ctx, { countRound: false })));
+  const words = met.map(c => ({
+    HOLD_AREA: `${c.area} held`, CLEAR_AREA: `${c.area} cleared`, CONTROL_AREA: `${c.area} taken`,
+    DESTROY: `${c.count} ${c.unitTypes && c.unitTypes.length ? c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') + ' ' : ''}destroyed`,
+    MARCH_OFF: 'marched off the field',
+  }[c.type])).filter(Boolean);
+  return `${label} win: ${words.join(' and ') || 'objective complete'}, round ${ctx.round}${how === 'both' ? ' (both sides met their objectives)' : ''}`;
+}
+function decide(winner, reason, round){
+  state.scenarioResult = { winner, reason, round };
+  log(reason + '.', 'system');
+  logReplay('scenarioResult', { winner, reason, round });
+  endGame(winner);
+}
+function wipedOut(){
+  for(const side of [SIDES.RED, SIDES.BLUE]) if(!fighters(side).some(onBoard)) return otherSide(side);
   return null;
 }
 
-export function checkSurviveTurns(params){
-  const { defender, minUnits } = params;
-  const attacker = otherSide(defender);
-  const defRemaining = state.units.filter(u=>u.side===defender && !u.removed && u.type!=='BRIGADIER').length;
-  if(defRemaining < (minUnits||1)) return attacker; // defender's force collapsed before time ran out
-  if(state.turnNumber >= state.scenario.turnLimit) return defender; // held out to the end
-  return null;
-}
-
-export function checkEscapeZone(params){
-  const { escapingSide, edgeRows, minUnitsToEscape } = params;
-  const escaped = state.units.filter(u=>u.side===escapingSide && !u.removed && edgeRows.includes(u.y)).length;
-  if(escaped >= minUnitsToEscape) return escapingSide;
-  const remaining = state.units.filter(u=>u.side===escapingSide && !u.removed && u.type!=='BRIGADIER').length;
-  if(remaining < minUnitsToEscape - escaped) return otherSide(escapingSide); // can't possibly reach the count anymore
-  return null;
-}
-
-export function checkEliminateTarget(params){
-  const { targetSide, targetCount } = params;
-  const eliminated = state.units.filter(u=>u.side===targetSide && u.removed).length;
-  if(eliminated >= targetCount) return otherSide(targetSide);
-  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) return targetSide; // ran out the clock
-  return null;
-}
-
-export function checkProtectUnit(params){
-  const { protectSide, unitTypes } = params;
-  const assets = state.units.filter(u=>u.side===protectSide && unitTypes.includes(u.type));
-  const anyLost = assets.some(u=>u.removed);
-  if(anyLost) return otherSide(protectSide);
-  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) return protectSide;
-  return null;
-}
-
-export const OBJECTIVE_CHECKERS = {
-  CAPTURE_ZONE: checkCaptureZone,
-  SURVIVE_TURNS: checkSurviveTurns,
-  ESCAPE_ZONE: checkEscapeZone,
-  ELIMINATE_TARGET: checkEliminateTarget,
-  PROTECT_UNIT: checkProtectUnit
-};
-
+/* After a removal or a march off. */
 export function checkScenarioObjective(){
-  const obj = state.scenario.objective;
-  const results = obj.conditions.map(c => OBJECTIVE_CHECKERS[c.type](c.params));
-  let winner = null;
-  if(obj.combinator === 'any'){
-    winner = results.find(r => r !== null) || null;
-  } else { // 'all' — every condition must agree on the SAME winner
-    if(results.every(r => r !== null) && results.every(r => r === results[0])) winner = results[0];
+  if(!state.scenario || state.gameOver || state.replaying) return;
+  const ctx = { endOfRound: false, round: currentRound() };
+  const met = [SIDES.RED, SIDES.BLUE].filter(s => listMet(s, ctx));
+  if(met.length === 1) return decide(met[0], reasonFor(met[0], ctx), ctx.round);
+  if(met.length === 2){
+    const w = state.scenario.ifBothMet ? KEY_SIDE[state.scenario.ifBothMet] : state.turn;
+    return decide(w, reasonFor(w, ctx, 'both'), ctx.round);
   }
-  if(!winner){
-    // Safety net: a side wiped out entirely can't go on to achieve any objective,
-    // so the other side wins by default rather than the match hanging forever
-    // (this matters most for scenarios with no turnLimit, resolved purely by objective).
-    for(const side of [SIDES.RED, SIDES.BLUE]){
-      const remaining = state.units.filter(u=>!u.removed && u.side===side && u.type!=='BRIGADIER').length;
-      if(remaining===0){ winner = otherSide(side); break; }
-    }
-  }
-  if(winner) endGame(winner);
+  const lost = wipedOut();
+  if(lost) decide(lost, reasonFor(lost, ctx, 'wiped'), ctx.round);
 }
 
-export function checkScenarioTurnLimit(){
-  // Some objective types (SURVIVE_TURNS, ELIMINATE_TARGET, PROTECT_UNIT) resolve
-  // their own turn-limit outcome inside their checker; this just forces a check
-  // at the moment the limit is reached in case nothing else has triggered it yet.
-  if(state.scenario.turnLimit && state.turnNumber >= state.scenario.turnLimit) checkScenarioObjective();
+/* The end of a round (ui-battle, after the second side's fight phase). */
+export function scenarioRoundEnded(round){
+  if(!state.scenario || state.gameOver) return;
+  const ctx = { endOfRound: true, round, countRound: true };
+  const met = [SIDES.RED, SIDES.BLUE].filter(s => listMet(s, ctx));
+  recordRoundStatus(round);
+  const r = resolveEndOfRound(state.scenario, met, round, wipedOut());
+  if(r) decide(r.winner, reasonFor(r.winner, ctx, r.how), round);
 }
+/* Kept for the old call site: the round check now happens in scenarioRoundEnded. */
+export function checkScenarioTurnLimit(){}
+
+/* One line of objective status per round, for the export (2.9). */
+function recordRoundStatus(round){
+  const areas = Object.keys((state.scenario.map && state.scenario.map.areas) || {});
+  const holders = areas.map(a => { const h = areaHolders(a); return `${a}: British ${h.british}, French ${h.french}`; });
+  const line = `Round ${round}: ${holders.join('; ')}${holders.length ? '; ' : ''}destroyed by Britain ${destroyedCount(SIDES.RED)}, by France ${destroyedCount(SIDES.BLUE)}; ` +
+    `marched off British ${marchedOff(SIDES.RED).length}, French ${marchedOff(SIDES.BLUE).length}`;
+  (state.scenarioRounds = state.scenarioRounds || []).push(line);
+}
+
+/* A one-line live status of a side's objective, for the objective panel. */
+export function objectiveStatusLine(side){
+  if(!state.scenario || !state.scenario.win) return '';
+  const w = state.scenario.win[SIDE_KEY[side]];
+  const parts = [];
+  for(const c of (w.conditions || [])){
+    if(/AREA$/.test(c.type)){
+      const h = areaHolders(c.area);
+      const b = h.squaresBritish, f = h.squaresFrench;
+      const name = c.area.replace(/^outpost/, 'outpost ');
+      parts.push(b && f ? `${cap(name)}: contested` : b ? `${cap(name)}: British hold ${b} square${b > 1 ? 's' : ''}` :
+        f ? `${cap(name)}: French hold ${f} square${f > 1 ? 's' : ''}` : `${cap(name)}: empty`);
+    } else if(c.type === 'DESTROY'){
+      parts.push(`Destroyed: ${destroyedCount(side, c.unitTypes)} of ${c.count}${c.unitTypes && c.unitTypes.length ? ' ' + c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') : ''}`);
+    } else if(c.type === 'MARCH_OFF'){
+      const gone = marchedOff(side);
+      const need = c.count != null ? c.count : Math.ceil((c.fraction || 0) * startingFighters(side));
+      const missing = (c.mustInclude || []).filter(t => !gone.some(u => u.type === t));
+      parts.push(`Marched off: ${gone.filter(u => u.type !== 'BRIGADIER').length} of ${need}` +
+        (missing.length ? `, ${missing.map(t => t === 'BRIGADIER' ? 'Brigadier' : t.toLowerCase()).join(' and ')} still on the field` : ''));
+    }
+  }
+  return [...new Set(parts)].join(' · ');
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function endGame(winner){
   state.gameOver = true;
@@ -158,8 +192,9 @@ export function endGame(winner){
   }
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
   showVictoryDressing(winner);
+  const outcome = state.scenario && state.scenario.outcomes ? state.scenario.outcomes[winner === SIDES.RED ? 'britishWin' : 'frenchWin'] : null;
   const bodyText = state.scenario
-    ? `${SIDE_LABEL[winner]} achieves the objective: ${state.scenario.title}.`
+    ? `${(state.scenarioResult && state.scenarioResult.reason) || SIDE_LABEL[winner] + ' achieves the objective'}.${outcome ? ' ' + outcome : ''}`
     : `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
   document.getElementById('overlayText').textContent = bodyText;
   const modeChoices = document.getElementById('modeChoices');
@@ -216,10 +251,11 @@ function showVictoryDressing(winner){
     }
     return n;
   };
-  const lost = side => state.units.filter(u => u.side === side && u.removed && u.type !== 'BRIGADIER').length;
+  const lost = side => state.units.filter(u => u.side === side && u.removed && !u.escaped && u.type !== 'BRIGADIER').length;   // marching off is not a loss
   const pair = f => sides.map(f).join(' \u00b7 ');
   const who = `${SIDE_LABEL[SIDES.RED]} \u00b7 ${SIDE_LABEL[SIDES.BLUE]}`;
-  stats.innerHTML = `<div><b>${state.turnNumber || 0}</b>turns</div>` +
+  // Operations count full rounds; a standard match counts side-turns, as its log does.
+  stats.innerHTML = (state.scenario && state.scenarioResult ? `<div><b>${state.scenarioResult.round}</b>rounds</div>` : `<div><b>${state.turnNumber || 0}</b>turns</div>`) +
     `<div><b>${pair(broken)}</b>Brigades broken<small>${who}</small></div>` +
     `<div><b>${pair(lost)}</b>units lost<small>${who}</small></div>`;
 }

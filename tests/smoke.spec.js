@@ -247,7 +247,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   expect(errors, `errors during AI deployment:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('a saved campaign does not auto-resume while Campaigns are parked', async ({ page }) => {
+test('a saved campaign does not auto-resume while Campaigns are hidden', async ({ page }) => {
   const errors = watchForErrors(page);
 
   // Seed a saved campaign sitting on flow step 1 of Flanders, which is a
@@ -272,8 +272,9 @@ test('a saved campaign does not auto-resume while Campaigns are parked', async (
   await expect(page.locator('#modeChoices button').first()).toBeVisible({ timeout: 10_000 });
   const labels = await page.locator('#modeChoices button').allTextContents();
 
-  // While Operations and Campaigns are parked (OPERATIONS_ENABLED = false in
-  // js/ui-menus.js), boot.js must NOT auto-resume a saved campaign. That path
+  // While Campaigns are hidden (CAMPAIGNS_ENABLED = false in js/ui-menus.js,
+  // until campaign play from the logs in step 6 of the Operations and Campaigns
+  // brief), boot.js must NOT auto-resume a saved campaign. That path
   // runs before any menu is drawn, so a player with a save would otherwise be
   // dropped into a withdrawn feature on every load with no route out.
   //
@@ -282,7 +283,7 @@ test('a saved campaign does not auto-resume while Campaigns are parked', async (
   // mode-select screen also satisfies, so with the resume path closed this test
   // would have kept passing while testing nothing at all.
   expect(labels).toContain('vs AI Opponent');
-  expect(labels).not.toContain('Operations');
+  expect(labels).toContain('Operations');      // Operations are back (step 2): the ready Scenario Cards
   expect(labels).not.toContain('Campaigns');
 
   // The save itself is deliberately left in storage — it is the player's
@@ -290,7 +291,7 @@ test('a saved campaign does not auto-resume while Campaigns are parked', async (
   const stillSaved = await page.evaluate(() => localStorage.getItem('tbCampaignProgress'));
   expect(stillSaved, 'the campaign save was destroyed rather than parked').not.toBeNull();
 
-  // WHEN OPERATIONS_ENABLED GOES BACK TO TRUE, restore the original assertions:
+  // WHEN CAMPAIGNS_ENABLED GOES BACK TO TRUE, restore the original assertions:
   //   await expect(page.locator('#modeChoices button').first()).toBeVisible();
   //   expect(labels.length).toBeGreaterThanOrEqual(2);
   // They guarded the ensureModeChoices() fix — before it existed this boot path

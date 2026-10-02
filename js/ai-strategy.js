@@ -1,6 +1,7 @@
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
+import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
-import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
@@ -3439,6 +3440,17 @@ export function aiDecideAndExecuteMove(u){
       chosen: action, to: last.to, decision: last.decision });
   }
 
+  /* OPERATIONS, escape role (Operations and Campaigns brief, 2.8): a unit
+     legally on its exit edge marches off, unless that strands its Brigade. The
+     Brigadier goes last: only once no other unit of his Brigade is still on the
+     field (so nobody is left without him), or the march-off count is already
+     made. */
+  if(state.scenario && operationRole(side) === 'escape' && canMarchOff(u)){
+    const mates = state.units.filter(o => !o.removed && o.side === side && o.brigadeId === u.brigadeId && o.id !== u.id);
+    const ok = u.type !== 'BRIGADIER' || mates.length === 0;
+    if(ok && marchOff(u)){ recordMove('March Off', null); return; }
+  }
+
   if(u.formation==='square'){
     // Reconsider every phase: leaving Square costs this whole move phase (per rulebook),
     // so only bother once the threat that justified it has actually passed.
@@ -5111,13 +5123,16 @@ export function simulateFightAftermathScore(attacker, defender, side){
 // actually is — chasing Brigade-breaks in an escape or survival scenario is
 // actively counterproductive, not just unsophisticated.
 export function scenarioFightBonus(target, side){
-  if(!state.scenario) return 0;
+  if(!state.scenario || !state.scenario.win || typeof state.scenario.win !== 'object') return 0;
+  const key = side === SIDES.RED ? 'british' : 'french';
+  const role = state.scenario.aiRoles ? state.scenario.aiRoles[key] : null;
   let bonus = 0;
-  for(const cond of state.scenario.objective.conditions){
-    if(cond.type==='ELIMINATE_TARGET' && cond.params.targetSide===target.side) bonus += 1.0;
-    if(cond.type==='SURVIVE_TURNS' && cond.params.defender===side) bonus -= 0.6;
-    if(cond.type==='ESCAPE_ZONE' && cond.params.escapingSide===side) bonus -= 0.8;
+  // A DESTROY condition values the units it names (any unit if it names none).
+  for(const c of (state.scenario.win[key].conditions || [])){
+    if(c.type === 'DESTROY' && target.type !== 'BRIGADIER' && (!c.unitTypes || !c.unitTypes.length || c.unitTypes.includes(target.type))) bonus += 1.0;
   }
+  if(role === 'escape') bonus -= 0.8;   // fighting is not the job
+  if(role === 'hold') bonus -= 0.2;     // hold the ground first
   return bonus;
 }
 

@@ -162,7 +162,7 @@
      ]
     },
     "french": {
-     "text": "hold a building square at turn 8, or eliminate both Guard Infantry units",
+     "text": "hold a building square at round 8, or eliminate both Guard Infantry units",
      "combinator": "any",
      "conditions": [
       {
@@ -293,7 +293,7 @@
    "specialRules": {},
    "win": {
     "british": {
-     "text": "hold the hill at turn 10, or withdraw off the board edge with the Artillery intact",
+     "text": "hold the hill at round 10, or withdraw off the board edge with the Artillery intact",
      "combinator": "any",
      "conditions": [
       {
@@ -311,7 +311,7 @@
      ]
     },
     "french": {
-     "text": "take the hill by turn 10, or destroy/capture the Allied Artillery before it withdraws",
+     "text": "take the hill by round 10, or destroy/capture the Allied Artillery before it withdraws",
      "combinator": "any",
      "conditions": [
       {
@@ -488,7 +488,7 @@
    },
    "win": {
     "british": {
-     "text": "get the Brigadier and at least half the force off the defending board edge by turn 8",
+     "text": "get the Brigadier and at least half the force off the defending board edge by round 8",
      "combinator": "all",
      "conditions": [
       {
@@ -502,7 +502,7 @@
      ]
     },
     "french": {
-     "text": "eliminate 2+ Allied units, or prevent the Brigadier reaching the board edge by turn 8",
+     "text": "eliminate 2+ Allied units, or prevent the Brigadier reaching the board edge by round 8",
      "combinator": "any",
      "conditions": [
       {
@@ -653,7 +653,7 @@
      ]
     },
     "french": {
-     "text": "hold the village at turn 8, or eliminate both Guard Infantry units",
+     "text": "hold the village at round 8, or eliminate both Guard Infantry units",
      "combinator": "any",
      "conditions": [
       {

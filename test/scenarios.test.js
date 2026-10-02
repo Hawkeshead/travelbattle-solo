@@ -73,3 +73,86 @@ test('a card with a fault is reported, not passed', () => {
   assert.ok(faults.some((m) => /Brigadiers/.test(m)));
   assert.ok(faults.some((m) => /madeUpRule/.test(m)));
 });
+
+// ---------------------------------------------------------------------------
+// Step 2: placement and the objective engine, on the pure modules the game
+// uses (js/operation-placement.js, js/objective-core.js).
+import { planOperationPlacement } from '../js/operation-placement.js';
+import { listMet, resolveEndOfRound, useWorld } from '../js/objective-core.js';
+
+const OPEN = Array.from({ length: 10 }, () => Array(20).fill('OPEN'));
+const opCards = cards.filter((c) => c.status === 'ready' && c.kind === 'operation');
+
+test('every ready Operation deploys both sides: every unit placed, one per square, in its area or on its own rows', () => {
+  for (const card of opCards) {
+    const plan = planOperationPlacement(card, OPEN);
+    const want = ['british', 'french'].reduce((n, k) => n + card.forces[k].brigades.reduce((m, b) => m + b.units.length, 0), 0);
+    assert.equal(plan.length, want, card.id + ': units placed');
+    assert.equal(new Set(plan.map((p) => p.x + ',' + p.y)).size, plan.length, card.id + ': two units on one square');
+    for (const k of ['british', 'french']) {
+      const side = k === 'british' ? 'red' : 'blue';
+      const b = card.forces[k].brigades[0];
+      const mine = plan.filter((p) => p.side === side);
+      if (b.placement.type === 'area') {
+        const areaNames = b.placement.split ? b.placement.split.map((g) => g.area) : [b.placement.area];
+        const sq = new Set(areaNames.flatMap((a) => card.map.areas[a].map(([x, y]) => x + ',' + y)));
+        assert.ok(mine.every((p) => sq.has(p.x + ',' + p.y)), `${card.id}: ${k} outside its area`);
+      } else {
+        const rows = side === 'red' ? [8, 9] : [0, 1];
+        assert.ok(mine.every((p) => rows.includes(p.y)), `${card.id}: ${k} off its own rows`);
+      }
+    }
+  }
+});
+
+// A small world: Lincelles's village, a few units.
+const lincelles = byId.get('op-lincelles');
+const U = (id, side, type, x, y, extra = {}) => Object.assign({ id, side, type, x, y, removed: false }, extra);
+const card = (overrides) => Object.assign(JSON.parse(JSON.stringify(lincelles)), overrides);
+
+test('HOLD_AREA forRounds advances once per round, however many units fall in it', () => {
+  const c = card({});
+  c.win.french = { combinator: 'any', conditions: [{ type: 'HOLD_AREA', area: 'village', forRounds: 2 }] };
+  const streaks = {};
+  const units = [U('f1', 'blue', 'INFANTRY', 8, 2), U('f2', 'blue', 'INFANTRY', 7, 3)];
+  useWorld({ units, card: c, streaks });
+  // Units die mid-round: instant checks must not move the counter.
+  units[1].removed = true;
+  assert.equal(listMet('blue', { endOfRound: false, round: 1 }), false);
+  assert.equal(listMet('blue', { endOfRound: false, round: 1 }), false);
+  assert.equal(listMet('blue', { endOfRound: true, round: 1, countRound: true }), false, 'one round held');
+  assert.equal(listMet('blue', { endOfRound: true, round: 2, countRound: true }), true, 'two rounds held');
+});
+
+test('DESTROY ignores Brigadiers and units that marched off', () => {
+  const c = card({});
+  c.win.british = { combinator: 'any', conditions: [{ type: 'DESTROY', count: 2 }] };
+  const units = [U('b', 'blue', 'BRIGADIER', 0, 0, { removed: true }), U('e', 'blue', 'INFANTRY', 0, 1, { removed: true, escaped: true }),
+    U('k', 'blue', 'INFANTRY', 0, 2, { removed: true })];
+  useWorld({ units, card: c, streaks: {} });
+  assert.equal(listMet('red', { endOfRound: false, round: 3 }), false, 'only one real kill');
+  units.push(U('k2', 'blue', 'ARTILLERY', 0, 3, { removed: true }));
+  assert.equal(listMet('red', { endOfRound: false, round: 3 }), true);
+});
+
+test('MARCH_OFF counts the fraction (rounded up) and every type it must include', () => {
+  const c = card({ _startFighters: { british: 4, french: 3 } });
+  c.win.british = { combinator: 'all', conditions: [{ type: 'MARCH_OFF', fraction: 0.5, mustInclude: ['BRIGADIER'], byRound: 8 }] };
+  const units = [U('a', 'red', 'INFANTRY', 0, 9, { removed: true, escaped: true })];
+  useWorld({ units, card: c, streaks: {} });
+  assert.equal(listMet('red', { endOfRound: false, round: 2 }), false, '1 of 2, no Brigadier');
+  units.push(U('b', 'red', 'INFANTRY', 1, 9, { removed: true, escaped: true }));
+  assert.equal(listMet('red', { endOfRound: false, round: 2 }), false, '2 of 2 but the Brigadier is still on the field');
+  units.push(U('g', 'red', 'BRIGADIER', 2, 9, { removed: true, escaped: true }));
+  assert.equal(listMet('red', { endOfRound: false, round: 2 }), true);
+  assert.equal(listMet('red', { endOfRound: false, round: 9 }), false, 'too late: byRound 8');
+});
+
+test('ifBothMet and ifTimeExpires resolve; otherwise play goes on', () => {
+  const c = card({});   // Lincelles: ifBothMet french, ifTimeExpires french, 8 rounds
+  assert.deepEqual(resolveEndOfRound(c, ['red'], 3, null), { winner: 'red', how: null });
+  assert.deepEqual(resolveEndOfRound(c, ['red', 'blue'], 3, null), { winner: 'blue', how: 'both' });
+  assert.deepEqual(resolveEndOfRound(c, [], 8, null), { winner: 'blue', how: 'time' });
+  assert.equal(resolveEndOfRound(c, [], 7, null), null);
+  assert.deepEqual(resolveEndOfRound(c, [], 4, 'red'), { winner: 'red', how: 'wiped' });
+});
