@@ -1,5 +1,5 @@
 import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
-import { recFromReplay } from './telemetry/recorder.js';
+import { recFromReplay, recUndo } from './telemetry/recorder.js';
 import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -48,6 +48,7 @@ export function undoLastAction(){
   }
   const snap = undoStack.pop();
   restoreState(snap);
+  recUndo();                    // match telemetry: what was undone never happened
   clearTransientRenderState();  // render-board: animations, action line, death effects
   resetDeploymentUiState();     // ui-deployment: selected chip, in-flight drag
   setHighlightCells([]);        // render-units: selection highlights

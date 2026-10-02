@@ -190,7 +190,7 @@ document.getElementById('replayExitBtn').onclick = exitReplay;
 // analysis; these are for reading the arithmetic on the marginal calls.
 const AI_DECISION_SAMPLE = 12;
 
-const TERRAIN_GLYPH = { OPEN:'.', ROAD:'=', HILL:'^', WOODS:'*', BUILDING:'#', PLOUGH:':' };
+const TERRAIN_GLYPH = { OPEN:'.', ROAD:'=', HILL:'^', WOODS:'*', BUILDING:'#', PLOUGH:':', PLOUGHED_FIELD:':' };   // the grid's key is PLOUGHED_FIELD; it printed '?'
 
 function sectionMetadata(){
   const m = state._matchMeta;

@@ -143,6 +143,7 @@ function pushEvent(type, side, unitId, payload, phaseOverride, turnOverride){
     unitId: unitId != null ? String(unitId) : null,
     tMs: activeMs(),
     payload: clone(payload) || {},
+    _log: (state.matchLog || []).length,   // where the match log stood: lets an undo take the event back (recUndo)
   });
 }
 const phaseName = p => ({ move: 'move', fire: 'artillery', fight: 'fight', deploy: 'deploy', orientation: 'deploy' }[p] || p || null);
@@ -321,6 +322,7 @@ export const recFinalise = guard(outcome => {
   snapshotNow(state.turnNumber || 0);
   pushEvent('turn_end', state.turn || null, null, { wall_ts: now(), final: true });
   rec.endedAt = new Date().toISOString();
+  for(const e of rec.events) delete e._log;
   rec.endReason = (outcome && outcome.endReason) || 'win_condition';
   rec.winner = (outcome && outcome.winner) || null;
   rec.isComplete = outcome && outcome.isComplete != null ? !!outcome.isComplete : (rec.endReason !== 'incomplete' && rec.endReason !== 'disconnect');
@@ -395,6 +397,22 @@ export const recPresence = guard(opponentHere => {
   if(!rec) return;
   if(!opponentHere && !rec.opponentAbsentSince) rec.opponentAbsentSince = new Date().toISOString();
   if(opponentHere) rec.opponentAbsentSince = null;
+});
+
+/* UNDO. The game's undo restores the whole state, the match log included, so
+   anything recorded after the restored point never happened. Every event notes
+   how long the match log was when it was recorded; the events recorded after
+   the log grew past its restored length are dropped. Without this, a fight or
+   a death the player undid stayed in the record (seen in the first real
+   Operation, 3 Oct: 14 fights recorded against the export's 12). */
+export const recUndo = guard(() => {
+  if(!rec || rec.endedAt) return;
+  const len = (state.matchLog || []).length;
+  const at = rec.events.findIndex(e => e._log > len);
+  if(at < 0) return;
+  rec.events.length = at;
+  lastConnected.clear();
+  for(const e of rec.events) if(e.type === 'move' && e.payload.brig_in_range_end != null) lastConnected.set(e.unitId, e.payload.brig_in_range_end);
 });
 
 /* Missed-opportunity flags (telemetry/missed.js), one event each. */
