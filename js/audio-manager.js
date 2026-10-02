@@ -310,6 +310,14 @@ export const AudioManager = (function(){
            clock. Used so an AI unit's march begins after its answering call,
            in step with its animation, which is held back by the same amount. */
         const startAt = ctx.currentTime + Math.max(0, (opts.delayMs || 0) / 1000);
+        /* opts.fadeInMs rises from silence rather than starting at full level:
+           a loop that follows another sound (the despatch case's open loop after
+           its opening) comes in without a click. */
+        if(opts.fadeInMs > 0){
+          const level = gain.gain.value;
+          gain.gain.setValueAtTime(0.0001, startAt);
+          gain.gain.linearRampToValueAtTime(level, startAt + opts.fadeInMs / 1000);
+        }
         source.start(startAt);
 
         /* opts.durationMs stops the sound early, with a short fade so it does

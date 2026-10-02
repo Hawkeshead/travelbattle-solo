@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>TravelBattle: Field Command</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Petit+Formal+Script&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Petit+Formal+Script&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{
     --map-bg:#2a2f22;
@@ -65,6 +65,36 @@
   html.island-left #resetViewBtn, html.island-right #resetViewBtn{ margin-top:auto; }
   html.island-left #phaseDock button.seal, html.island-right #phaseDock button.seal{ width:52px;height:42px;font-size:8px;letter-spacing:0;padding-top:28px; }
   html.island-left #phaseDock button.seal::after, html.island-right #phaseDock button.seal::after{ top:17px; }
+  /* THE DESPATCH CASE (despatch.js): the end-phase control in the battle's
+     three phases. While it is in use the old end buttons stay in the page,
+     hidden, as what it mirrors; and the dials gather at the foot of the strip,
+     lifted 24px off the bottom, leaving its top corner to the case. */
+  html.despatch-on #endMoveBtn, html.despatch-on #endFireBtn, html.despatch-on #endFightBtn{ display:none !important; }
+  html.despatch-on.island-left #hudIcons, html.despatch-on.island-right #hudIcons{ padding-bottom:24px; box-sizing:border-box; }
+  html.despatch-on.island-left #undoBtnBattle, html.despatch-on.island-right #undoBtnBattle{ margin-top:auto; }
+  html.despatch-on.island-left #resetViewBtn, html.despatch-on.island-right #resetViewBtn{ margin-top:0; }
+  #despatch{ position:fixed; z-index:31; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; outline:none; }
+  #despatch .dp-stage{ position:absolute; top:0; left:0; perspective:1600px; }
+  #despatch[data-side="right"] .dp-stage, #despatch[data-side="board"] .dp-stage{ left:auto; right:0; }
+  #despatch .dp-stage img{ display:block; width:100%; height:100%; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #despatch .dp-body, #despatch .dp-flapout-wrap, #despatch .dp-flapin-wrap, #despatch .dp-parch-clip{ position:absolute; }
+  #despatch .dp-flapout-wrap{ transform-origin:50% 0; backface-visibility:hidden; filter:drop-shadow(0 6px 6px rgba(0,0,0,.45)); }
+  #despatch .dp-flapin-wrap{ transform-origin:50% 100%; backface-visibility:hidden; }
+  #despatch .dp-body{ filter:drop-shadow(0 8px 10px rgba(0,0,0,.5)); }
+  #despatch .dp-parch-clip{ overflow:hidden; pointer-events:none; }
+  #despatch .dp-parch{ position:absolute; }
+  /* The label on the despatch: centred, nudged 14px (art pixels) to the left. */
+  #despatch .dp-label{ position:absolute; left:-14px; right:14px; top:0; height:300px; opacity:0; color:#2a1e14; text-align:center; }
+  #despatch .dp-l1, #despatch .dp-l2{ position:absolute; left:0; right:0; font-family:'Cinzel',serif; font-weight:800;
+    text-transform:uppercase; line-height:1; white-space:nowrap; transform:translateY(-50%); }
+  #despatch .dp-l1{ top:80px; } #despatch .dp-l2{ top:150px; }
+  #despatch .dp-small{ position:absolute; left:0; right:0; top:222px; transform:translateY(-50%);
+    font-family:'Cormorant Garamond',serif; font-weight:600; font-size:47px; color:#5a4630; white-space:nowrap; }
+  #despatch.disabled{ opacity:.5; filter:grayscale(1); cursor:default; pointer-events:none; }
+  /* While the case is open, a tap anywhere else closes it and goes no further. */
+  #despatchShield{ position:fixed; inset:0; z-index:30; display:none; background:transparent; touch-action:none; }
+  #despatchShield.on{ display:block; }
+
   /* Menus and prompts always keep every side clear. */
   #overlay{ padding:var(--sa-top) var(--sa-right) var(--sa-bottom) var(--sa-left);box-sizing:border-box; }
 

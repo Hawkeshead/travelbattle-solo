@@ -8,6 +8,7 @@ import { AudioManager } from './audio-manager.js';
 import { initSafeArea } from './safe-area.js';
 import { FOOT_ACK, FOOT_ACK_ALT, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
 import { RALLY_CALL } from './engine-rules.js';
+import { DESPATCH_SOUNDS, initDespatch } from './despatch.js';
 
 /* =========================================================
    BOOT
@@ -69,6 +70,8 @@ export function start(){
          without anyone having to remember to come back here. */
       ...Object.values(FOOT_ACK).flat(),
       ...Object.values(FOOT_ACK_ALT).flat(),
+      // The despatch case that ends each phase (despatch.js).
+      ...Object.values(DESPATCH_SOUNDS),
       ...Object.values(RALLY_CALL).flat(),
       // The volley order plays first, so it matters most that it is not late.
       ...Object.values(VOLLEY_COMMAND).filter(Boolean).map(c => c.file),
@@ -118,6 +121,7 @@ start();
 
 /* Before the board is first sized: it decides how much of the screen the board gets. */
 initSafeArea();
+initDespatch();
 
 /* ?fps in the address shows a small frame-rate meter in the corner, for
    checking smoothness on a real phone: frames per second over the last

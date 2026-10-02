@@ -115,3 +115,10 @@ FRANCE TURN THEME. audio/effects/france-turn-theme-long.m4a (32.3s).
 OUTDATED NOTE BELOW, left for the record: the audio system is switched off — it was
 unplugged in 9ea94c2. Adding a sound file today will not make a sound until
 it's reconnected. See AUDIO_SYSTEM.md for what that takes.
+
+DESPATCH CASE (ending a phase). audio/effects/despatch-opening.wav (1.5 s),
+  despatch-open-loop.wav (4.5 s, loops while the case is open),
+  despatch-confirmed.wav (2.6 s). Supplied by Matthew on 1 Oct 2026 with the
+  despatch case art (despatch_end_phase_package.zip). Played through Web Audio
+  by js/despatch.js: opening and confirmed at 70% of the musket and cannon
+  effect level, the loop at its own level.

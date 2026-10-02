@@ -32,11 +32,18 @@
 import { state } from './data-core.js';
 import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules.js';
 import { actsFor } from './group.js';
+import { despatchActive, despatchAvailable, despatchCountdown, despatchCountdownFire, despatchCountdownStop, despatchCountdownTick, onDespatchOutsideClose } from './despatch.js';
 
 export const AUTO_END_MS = 4000;
 const TICK_MS = 100;
 
 const END_BUTTON_ID = { move: 'endMoveBtn', fire: 'endFireBtn', fight: 'endFightBtn' };
+/* THE DESPATCH CASE (despatch.js) is the end-phase control now: the countdown
+   opens it and counts on its small line, and sends it at zero. The old buttons
+   (above) remain only as the fallback if its art fails to load, and as what
+   it mirrors. A tap outside the open case during a countdown cancels it; the
+   next player action restarts it, as before. */
+onDespatchOutsideClose(() => cancelAutoEnd());
 
 /* ui-battle.js owns the end-phase functions and anyFightsAvailable, and hands
    them over at boot rather than being imported from here.
@@ -63,10 +70,14 @@ let countingPhase = null;
 let deadline = 0;
 let restoreLabel = '';
 
+/* The control the countdown runs on: the despatch case when it is in use,
+   otherwise the old end button for the phase. */
 function buttonFor(phase){
+  if(despatchActive()) return document.getElementById('despatch');
   const id = END_BUTTON_ID[phase];
   return id ? document.getElementById(id) : null;
 }
+const viaDespatch = () => despatchActive();
 
 // True while a modal is up. The countdown pauses rather than cancels here: a
 // dice roll resolving is not the player declining to end their phase, and
@@ -100,6 +111,7 @@ export function phaseActionsComplete(phase){
 }
 
 function paint(secondsLeft){
+  if(viaDespatch()){ despatchCountdownTick(secondsLeft); return; }
   const btn = buttonFor(countingPhase);
   if(btn) btn.textContent = `${restoreLabel} (${secondsLeft})`;
 }
@@ -107,8 +119,11 @@ function paint(secondsLeft){
 export function cancelAutoEnd(){
   if(ticker){ clearInterval(ticker); ticker = null; }
   if(countingPhase){
-    const btn = buttonFor(countingPhase);
-    if(btn && restoreLabel) btn.textContent = restoreLabel;
+    if(viaDespatch()) despatchCountdownStop();
+    else {
+      const btn = buttonFor(countingPhase);
+      if(btn && restoreLabel) btn.textContent = restoreLabel;
+    }
   }
   countingPhase = null;
   deadline = 0;
@@ -128,13 +143,20 @@ export function maybeStartAutoEnd(){
   if(countingPhase === phase) return; // already running for this phase — don't restart the clock under the player
 
   cancelAutoEnd();
-  const btn = buttonFor(phase);
-  if(!btn || btn.disabled || btn.style.display === 'none') return;
-
-  countingPhase = phase;
-  restoreLabel = btn.textContent;
-  deadline = Date.now() + AUTO_END_MS;
-  paint(Math.ceil(AUTO_END_MS / 1000));
+  if(viaDespatch()){
+    if(!despatchAvailable()) return;
+    countingPhase = phase;
+    restoreLabel = '';
+    deadline = Date.now() + AUTO_END_MS;
+    despatchCountdown(Math.ceil(AUTO_END_MS / 1000), enders[phase]);
+  } else {
+    const btn = buttonFor(phase);
+    if(!btn || btn.disabled || btn.style.display === 'none') return;
+    countingPhase = phase;
+    restoreLabel = btn.textContent;
+    deadline = Date.now() + AUTO_END_MS;
+    paint(Math.ceil(AUTO_END_MS / 1000));
+  }
 
   ticker = setInterval(()=>{
     // Phase changed under us (the player pressed the button, or a fight
@@ -144,6 +166,13 @@ export function maybeStartAutoEnd(){
     const remaining = deadline - Date.now();
     if(remaining > 0){ paint(Math.max(1, Math.ceil(remaining / 1000))); return; }
     const finish = enders[countingPhase];
+    if(viaDespatch()){
+      // At zero the despatch is sent, as a second tap would: it ends the phase.
+      if(ticker){ clearInterval(ticker); ticker = null; }
+      countingPhase = null; deadline = 0; restoreLabel = '';
+      if(!despatchCountdownFire() && finish) finish();
+      return;
+    }
     cancelAutoEnd();
     if(finish) finish();
   }, TICK_MS);
