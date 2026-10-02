@@ -191,7 +191,11 @@ export const AudioManager = (function(){
   // in memory well before the first real trigger — otherwise that first
   // trigger still pays the one-time fetch+decode cost itself.
   function preloadEffects(urls){
-    urls.forEach(loadBuffer);
+    // A file this browser cannot decode (an open-source Chromium build has no
+    // AAC, so the .m4a takes) is simply silent: caught here, never an unhandled
+    // rejection. It used to surface as "Unable to decode audio data" errors,
+    // which failed the CI smoke test and so blocked deploys.
+    urls.forEach(u => loadBuffer(u).catch(() => {}));
   }
 
   /* Perceptual curve on the sliders.

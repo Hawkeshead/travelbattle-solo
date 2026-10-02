@@ -9,9 +9,10 @@
 
 import { test, expect } from '@playwright/test';
 
-/* The faction and rank screens are no longer plainly-labelled buttons. Since
-   the Commander's Desk overhaul, a faction is a sealed despatch whose text
-   reads "To the Officer Commanding / Britain / ..." and a difficulty is a
+/* The side screen (since 1 Oct 2026) is two flag buttons, labelled for screen
+   readers with the side's name, and there is no rank screen. Before that, and
+   since the Commander's Desk overhaul, a faction was a sealed despatch whose text
+   read "To the Officer Commanding / Britain / ..." and a difficulty was a
    service record reading "Marshal / Hard / ...". Both are still real <button>
    elements with the same handlers, but their accessible name is now the whole
    card, so an exact-name locator like { name: 'Play Britain' } no longer
@@ -22,14 +23,11 @@ import { test, expect } from '@playwright/test';
    to be tweaked again. Anchored so 'Britain' cannot also match a France card
    and vice versa. */
 const faction = (page, side) =>
-  page.getByRole('button', { name: new RegExp(side, 'i') });
-
-// value is the stored difficulty ('easy'|'medium'|'hard'); the card shows the
-// rank as its heading with the old label beneath it, so either word matches.
-const RANK_OF = { easy: 'Lieutenant', medium: 'Colonel', hard: 'Marshal' };
-const rank = (page, value) =>
-  page.getByRole('button', { name: new RegExp(RANK_OF[value], 'i') });
-
+  page.locator(`#modeChoices .side-flag[aria-label="${side}"]`);
+/* Since 1 Oct 2026 there is one AI level (Marshal): choosing a side starts the
+   match, and the rank screen is no longer shown. Kept as a no-op so the call
+   sites still read as the flow they describe. */
+const rank = async (_page, _value) => {};
 
 /** Collect console errors and uncaught exceptions for the life of a page. */
 function watchForErrors(page) {
@@ -76,6 +74,9 @@ test('every game global the inline handlers depend on is reachable', async ({ pa
 });
 
 test('a match starts and reaches deployment', async ({ page }) => {
+  // The board intro, the orientation dice and (since there is one AI level)
+  // the Marshal's deployment take longer than the default 30 s on a loaded runner.
+  test.setTimeout(90_000);
   const errors = watchForErrors(page);
 
   await page.goto('/');
@@ -86,7 +87,7 @@ test('a match starts and reaches deployment', async ({ page }) => {
   // vs-AI entry point instead.
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
   await faction(page, 'Britain').click();
-  await rank(page, 'easy').click();
+  await rank(page, 'easy');
 
   await clearBoardSetup(page);
   const roster = page.locator('#rosterList');
@@ -131,7 +132,10 @@ async function clickCell(page, bx, by, { cols = 20, rows = 10 } = {}) {
  * flow rather than needing to know about Army compositions at all.
  */
 async function clearBoardSetup(page) {
-  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  // The phase seal doubles as the orientation Confirm (ui-menus.js). It used to
+  // read "Confirm This Orientation"; a locator for that text stopped matching when
+  // the label changed, so these tests passed only when the AI set the orientation.
+  const confirmOrientation = page.locator('#endMoveBtn', { hasText: /^\s*Confirm/ });
   const deployManually = page.getByRole('button', { name: 'Deploy Manually' });
   const firstChip = page.locator('#rosterList .roster-chip').first();
   // 70 iterations of 400ms — up from 40 — to leave headroom for the ~10.5s
@@ -184,7 +188,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   // codebase and the ones the other tests never touch.
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
   await faction(page, 'Britain').click();
-  await rank(page, 'easy').click();
+  await rank(page, 'easy');
 
   await clearBoardSetup(page);
   await expect(page.locator('#rosterList .roster-chip').first()).toBeVisible({ timeout: 10_000 });
@@ -315,14 +319,17 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
   await faction(page, 'Britain').click();
-  await rank(page, 'hard').click();
+  await rank(page, 'hard');
 
   // Waits out the board-orientation dice sequence (which can take a real
   // while) specifically for the Army Picker to appear — it only shows the
   // very first time it becomes Britain's turn to deploy, which depending on
   // who's rolled first for orientation and who deploys first could be
   // immediately or only after the AI finishes its own Brigades.
-  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  // The phase seal doubles as the orientation Confirm (ui-menus.js). It used to
+  // read "Confirm This Orientation"; a locator for that text stopped matching when
+  // the label changed, so these tests passed only when the AI set the orientation.
+  const confirmOrientation = page.locator('#endMoveBtn', { hasText: /^\s*Confirm/ });
   const armyPicker = page.locator('#armyPickerPanel');
   let pickerShown = false;
   for (let i = 0; i < 90; i++) {
@@ -360,9 +367,15 @@ test('the Army Picker previews the formation and browses without errors', async 
   await page.goto('/');
   await page.getByRole('button', { name: 'vs AI Opponent' }).click();
   await faction(page, 'Britain').click();
-  await rank(page, 'hard').click();
+  await rank(page, 'hard');
 
-  const confirmOrientation = page.getByRole('button', { name: 'Confirm This Orientation' });
+  // The phase seal doubles as the orientation Confirm (ui-menus.js). It used to
+
+  // read "Confirm This Orientation"; a locator for that text stopped matching when
+
+  // the label changed, so these tests passed only when the AI set the orientation.
+
+  const confirmOrientation = page.locator('#endMoveBtn', { hasText: /^\s*Confirm/ });
   const armyPicker = page.locator('#armyPickerPanel');
   let pickerShown = false;
   for (let i = 0; i < 90; i++) {
