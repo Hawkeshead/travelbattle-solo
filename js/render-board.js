@@ -1,4 +1,5 @@
 import { AudioManager } from './audio-manager.js';
+import { FIGURES, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
@@ -303,6 +304,14 @@ export function drawRoadDust(){
     ctx.restore();
   }
   return roadDust.length > 0;
+}
+
+/* The kind of move a unit is animating ('march', 'rout', 'charge'...), or null
+   when it is standing: the unit figures play march or flee from this. */
+export function unitMoveKind(id){
+  const a = unitAnimations[id];
+  if(!a || Date.now() < a.startTime || Date.now() > a.startTime + a.duration) return null;
+  return a.kind || 'march';
 }
 
 export function unitGaitOffset(u){
@@ -658,7 +667,7 @@ export function animateUnitTo(u, newX, newY, kind, opts){
   let duration = moveAnimationMs(Math.max(1, travelled)) * profile.speed;
   if(profile.maxMs) duration = Math.min(duration, profile.maxMs);
   unitAnimations[u.id] = {
-    fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile,
+    fromX:start.x, fromY:start.y, toX:newX, toY:newY, path, profile, kind: kind || 'march',
     startTime:Date.now() + Math.max(0, (opts && opts.delayMs) || 0), duration,
   };
   if(kind === 'rout') beginRoutProbe(u, unitAnimations[u.id]);
@@ -790,7 +799,8 @@ export function ensureAnimationLoopRunning(){
     // without this, it only re-renders (and so only appears to animate)
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
-    const spriteAnimActive = state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
+    const spriteAnimActive = FIGURES ? (state.units.some(u => !u.removed && hasFigures(u)) || figuresAnimating())
+      : state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
     if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive() || promptGlowIds){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
@@ -2495,6 +2505,12 @@ export function draw(){
 
      Stacked squares (doubled infantry) are offset so both are visible. */
   drawOperationAreas();   // Operations: the named areas, under the units
+  // Unit figures: the fallen, above terrain and roads, below units and smoke.
+  // A body in woods is hidden by the same rule as a concealed enemy unit.
+  if(FIGURES) drawFigureBodies(ctx, canvas.width, canvas.height, viewEdge(), b => {
+    const k = state.terrain && state.terrain[Math.round(b.by)] && state.terrain[Math.round(b.by)][Math.round(b.bx)];
+    return k === 'WOODS' && state.mode === 'ai' && b.side === state.aiSide;
+  });
   const stackGroups = {};
   for(const u of state.units){
     if(u.removed) continue;

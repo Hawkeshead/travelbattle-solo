@@ -1,4 +1,5 @@
 import { clearFloatingText, initFloatingText } from './floating-text.js';
+import { initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
@@ -128,6 +129,8 @@ initDespatch();
 document.addEventListener('visibilitychange', () => recVisibility(document.hidden));
 // ...and finished matches go to the outbox and on to Supabase (telemetry/sender.js).
 initTelemetrySender();
+// Unit figures: load the sprite-sheet sidecars (render-figures.js).
+initFigures();
 
 /* ?fps in the address shows a small frame-rate meter in the corner, for
    checking smoothness on a real phone: frames per second over the last

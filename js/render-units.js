@@ -1,4 +1,5 @@
 import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './data-core.js';
+import { FIGURES, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
@@ -564,6 +565,16 @@ function drawUnitInner(u, off){
   // tactical state that shouldn't quietly disappear into the tree art).
   // (old tile-swap flag removed; see the note above)
 
+  /* UNIT FIGURES (render-figures.js): the squad of men in place of the icon,
+     when the figures style is on and the art has loaded. Drawn at the cell
+     centre without the march bob (the men's own march animation is the gait).
+     Brigadiers keep their portrait. Badges as before. */
+  if(FIGURES && hasFigures(u) && drawUnitFigures(ctx, u, cx, sp.y*CELL + CELL/2 + off.dy*CELL, concealed ? 0.75 : 1)){
+    if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, sp.y*CELL + off.dy*CELL + CELL*0.04, CELL*0.92, CELL*0.92); ctx.restore(); }
+    drawStatusColumn(statusBadgesFor([u]), cx - off.dx*CELL - CELL/2, cy - off.dy*CELL - CELL/2);
+    return;
+  }
+
   // Brigadier: portrait photo instead of a drawn shape (falls back to the star below if unmatched).
   if(t.key==='BRIGADIER'){
     ctx.save();
@@ -643,6 +654,11 @@ function drawColumnUnitPairInner(u1, u2){
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
   const side = u1.side;
   const size = CELL*0.62;
+  if(FIGURES && drawColumnFigures(ctx, u1, u2, cx, cy)){
+    if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, cy - CELL*0.46, CELL*0.92, CELL*0.92); ctx.restore(); }
+    drawStatusColumn(statusBadgesFor([u1, u2]), cx - CELL/2, cy - CELL/2);
+    return;
+  }
   /* NO CONCEALMENT BRANCH HERE, and the comment that used to justify one was
      wrong in a way worth recording.
 

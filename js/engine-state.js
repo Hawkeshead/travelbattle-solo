@@ -1,4 +1,5 @@
 import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
+import { figuresOnEvent } from './render-figures.js';
 import { recFromReplay, recUndo } from './telemetry/recorder.js';
 import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
@@ -135,6 +136,7 @@ export function logReplay(type, data){
   const ev = Object.assign({ type, turn: state.turnNumber, phase: state.phase }, data);
   state.matchLog.push(ev);
   recFromReplay(ev);          // match telemetry (js/telemetry/recorder.js): reads, never changes
+  figuresOnEvent(ev);         // unit figures (js/render-figures.js): men fall; visual only, own random numbers
   emitLabelFor(ev);
 }
 

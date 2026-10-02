@@ -1,0 +1,28 @@
+{
+ "frameWidth": 104,
+ "frameHeight": 56,
+ "anchorX": 0.5,
+ "anchorY": 1.0,
+ "displayScale": 0.34,
+ "anims": {
+  "idle": {
+   "frameCount": 1,
+   "fps": 6,
+   "loop": true
+  },
+  "fire": {
+   "frameCount": 4,
+   "fps": 12,
+   "loop": false
+  },
+  "wreck": {
+   "frameCount": 1,
+   "fps": 6,
+   "loop": false
+  }
+ },
+ "facings": [
+  "toward",
+  "away"
+ ]
+}

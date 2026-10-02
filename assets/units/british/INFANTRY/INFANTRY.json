@@ -1,0 +1,45 @@
+{
+ "frameWidth": 48,
+ "frameHeight": 72,
+ "anchorX": 0.5,
+ "anchorY": 1.0,
+ "displayScale": 0.3,
+ "anims": {
+  "idle": {
+   "frameCount": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "march": {
+   "frameCount": 6,
+   "fps": 12,
+   "loop": true
+  },
+  "fire": {
+   "frameCount": 4,
+   "fps": 12,
+   "loop": false
+  },
+  "melee": {
+   "frameCount": 4,
+   "fps": 10,
+   "loop": true
+  },
+  "fall": {
+   "frameCount": 6,
+   "fps": 12,
+   "loop": false
+  },
+  "flee": {
+   "frameCount": 6,
+   "fps": 14,
+   "loop": true
+  }
+ },
+ "facings": [
+  "toward",
+  "away",
+  "left",
+  "right"
+ ]
+}

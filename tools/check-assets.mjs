@@ -66,6 +66,25 @@ for (const src of sources) {
   }
 }
 
+/* Unit figure sheets (js/render-figures.js) are named by pattern from each
+   unit type's sidecar JSON: every anim x facing it lists must exist, for both
+   nations. */
+{
+  const { readFile: rf } = await import('node:fs/promises');
+  const types = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY', 'ARTILLERY_GUN'];
+  for (const nation of ['british', 'french']) for (const t of types) {
+    const metaPath = `assets/units/${nation}/${t}/${t}.json`;
+    let meta = null;
+    try { meta = JSON.parse(await rf(join(root, metaPath), 'utf8')); } catch { missing.push({ src: 'js/render-figures.js (unit sidecar)', path: metaPath }); continue; }
+    seen.add(`figures::${metaPath}`);
+    for (const anim of Object.keys(meta.anims || {})) for (const facing of (meta.facings || [])) {
+      const path = `assets/units/${nation}/${t}/${anim}_${facing}.webp`;
+      seen.add(`figures::${path}`);
+      try { await access(join(root, path)); } catch { missing.push({ src: 'js/render-figures.js (unit figures)', path }); }
+    }
+  }
+}
+
 /* The gunfire and smoke frames are named by pattern too (js/render-gunfire.js
    builds the list; it imports nothing that needs a browser at load time). */
 {

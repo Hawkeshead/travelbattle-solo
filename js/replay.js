@@ -782,6 +782,14 @@ export function exportFullMatchLog(){
   lines.push('');
   lines.push(...sectionSummary(state.matchLog, label));
   lines.push(...sectionOperation());
+  // Unit figures (render-figures.js): the fallen men left on the field. The full
+  // list (board positions) is on state.figureBodies, which the match record and
+  // undo carry; the count is here so an export says what the field looked like.
+  if(Array.isArray(state.figureBodies) && state.figureBodies.length){
+    const bodies = state.figureBodies.filter(b => !b.wreck);
+    lines.push('', `Fallen on the field: ${bodies.length} men (British ${bodies.filter(b => b.nation === 'british').length}, French ${bodies.filter(b => b.nation === 'french').length}), ` +
+      `${state.figureBodies.length - bodies.length} wrecked guns`);
+  }
   lines.push('');
   lines.push(...sectionFlags(state.matchLog, label));
   lines.push('');
