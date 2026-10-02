@@ -1,4 +1,7 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { recStart, recWeightsHash } from './telemetry/recorder.js';
+import { BUILD } from './build-info.js';
+import * as AI_MODULE from './ai-strategy.js';
 import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
@@ -131,6 +134,9 @@ export function startBattle(){
       brigadeId:u.brigadeId, x:u.x, y:u.y, formation:u.formation || 'line',
     })),
   };
+  // Match telemetry: the record starts here, with the deployment as it stands.
+  recStart({ seed: state._matchMeta.seed, build: BUILD, aiBaseline: 'main' });
+  recWeightsHash(AI_MODULE);
   state._aiCavTargetCache = null;
   state._aiKillCache = null;
   state._aiContactCache = null;

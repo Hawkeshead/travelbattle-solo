@@ -1,4 +1,5 @@
 import { exportAiMoveLog } from './ai-strategy.js';
+import { recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
 import { saveCampaignProgress } from './campaign.js';
@@ -108,6 +109,7 @@ export function checkScenarioTurnLimit(){
 
 export function endGame(winner){
   state.gameOver = true;
+  recFinalise({ winner, endReason: 'win_condition' });   // match telemetry: closes the record
   // A turn theme still playing when the match ends fades rather than running on.
   AudioManager.fadeOutEffects('turn-theme-', 800);
   /* Recorded on state as well as shown on screen. The victory screen is the only

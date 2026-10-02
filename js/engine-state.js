@@ -1,4 +1,5 @@
 import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
+import { recFromReplay } from './telemetry/recorder.js';
 import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -132,6 +133,7 @@ export function logReplay(type, data){
   if(!state.matchLog || state.replaying) return;
   const ev = Object.assign({ type, turn: state.turnNumber, phase: state.phase }, data);
   state.matchLog.push(ev);
+  recFromReplay(ev);          // match telemetry (js/telemetry/recorder.js): reads, never changes
   emitLabelFor(ev);
 }
 

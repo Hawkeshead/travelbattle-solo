@@ -1,4 +1,5 @@
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
+import { recAi } from './telemetry/recorder.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
@@ -629,6 +630,7 @@ function finishNote(side, text){
   if(!state._aiFinishingLog) state._aiFinishingLog = {};
   if(!state._aiFinishingLog[side]) state._aiFinishingLog[side] = [];
   state._aiFinishingLog[side].push({ turn: state.turnNumber, text });
+  recAi('ai_finishing', side, { text });
 }
 
 function fightingMembers(side, bId){
@@ -1352,6 +1354,7 @@ function armyPlanLog(side, text){
   if(!state._aiArmyPlanLog) state._aiArmyPlanLog = {};
   if(!state._aiArmyPlanLog[side]) state._aiArmyPlanLog[side] = [];
   state._aiArmyPlanLog[side].push({ turn: state.turnNumber, text });
+  recAi('ai_plan', side, { text });
 }
 
 function brigadeFighters(side, bId){
@@ -1754,6 +1757,7 @@ function comboLog(side, text){
   if(!state._aiComboLog) state._aiComboLog = {};
   if(!state._aiComboLog[side]) state._aiComboLog[side] = [];
   state._aiComboLog[side].push({ turn: state.turnNumber, text });
+  recAi('ai_combo', side, { text });
 }
 
 export function comboRoleFor(u){
@@ -3430,6 +3434,9 @@ export function aiDecideAndExecuteMove(u){
       connectedBefore, connectedAfter: movableUnitsForSide(side).has(u.id),
       decision: decisionForLog,
     });
+    const last = state._aiMoveHistory[side][state._aiMoveHistory[side].length - 1];
+    recAi('ai_decision', side, { unitId: u.id, unit: { id: u.id, type: u.type, brigade: u.brigadeId }, mission: last.mission,
+      chosen: action, to: last.to, decision: last.decision });
   }
 
   if(u.formation==='square'){

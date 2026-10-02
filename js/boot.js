@@ -1,4 +1,5 @@
 import { clearFloatingText, initFloatingText } from './floating-text.js';
+import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { fctSquareToPixel, sizeCanvas } from './render-board.js';
 import { initDesk } from './render-desk.js';
@@ -122,6 +123,8 @@ start();
 /* Before the board is first sized: it decides how much of the screen the board gets. */
 initSafeArea();
 initDespatch();
+// Match telemetry: time with the app in the background is not playing time.
+document.addEventListener('visibilitychange', () => recVisibility(document.hidden));
 
 /* ?fps in the address shows a small frame-rate meter in the corner, for
    checking smoothness on a real phone: frames per second over the last

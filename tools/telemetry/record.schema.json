@@ -1,0 +1,38 @@
+{
+  "$comment": "Match telemetry record, schema version 1 (build spec 2.2). What js/telemetry/recorder.js builds and public.submit_match_record accepts.",
+  "type": "object",
+  "required": ["schemaVersion", "matchUid", "seed", "mode", "build", "players", "startedAt", "endedAt", "endReason", "isComplete", "events", "snapshots", "terms", "derived", "text"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "matchUid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "seed": { "type": ["string", "null"] },
+    "mode": { "enum": ["ai", "online_1v1", "online_group"] },
+    "onlineMatchId": { "type": ["string", "null"] },
+    "build": { "type": "object", "required": ["version", "commit"],
+      "properties": { "version": { "type": ["string", "null"] }, "commit": { "type": ["string", "null"] }, "aiWeightsHash": { "type": ["string", "null"] } } },
+    "ai": { "type": ["object", "null"] },
+    "players": { "type": "array", "items": { "type": "object", "required": ["seat", "side", "actor"],
+      "properties": { "actor": { "enum": ["human", "ai"] } } } },
+    "startedAt": { "type": "string" },
+    "endedAt": { "type": ["string", "null"] },
+    "endReason": { "enum": ["win_condition", "turn_limit", "concession", "disconnect", "incomplete"] },
+    "winner": { "type": ["string", "null"] },
+    "isComplete": { "type": "boolean" },
+    "turns": { "type": ["integer", "null"] },
+    "events": { "type": "array", "items": { "type": "object", "required": ["seq", "turn", "type", "tMs", "payload"],
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0 },
+        "turn": { "type": "integer" },
+        "type": { "enum": ["turn_start", "turn_end", "deploy", "move", "formation", "volley", "fight", "artillery", "rally",
+          "ambush_set", "ambush_sprung", "leadership", "destroyed", "chain_break", "ai_plan", "ai_combo", "ai_finishing",
+          "ai_decision", "missed_opportunity"] },
+        "actor": { "enum": ["human", "ai", null] },
+        "tMs": { "type": "integer", "minimum": 0 },
+        "payload": { "type": "object" } } } },
+    "snapshots": { "type": "array", "items": { "type": "object", "required": ["turn", "units"],
+      "properties": { "turn": { "type": "integer" }, "units": { "type": "array" } } } },
+    "terms": { "type": "array" },
+    "derived": { "type": "object" },
+    "text": { "type": "object" }
+  }
+}
