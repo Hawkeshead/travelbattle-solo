@@ -15,9 +15,10 @@ name: CI
 on:
   push:
     branches: [main]
-    # The daily telemetry sync commits match data under data/; those commits
-    # are not game changes and must not redeploy the site.
-    paths-ignore: ['data/**']
+    # The daily telemetry sync commits match records under data/matches/;
+    # those commits are not game changes and must not redeploy the site.
+    # (data/ itself holds the game's own content files: never ignore it.)
+    paths-ignore: ['data/matches/**']
   pull_request:
   workflow_dispatch:
 
@@ -139,12 +140,14 @@ jobs:
       - uses: actions/configure-pages@v5
       # Stamp the build: the live game learns its own commit and deploy time
       # (js/build-info.js; the repo copy keeps 'dev'). And keep the telemetry
-      # data folder out of the published site.
+      # match records (data/matches/) out of the published site. ONLY that
+      # folder: data/ holds the game's own content files, and removing it
+      # stopped the game loading at all (3 Oct 2026).
       - name: Stamp build info
         run: |
           sed -i "s/commit: 'dev', builtAt: null/commit: '${GITHUB_SHA}', builtAt: '$(date -u +%Y-%m-%dT%H:%M:%SZ)'/" js/build-info.js
           grep -q "${GITHUB_SHA}" js/build-info.js
-          rm -rf data
+          rm -rf data/matches
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
