@@ -26,6 +26,8 @@
 ========================================================= */
 import { state } from '../data-core.js';
 import { deriveMeasures, flagsFromExport, termRows } from './derive.js';
+import { isOnline, onlineSession } from '../online-session.js';
+import { BUILD } from '../build-info.js';
 
 export const RECORDER_SCHEMA_VERSION = 1;
 
@@ -77,14 +79,25 @@ function fault(e){
 /* Who is playing a side: 'ai' or 'human'. Spectate (and the simulator) is AI
    against AI; versus the AI, the AI's side; online, everyone is human. */
 function actorFor(side){
+  // Online, the game runs the other player as its "AI side" (online-session.js),
+  // but every seat is a person.
+  if(isOnline()) return 'human';
   if(state.spectate) return 'ai';
   if(state.mode === 'ai') return side === state.aiSide ? 'ai' : 'human';
   return 'human';
 }
 function modeName(){
-  if(state.mode === 'group' || state.boardMode === 'grand') return 'online_group';
-  if(state.mode === 'online') return 'online_1v1';
+  const s = isOnline() ? onlineSession() : null;
+  if((s && s.group) || state.group) return 'online_group';
+  if(s) return 'online_1v1';
   return 'ai';
+}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/* Online, both phones use the online match's own id, so their two records are
+   the same match to the server (it keeps the first complete one). */
+function onlineMatchUid(){
+  const s = isOnline() ? onlineSession() : null;
+  return s && UUID.test(String(s.matchId || '')) ? String(s.matchId) : null;
 }
 
 /* ---------- match start (ui-battle, as the battle begins) ---------- */
@@ -93,15 +106,18 @@ export const recStart = guard(meta => {
   lastConnected.clear(); lostUnits.clear(); lastTurnSeen = null; lastSide = null;
   const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : null;
   const sides = [...new Set((state.units || []).map(u => u.side))];
+  const online = onlineMatchUid();
+  const session = isOnline() ? onlineSession() : null;
+  if(session && session.names && !(meta && meta.names)) meta = Object.assign({}, meta, { names: session.names });
   rec = {
     schemaVersion: RECORDER_SCHEMA_VERSION,
-    matchUid: (meta && meta.onlineMatchId) || uuid,
+    matchUid: online || uuid,
     seed: meta && meta.seed != null ? String(meta.seed) : null,
     mode: modeName(),
-    onlineMatchId: (meta && meta.onlineMatchId) || null,
+    onlineMatchId: online,
     build: { version: meta && meta.build ? meta.build.version : null, commit: meta && meta.build ? meta.build.commit : null, aiWeightsHash: null },
-    ai: state.mode === 'ai' ? { baseline: (meta && meta.aiBaseline) || 'main', difficulty: state.aiDifficulty || null } : null,
-    players: sides.map(side => ({ seat: state.mode === 'ai' ? (actorFor(side) === 'ai' ? side : 'solo') : side, side, name: (meta && meta.names && meta.names[side]) || null, user_id: null, actor: actorFor(side) })),
+    ai: state.mode === 'ai' && !isOnline() ? { baseline: (meta && meta.aiBaseline) || 'main', difficulty: state.aiDifficulty || null } : null,
+    players: sides.map(side => ({ seat: state.mode === 'ai' && !isOnline() ? (actorFor(side) === 'ai' ? side : 'solo') : side, side, name: (meta && meta.names && meta.names[side]) || null, user_id: null, actor: actorFor(side) })),
     firstDeployer: (meta && meta.firstDeployer) || null,
     counterPick: meta && meta.counterPick != null ? !!meta.counterPick : null,
     startedAt: new Date(t0).toISOString(),
@@ -114,11 +130,11 @@ export const recStart = guard(meta => {
   });
 });
 
-function pushEvent(type, side, unitId, payload, phaseOverride){
+function pushEvent(type, side, unitId, payload, phaseOverride, turnOverride){
   if(!rec) return;
   rec.events.push({
     seq: rec.events.length,
-    turn: state.turnNumber || 0,
+    turn: turnOverride != null ? turnOverride : (state.turnNumber || 0),
     phase: phaseOverride || phaseName(state.phase),
     side: side || null,
     seat: side || null,
@@ -133,16 +149,30 @@ const phaseName = p => ({ move: 'move', fire: 'artillery', fight: 'fight', deplo
 
 /* ---------- the game's own event stream (engine-state logReplay) ---------- */
 export const recFromReplay = guard(ev => {
-  if(!rec || !ev) return;
+  if(!ev) return;
+  // Online, the other phone may never run the battle-start code: start here.
+  if(!rec && state._matchMeta && state.phase && state.phase !== 'deploy' && state.phase !== 'orientation') recStart({ seed: state._matchMeta.seed, build: BUILD });
+  if(!rec || rec.endedAt) return;
+  mapEvent(ev, false);
+});
+/* One game event to telemetry events. rebuilding: replaying a merged online
+   match log at the end, where the event's own turn and phase are used and no
+   snapshots or checkpoints are taken (those belong to the live game). */
+function mapEvent(ev, rebuilding){
+  const T = rebuilding ? ev.turn : null;
+  const P = rebuilding ? phaseName(ev.phase) : null;
+  const pushEvent = (type, side, unitId, payload, phaseOverride) => pushEventRaw(type, side, unitId, payload, phaseOverride || P, T, rebuilding);
   switch(ev.type){
     case 'turnStart': {
       if(lastTurnSeen != null){
-        pushEvent('turn_end', lastSide, null, { wall_ts: now() });
-        snapshotNow(lastTurnSeen);
-        if(checkpointCb){ try { checkpointCb(rec); } catch(e){ fault(e); } }
+        pushEvent('turn_end', lastSide, null, { wall_ts: rebuilding ? null : now() });
+        if(!rebuilding){
+          snapshotNow(lastTurnSeen);
+          if(checkpointCb){ try { checkpointCb(rec); } catch(e){ fault(e); } }
+        }
       }
-      lastTurnSeen = state.turnNumber; lastSide = ev.side || null;
-      pushEvent('turn_start', ev.side, null, { wall_ts: now(), army: ev.army || null });
+      lastTurnSeen = rebuilding ? ev.turn : state.turnNumber; lastSide = ev.side || null;
+      pushEvent('turn_start', ev.side, null, { wall_ts: rebuilding ? null : now(), army: ev.army || null });
       return;
     }
     case 'move': {
@@ -201,7 +231,11 @@ export const recFromReplay = guard(ev => {
       return;
     default: return;
   }
-});
+}
+function pushEventRaw(type, side, unitId, payload, phaseOverride, turnOverride, rebuilding){
+  pushEvent(type, side, unitId, payload, phaseOverride, turnOverride);
+  if(rebuilding && rec && rec.events.length) rec.events[rec.events.length - 1].tMs = 0;   // no clock for the other phone's turns
+}
 /* The five causes in the spec, from the reason the game logged. */
 function causeOf(ev){
   const r = String(ev.reason || '').toLowerCase();
@@ -289,7 +323,7 @@ export const recFinalise = guard(outcome => {
   rec.endedAt = new Date().toISOString();
   rec.endReason = (outcome && outcome.endReason) || 'win_condition';
   rec.winner = (outcome && outcome.winner) || null;
-  rec.isComplete = rec.endReason !== 'incomplete' && rec.endReason !== 'disconnect';
+  rec.isComplete = outcome && outcome.isComplete != null ? !!outcome.isComplete : (rec.endReason !== 'incomplete' && rec.endReason !== 'disconnect');
   rec.turns = state.turnNumber || null;
   rec.hiddenMs = hiddenMs;
   // Section 2.5: the export text and AI move log as the game prints them, the
@@ -310,7 +344,7 @@ export const recFinalise = guard(outcome => {
 export function recoverIncomplete(live){
   const r = JSON.parse(JSON.stringify(live));
   r.endedAt = r.endedAt || new Date().toISOString();
-  r.endReason = 'incomplete';
+  r.endReason = r.mode !== 'ai' && r.opponentAbsentSince ? 'disconnect' : 'incomplete';
   r.isComplete = false;
   r.winner = null;
   const last = r.events.length ? r.events[r.events.length - 1] : null;
@@ -319,6 +353,49 @@ export function recoverIncomplete(live){
   try { r.derived = Object.assign(deriveMeasures(r, { flags: [] }), keep); } catch(_e){ r.derived = keep; }
   return r;
 }
+
+/* ---------- online: wait for the other phone's half of the match ---------- */
+/* Each phone records only the turns it ran (online.js says so: the match log
+   is swapped when the match ends). So at the end the record waits for that
+   swap, then rebuilds its events from the merged match log, so both phones
+   hold the whole match and the server keeps the first complete one. If the
+   swap never comes, the record goes after ONLINE_MERGE_WAIT_MS with what this
+   phone saw, marked not complete, so the other phone's complete one replaces
+   it. */
+const ONLINE_MERGE_WAIT_MS = 45000;
+let pendingEnd = null;
+export const recAwaitOnlineMerge = guard((winner, buildTexts) => {
+  if(!rec || rec.endedAt || pendingEnd) return;
+  pendingEnd = { winner, buildTexts, timer: setTimeout(() => finishOnline(false), ONLINE_MERGE_WAIT_MS) };
+});
+/* online.js / online-group.js, after merging another phone's half. merged and
+   needed are how many other halves have arrived and are expected. */
+export const recOnlineMerged = guard((merged = 1, needed = 1) => {
+  if(pendingEnd && merged >= needed) finishOnline(true);
+});
+function finishOnline(whole){
+  const p = pendingEnd; if(!p || !rec) return;
+  pendingEnd = null; clearTimeout(p.timer);
+  if(whole){
+    const deploys = rec.events.filter(e => e.type === 'deploy');
+    rec.events = deploys.map((e, i) => Object.assign(e, { seq: i }));
+    lastConnected.clear(); lostUnits.clear(); lastTurnSeen = null; lastSide = null;
+    for(const ev of (state.matchLog || [])) mapEvent(ev, true);
+    rec.events.forEach((e, i) => { e.seq = i; });
+  }
+  let texts = {};
+  try { texts = (p.buildTexts && p.buildTexts()) || {}; } catch(e){ fault(e); }
+  recFinalise({ winner: p.winner, endReason: 'win_condition', isComplete: whole, exportText: texts.exportText || null, moveLog: null, termSummary: null });
+  if(rec && rec.derived) rec.derived.online_merged = whole;   // the whole match (both phones' turns), or only this phone's
+}
+
+/* Online presence: whether the other player is connected. A checkpoint taken
+   while they are gone is finished as 'disconnect' rather than 'incomplete'. */
+export const recPresence = guard(opponentHere => {
+  if(!rec) return;
+  if(!opponentHere && !rec.opponentAbsentSince) rec.opponentAbsentSince = new Date().toISOString();
+  if(opponentHere) rec.opponentAbsentSince = null;
+});
 
 /* Missed-opportunity flags (telemetry/missed.js), one event each. */
 export const recMissed = guard((side, flags) => {

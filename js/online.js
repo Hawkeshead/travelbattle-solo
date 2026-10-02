@@ -25,6 +25,7 @@
    (the host's through the normal picker, the guest's automatically). Choosing
    and deploying your own army on your own phone comes next.
 ========================================================= */
+import { recOnlineMerged, recPresence } from './telemetry/recorder.js';
 import { BUILD } from './build-info.js';
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
 import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
@@ -456,6 +457,7 @@ function onPresence(list){
   present = list; updatePill(); updateLobby();
   const after = present.some(p => p && p.side === (onlineSession() || {}).remoteSide);
   if(before !== after) showPillBriefly();   // a connection change is worth seeing
+  recPresence(after);   // match telemetry: an end while they are gone is a disconnect
 }
 
 let pillNote = '', pillTimer = null;
@@ -691,4 +693,5 @@ export function mergeRecord(rec){
   state.matchLog = all.map(x => x.e);
   if(!state.replayStartUnits && rec.start) state.replayStartUnits = rec.start;
   renderEndButtons();
+  recOnlineMerged(1, 1);   // match telemetry: the record can now hold the whole match
 }

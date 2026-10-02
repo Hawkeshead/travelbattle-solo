@@ -1,5 +1,5 @@
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
-import { currentRecord, recFinalise } from './telemetry/recorder.js';
+import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
 import { saveCampaignProgress } from './campaign.js';
@@ -112,7 +112,10 @@ export function endGame(winner){
   // Match telemetry: closes the record, with the export and the AI move log as
   // the game prints them and the AI's term table (spec 2.5). A record exists
   // only while a match is being recorded, so these are not built otherwise.
-  if(currentRecord()){
+  if(currentRecord() && isOnline()){
+    // Online: the record waits for the other phone's half of the match log.
+    recAwaitOnlineMerge(winner, () => ({ exportText: exportFullMatchLog() }));
+  } else if(currentRecord()){
     const aiSide = state.spectate ? SIDES.BLUE : state.aiSide;
     recFinalise({ winner, endReason: 'win_condition', exportText: exportFullMatchLog(),
       moveLog: aiSide ? exportAiMoveLog() : null, termSummary: aiSide ? summariseAiDecisions(aiSide) : null });

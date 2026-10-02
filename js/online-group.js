@@ -19,6 +19,7 @@
    Each phone keeps its own view (its own army's edge at the bottom), its own
    record of the turns it ran, and its own presentation state; see LOCAL_ONLY.
 ========================================================= */
+import { recOnlineMerged } from './telemetry/recorder.js';
 import { state, setBoardMode } from './data-core.js';
 import { setOnlineSession, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
@@ -657,5 +658,6 @@ function onRecord(p){
   state.matchLog = all.map(x => x.e);
   if(!state.replayStartUnits && rec.start) state.replayStartUnits = rec.start;
   renderEndButtons();
+  recOnlineMerged(recordMerged.size, 3);   // match telemetry: whole once all three other halves are in
   sendRecord();
 }
