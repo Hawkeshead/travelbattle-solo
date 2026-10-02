@@ -1055,9 +1055,10 @@ function scheduleBackingUpdate(){
   backingTimer = setTimeout(() => {
     if(mapGesturePointers.size || cameraRaf){ scheduleBackingUpdate(); return; }   // still moving: wait
     const want = targetRenderScale();
-    if(Math.abs(want - renderScale) < 0.01) return;
+    if(Math.abs(want - renderScale) < 0.01){ if(hiWanted()) ensureHiTiles(); return; }
     applyRenderScale(want);
     draw();
+    if(hiWanted()) ensureHiTiles();   // sharper villages and details for this zoom (render-board v2 section)
   }, 150);
 }
 
@@ -1441,6 +1442,84 @@ export const TERRAIN_V2_BG = '#34241A';
 const V2_TILE_PX = 384;
 let v2LoadedCount = 0;
 const V2_TILES = {};            // key -> the small copy (an ImageBitmap where the browser has them)
+const V2_SRC = {};              // key -> the full-size file's URL, kept so a sharper copy can be made later
+
+/* SHARPER COPIES WHEN ZOOMED IN, for the two kinds of tile where it shows.
+   Villages and grass details have hard edges (roofs, windows, walls, a cart's
+   wheels) and went soft when zoomed: their 384 px copy is resampled again to
+   about 205 device px a square at the action camera's 2.2 zoom and 245 at 3
+   on an iPhone 15 Pro, with too little headroom for edges. Grass, hills, woods
+   and farms are soft by nature and stay on 384.
+   At renderScale V2_HI_MIN_SCALE and above (zoom about 1.5 at dpr 3, so zoom
+   1 and the Brigade camera's 1.4 never use them) those tiles draw from a
+   V2_HI_PX copy, made from the original file (back from the browser cache)
+   once the zoom has settled, one tile at a time, only for the villages and
+   details on this board. Kept for the rest of the match (the action camera
+   zooms in on every attack), released when a new board arrives. */
+const V2_HI_PX = 768;
+const V2_HI_KEYS = ['v2_building_', 'v2_detail_'];
+const V2_HI_MIN_SCALE = 4.5;
+const V2_HI = {};
+let v2HiVersion = 0, v2HiBusy = false;
+const hiWanted = () => renderScale >= V2_HI_MIN_SCALE;
+/* The copy to draw a tile from at the current zoom. */
+function v2Tile(key){
+  if(hiWanted() && V2_HI[key] && V2_HI_KEYS.some(p => key.startsWith(p))) return V2_HI[key];
+  return v2Img(key);
+}
+function hiKeysOnBoard(){
+  const keys = new Set();
+  const t = state.terrain, styles = state.buildingStyles;
+  if(!t) return [];
+  const lay = v2Layout();
+  for(let y = 0; y < t.length; y++) for(let x = 0; x < t[0].length; x++){
+    if(t[y][x] === 'BUILDING' && styles && styles[y][x]) keys.add('v2_building_' + styles[y][x]);
+    const g = lay.grass[y] && lay.grass[y][x];
+    if(g && g.detail >= 0 && t[y][x] === 'OPEN') keys.add('v2_detail_' + g.detail);
+  }
+  return [...keys];
+}
+async function makeHiCopy(src){
+  const img = new Image();
+  img.src = src;
+  await (img.decode ? img.decode() : new Promise((ok, no) => { img.onload = ok; img.onerror = no; }));
+  const scale = Math.min(1, V2_HI_PX / img.naturalWidth);
+  const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+  if(typeof createImageBitmap === 'function'){
+    try { return await createImageBitmap(img, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' }); } catch { /* no resize options here: the canvas route below */ }
+  }
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, w, h);
+  if(typeof createImageBitmap === 'function'){ try { const b = await createImageBitmap(c); c.width = c.height = 1; return b; } catch { /* keep the canvas */ } }
+  return c;
+}
+/* Makes the sharper copies this board needs, one after another (not all at
+   once, to avoid a memory spike), then rebuilds the board once. */
+export async function ensureHiTiles(){
+  if(v2HiBusy || !V2 || !hiWanted() || v2IntroActive) return;
+  const todo = hiKeysOnBoard().filter(k => !V2_HI[k] && V2_SRC[k]);
+  if(!todo.length) return;
+  v2HiBusy = true;
+  const board = state.terrain;
+  try {
+    for(const key of todo){
+      if(state.terrain !== board) return;          // a new match started meanwhile
+      try { V2_HI[key] = await makeHiCopy(V2_SRC[key]); } catch { /* that tile stays on its base copy */ }
+    }
+    v2HiVersion += 1;
+    try { draw(); } catch { /* board not up */ }
+  } finally { v2HiBusy = false; }
+}
+function releaseHiTiles(){
+  for(const k of Object.keys(V2_HI)){ const b = V2_HI[k]; if(b && b.close) b.close(); delete V2_HI[k]; }
+  v2HiVersion += 1;
+}
+/* Bytes held by the tile copies (width x height x 4): for checks. */
+export function v2TileBytes(){
+  const sum = o => Object.values(o).reduce((n, b) => n + (b ? b.width * b.height * 4 : 0), 0);
+  return { base: sum(V2_TILES), hi: sum(V2_HI) };
+}
+export let v2LastBuildMs = 0;
 const v2Pending = new Set();
 let v2RedrawTimer = null;
 let v2IntroActive = false;       // the intro draws the board itself; nothing else may redraw over it
@@ -1457,6 +1536,7 @@ function v2Img(key){
     return null;
   }
   v2Pending.add(key);
+  V2_SRC[key] = img.src;
   const scale = Math.min(1, V2_TILE_PX / img.naturalWidth);
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
@@ -1511,12 +1591,15 @@ function v2Layout(){
   const t = state.terrain;
   const sig = JSON.stringify([state.boardMode, state.boardAssignment, state.boardRotation, state.grandQuadrants]);
   if(v2LayoutCache && v2LayoutCache.terrain === t && v2LayoutCache.sig === sig) return v2LayoutCache;
+  // A different board (a new match): the sharper copies made for the last one go.
+  // Not for the Army Picker's preview, which draws the same board in a scope of its own.
+  if(v2LayoutCache && v2LayoutCache.terrain !== t && !diagramScopeActive && !v2LayoutCache.diagram) releaseHiTiles();
   const overlay = farmOverlayForState();
   const farmCells = new Set(overlay);
   t.forEach((row, y) => row.forEach((k, x) => { if(k === 'PLOUGHED_FIELD') farmCells.add(x + ',' + y); }));
   const excluded = state.excludedRoadEdges || new Set();
   v2LayoutCache = {
-    terrain: t, sig, overlay,
+    terrain: t, sig, overlay, diagram: diagramScopeActive,
     grass: grassPicks(t, overlay),
     farms: farmPicks(farmCells),
     roadChains: roadChains(buildRoadGraph(t, (x1, y1, x2, y2) => excluded.has(edgeKey(x1, y1, x2, y2)))),
@@ -1563,7 +1646,7 @@ const v2BoardCache = new WeakMap();
 const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 2;   // + crater and death skull   // every v2 image: derived, so a new art set cannot leave it stale
 function drawTerrainV2(){
   const lay = v2Layout();
-  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|');
+  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted()].join('|');
   let entry = v2BoardCache.get(canvas);
   // While tiles are still arriving, rebuild at most every 400 ms rather than once per tile.
   const onlyMoreTiles = entry && entry.lay === lay && entry.styles === state.buildingStyles &&
@@ -1576,9 +1659,11 @@ function drawTerrainV2(){
     g.setTransform(ctx.getTransform());
     const liveCtx = ctx;
     ctx = g;
+    const t0 = performance.now();
     try { drawTerrainV2Board(); } finally { ctx = liveCtx; }
+    v2LastBuildMs = performance.now() - t0;
     if(entry && entry.image && entry.image.close) entry.image.close();
-    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED].join('|'), lay, styles: state.buildingStyles, image: off, built: Date.now() };
+    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted()].join('|'), lay, styles: state.buildingStyles, image: off, built: Date.now() };
     v2BoardCache.set(canvas, entry);
     if(typeof createImageBitmap === 'function'){
       const mine = entry;
@@ -1599,7 +1684,7 @@ function drawTerrainV2(){
 function drawV2Ground(lay, terrain, x, y, dy){
   if(terrain[y][x] === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1, false, dy); return; }
   const g = lay.grass[y][x];
-  const img = g.detail >= 0 ? v2Img('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
+  const img = g.detail >= 0 ? v2Tile('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
   if(img) drawV2Tile(img, x, y, 1, false, dy);
 }
 function drawV2Overlay(lay, terrain, x, y, dy){
@@ -1727,7 +1812,7 @@ function drawTerrainV2Board(){
     for(const [x, y] of rows.get(r)){
       if(terrain[y][x] !== 'BUILDING') continue;
       const style = state.buildingStyles && state.buildingStyles[y][x];
-      const img = style ? v2Img('v2_building_' + style) : null;
+      const img = style ? v2Tile('v2_building_' + style) : null;
       if(img) drawV2Tile(img, x, y, 1.125);
     }
   }
