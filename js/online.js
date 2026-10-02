@@ -25,6 +25,7 @@
    (the host's through the normal picker, the guest's automatically). Choosing
    and deploying your own army on your own phone comes next.
 ========================================================= */
+import { BUILD } from './build-info.js';
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
 import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
@@ -40,7 +41,7 @@ import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
 import { setBoardMode } from './data-core.js';
 import { AudioManager } from './audio-manager.js';
 
-export const ONLINE_VERSION = 'fc-online-1';
+export const ONLINE_VERSION = BUILD.version;   // js/build-info.js
 const SEND_EVERY_MS = 250;
 const SAVE_EVERY_MS = 3000;
 /* Only a battle under way is shared. Before that the host is still choosing the

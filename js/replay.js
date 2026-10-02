@@ -1,4 +1,5 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
@@ -196,6 +197,7 @@ function sectionMetadata(){
   if(!m){ out.push('(not captured: this match began before metadata was recorded)'); return out; }
   const mins = Math.round((Date.now() - Date.parse(m.startedAt)) / 60000);
   out.push(`RNG seed        : ${m.seed}    <- reproduces this match's dice exactly`);
+  out.push(`Build           : ${BUILD.commit}  (${BUILD.version}${BUILD.builtAt ? ', deployed ' + BUILD.builtAt : ''})`);
   out.push(`Started         : ${m.startedAt}   (about ${mins} min ago)`);
   out.push(`Mode            : ${m.mode}${m.difficulty!=='n/a' ? ', difficulty ' + m.difficulty : ''}`);
   out.push(`Board           : ${m.boardMode}, ${COLS}x${ROWS}`);
