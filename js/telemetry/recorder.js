@@ -25,6 +25,7 @@
    sites that write the text lines today) and the match end (engine-objectives).
 ========================================================= */
 import { state } from '../data-core.js';
+import { deriveMeasures, flagsFromExport, termRows } from './derive.js';
 
 export const RECORDER_SCHEMA_VERSION = 1;
 
@@ -34,6 +35,7 @@ let t0 = 0;                     // Date.now() at start
 let hiddenMs = 0, hiddenSince = 0;
 let faults = 0;
 const lastConnected = new Map();   // unit id -> connected, for chain_break
+const lostUnits = new Set();       // failed a rally: their Destroyed is a failed_rally
 let lastTurnSeen = null, lastSide = null;
 
 /* The simulator's on/off switch for the identical-match gate. */
@@ -81,7 +83,7 @@ function modeName(){
 /* ---------- match start (ui-battle, as the battle begins) ---------- */
 export const recStart = guard(meta => {
   t0 = now(); hiddenMs = 0; hiddenSince = 0; faults = 0;
-  lastConnected.clear(); lastTurnSeen = null; lastSide = null;
+  lastConnected.clear(); lostUnits.clear(); lastTurnSeen = null; lastSide = null;
   const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : null;
   const sides = [...new Set((state.units || []).map(u => u.side))];
   rec = {
@@ -181,15 +183,19 @@ export const recFromReplay = guard(ev => {
           { unit: unitRef(ev.unitId), tile: { x: ev.x, y: ev.y }, trigger_unit: ev.targetId != null ? unitRef(ev.targetId) : null, by: ev.by || null });
       return;
     case 'status':
-      if(ev.newStatus === 'Destroyed' || ev.newStatus === 'Lost')
-        pushEvent('destroyed', ev.side, ev.unitId, { unit: unitRef(ev.unitId), cause: causeOf(ev), reason: ev.reason || null });
+      /* 'Destroyed' only. A unit that fails to rally logs 'Lost' where it stood
+         and then 'Destroyed' from removeUnit, so counting both would count it
+         twice (the export's summary learned the same lesson). The 'Lost' just
+         marks the cause. */
+      if(ev.newStatus === 'Lost'){ lostUnits.add(ev.unitId); return; }
+      if(ev.newStatus === 'Destroyed')
+        pushEvent('destroyed', ev.side, ev.unitId, { unit: unitRef(ev.unitId), cause: lostUnits.has(ev.unitId) ? 'failed_rally' : causeOf(ev), reason: ev.reason || null });
       return;
     default: return;
   }
 });
 /* The five causes in the spec, from the reason the game logged. */
 function causeOf(ev){
-  if(ev.newStatus === 'Lost') return 'failed_rally';
   const r = String(ev.reason || '').toLowerCase();
   if(/volley|musket/.test(r)) return 'volley';
   if(/artiller|gun|canister|shot/.test(r)) return 'artillery';
@@ -278,8 +284,23 @@ export const recFinalise = guard(outcome => {
   rec.isComplete = rec.endReason !== 'incomplete' && rec.endReason !== 'disconnect';
   rec.turns = state.turnNumber || null;
   rec.hiddenMs = hiddenMs;
-  rec.derived.duration_s = Math.round((now() - t0) / 1000);
-  rec.derived.active_s = Math.round(activeMs() / 1000);
+  // Section 2.5: the export text and AI move log as the game prints them, the
+  // term table from the same summary section 4 prints, then the derived measures.
+  rec.text = { exportText: (outcome && outcome.exportText) || null, moveLog: (outcome && outcome.moveLog) || null };
+  try { rec.terms = termRows(outcome && outcome.termSummary); } catch(e){ fault(e); }
+  const keep = { duration_s: Math.round((now() - t0) / 1000), active_s: Math.round(activeMs() / 1000) };
+  try { rec.derived = Object.assign(deriveMeasures(rec, { flags: flagsFromExport(rec.text.exportText) }), keep); }
+  catch(e){ rec.derived = keep; fault(e); }
   if(faults) rec.derived.recorder_faults = faults;
   return rec;
 });
+
+/* Missed-opportunity flags (telemetry/missed.js), one event each. */
+export const recMissed = guard((side, flags) => {
+  if(!rec) return;
+  for(const f of (flags || [])) pushEvent('missed_opportunity', side, f.unit, { code: f.code, unit: unitRef(f.unit), detail: f.detail || null });
+});
+export const sideIsHuman = side => actorFor(side) === 'human';
+export const recActive = () => !!(enabled && rec && !rec.endedAt);
+export const recEventsSince = (fromSeq, type) => (rec ? rec.events.slice(fromSeq).filter(e => !type || e.type === type) : []);
+export const recSeq = () => (rec ? rec.events.length : 0);

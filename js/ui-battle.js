@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { telemetryFightEnds, telemetryMoveBegins, telemetryMoveEnds } from './telemetry/hooks.js';
 import { recStart, recWeightsHash } from './telemetry/recorder.js';
 import { BUILD } from './build-info.js';
 import * as AI_MODULE from './ai-strategy.js';
@@ -522,6 +523,7 @@ export function beginMovePhase(){
   if(state.group && actingArmy() && !state.groupControlled) state.viewEdge = actingArmy().edge;   // online, each phone keeps its own army's view
   if(!(state.mode==='ai' && state.turn===state.aiSide)) cameraRestorePlayerView();
   logReplay('turnStart', { side: state.turn, army: state.turnArmy || undefined });
+  telemetryMoveBegins(state.turn);   // match telemetry: reach sets for the missed-opportunity checks (human sides)
   /* TURN THEMES, at the start of every turn once the battle is under way.
      beginMovePhase is only reached after deployment, and it is the one place
      both the first turn and every later one begin, so nothing plays during
@@ -574,6 +576,7 @@ export function clearPendingTurnaroundFlagsIfDue(){
 }
 
 export function beginFirePhase(){
+  telemetryMoveEnds(state.turn);     // match telemetry: checks on where this side's units ended up (human sides)
   state.phase = 'fire';
   state.fired = new Set();
   state.volleyed = new Set();   // one volley per infantry unit per Firing phase
@@ -931,6 +934,7 @@ export function endFightPhase(){
     logReplay('gateForced', { side: state.turn, refusals: state._fightGateRefusals });
   }
   state._fightGateRefusals = 0;
+  telemetryFightEnds(state.turn);    // match telemetry: checks on this side's fights (human sides)
   state.phase = 'rally';
   updateHeader();
   log(`${actingArmy() ? actingArmy().label : SIDE_LABEL[state.turn]} turn complete.`, 'system');
