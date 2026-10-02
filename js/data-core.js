@@ -23,7 +23,9 @@ export const TB_DATA = (function(){
       unitArchive: loadJSON('data/unit-archive.json'),
       narration: loadJSON('data/narration.json'),
       campaigns: loadJSON('data/campaigns.json'),
-      scenarios: loadJSON('data/scenarios.json'),
+      /* Scenario Cards: the one source of Battles and Operations (js/scenario-cards.js).
+         The old data/scenarios.json is kept in data/legacy/ and not loaded. */
+      scenarioCards: loadJSON('data/scenario-cards.json'),
       terrainLayouts: loadJSON('data/terrain-layouts.json'),
       unitTypes: loadJSON('data/unit-types.json'),
       armyCompositions: loadJSON('data/army-compositions.json'),
@@ -365,7 +367,10 @@ export const NARRATION = TB_DATA.narration;
 
 export const CAMPAIGNS = TB_DATA.campaigns;
 
-export const SCENARIOS = TB_DATA.scenarios;
+/* RETIRED: the old scenario list (now data/legacy/scenarios-v1.json, not
+   loaded). Empty so the parked Operations code that still imports it loads;
+   step 2 replaces those readers with js/scenario-cards.js. */
+export const SCENARIOS = [];
 export const BRIGADE_COMPOSITIONS = TB_DATA.unitTypes.brigadeCompositions;
 
 export const TERRAIN = TB_DATA.unitTypes.terrainTypes;

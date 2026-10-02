@@ -135,6 +135,9 @@ hurry, pick a run you know was green.
 | `js/ui-*.js` | Menus, the deployment screen, the battle screen |
 | `js/audio-*.js` | Sound — currently unplugged, see [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md) |
 | `data/*.json` | All game content: units, scenarios, campaigns, narration |
+| `data/scenario-cards.json` | Every Battle and Operation as a Scenario Card (forces, map, areas, win conditions, outcome text), built from the Hub's campaigns.json. Turn limits are full rounds. `js/scenario-cards.js` loads and validates it |
+| `data/campaigns.json` | The three campaign flows; every step and branch option is a Scenario Card id |
+| `data/legacy/` | Retired data kept for reference, not loaded (`scenarios-v1.json`, the old scenario list) |
 | `assets/` | Portraits and icons |
 | `test/` | Game-data tests — run by `npm test` |
 | `tests/` | Browser smoke test, which actually plays the game — run by `npm run smoke` |
