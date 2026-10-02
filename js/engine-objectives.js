@@ -236,18 +236,9 @@ export function renderEndButtons(){
     replayBtn.onclick = startReplay;
     endScreenButtons.push(replayBtn);
   }
-  if(state.aiSide && !isOnline()){   // online, the "AI side" is the other player: there is no AI log
-    const exportBtn = document.createElement('button');
-    exportBtn.textContent = 'Export AI Move Log';
-    exportBtn.onclick = ()=>{
-      document.getElementById('aiLogExportTitle').textContent = 'AI Move Log';
-      document.getElementById('aiLogExportText').value = exportAiMoveLog();
-      // Tells the dialog to snapshot the untouched text before any filtering.
-      document.dispatchEvent(new CustomEvent('tb:logShown'));
-      document.getElementById('aiLogExportPanel').classList.remove('hidden');
-    };
-    endScreenButtons.push(exportBtn);
-  }
+  /* No separate "Export AI Move Log" button any more (telemetry spec 7): the
+     move log is already appended to the full export below, and it is saved
+     with every match record (telemetry.texts.move_log). */
   if(state.matchLog && state.matchLog.length>0){
     const fullExportBtn = document.createElement('button');
     fullExportBtn.textContent = 'Export Full Match Log';

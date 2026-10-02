@@ -1,4 +1,6 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { currentRecord } from './telemetry/recorder.js';
+import { resendCurrent } from './telemetry/sender.js';
 import { telemetryFightEnds, telemetryMoveBegins, telemetryMoveEnds } from './telemetry/hooks.js';
 import { recStart, recWeightsHash } from './telemetry/recorder.js';
 import { BUILD } from './build-info.js';
@@ -1677,6 +1679,19 @@ export function initBattleControls(){
   const exportPanel = document.getElementById('aiLogExportPanel');
   const exportText = document.getElementById('aiLogExportText');
   document.getElementById('aiLogExportCloseBtn').onclick = ()=> exportPanel.classList.add('hidden');
+  /* Re-send (telemetry spec 3.4): re-queues this match's finished record for
+     Supabase. Quiet: it says "Queued" for a moment and nothing else. */
+  const resendBtn = document.getElementById('aiLogResendBtn');
+  document.addEventListener('tb:logShown', () => {
+    const r = currentRecord();
+    resendBtn.style.display = r && r.endedAt ? '' : 'none';
+    resendBtn.textContent = 'Re-send';
+  });
+  resendBtn.onclick = async ()=>{
+    const ok = await resendCurrent();
+    resendBtn.textContent = ok ? 'Queued' : 'Nothing to send';
+    setTimeout(()=>{ resendBtn.textContent = 'Re-send'; }, 2000);
+  };
   document.getElementById('aiLogExportBackdrop').onclick = ()=> exportPanel.classList.add('hidden');
   document.getElementById('aiLogExportCopyBtn').onclick = ()=>{
     // Always copies the FULL log, never the filtered view. Filtering is for

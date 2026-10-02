@@ -1474,6 +1474,10 @@
     <textarea id="aiLogExportText" readonly></textarea>
     <div class="ai-log-export-actions">
       <button id="aiLogExportCopyBtn" class="primary">Copy to Clipboard</button>
+      <!-- Re-send: puts this match's record back in the telemetry outbox (a
+           manual fallback; matches are sent automatically). Shown only once the
+           match has a finished record. -->
+      <button id="aiLogResendBtn" style="display:none;">Re-send</button>
       <button id="aiLogExportCloseBtn">Close</button>
     </div>
   </div>
