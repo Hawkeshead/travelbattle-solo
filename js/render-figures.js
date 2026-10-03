@@ -6,8 +6,9 @@
    and men fall as the unit takes combat results. Visual only: nothing here
    touches rules, the AI, the dice or the simulator.
 
-   UNIT_STYLE ('figures', the default, or 'v1': the old icons and sprite
-   exactly; ?units=v1 for one visit) mirrors TERRAIN_STYLE. The figures are off
+   UNIT_STYLE ('figures', or 'v1': the old icons and sprite exactly, which is
+   the default until the real art arrives; ?units=figures or ?units=v1 for one
+   visit) mirrors TERRAIN_STYLE. The figures are off
    when the game runs headless (the simulator), where nothing is drawn and
    nothing here is ticked.
 
@@ -39,7 +40,11 @@ import { toScreen, unitMoveKind } from './render-board.js';
 export const UNIT_STYLE = (() => {
   try { const q = new URLSearchParams(globalThis.location ? location.search : '').get('units'); if(q === 'v1' || q === 'figures') return q; }
   catch { /* no address: the default stands */ }
-  return 'figures';
+  /* 'v1' by default for now (Matthew, 3 Oct 2026): the old unit icons until
+     the real figure art arrives. The figures system stays in and is one
+     address away (?units=figures); switch this back to 'figures' when the
+     real sheets drop in. */
+  return 'v1';
 })();
 const HEADLESS = typeof navigator === 'undefined' || /jsdom/i.test(navigator.userAgent || '');
 export const FIGURES = UNIT_STYLE === 'figures' && !HEADLESS;
