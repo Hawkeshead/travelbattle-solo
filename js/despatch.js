@@ -175,8 +175,12 @@ function sync(){
   // Confirm, Begin Battle) keeps its own buttons.
   const id = BUTTON_FOR_PHASE[state.phase];
   const btn = id ? document.getElementById(id) : null;
+  /* The old end buttons stay hidden for the whole battle, including the moment
+     it ends: the case itself goes when the match is over, but dropping
+     'despatch-on' with it uncovered the old End Fight seal on the last turn
+     (seen 3 Oct 2026). */
   const inBattle = !!btn && !state.gameOver;
-  document.documentElement.classList.toggle('despatch-on', inBattle);
+  document.documentElement.classList.toggle('despatch-on', !!btn);
   root.style.display = inBattle ? 'block' : 'none';
   if(!inBattle){ if(isOpen) closeWithoutSending(true); current = null; return; }
   current = btn;

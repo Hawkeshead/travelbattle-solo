@@ -252,12 +252,20 @@ function showVictoryDressing(winner){
     return n;
   };
   const lost = side => state.units.filter(u => u.side === side && u.removed && !u.escaped && u.type !== 'BRIGADIER').length;   // marching off is not a loss
-  const pair = f => sides.map(f).join(' \u00b7 ');
-  const who = `${SIDE_LABEL[SIDES.RED]} \u00b7 ${SIDE_LABEL[SIDES.BLUE]}`;
-  // Operations count full rounds; a standard match counts side-turns, as its log does.
-  stats.innerHTML = (state.scenario && state.scenarioResult ? `<div><b>${state.scenarioResult.round}</b>rounds</div>` : `<div><b>${state.turnNumber || 0}</b>turns</div>`) +
-    `<div><b>${pair(broken)}</b>Brigades broken<small>${who}</small></div>` +
-    `<div><b>${pair(lost)}</b>units lost<small>${who}</small></div>`;
+  /* A small two-column table, one column a side, so each number says whose it
+     is (3 Oct 2026: "6 · 13 units lost / Britain · France" read as a puzzle).
+     Operations show what they are decided by: units lost and units marched
+     off, not Brigades broken. The length is given in rounds, both sides'
+     turns together, which is what an Operation's limit counts too. */
+  const ops = !!(state.scenario && state.scenario.kind === 'operation');
+  const escaped = side => state.units.filter(u => u.side === side && u.escaped).length;
+  const row = (label, f) => `<tr><th>${label}</th>${sides.map(s => `<td>${f(s)}</td>`).join('')}</tr>`;
+  const rounds = ops && state.scenarioResult ? state.scenarioResult.round : Math.ceil((state.turnNumber || 0) / 2);
+  stats.innerHTML = `<table><thead><tr><th></th>${sides.map(s => `<th class="${s}">${SIDE_LABEL[s]}</th>`).join('')}</tr></thead><tbody>` +
+    (ops ? '' : row('Brigades broken', broken)) +
+    row('Units lost', lost) +
+    (ops && sides.some(escaped) ? row('Marched off', escaped) : '') +
+    `</tbody></table><div class="victory-length">The battle lasted ${rounds} round${rounds === 1 ? '' : 's'}</div>`;
 }
 
 /* The victory screen's buttons. Split out so an online match can rebuild them

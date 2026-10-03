@@ -880,6 +880,12 @@
     box-shadow:0 6px 22px rgba(0,0,0,0.42);
   }
   #brigadeDispatch.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  /* The map panel, like the dice panel and the prompts (3 Oct 2026). */
+  html.panel-art #brigadeDispatch{
+    border:12px solid #3b2416; border-radius:0; border-image:url(assets/ui/panel_frame.webp) 75 / 12px stretch;
+    background:#e3d4ae url(assets/ui/panel_map_centre.webp) center / cover no-repeat; background-clip:padding-box;
+  }
+  html.panel-art .dispatch-kicker{ color:#8e1f1f; }
   .dispatch-kicker{
     font-family:'IBM Plex Mono',monospace; font-size:8.5px; font-weight:500;
     letter-spacing:0.16em; text-transform:uppercase; color:var(--red);
@@ -979,6 +985,13 @@
   .dice-panel{ position:relative; }
   /* Held at one size through a roll (dice.js lockDicePanelTo): the content sits in the middle of it. */
   .dice-panel.size-locked{ display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  /* ONE SIZE (3 Oct 2026). Each roll held its own size, but the next question
+     resized it: a rally 125 px wide, a fight 273, an artillery report 159 tall.
+     Watched over an AI-vs-AI game, nothing measured more than 273 x 159 (frame
+     included), so every panel now starts at that size with its content in the
+     middle. Anything larger still grows to fit, through the same lock. */
+  html.panel-art .dice-panel{ box-sizing:border-box; min-width:280px; min-height:162px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; }
   html.panel-art .dice-panel{
     border:13px solid #3b2416; border-radius:0;
     border-image:url(assets/ui/panel_frame.webp) 75 / 13px stretch;
@@ -1233,10 +1246,15 @@
     box-shadow:0 3px 6px rgba(0,0,0,.5), inset 0 -3px 6px rgba(0,0,0,.4), inset 0 2px 3px rgba(255,200,180,.3); }
   .victory-seal.red{ background:radial-gradient(circle at 38% 34%, #c0453f, #7a1414 58%, #4a0a0a); }
   .victory-seal.blue{ background:radial-gradient(circle at 38% 34%, #4f6fb3, #1c2f66 58%, #0d1a3d); }
-  .victory-stats{ justify-content:center; gap:18px; margin:4px 0 14px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6b5636; }
-  .victory-stats > div{ display:flex; flex-direction:column; align-items:center; }
-  .victory-stats b{ display:block; font-family:'Cinzel',serif; font-size:18px; color:#2e2010; }
-  .victory-stats small{ font-size:9px; opacity:.8; }
+  /* The result as a small table: a column a side, a row a measure. */
+  .victory-stats{ flex-direction:column; align-items:center; margin:4px 0 12px; color:#4a3820; }
+  .victory-stats table{ border-collapse:collapse; font-family:'Cormorant Garamond',serif; }
+  .victory-stats th, .victory-stats td{ padding:2px 14px; }
+  .victory-stats thead th{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:.08em; text-transform:uppercase; border-bottom:1px solid rgba(110,80,40,.45); }
+  .victory-stats thead th.red{ color:#8e1f1f; } .victory-stats thead th.blue{ color:#1f3a7a; }
+  .victory-stats tbody th{ text-align:right; font-weight:600; font-size:14px; }
+  .victory-stats td{ font-family:'Cinzel',serif; font-size:17px; font-weight:700; color:#2e2010; text-align:center; }
+  .victory-length{ margin-top:5px; font-size:13px; font-style:italic; font-family:'Cormorant Garamond',serif; }
   /* Plaque, seal, result, stats: the "Field Command" strapline is the start
      screen's, not the victory's. */
   #overlay .box.as-victory #overlaySubtitle{ display:none !important; }   /* inline display:block from the start screen */
@@ -1246,7 +1264,8 @@
     #overlay .box.as-victory .victory-seal{ width:38px; height:38px; margin:2px auto 4px; }
     #overlay .box.as-victory p{ font-size:13.5px; line-height:1.3; margin-bottom:4px; }
     #overlay .box.as-victory .victory-stats{ margin:2px 0 6px; }
-    #overlay .box.as-victory .victory-stats b{ font-size:15px; }
+    #overlay .box.as-victory .victory-stats td{ font-size:15px; }
+    #overlay .box.as-victory .victory-stats th, #overlay .box.as-victory .victory-stats td{ padding:1px 10px; }
     #overlay .box.as-victory #modeChoices{ gap:6px; }
     #overlay .box.as-victory button{ padding:6px 12px; font-size:11.5px; }
   }

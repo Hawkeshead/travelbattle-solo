@@ -277,8 +277,8 @@ function showDispatch(side, brigadeId){
     `<div class="dispatch-kicker">Dispatch from the field</div>` +
     `<div class="dispatch-head">${who}'s Brigade is broken</div>` +
     (armyForBrigade(side, brigadeId)
-      ? `<div class="dispatch-sub">${armyForBrigade(side, brigadeId).label} &mdash; ${armyBrokenCount(armyForBrigade(side, brigadeId))} of 3 &middot; two breaks the army</div>`
-      : `<div class="dispatch-sub">${SIDE_LABEL[side]} &mdash; ${brokenCount} of 3 &middot; two ends the battle</div>`);
+      ? `<div class="dispatch-sub">${armyForBrigade(side, brigadeId).label}: ${armyBrokenCount(armyForBrigade(side, brigadeId))} of 3 broken &middot; two breaks the army</div>`
+      : `<div class="dispatch-sub">${SIDE_LABEL[side]}: ${brokenCount} of 3 broken &middot; two ends the battle</div>`);
   el.classList.add('show');
   // No dedicated sound yet: the audio catalogue has no brigadeBreak entry and
   // inventing one silently would fail the asset check. Hook here when one exists.

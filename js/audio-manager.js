@@ -480,32 +480,28 @@ export const AudioManager = (function(){
      a hard stop on a busy loop is an audible click. */
   const namedLoops = new Map();
 
+  /* NAMED LOOPS (the fight's battle bed) play through Web Audio, like every
+     other effect, not a new <audio> element.
+
+     3 OCT 2026: the battle sound was silent under the dice on the iPhone. iOS
+     only lets an <audio> element start from a tap, and a fight that the AI
+     starts (or one the dice panel opens after a delay) is not a tap, so
+     play() was refused and caught silently. Web Audio is unlocked once, at the
+     first tap of the session, and stays unlocked: the gallop, the volleys and
+     the despatch case's loop all play that way and were never affected.
+     playEffect's loop option repeats the clip until the handle fades it. */
   function startLoop(key, src, category){
     if(namedLoops.has(key)) return;   // already running; starting again would layer it
-    try {
-      const audio = new Audio(src);
-      audio.loop = true;
-      audio.volume = effectiveVolume(category);
-      namedLoops.set(key, { el: audio, category });
-      if(state.unlocked) audio.play().catch(()=>{});
-    } catch(_e) { /* silent failure, as elsewhere */ }
+    void category;   // loops use the effects volume, as playEffect does
+    const handle = playEffect('loop-' + key, src, 'ambient', { loop: true });
+    if(handle) namedLoops.set(key, { handle });
   }
 
   function stopLoop(key, fadeMs){
     const entry = namedLoops.get(key);
     if(!entry) return;
     namedLoops.delete(key);
-    const el = entry.el;
-    const steps = 6, ms = Math.max(0, fadeMs ?? 180) / steps;
-    let n = steps;
-    const from = el.volume;
-    const tick = ()=>{
-      n -= 1;
-      if(n <= 0){ try{ el.pause(); el.removeAttribute('src'); el.load(); }catch(_e){} return; }
-      try { el.volume = from * (n/steps); } catch(_e) { /* detached */ }
-      setTimeout(tick, ms);
-    };
-    setTimeout(tick, ms);
+    try { entry.handle.fadeOut(Math.max(40, fadeMs ?? 180)); } catch(_e) { /* already stopped */ }
   }
 
   function applyVolumes(){
@@ -516,8 +512,7 @@ export const AudioManager = (function(){
        effects slider (or muting) left anything already playing at its old
        level, which for a looping five-second gallop is long enough to look
        broken. Live gains are tracked so they can be updated in place. */
-    // Named loops track their category too, so a slider move reaches them.
-    for(const [, entry] of namedLoops) { try { entry.el.volume = effectiveVolume(entry.category); } catch(_e) { /* detached */ } }
+    // Named loops are Web Audio effects now, so the live-gain loop below reaches them.
     for(const g of state.liveEffectGains){
       try { g.node.gain.value = effectiveVolume('effects') * g.scale; } catch(_e) { /* node already gone */ }
     }
