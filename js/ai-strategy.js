@@ -2189,34 +2189,59 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       const RESERVE_STANDOFF = 4;   // squares from the target Brigade: close enough to matter, far enough not to be drawn in
       return -Math.abs(nearestTargetDist - RESERVE_STANDOFF) * RESERVE_AXIS_PULL;
     }
-    case 'SHELTER': {
-      /* Falls back onto the host and then stops wanting ground, the same
-         terminating shape PRESERVE uses: a gradient away from danger is what
-         sent a remnant wandering under fire for twenty turns. On arrival it
-         prefers cover, because a mauled Brigade in a wood is far harder to
-         finish than the same Brigade in the open. */
-      const dest = shelterDestination(side, u.brigadeId);
-      if(!dest) return 0;
-      const d = chebyshev(pos, dest);
-      if(d <= 2){
-        const key = terrainAt(pos.x, pos.y).key;
-        return (key==='WOODS' || key==='BUILDING') ? SHELTER_COVER_BONUS : 0.6;
-      }
-      return -d * SHELTER_PULL;
-    }
+    case 'SHELTER':
     case 'PRESERVE': {
-      /* R6. A destination, not a direction. Once there, nothing pulls it
-         further, which is the entire point: a gradient away from danger is what
-         sent a remnant wandering the board under fire for twenty turns. */
+      /* R6 / SHELTER. A destination, not a direction. Once there, nothing pulls
+         it further, which is the entire point: a gradient away from danger is
+         what sent a remnant wandering the board under fire for twenty turns.
+         Yields on arrival, and the deadlock rule falls out of that rather than
+         needing its own code: a Brigade under no time pressure simply stops
+         wanting ground once it is close.
+
+         3 OCT 2026, from a played match (seed 1630822472), two changes:
+
+         1. THE BRIGADIER GOES TO HIS OWN MEN FIRST. With part of his Brigade
+            cut off, a PRESERVE or SHELTER Brigadier used to head for the
+            destination like everyone else, and Napoleon walked the length of
+            France's back row while his Guard stood disconnected behind him.
+            While any of his units is stranded he now goes to the nearest of
+            them, the way a REUNITE errand would; the destination is for once
+            his Brigade can follow.
+
+         2. THE PULL IS MEASURED FROM WHERE THE UNIT STANDS. It was -distance x
+            0.45, then floored at MISSION_PULL_FLOOR (-4), so anything more than
+            about nine squares from the destination scored exactly -4.00 on
+            every square it could reach: no gradient at all. The 5e Cuirassiers
+            spent twenty turns drifting round a corner like that. Measured as
+            the change in distance instead (squares gained times the same
+            weight), the pull is small, never touches the floor, and always
+            says which way is closer. Only differences between a unit's options
+            ever decided anything, so nothing else about the term changes. */
+      if(u.type==='BRIGADIER'){
+        const cut = brigadeMembers(side, u.brigadeId).filter(unitIsStranded);
+        if(cut.length){
+          const near = cut.reduce((a, b) => chebyshev(u, b) <= chebyshev(u, a) ? a : b);
+          const d = chebyshev(pos, near), dNow = chebyshev(u, near);
+          return -(d - dNow) * APPROACH_PULL * 2 + Math.max(0, 4 - d) * 0.20;
+        }
+      }
+      if(mission === 'SHELTER'){
+        /* On arrival it prefers cover, because a mauled Brigade in a wood is
+           far harder to finish than the same Brigade in the open. */
+        const dest = shelterDestination(side, u.brigadeId);
+        if(!dest) return 0;
+        const d = chebyshev(pos, dest);
+        if(d <= 2){
+          const key = terrainAt(pos.x, pos.y).key;
+          return (key==='WOODS' || key==='BUILDING') ? SHELTER_COVER_BONUS : 0.6;
+        }
+        return -(d - chebyshev(u, dest)) * SHELTER_PULL;
+      }
       const dest = preserveDestination(side, u.brigadeId);
       if(!dest) return 0;
       const d = chebyshev(pos, dest);
-      /* Yields on arrival, and the deadlock rule falls out of that rather than
-         needing its own code: a PRESERVE Brigade under no time pressure simply
-         stops wanting ground once it is close, so a reserve advancing through
-         the same tiles is never contested. */
       if(d <= 1) return 0.6;
-      return -d * PRESERVE_PULL;
+      return -(d - chebyshev(u, dest)) * PRESERVE_PULL;
     }
     case 'SCREEN':
       return screensGunBonus(u, side, pos) * 1.2;
