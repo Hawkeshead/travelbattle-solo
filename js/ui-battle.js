@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { saveAtPhaseStart } from './match-save.js';
 import { brigadeIdsFor, operationFirstMover, canMarchOff, marchOff } from './operations.js';
 import { currentRecord } from './telemetry/recorder.js';
 import { resendCurrent } from './telemetry/sender.js';
@@ -522,6 +523,7 @@ export function playTurnTheme(side){
 }
 
 export function beginMovePhase(){
+  saveAtPhaseStart('move');   // match-save.js: a resumable point, before the phase sets itself up
   if(state.gameOver) return;
   state.phase = 'move';
   // Hand the player's own zoom and pan back as their turn starts. Parked at the
@@ -585,6 +587,7 @@ export function clearPendingTurnaroundFlagsIfDue(){
 }
 
 export function beginFirePhase(){
+  saveAtPhaseStart('fire');   // match-save.js: a resumable point, before the phase sets itself up
   telemetryMoveEnds(state.turn);     // match telemetry: checks on where this side's units ended up (human sides)
   state.phase = 'fire';
   state.fired = new Set();
@@ -603,6 +606,7 @@ export function beginFirePhase(){
 }
 
 export function beginFightPhase(){
+  saveAtPhaseStart('fight');   // match-save.js: a resumable point, before the phase sets itself up
   state.phase = 'fight';
   state.fought = new Set();
   resetUndoStack();

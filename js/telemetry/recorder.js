@@ -415,6 +415,28 @@ export const recUndo = guard(() => {
   for(const e of rec.events) if(e.type === 'move' && e.payload.brig_in_range_end != null) lastConnected.set(e.unitId, e.payload.brig_in_range_end);
 });
 
+/* RESUMING A SAVED MATCH (match-save.js): the record carries on from the
+   save rather than starting again. Events past the saved match log are dropped
+   (as undo does), the chain tracker is rebuilt, and the active-time clock
+   continues from the last recorded moment. */
+export const recResume = guard(saved => {
+  if(!saved) return;
+  rec = JSON.parse(JSON.stringify(saved));
+  const len = (state.matchLog || []).length;
+  const at = rec.events.findIndex(e => e._log > len);
+  if(at >= 0) rec.events.length = at;
+  rec.events.forEach((e, i) => { e.seq = i; });
+  const last = rec.events.length ? rec.events[rec.events.length - 1].tMs || 0 : 0;
+  t0 = now() - last; hiddenMs = 0; hiddenSince = 0;
+  lastConnected.clear(); lostUnits.clear();
+  for(const e of rec.events){
+    if(e.type === 'move' && e.payload.brig_in_range_end != null) lastConnected.set(e.unitId, e.payload.brig_in_range_end);
+    if(e.type === 'turn_start'){ lastTurnSeen = e.turn; lastSide = e.side; }
+  }
+  rec.derived = rec.derived || {};
+  rec.derived.resumed = (rec.derived.resumed || 0) + 1;
+});
+
 /* Missed-opportunity flags (telemetry/missed.js), one event each. */
 export const recMissed = guard((side, flags) => {
   if(!rec) return;

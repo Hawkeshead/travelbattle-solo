@@ -1,4 +1,5 @@
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
+import { clearSave } from './match-save.js';
 import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
@@ -143,6 +144,7 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function endGame(winner){
   state.gameOver = true;
+  clearSave();   // match-save.js: a finished match has nothing to resume
   // Match telemetry: closes the record, with the export and the AI move log as
   // the game prints them and the AI's term table (spec 2.5). A record exists
   // only while a match is being recorded, so these are not built otherwise.

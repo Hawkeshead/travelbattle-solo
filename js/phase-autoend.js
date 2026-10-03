@@ -29,6 +29,7 @@
    leaves a breadcrumb trail behind it that the move animation reads —
    see the note on that function.
 ========================================================= */
+import { saveSoon } from './match-save.js';
 import { state } from './data-core.js';
 import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules.js';
 import { actsFor } from './group.js';
@@ -137,6 +138,7 @@ export function autoEndRunning(){ return ticker !== null; }
    so undoing a move, or any action that opens up a new legal option, takes
    the clock away again without every caller having to know that it should. */
 export function maybeStartAutoEnd(){
+  saveSoon();   // match-save.js: a moment after this action settles, keep the progress
   const phase = state.phase;
   if(!END_BUTTON_ID[phase] || !isHumanTurn() || !enders){ cancelAutoEnd(); return; }
   if(!phaseActionsComplete(phase)){ cancelAutoEnd(); return; }

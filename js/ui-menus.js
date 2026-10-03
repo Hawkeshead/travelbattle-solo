@@ -2,15 +2,17 @@ import { showCampaignMenu } from './campaign.js';
 import { readyCards } from './scenario-cards.js';
 import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
 import { showObjectivePanel } from './operation-panel.js';
+import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline } from './online-session.js';
 import { SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
-import { log } from './engine-state.js';
-import { beginDiagramMode, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
+import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
+import { beginDiagramMode, clearTransientRenderState, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
-import { endMovePhase, startBattle } from './ui-battle.js';
+import { beginFightPhase, beginFirePhase, beginMovePhase, endMovePhase, renderBrigadeStatus, selectUnit, startBattle, updateHeader } from './ui-battle.js';
+import { maybeStartAutoEnd } from './phase-autoend.js';
 import { deployArmyComposition, planArmyDeployment, planGroupArmy } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
 
@@ -124,7 +126,7 @@ export function showModeSelect(isSplash){
   const titleEl = document.getElementById('overlayTitle');
   const subtitleEl = document.getElementById('overlaySubtitle');
   titleEl.textContent = 'TravelBattle';
-  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge — then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
+  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge, then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
   document.getElementById('overlayBtn').style.display = 'none';
   subtitleEl.style.display = 'block';
   const extra = ensureModeChoices();
@@ -204,6 +206,33 @@ export function showModeSelect(isSplash){
   if(CAMPAIGNS_ENABLED) extra.appendChild(campBtn);
   if(GRAND_STRATEGY_ENABLED) extra.appendChild(grandBtn);
 
+  /* RESUME (match-save.js): a battle against the AI left unfinished on this
+     phone goes back to where it was. Read from storage after the screen is
+     built (it is asynchronous), and added at the top only if the start screen
+     is still the one showing by then. */
+  loadSave().then(save => {
+    if(!save || titleEl.textContent !== 'TravelBattle' || extra.querySelector('.resume-battle')) return;
+    const sm = save.summary || {};
+    const you = sm.playerSide === SIDES.BLUE ? 'France' : 'Britain';
+    const mins = Math.max(0, Math.round((Date.now() - save.savedAt) / 60000));
+    const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} d ago`;
+    const wrap = document.createElement('div');
+    wrap.className = 'resume-battle';
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'primary resume-go';
+    go.innerHTML = '<span class="rb-title">Resume Battle</span><span class="rb-sub"></span>';
+    go.querySelector('.rb-sub').textContent = `${sm.operation ? sm.operation + ' · ' : ''}round ${sm.round || 1} · you are ${you} · ${sm.alive ? `${sm.alive.red}–${sm.alive.blue} units standing · ` : ''}saved ${ago}`;
+    go.onclick = ()=> resumeBattle(save);
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'resume-drop';
+    drop.textContent = 'Discard';
+    drop.onclick = ()=>{ abandonSave().then(()=> wrap.remove()); };
+    wrap.appendChild(go); wrap.appendChild(drop);
+    extra.insertBefore(wrap, extra.firstChild);
+  });
+
   // Same Again: one tap back into the last setup. Deliberately smaller and lower
   // than the primary action so it never competes with it, and absent entirely on
   // a first run when there is nothing to repeat.
@@ -227,6 +256,38 @@ export function showModeSelect(isSplash){
     extra.appendChild(again);
   }
   document.getElementById('overlay').classList.add('show');
+}
+
+/* Puts a saved battle back on the board (match-save.js does the state; this
+   does the screen, as startBattle and beginOperation do for a new one). */
+export function resumeBattle(save){
+  resumeSave(save, {
+    prepare(){
+      AudioManager.stopMusic();
+      clearFolio();
+      document.getElementById('overlay').classList.remove('show');
+      document.getElementById('sidebar').style.display = 'none';
+      const uo = document.getElementById('unitOverlay');
+      uo.classList.remove('hidden'); uo.classList.remove('show');
+      clearTransientRenderState();
+      resetUndoStack();
+      redrawOperation();
+      startAmbientLayer();
+      renderBrigadeStatus();
+      if(state.scenario && state.scenario.kind === 'operation') showObjectivePanel();
+      log(`Battle resumed: round ${Math.max(1, Math.ceil((state.turnNumber || 1) / 2))}.`, 'system');
+    },
+    beginMove: ()=> beginMovePhase(),
+    beginFire: ()=> beginFirePhase(),
+    beginFight: ()=> beginFightPhase(),
+    continueHere(){
+      selectUnit(null);
+      syncPhaseButtons();
+      updateHeader();
+      draw();
+      maybeStartAutoEnd();
+    },
+  });
 }
 
 /* OPERATIONS (Operations and Campaigns brief, 2.7): the ready Operation
@@ -298,6 +359,7 @@ export function showOperationBrief(card){
 export function beginOperation(card, playerSide){
   if(isOnline() || state.group || state.rts) return;   // Online, Group and Real-Time never take a card
   AudioManager.stopMusic();
+  abandonSave();   // a new battle replaces any saved one
   setupOperation(card, playerSide);
   document.getElementById('overlay').classList.remove('show');
   redrawOperation();
@@ -470,6 +532,9 @@ export function showDifficultySelect(){
    map to cycle it, rather than a separate small preview modal.
 ========================================================= */
 export function beginBoardSetup(){
+  // A new battle against the AI replaces any saved one (its record goes as an
+  // incomplete match). Online and Group matches leave a saved AI battle alone.
+  if(state.mode === 'ai' && !state.spectate && !isOnline() && !state.group) abandonSave();
   setBoardMode('standard');
   AudioManager.stopMusic();
   const keys = seededRandom()<0.5 ? ['A','B'] : ['B','A'];

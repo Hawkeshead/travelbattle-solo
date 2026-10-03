@@ -588,6 +588,10 @@ export function seedRng(seed){
   rngState = rngSeed;
 }
 export function currentRngSeed(){ return rngSeed; }
+/* The generator's position, for a saved match (match-save.js): resuming from
+   it rolls the rest of the match exactly as it would have gone. */
+export function getRngState(){ return { seed: rngSeed, state: rngState }; }
+export function setRngState(s){ if(s && Number.isFinite(s.state)){ rngSeed = s.seed >>> 0; rngState = s.state >>> 0; } }
 
 /* THE SAME STREAM, FOR EVERYTHING A MATCH DEPENDS ON.
 

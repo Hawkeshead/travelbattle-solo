@@ -1,4 +1,6 @@
 import { clearFloatingText, initFloatingText } from './floating-text.js';
+import { setAnimatingProbe } from './match-save.js';
+import { unitAnimations } from './render-board.js';
 import { initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
@@ -132,6 +134,8 @@ document.addEventListener('visibilitychange', () => recVisibility(document.hidde
 initTelemetrySender();
 // Unit figures: load the sprite-sheet sidecars (render-figures.js).
 initFigures();
+// Match save: it may only save when no unit is mid-animation (match-save.js).
+setAnimatingProbe(() => Object.keys(unitAnimations).length > 0);
 
 /* ?fps in the address shows a small frame-rate meter in the corner, for
    checking smoothness on a real phone: frames per second over the last
