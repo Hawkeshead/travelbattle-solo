@@ -1234,8 +1234,12 @@
   #titleMenu.arriving > *:nth-child(2){ animation-delay:.08s } #titleMenu.arriving > *:nth-child(3){ animation-delay:.16s }
   #titleMenu.arriving > *:nth-child(4){ animation-delay:.24s } #titleMenu.arriving > *:nth-child(5){ animation-delay:.32s }
   #titleMenu.arriving > *:nth-child(6){ animation-delay:.40s } #titleMenu.arriving > *:nth-child(7){ animation-delay:.48s } #titleMenu.arriving > *:nth-child(8){ animation-delay:.56s }
+  /* !important: showModeSelect sets the row's display inline (flex), and an
+     inline style beats any stylesheet rule without it. That is why the row
+     stayed over Campaigns and the battle (4 Oct 2026) while the title, which
+     has no inline style, went. */
   html.title-hidden #titleMenu, html.title-hidden #titleMark,
-  html.title-away #titleMenu, html.title-away #titleMark{ display:none; }
+  html.title-away #titleMenu, html.title-away #titleMark{ display:none !important; }
   @media (max-width: 600px){ #titleMenu{ flex-wrap:wrap; row-gap:8px; } .title-item{ width:22vw; } .title-item .ti-art{ width:15vw; height:15vw; } }
   @keyframes titleIn{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:none; } }
   #titleMark{ animation-name:titleMarkIn; } @keyframes titleMarkIn{ from{ opacity:0; } to{ opacity:1; } }

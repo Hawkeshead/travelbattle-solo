@@ -223,7 +223,7 @@ export function showModeSelect(isSplash){
   const panelChoices = ensureModeChoices(); panelChoices.innerHTML = ''; panelChoices.style.display = 'none';
   const extra = ensureTitleMenu();
   extra.innerHTML = '';
-  extra.style.display = 'flex';
+  extra.style.display = '';   // shown by the stylesheet, hidden by html.title-away / title-hidden
   extra.classList.toggle('arriving', !!isSplash);
   // The title splash treatment only ever plays on the genuine first-load screen —
   // every other route back to this menu (back buttons, campaign-not-found
