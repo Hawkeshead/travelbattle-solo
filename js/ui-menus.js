@@ -115,7 +115,15 @@ function menuItem(btn, id){
   /* Every screen these lead to is drawn in the overlay panel, which the title
      screen keeps hidden: bring it back before the button's own handler runs
      (those that start a battle hide it again themselves). */
-  btn.addEventListener('click', ()=> document.getElementById('overlay').classList.add('show'), { capture: true });
+  /* Leaving the title screen: the title and the row go away for good (until
+     showModeSelect brings them back), whether the next thing is a panel or
+     straight into a battle. 4 Oct 2026: they were tied to the panel being
+     hidden, so a battle (which hides the panel) brought them back over the
+     board. */
+  btn.addEventListener('click', ()=>{
+    document.documentElement.classList.add('title-away');
+    document.getElementById('overlay').classList.add('show');
+  }, { capture: true });
   btn.dataset.item = id;
   const art = MENU_ART_READY.has(id) ? `<img alt="" src="assets/ui/menu/${MENU_ART[id]}.webp">` : '';
   btn.innerHTML = `<span class="ti-art">${art}</span><span class="ti-label"></span>`;
@@ -210,7 +218,7 @@ export function showModeSelect(isSplash){
   subtitleEl.style.display = 'block';
   // The menu is the row of objects on the title screen, not the panel.
   document.getElementById('overlay').classList.remove('show');
-  document.documentElement.classList.remove('title-hidden');
+  document.documentElement.classList.remove('title-hidden', 'title-away');
   // The panel's own button area still exists for every other screen to fill.
   const panelChoices = ensureModeChoices(); panelChoices.innerHTML = ''; panelChoices.style.display = 'none';
   const extra = ensureTitleMenu();
@@ -336,12 +344,13 @@ export function showModeSelect(isSplash){
   }
   // The title screen: the board shows, the panel does not.
   document.getElementById('overlay').classList.remove('show');
-  document.documentElement.classList.remove('title-hidden');
+  document.documentElement.classList.remove('title-hidden', 'title-away');
 }
 
 /* Puts a saved battle back on the board (match-save.js does the state; this
    does the screen, as startBattle and beginOperation do for a new one). */
 export function resumeBattle(save){
+  document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   resumeSave(save, {
     prepare(){
       AudioManager.stopMusic();
@@ -467,6 +476,7 @@ export function showCampaignScreen(){
   campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
 }
 function playCampaignStep(p, card, chosenBy){
+  document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   const f = flowById(p.id);
   state.campaignRun = { id: p.id, step: p.step, stepId: f.steps[p.step].id, cardId: card.id, chosenBy };
   state.campaign = null;
@@ -554,6 +564,7 @@ export function showOperationBrief(card){
 /* Sets the Operation up (locked map, both armies placed) and starts it: no
    orientation roll, no falling-tile intro, no deployment screen. */
 export function beginOperation(card, playerSide){
+  document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   if(isOnline() || state.group || state.rts) return;   // Online, Group and Real-Time never take a card
   AudioManager.stopMusic();
   abandonSave();   // a new battle replaces any saved one
@@ -745,6 +756,7 @@ export function showDifficultySelect(){
    map to cycle it, rather than a separate small preview modal.
 ========================================================= */
 export function beginBoardSetup(){
+  document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   state.campaignRun = null;   // a standard match is not a campaign step
   // A new battle against the AI replaces any saved one (its record goes as an
   // incomplete match). Online and Group matches leave a saved AI battle alone.
