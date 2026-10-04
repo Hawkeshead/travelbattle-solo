@@ -370,8 +370,14 @@ export function scenarioMoveBonus(mover, side, pos){
     if(!area.length) return 0;
     const d = Math.min(...area.map(z => chebyshev(pos, z)));
     if(role === 'attack') return Math.max(0, 6 - d) * 0.25;
-    if(d === 0) return 0.6 + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.6;
-    return Math.max(0, 4 - d) * 0.2;
+    /* HOLD, strengthened (4 Oct 2026). In Matthew's first Lincelles the
+       defenders stepped out of the village on turn 2: inside was worth 0.9,
+       and forming a column outside 1.4, so they went. A holder's place is in
+       the area: 2.0 for standing in it, plus the cover it gives, and nothing
+       for the squares beside it, so leaving costs the full amount. Its
+       Brigadier can still move about inside. Attackers are unchanged. */
+    if(d === 0) return 2.0 + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.6;
+    return Math.max(0, 3 - d) * 0.15;
   }
   if(role === 'escape'){
     const ex = state.scenario.map.exits && state.scenario.map.exits[OP_SIDE_KEY[side]];
