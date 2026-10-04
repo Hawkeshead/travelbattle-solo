@@ -119,7 +119,7 @@ writeFileSync(`${outDir}/summary.txt`, table + '\n');
 /* An SVG rather than a PNG: no dependency, opens in any browser, and stays
    readable in a diff. */
 const W = 720, H = 380, PAD = 56;
-const xs = values, ys = rows.map(r => r.win ?? 0);
+const xs = values;
 const xAt = v => PAD + (values.indexOf(v) / Math.max(1, values.length - 1)) * (W - PAD * 2);
 const yAt = p => H - PAD - ((p - 20) / 60) * (H - PAD * 2);
 const line = (key, colour) => `<polyline fill="none" stroke="${colour}" stroke-width="2" points="` +

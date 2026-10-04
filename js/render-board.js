@@ -1342,7 +1342,7 @@ export function applyMapTransform(){
 }
 
 canvas.addEventListener('pointerdown', (e)=>{
-  try { canvas.setPointerCapture(e.pointerId); } catch(err) { /* not always available/needed — gesture tracking below still works without it */ }
+  try { canvas.setPointerCapture(e.pointerId); } catch(_err) { /* not always available/needed — gesture tracking below still works without it */ }
   mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   mapGestureMoved = false;
   if(mapGesturePointers.size===1){
@@ -1731,7 +1731,19 @@ function drawV2Ground(lay, terrain, x, y, dy){
   if(terrain[y][x] === 'HILL'){ const img = v2Img('v2_hill_' + hillPick(x, y)); if(img) drawV2Tile(img, x, y, 1, false, dy); return; }
   const g = lay.grass[y][x];
   const img = g.detail >= 0 ? v2Tile('v2_detail_' + g.detail) : v2Img('v2_grass_' + g.plain);
-  if(img) drawV2Tile(img, x, y, 1, false, dy);
+  /* GRASS VARIETY (4 Oct 2026): the six plain grass tiles are near-identical,
+     so about half the plain squares are drawn mirrored left to right, picked
+     by a fixed hash of the square so the same board always looks the same.
+     Only plain grass: details (a cart, a stump) keep their drawn way round.
+     Left-right only: the tiles' bevelled edge and the light (from the upper
+     right, matching the cloud shadows) would show a top-bottom flip at once;
+     a left-right one moves the light only a little on a tile this busy. */
+  if(img) drawV2Tile(img, x, y, 1, g.detail < 0 && grassMirrored(x, y, g.plain), dy);
+}
+function grassMirrored(x, y, plain){
+  let h = (x * 73856093) ^ (y * 19349663) ^ (plain * 83492791);
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  return ((h ^ (h >>> 15)) & 1) === 1;
 }
 function drawV2Overlay(lay, terrain, x, y, dy){
   const farm = lay.farms.get(x + ',' + y);

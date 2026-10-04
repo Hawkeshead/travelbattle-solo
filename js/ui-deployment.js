@@ -335,7 +335,7 @@ export function placeUnit(side, typeKey, x, y){
   const pool = state.deployPool[side];
   const poolIdx = pool.indexOf(typeKey);
   if(poolIdx===-1) return; // none left of that type
-  const t = UNIT_TYPES[typeKey];
+  // (unit type no longer needed here)
   const u = newUnit(side, typeKey, x, y, bIdx);
   state.units.push(u);
   pool.splice(poolIdx,1);

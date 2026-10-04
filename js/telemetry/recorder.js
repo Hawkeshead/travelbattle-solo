@@ -180,7 +180,7 @@ function mapEvent(ev, rebuilding){
       pushEvent('move', ev.side, ev.unitId, {
         unit: unitRef(ev.unitId), from: ev.from, to: ev.to, kind: ev.kind || null,
         path_len: ev.from && ev.to ? Math.abs(ev.to.x - ev.from.x) + Math.abs(ev.to.y - ev.from.y) : null,
-        road_used: null, brig_in_range_end: ev.connected != null ? !!ev.connected : null,
+        road_used: roadBothEnds(ev.from, ev.to), brig_in_range_end: ev.connected != null ? !!ev.connected : null,
         formation: ev.formation || null, status: ev.status || null,
       });
       if(ev.connected != null){
@@ -197,13 +197,14 @@ function mapEvent(ev, rebuilding){
       const payload = Object.assign({}, ev);
       delete payload.type; delete payload.turn; delete payload.phase;
       payload.attacker = unitRef(ev.attackerId); payload.defender = unitRef(ev.defenderId);
+      payload.support = { attacker: friendsAround(ev.attackerId), defender: friendsAround(ev.defenderId) };
       pushEvent('fight', ev.attackerSide, ev.attackerId, payload);
       return;
     }
     case 'fire': {
       const payload = Object.assign({}, ev);
       delete payload.type; delete payload.turn; delete payload.phase;
-      if(ev.volley) pushEvent('volley', ev.shooterSide || null, ev.shooterId, Object.assign(payload, { shooter: unitRef(ev.shooterId), target: unitRef(ev.targetId) }));
+      if(ev.volley) pushEvent('volley', ev.shooterSide || null, ev.shooterId, Object.assign(payload, { shooter: unitRef(ev.shooterId), target: unitRef(ev.targetId), needed: VOLLEY_NEEDED }));
       else pushEvent('artillery', ev.gunSide || null, ev.gunId, Object.assign(payload, { battery: unitRef(ev.gunId), target: unitRef(ev.targetId) }));
       return;
     }
@@ -237,6 +238,27 @@ function pushEventRaw(type, side, unitId, payload, phaseOverride, turnOverride, 
   pushEvent(type, side, unitId, payload, phaseOverride, turnOverride);
   if(rebuilding && rec && rec.events.length) rec.events[rec.events.length - 1].tMs = 0;   // no clock for the other phone's turns
 }
+/* The three payload fields the first version left empty (4 Oct 2026):
+   - road_used: the move started and ended on road squares (the road bonus
+     needs the whole move on the road; the log carries only its two ends, so
+     this is the closest honest reading);
+   - support: friendly non-Brigadier units adjacent to each side of a fight
+     as it was fought;
+   - needed (volley): the effect thresholds a volley is read against, as
+     ui-battle applies them (4+ disrupts, 6+ knocks back), kept in the record so
+     a later change to the rule shows up in the data. */
+const VOLLEY_NEEDED = { disrupt: 4, knockback: 6 };
+function roadBothEnds(a, b){
+  const t = state.terrain;
+  const road = p => !!(p && t && t[p.y] && t[p.y][p.x] === 'ROAD');
+  return a && b ? road(a) && road(b) : null;
+}
+function friendsAround(id){
+  const u = (state.units || []).find(x => x.id === id);
+  if(!u) return null;
+  return state.units.filter(o => !o.removed && o.side === u.side && o.id !== u.id && o.type !== 'BRIGADIER' && Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y)) === 1).length;
+}
+
 /* The five causes in the spec, from the reason the game logged. */
 function causeOf(ev){
   const r = String(ev.reason || '').toLowerCase();

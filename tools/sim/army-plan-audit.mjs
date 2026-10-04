@@ -80,7 +80,7 @@ for (let seed = ONLY_SEED; seed <= ONLY_SEED; seed++) {
   const g = await loadGame();
   const render = await import('../../js/render-board.js');
   const menus = await import('../../js/ui-menus.js');
-  const ai = await import('../../js/ai-strategy.js');
+  await import('../../js/ai-strategy.js');
   collapseTimers();
   const { data, dice, rules } = g; const { state, SIDES } = data;
   dice.setFastDiceMode(true); render.setFastAnimationMode(true);

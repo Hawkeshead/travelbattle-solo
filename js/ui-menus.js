@@ -465,9 +465,15 @@ function chevronSvg(n){
 
 /* BATTLE MODE (rts-variant branch): Turn-Based, as always, or Real-Time.
    Turn-Based is the default and nothing about it changes. Real-Time lives
-   entirely in js/rts/, reached through the one dynamic import below. */
+   entirely in js/rts/, reached through the one dynamic import below.
+
+   REAL-TIME IS OFF THE LIVE GAME for now (Matthew, 4 Oct 2026): the switch is
+   not shown and every battle is Turn-Based. The code stays in js/rts/ and on
+   the rts-variant branch; set RTS_ENABLED back to true to offer it again. */
+export const RTS_ENABLED = false;
 let battleMode = 'turn';
 function modeToggleHtml(){
+  if(!RTS_ENABLED) return '';
   const b = (v, label) => `<button type="button" class="mode-btn${battleMode === v ? ' on' : ''}" data-mode="${v}" aria-pressed="${battleMode === v}">${label}</button>`;
   return `<span id="battleModeToggle" class="mode-toggle"><span class="mode-label">Battle</span>${b('turn','Turn-Based')}${b('rts','Real-Time')}</span>`;
 }

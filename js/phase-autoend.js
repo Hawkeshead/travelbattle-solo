@@ -35,7 +35,7 @@ import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules
 import { actsFor } from './group.js';
 import { despatchActive, despatchAvailable, despatchCountdown, despatchCountdownFire, despatchCountdownStop, despatchCountdownTick, onDespatchOutsideClose } from './despatch.js';
 
-export const AUTO_END_MS = 4000;
+export const AUTO_END_MS = 3000;   // 3 s, as the despatch brief asked (Matthew, 4 Oct 2026)
 const TICK_MS = 100;
 
 const END_BUTTON_ID = { move: 'endMoveBtn', fire: 'endFireBtn', fight: 'endFightBtn' };

@@ -11,7 +11,9 @@
    needed. Everything here is CC0 (Kenney) or will be documented with
    its licence/attribution the moment it's added.
 ========================================================= */
-const AUDIO = {
+// Not read anywhere yet: kept as the documented catalogue of what the game
+// could play. The underscore marks it as deliberately unused.
+const _AUDIO = {
   music: {
     /* A — battlefield/deployment music: SOURCED. Not listed here because it is a
        SEQUENCE of two tracks rather than a single file, and this catalogue maps

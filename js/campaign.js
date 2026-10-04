@@ -20,15 +20,15 @@ export function saveCampaignProgress(){
       record: state.campaignRecord,
       mode: state.mode, aiSide: state.aiSide, aiDifficulty: state.aiDifficulty
     }));
-  } catch(e){ /* storage unavailable — campaign just won't survive a reload, not fatal */ }
+  } catch(_e){ /* storage unavailable — campaign just won't survive a reload, not fatal */ }
 }
 export function loadCampaignProgress(){
   try {
     const raw = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch(e){ return null; }
+  } catch(_e){ return null; }
 }
-export function clearCampaignProgress(){ try{ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); }catch(e){} }
+export function clearCampaignProgress(){ try{ localStorage.removeItem(CAMPAIGN_STORAGE_KEY); }catch(_e){} }
 
 export function showCampaignMenu(){
   document.getElementById('overlayTitle').textContent = 'Campaigns';

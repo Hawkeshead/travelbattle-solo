@@ -1603,7 +1603,7 @@ export function applyArtilleryEffectToStack(stack, roll, idx, onAllDone, detail)
 
 export function applyArtilleryEffect(u, roll, onComplete, detail){
   onComplete = onComplete || function(){};
-  const t = UNIT_TYPES[u.type];
+  // (unit type no longer needed here)
   /* `roll` here is the FINAL effect value, and used to be the only thing
      recorded, printed in the export as "rolled 5". It is not what was rolled.
      Every artillery line in every export written before this carried a
