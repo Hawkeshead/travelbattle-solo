@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
 import { saveAtPhaseStart } from './match-save.js';
 import { brigadeIdsFor, operationFirstMover, canMarchOff, marchOff } from './operations.js';
 import { currentRecord } from './telemetry/recorder.js';
@@ -1173,7 +1174,11 @@ export function initBoardInput(){
 export function onCellClick(x,y){
   if(state.gameOver) return;
   if(state.phase==='orientation'){ handleOrientationClick(x); return; }
-  if(state.phase==='deploy'){ handleDeployClick(x,y); return; }
+  if(state.phase==='deploy'){
+    // Rearranging a complete deployment (deploy-rearrange.js) takes the tap first.
+    if(swallowDragClick() || rearrangeTap(x,y)) return;
+    handleDeployClick(x,y); return;
+  }
   if(state.mode==='ai' && state.turn===state.aiSide) return; // AI's turn, ignore human clicks
 
   const clicked = pickUnitAtCell(x,y);

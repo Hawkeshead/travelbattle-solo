@@ -310,7 +310,10 @@ export function attemptDeployAt(typeKey, x, y){
 export function checkDeployAdvance(){
   if(sideFullyDeployed(SIDES.RED) && sideFullyDeployed(SIDES.BLUE)){
     document.getElementById('endDeployBtn').disabled = false;
-    if(!state.spectate) offerBeginBattle();   // spectate starts itself just below
+    if(!state.spectate){
+      offerBeginBattle();
+      if(state.mode === 'ai') log('Both armies are deployed. Drag any of your units to another square in your rows, or onto another of your units to swap them, then Begin Battle.', 'system');
+    }
     /* Spectate has nobody to press it. The button is enabled either way so the
        watcher can see the state the game is in, and then pressed for them. */
     if(state.spectate) setTimeout(()=>{ if(state.phase==='deploy') startBattle(); }, 900);

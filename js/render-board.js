@@ -1341,7 +1341,14 @@ export function applyMapTransform(){
   scheduleBackingUpdate();   // sharpen to the new zoom once it settles
 }
 
+/* A drag that starts on something the board itself should not pan for (a
+   unit being rearranged during deployment, deploy-rearrange.js) claims the
+   pointer here, and the pan gesture leaves it alone. */
+let pointerClaim = null;
+export function setPointerClaim(fn){ pointerClaim = fn; }
+
 canvas.addEventListener('pointerdown', (e)=>{
+  if(pointerClaim && mapGesturePointers.size === 0 && pointerClaim(e)) return;
   try { canvas.setPointerCapture(e.pointerId); } catch(_err) { /* not always available/needed — gesture tracking below still works without it */ }
   mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   mapGestureMoved = false;

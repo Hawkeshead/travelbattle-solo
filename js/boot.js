@@ -1,4 +1,5 @@
 import { clearFloatingText, initFloatingText } from './floating-text.js';
+import { initDeployRearrange } from './deploy-rearrange.js';
 import { setAnimatingProbe } from './match-save.js';
 import { unitAnimations } from './render-board.js';
 import { initFigures } from './render-figures.js';
@@ -134,6 +135,8 @@ document.addEventListener('visibilitychange', () => recVisibility(document.hidde
 initTelemetrySender();
 // Unit figures: load the sprite-sheet sidecars (render-figures.js).
 initFigures();
+// Rearranging a complete deployment by drag or tap (deploy-rearrange.js).
+initDeployRearrange();
 // Match save: it may only save when no unit is mid-animation (match-save.js).
 setAnimatingProbe(() => Object.keys(unitAnimations).length > 0);
 

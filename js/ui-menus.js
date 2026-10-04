@@ -1,4 +1,5 @@
 import { showCampaignMenu } from './campaign.js';
+import { offerBeginBattle } from './ui-deployment.js';
 import { readyCards } from './scenario-cards.js';
 import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
 import { showObjectivePanel } from './operation-panel.js';
@@ -11,7 +12,7 @@ import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
 import { beginDiagramMode, clearTransientRenderState, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
-import { beginFightPhase, beginFirePhase, beginMovePhase, endMovePhase, renderBrigadeStatus, selectUnit, startBattle, updateHeader } from './ui-battle.js';
+import { beginFightPhase, beginFirePhase, beginMovePhase, endMovePhase, renderBrigadeStatus, selectUnit, updateHeader } from './ui-battle.js';
 import { maybeStartAutoEnd } from './phase-autoend.js';
 import { deployArmyComposition, planArmyDeployment, planGroupArmy } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
@@ -364,7 +365,12 @@ export function beginOperation(card, playerSide){
   document.getElementById('overlay').classList.remove('show');
   redrawOperation();
   startAmbientLayer();
-  setTimeout(()=>{ startBattle(); showObjectivePanel(); }, 700);
+  /* Not straight into battle any more (4 Oct 2026): both armies stand in
+     their places, you can drag or tap your units to other squares in their
+     area (or your own rows) or swap two, and Begin Battle starts it. */
+  showObjectivePanel();
+  offerBeginBattle();
+  log('Arrange your units if you wish: drag one to another square in its area, or onto another of your units to swap them. Then Begin Battle.', 'system');
 }
 
 export function showOperationModeSelect(scenario){
