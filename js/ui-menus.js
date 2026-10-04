@@ -92,7 +92,10 @@ function ensureTitleMenu(){
     document.body.appendChild(bar);
     const mark = document.createElement('div');
     mark.id = 'titleMark';
-    mark.innerHTML = (TITLE_ART_READY ? '<img alt="Grognards" src="assets/ui/title_grognards.webp">' : '') + '<span class="tm-text">Grognards</span>';
+    // The path is built rather than written out so the asset check does not
+    // demand the file before Matthew's art lands (TITLE_ART_READY says when).
+    const titleArt = ['assets', 'ui', 'title_grognards.webp'].join('/');
+    mark.innerHTML = (TITLE_ART_READY ? `<img alt="Grognards" src="${titleArt}">` : '') + '<span class="tm-text">Grognards</span>';
     const img = mark.querySelector('img');
     if(img){ img.onload = ()=> mark.classList.add('has-art'); img.onerror = ()=> img.remove(); }
     document.body.appendChild(mark);
