@@ -47,6 +47,83 @@ export function showOverlay(title, html, btnLabel, onClick){
 // showModeSelect: resuming a saved campaign goes straight from boot.js to the
 // campaign screens, and before this existed those screens crashed on a null
 // element.
+/* =========================================================
+   THE TITLE SCREEN (Matthew, 4 Oct 2026)
+
+   The game opens on the map: a random battlefield falls into place (the board
+   intro), the clouds come in, and the menu appears as a row of buttons along
+   the bottom, under the "Grognards" title, instead of the old parchment
+   panel. Every other screen (choosing a side, Operations, Campaigns, the
+   lobbies) still uses the map panels; going back from them returns here.
+
+   Each button is an object of the period (art by Matthew, briefs in the chat
+   of 4 Oct): it shows assets/ui/menu/<id>.webp when that file exists, and a
+   plain brass disc with the label until then. The title likewise shows
+   assets/ui/title_grognards.webp when it exists, a lettered title until then.
+========================================================= */
+/* Which pieces of art are in the repo. Only those are requested, so a missing
+   file never shows a broken image or logs a 404: add an id here (and the
+   title flag) when its file lands in assets/ui/menu/ (assets/ui/). */
+const MENU_ART_READY = new Set([]);
+const TITLE_ART_READY = false;
+export const MENU_ART = {
+  ai: 'cuirass', online: 'despatch', group: 'drum', spectate: 'spyglass',
+  operations: 'cannonballs', campaigns: 'campaign-map', resume: 'pocket-watch', again: 'shako',
+};
+/* A random battlefield for the title (Math.random, never the dice generator,
+   so a match's seed still replays the same match). */
+export function prepareTitleBoard(){
+  setBoardMode('standard');
+  const keys = Math.random() < 0.5 ? ['A','B'] : ['B','A'];
+  state.boardAssignment = { red: keys[0], blue: keys[1] };
+  state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
+  state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+  state.grassStyles = assignGrassStyles(state.terrain);
+  state.buildingStyles = assignBuildingStyles(state.terrain);
+  state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
+  state.units = [];
+}
+function ensureTitleMenu(){
+  let bar = document.getElementById('titleMenu');
+  if(!bar){
+    bar = document.createElement('nav');
+    bar.id = 'titleMenu';
+    bar.setAttribute('aria-label', 'Main menu');
+    document.body.appendChild(bar);
+    const mark = document.createElement('div');
+    mark.id = 'titleMark';
+    mark.innerHTML = (TITLE_ART_READY ? '<img alt="Grognards" src="assets/ui/title_grognards.webp">' : '') + '<span class="tm-text">Grognards</span>';
+    const img = mark.querySelector('img');
+    if(img){ img.onload = ()=> mark.classList.add('has-art'); img.onerror = ()=> img.remove(); }
+    document.body.appendChild(mark);
+    // Any screen that takes the overlay (side select, Operations, a lobby...)
+    // puts the title away; coming back to the menu brings it out again.
+    new MutationObserver(()=>{
+      const shown = document.getElementById('overlay').classList.contains('show');
+      document.documentElement.classList.toggle('title-hidden', shown);
+    }).observe(document.getElementById('overlay'), { attributes:true, attributeFilter:['class'] });
+  }
+  return bar;
+}
+/* Dresses a menu button as its object: the art if there is any, the label
+   under it either way. */
+function menuItem(btn, id){
+  const label = btn.textContent;
+  btn.classList.remove('primary', 'same-again');   // the object is the button; no panel-button styling
+  btn.classList.add('title-item');
+  /* Every screen these lead to is drawn in the overlay panel, which the title
+     screen keeps hidden: bring it back before the button's own handler runs
+     (those that start a battle hide it again themselves). */
+  btn.addEventListener('click', ()=> document.getElementById('overlay').classList.add('show'), { capture: true });
+  btn.dataset.item = id;
+  const art = MENU_ART_READY.has(id) ? `<img alt="" src="assets/ui/menu/${MENU_ART[id]}.webp">` : '';
+  btn.innerHTML = `<span class="ti-art">${art}</span><span class="ti-label"></span>`;
+  btn.querySelector('.ti-label').textContent = label;
+  const img = btn.querySelector('img');
+  if(img){ img.onload = ()=> btn.classList.add('has-art'); img.onerror = ()=> img.remove(); }
+  return btn;
+}
+
 export function ensureModeChoices(){
   let extra = document.getElementById('modeChoices');
   if(!extra){
@@ -130,9 +207,15 @@ export function showModeSelect(isSplash){
   document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge, then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
   document.getElementById('overlayBtn').style.display = 'none';
   subtitleEl.style.display = 'block';
-  const extra = ensureModeChoices();
+  // The menu is the row of objects on the title screen, not the panel.
+  document.getElementById('overlay').classList.remove('show');
+  document.documentElement.classList.remove('title-hidden');
+  // The panel's own button area still exists for every other screen to fill.
+  const panelChoices = ensureModeChoices(); panelChoices.innerHTML = ''; panelChoices.style.display = 'none';
+  const extra = ensureTitleMenu();
   extra.innerHTML = '';
   extra.style.display = 'flex';
+  extra.classList.toggle('arriving', !!isSplash);
   // The title splash treatment only ever plays on the genuine first-load screen —
   // every other route back to this menu (back buttons, campaign-not-found
   // fallback) shows everything instantly, a re-run fade would just feel laggy.
@@ -140,19 +223,7 @@ export function showModeSelect(isSplash){
   subtitleEl.classList.remove('splash-title-group');
   extra.classList.remove('splash-buttons-group');
   document.getElementById('overlayText').classList.remove('splash-buttons-group');
-  if(isSplash){
-    void box.offsetWidth; // restart animation cleanly if this ever re-runs
-    titleEl.classList.add('splash-title-group');
-    subtitleEl.classList.add('splash-title-group');
-    extra.classList.add('splash-buttons-group');
-    document.getElementById('overlayText').classList.add('splash-buttons-group');
-    // Strip the splash classes the moment each animation finishes, so they can
-    // never linger and delay/blank-box a later, unrelated overlay (ambush,
-    // leadership roll, etc.) that happens to reuse these same elements.
-    [titleEl, subtitleEl, extra, document.getElementById('overlayText')].forEach(el=>{
-      el.addEventListener('animationend', ()=> el.classList.remove('splash-title-group','splash-buttons-group'), { once:true });
-    });
-  }
+  // (The old panel's splash fade is gone: the title screen has its own arrival, CSS .arriving.)
   const aiBtn = document.createElement('button');
   aiBtn.className = 'primary';
   aiBtn.textContent = 'vs AI Opponent';
@@ -185,26 +256,27 @@ export function showModeSelect(isSplash){
   // Hotseat (2 players) removed from the home menu for now — beginBoardSetup()
   // and everything it needs is untouched, so this is just the one entry point
   // no longer being offered, easy to re-add later.
-  extra.appendChild(aiBtn);
+  extra.appendChild(menuItem(aiBtn, 'ai'));
   /* ONLINE. Loaded on demand, so the Supabase client is only ever downloaded
      by someone who chooses to play online. */
   const onlineBtn = document.createElement('button');
   onlineBtn.className = 'primary';
   onlineBtn.textContent = 'Play Online';
   onlineBtn.onclick = ()=>{ import('./online.js').then(m => m.openLobby()); };
-  extra.appendChild(onlineBtn);
+  extra.appendChild(menuItem(onlineBtn, 'online'));
   /* ONLINE GROUP: the four-army 2v2 mode. Loaded on demand like Play Online. */
   const groupBtn = document.createElement('button');
   groupBtn.textContent = 'Online Group';
   groupBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; import('./ui-group.js').then(m => m.showGroupMenu()); };
-  extra.appendChild(groupBtn);
-  extra.appendChild(spectateBtn);
+  extra.appendChild(menuItem(groupBtn, 'group'));
+  extra.appendChild(menuItem(spectateBtn, 'spectate'));
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,
   // so restoring them is deleting one line.
-  if(OPERATIONS_ENABLED) extra.appendChild(opsBtn);
-  if(CAMPAIGNS_ENABLED) extra.appendChild(campBtn);
+  // Campaigns and Operations sit next to vs AI: the solo games first.
+  if(CAMPAIGNS_ENABLED) extra.insertBefore(menuItem(campBtn, 'campaigns'), extra.children[1] || null);
+  if(OPERATIONS_ENABLED) extra.insertBefore(menuItem(opsBtn, 'operations'), extra.children[2] || null);
   if(GRAND_STRATEGY_ENABLED) extra.appendChild(grandBtn);
 
   /* RESUME (match-save.js): a battle against the AI left unfinished on this
@@ -212,23 +284,30 @@ export function showModeSelect(isSplash){
      built (it is asynchronous), and added at the top only if the start screen
      is still the one showing by then. */
   loadSave().then(save => {
-    if(!save || titleEl.textContent !== 'TravelBattle' || extra.querySelector('.resume-battle')) return;
+    if(!save || document.documentElement.classList.contains('title-hidden') || extra.querySelector('.resume-battle')) return;
     const sm = save.summary || {};
     const you = sm.playerSide === SIDES.BLUE ? 'France' : 'Britain';
     const mins = Math.max(0, Math.round((Date.now() - save.savedAt) / 60000));
     const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} d ago`;
+    // The first object in the row: the pocket watch. Its line under the label
+    // says where the battle stands; the small cross beside it discards it.
     const wrap = document.createElement('div');
     wrap.className = 'resume-battle';
     const go = document.createElement('button');
     go.type = 'button';
-    go.className = 'primary resume-go';
-    go.innerHTML = '<span class="rb-title">Resume Battle</span><span class="rb-sub"></span>';
-    go.querySelector('.rb-sub').textContent = `${sm.operation ? sm.operation + ' · ' : ''}round ${sm.round || 1} · you are ${you} · ${sm.alive ? `${sm.alive.red}–${sm.alive.blue} units standing · ` : ''}saved ${ago}`;
+    go.textContent = 'Resume Battle';
+    menuItem(go, 'resume');
+    const sub = document.createElement('span');
+    sub.className = 'ti-sub';
+    sub.textContent = `${sm.operation ? sm.operation + ' · ' : ''}round ${sm.round || 1} · ${you} · ${ago}`;
+    go.appendChild(sub);
+    go.title = `${sm.alive ? `${sm.alive.red}–${sm.alive.blue} units standing, ` : ''}saved ${ago}`;
     go.onclick = ()=> resumeBattle(save);
     const drop = document.createElement('button');
     drop.type = 'button';
     drop.className = 'resume-drop';
-    drop.textContent = 'Discard';
+    drop.setAttribute('aria-label', 'Discard the saved battle');
+    drop.textContent = '\u00d7';
     drop.onclick = ()=>{ abandonSave().then(()=> wrap.remove()); };
     wrap.appendChild(go); wrap.appendChild(drop);
     extra.insertBefore(wrap, extra.firstChild);
@@ -241,10 +320,8 @@ export function showModeSelect(isSplash){
   if(last){
     const side = last.aiSide === SIDES.BLUE ? 'Britain' : 'France';
     const again = document.createElement('button');
-    again.className = 'same-again';
-    again.innerHTML = '<span class="sa-seal" aria-hidden="true"></span><span class="sa-label"></span>';
-    again.querySelector('.sa-label').textContent =
-      'Same Again \u00B7 ' + side;
+    again.textContent = 'Same Again \u00B7 ' + side;
+    menuItem(again, 'again');
     again.onclick = ()=>{
       state.scenario = null; state.campaign = null;
       state.mode = 'ai';
@@ -256,7 +333,9 @@ export function showModeSelect(isSplash){
     };
     extra.appendChild(again);
   }
-  document.getElementById('overlay').classList.add('show');
+  // The title screen: the board shows, the panel does not.
+  document.getElementById('overlay').classList.remove('show');
+  document.documentElement.classList.remove('title-hidden');
 }
 
 /* Puts a saved battle back on the board (match-save.js does the state; this
@@ -556,6 +635,11 @@ export function showSideSelect(){
   };
   extra.appendChild(side(FLAG_BRITAIN, 'Britain', SIDES.BLUE));
   extra.appendChild(side(FLAG_FRANCE, 'France', SIDES.RED));
+  // Back to the title screen (the menu is no longer a panel to fall back to).
+  const back = document.createElement('button');
+  back.type = 'button'; back.className = 'op-back'; back.textContent = 'Back';
+  back.onclick = ()=> showModeSelect();
+  extra.appendChild(back);
 }
 
 // Difficulty is presented as the opponent's rank on a service record. Chevrons

@@ -46,14 +46,15 @@ test('the game boots cleanly and reaches the title screen', async ({ page }) => 
 
   // The title splash rendered, which means all six data/*.json files loaded and
   // every script evaluated in a workable order.
-  await expect(page.locator('#overlayTitle')).toHaveText('TravelBattle');
-  await expect(page.locator('#overlaySubtitle')).toBeVisible();
+  // Since 4 Oct 2026 the game opens on the map with the title over it.
+  await expect(page.locator('#titleMark')).toContainText('Grognards', { timeout: 20_000 });
 
   // The data-loading failure page did NOT replace the document.
   await expect(page.getByText('Field Command failed to load')).toHaveCount(0);
 
   // The mode buttons were built by showModeSelect(), so boot.js ran to completion.
-  await expect(page.locator('#modeChoices button').first()).toBeVisible();
+  // The title screen (4 Oct 2026): the board intro plays first, then the menu row.
+  await expect(page.locator('#titleMenu button').first()).toBeVisible({ timeout: 20_000 });
 
   // The board canvas exists and sizeCanvas() gave it real dimensions.
   const box = await page.locator('#board').boundingBox();
@@ -269,8 +270,8 @@ test('an old-format saved campaign does not auto-resume', async ({ page }) => {
 
   await page.goto('/');
 
-  await expect(page.locator('#modeChoices button').first()).toBeVisible({ timeout: 10_000 });
-  const labels = await page.locator('#modeChoices button').allTextContents();
+  await expect(page.locator('#titleMenu button').first()).toBeVisible({ timeout: 20_000 });
+  const labels = await page.locator('#titleMenu .ti-label').allTextContents();
 
   // While Campaigns are hidden (CAMPAIGNS_ENABLED = false in js/ui-menus.js,
   // until campaign play from the logs in step 6 of the Operations and Campaigns
@@ -305,7 +306,8 @@ test('the board is usable on a phone-sized viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
 
-  await expect(page.locator('#overlayTitle')).toBeVisible();
+  // The title screen's menu row (4 Oct 2026) after the board intro.
+  await expect(page.locator('#titleMenu button').first()).toBeVisible({ timeout: 20_000 });
 
   // Nothing may overflow horizontally — the page must never scroll sideways.
   const overflow = await page.evaluate(

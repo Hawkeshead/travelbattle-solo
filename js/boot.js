@@ -6,10 +6,10 @@ import { initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { fctSquareToPixel, sizeCanvas } from './render-board.js';
+import { fctSquareToPixel, playBoardIntroAnimation, sizeCanvas } from './render-board.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
-import { CAMPAIGNS_ENABLED, showModeSelect } from './ui-menus.js';
+import { CAMPAIGNS_ENABLED, prepareTitleBoard, showModeSelect, startAmbientLayer } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { initSafeArea } from './safe-area.js';
 import { FOOT_ACK, FOOT_ACK_ALT, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
@@ -106,10 +106,13 @@ export function start(){
   if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
   } else {
-    showModeSelect(true);
+    /* THE TITLE SCREEN (4 Oct 2026): a battlefield falls into place, the
+       clouds come in, then the menu appears along the bottom. */
+    prepareTitleBoard();
+    sizeCanvas();
+    playBoardIntroAnimation(()=>{ startAmbientLayer(); showModeSelect(true); });
   }
 
-  sizeCanvas();
   /* Layer init after sizeCanvas, which is what first places and sizes it.
      floating-text is a leaf: it is handed the element and the coordinate
      function and imports neither. */

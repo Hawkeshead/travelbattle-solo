@@ -1215,6 +1215,39 @@
     .mode-toggle{ margin:6px 0 0; }
   }
 
+  /* THE TITLE SCREEN (ui-menus ensureTitleMenu): the title over the map, the
+     menu as a row of period objects along the bottom. Each object is its art
+     (assets/ui/menu/<id>.webp) when it exists, a brass disc until then, with
+     its label in small caps underneath. Hidden while any overlay screen is up. */
+  #titleMark{ position:fixed; top:calc(12px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); z-index:30; pointer-events:none;
+    text-align:center; animation:titleIn 1.4s ease-out both; }
+  #titleMark img{ display:block; height:min(22vh, 150px); width:auto; filter:drop-shadow(0 6px 12px rgba(0,0,0,.6)); }
+  #titleMark .tm-text{ font-family:'Cinzel',serif; font-weight:800; font-size:min(11vh, 64px); letter-spacing:.14em; text-transform:uppercase;
+    color:#e9cf7a; text-shadow:0 2px 0 #6b4a14, 0 4px 14px rgba(0,0,0,.75); }
+  #titleMark.has-art .tm-text{ display:none; }
+  #titleMenu{ position:fixed; left:0; right:0; bottom:calc(8px + env(safe-area-inset-bottom,0px)); z-index:30; display:flex; justify-content:center; align-items:flex-end;
+    gap:min(2.2vw, 18px); padding:0 calc(10px + env(safe-area-inset-right,0px)) 0 calc(10px + env(safe-area-inset-left,0px)); flex-wrap:nowrap; }
+  #titleMenu.arriving > *{ opacity:0; animation:titleIn .7s ease-out forwards; }
+  #titleMenu.arriving > *:nth-child(2){ animation-delay:.08s } #titleMenu.arriving > *:nth-child(3){ animation-delay:.16s }
+  #titleMenu.arriving > *:nth-child(4){ animation-delay:.24s } #titleMenu.arriving > *:nth-child(5){ animation-delay:.32s }
+  #titleMenu.arriving > *:nth-child(6){ animation-delay:.40s } #titleMenu.arriving > *:nth-child(7){ animation-delay:.48s } #titleMenu.arriving > *:nth-child(8){ animation-delay:.56s }
+  html.title-hidden #titleMenu, html.title-hidden #titleMark{ display:none; }
+  @media (max-width: 600px){ #titleMenu{ flex-wrap:wrap; row-gap:8px; } .title-item{ width:22vw; } .title-item .ti-art{ width:15vw; height:15vw; } }
+  @keyframes titleIn{ from{ opacity:0; transform:translateY(12px); } to{ opacity:1; transform:none; } }
+  #titleMark{ animation-name:titleMarkIn; } @keyframes titleMarkIn{ from{ opacity:0; } to{ opacity:1; } }
+  .title-item{ all:unset; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; width:min(12vw, 92px); -webkit-tap-highlight-color:transparent; }
+  .title-item .ti-art{ width:min(11vw, 78px); height:min(11vw, 78px); border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 35% 30%, #f0d78c, #b8913f 55%, #6b4a14); box-shadow:0 4px 10px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.5); transition:transform .15s; }
+  .title-item.has-art .ti-art{ background:none; box-shadow:none; border-radius:0; }
+  .title-item .ti-art img{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 5px 8px rgba(0,0,0,.7)); }
+  .title-item:active .ti-art, .title-item:hover .ti-art{ transform:translateY(-3px) scale(1.05); }
+  .title-item .ti-label{ font-family:'Cinzel',serif; font-size:11px; font-weight:700; letter-spacing:.06em; color:#f4e9c9; text-align:center; line-height:1.15;
+    text-shadow:0 1px 2px #000, 0 0 6px rgba(0,0,0,.8); }
+  .title-item .ti-sub{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:10px; color:#e8dcc0; text-shadow:0 1px 2px #000; text-align:center; line-height:1.1; }
+  #titleMenu .resume-battle{ position:relative; display:flex; }
+  #titleMenu .resume-drop{ all:unset; position:absolute; top:-4px; right:4px; width:20px; height:20px; border-radius:50%; background:#3b2416; color:#f4e9c9;
+    font-size:14px; line-height:20px; text-align:center; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.6); }
+
   /* RESUME BATTLE (match-save.js): first on the start screen when a battle
      against the AI was left unfinished. */
   .resume-battle{ display:flex; gap:8px; align-items:stretch; grid-column:1 / -1; width:100%; }
