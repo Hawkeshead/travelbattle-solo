@@ -95,7 +95,14 @@ export function start(){
   // feature on every single load, with no route out. The save itself is left
   // alone rather than cleared — it is their progress, and it should still be
   // there when Campaigns come back.
-  const savedCampaignProgress = CAMPAIGNS_ENABLED ? loadCampaignProgress() : null;   // Campaigns stay hidden until step 6
+  /* 4 Oct 2026: Campaigns are back, played through campaign-play.js and its
+     own progress (fc_campaign_v2), entered from the Campaigns menu, never by
+     auto-resume. The old format's save (tbCampaignProgress, the retired
+     campaign.js) is never resumed: its flow no longer exists. It is left in
+     storage, untouched. An unfinished campaign battle comes back through the
+     start screen's Resume Battle, like any other. */
+  const savedCampaignProgress = null;
+  void CAMPAIGNS_ENABLED; void loadCampaignProgress;
   if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
   } else {

@@ -247,7 +247,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   expect(errors, `errors during AI deployment:\n${errors.join('\n')}`).toEqual([]);
 });
 
-test('a saved campaign does not auto-resume while Campaigns are hidden', async ({ page }) => {
+test('an old-format saved campaign does not auto-resume', async ({ page }) => {
   const errors = watchForErrors(page);
 
   // Seed a saved campaign sitting on flow step 1 of Flanders, which is a
@@ -284,7 +284,7 @@ test('a saved campaign does not auto-resume while Campaigns are hidden', async (
   // would have kept passing while testing nothing at all.
   expect(labels).toContain('vs AI Opponent');
   expect(labels).toContain('Operations');      // Operations are back (step 2): the ready Scenario Cards
-  expect(labels).not.toContain('Campaigns');
+  expect(labels).toContain('Campaigns');       // Campaigns are back (4 Oct 2026), entered from the menu only
 
   // The save itself is deliberately left in storage — it is the player's
   // progress and must still be there when Campaigns return.

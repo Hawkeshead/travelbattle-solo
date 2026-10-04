@@ -1,6 +1,6 @@
-import { showCampaignMenu } from './campaign.js';
 import { offerBeginBattle } from './ui-deployment.js';
-import { readyCards } from './scenario-cards.js';
+import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
+import { getCard, readyCards } from './scenario-cards.js';
 import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
@@ -100,7 +100,7 @@ function loadLastSetup(){
 export const OPERATIONS_ENABLED = true;    // Operations: the ready Scenario Cards (Operations and Campaigns brief, step 2)
 /* Campaigns stay hidden until step 6 (campaign play from the logs). This gates
    the Campaigns button and the boot-time resume path. */
-export const CAMPAIGNS_ENABLED = false;
+export const CAMPAIGNS_ENABLED = true;   // Campaigns: Flanders playable end to end (4 Oct 2026); flows not ready show as coming
 // Grand Strategy joins Operations and Campaigns in being parked for the
 // Commander's Desk pass. Same treatment: the entry point is simply not
 // offered, showGrandMatchTypeSelect and everything downstream are untouched
@@ -178,7 +178,7 @@ export function showModeSelect(isSplash){
   opsBtn.onclick = ()=>{ state.campaign=null; state.spectate=false; extra.style.display='none'; showOperationsMenu(); };
   const campBtn = document.createElement('button');
   campBtn.textContent = 'Campaigns';
-  campBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showCampaignMenu(); };
+  campBtn.onclick = ()=>{ state.spectate=false; showCampaignsList(); };
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
   grandBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showGrandMatchTypeSelect(); };
@@ -291,6 +291,122 @@ export function resumeBattle(save){
   });
 }
 
+/* =========================================================
+   CAMPAIGNS (campaign-play.js holds the progress and the rules of the flow;
+   these are its screens). Playable on this phone against the AI.
+========================================================= */
+function campaignBox(title, html){
+  clearFolio();
+  const box = document.querySelector('#overlay .box');
+  box.classList.add('as-folio', 'as-sides-screen');
+  document.getElementById('overlayTitle').textContent = title;
+  document.getElementById('overlayText').innerHTML = html;
+  document.getElementById('overlayBtn').style.display = 'none';   // the victory screen's own button, if we came from one
+  box.classList.remove('as-victory');
+  const extra = document.getElementById('modeChoices');
+  extra.innerHTML = ''; extra.className = 'as-ops'; extra.style.display = 'flex';
+  document.getElementById('overlay').classList.add('show');
+  return extra;
+}
+function campBtn(extra, label, sub, onClick, cls = 'op-choice'){
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = cls;
+  b.innerHTML = '<span class="op-name"></span>' + (sub ? '<span class="op-arch"></span>' : '');
+  b.querySelector('.op-name').textContent = label;
+  if(sub) b.querySelector('.op-arch').textContent = sub;
+  if(onClick) b.onclick = onClick; else b.disabled = true;
+  extra.appendChild(b);
+  return b;
+}
+export function showCampaignsList(){
+  const extra = campaignBox('Campaigns', 'A run of Battles and Operations, played in order. The winner of each Battle chooses the Operation that follows; the side that wins more of the five takes the campaign.');
+  const p = loadCampaign();
+  if(p && flowById(p.id)){
+    const f = flowById(p.id);
+    campBtn(extra, `Continue: ${f.name}`, campaignFinished(p) ? 'finished, see the result' : `step ${Math.min(p.step + 1, f.steps.length)} of ${f.steps.length} · you are ${p.playerSide === SIDES.RED ? 'Britain' : 'France'}`, ()=> showCampaignScreen());
+  }
+  for(const f of (TB_DATA.campaigns || [])){
+    const ready = flowReady(f);
+    campBtn(extra, f.name, ready ? `${f.years} · ${f.steps.length} engagements` : `${f.years} · coming soon`, ready ? ()=> showCampaignSide(f) : null);
+  }
+  campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
+}
+function showCampaignSide(f){
+  campaignBox(f.name, `<div class="op-brief"><div class="op-date">${f.years}</div><p class="op-intro">${f.brief}</p>` +
+    (loadCampaign() ? '<p class="op-limit">Starting this replaces the campaign in progress.</p>' : '') + '<div class="op-pick">Choose your side</div></div>');
+  const extra = document.getElementById('modeChoices');
+  extra.className = 'as-sides';
+  const side = (svg, name, mine) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'side-flag'; b.setAttribute('aria-label', name); b.innerHTML = svg;
+    b.onclick = ()=>{ startCampaign(f.id, mine); showCampaignScreen(); }; extra.appendChild(b); };
+  side(FLAG_BRITAIN, 'Britain', SIDES.RED); side(FLAG_FRANCE, 'France', SIDES.BLUE);
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'op-back'; back.textContent = 'Back'; back.onclick = ()=> showCampaignsList(); extra.appendChild(back);
+}
+/* The campaign's own page: every step with its result, the score, and what
+   comes next (play it, or choose it). */
+export function showCampaignScreen(){
+  const p = loadCampaign();
+  if(!p || !flowById(p.id)){ showCampaignsList(); return; }
+  const f = flowById(p.id);
+  const t = tally(p);
+  const me = p.playerSide, you = me === SIDES.RED ? 'Britain' : 'France';
+  const rows = f.steps.map((s, i) => {
+    const r = p.results[i];
+    const c = cardForStep(p, i);
+    const name = c ? c.name : (s.type === 'branch' ? s.options.map(id => getCard(id).name.replace(/^Battle of /, '')).join(' or ') : s.card);
+    const mark = r ? `<b class="${r.winner}">${SIDE_LABEL[r.winner]} won</b>` : i === p.step ? '<b>next</b>' : '';
+    return `<li class="${i === p.step ? 'now' : ''}"><span>${i + 1}. ${name}</span><span>${mark}</span></li>`;
+  }).join('');
+  const done = campaignFinished(p);
+  const head = done
+    ? `<p class="camp-result">${t.red === t.blue ? 'The campaign is drawn.' : `${t.red > t.blue ? 'Britain' : 'France'} wins the campaign, ${Math.max(t.red, t.blue)} engagements to ${Math.min(t.red, t.blue)}.`}</p>`
+    : `<p class="op-date">You are ${you} · Britain ${t.red}, France ${t.blue}</p>`;
+  const extra = campaignBox(f.name, `<div class="op-brief">${head}<ol class="camp-steps">${rows}</ol></div>`);
+  if(done){
+    campBtn(extra, 'New campaign', null, ()=>{ abandonCampaign(); showCampaignsList(); }, 'op-choice');
+  } else {
+    const s = f.steps[p.step];
+    if(s.type === 'branch' && !p.choices[s.id]){
+      const chooser = chooserFor(p, p.step);
+      if(chooser === me){
+        const sideOfCard = id => getCard(id);
+        for(const id of s.options){ const c = sideOfCard(id); campBtn(extra, `Choose: ${c.name}`, `${c.archetype} · ${c.turnLimit} rounds`, ()=>{ choose(p, p.step, id); showCampaignScreen(); }); }
+      } else {
+        const id = aiChooses(p, p.step);
+        choose(p, p.step, id);
+        log(`${SIDE_LABEL[chooser]} won the last engagement and chooses ${getCard(id).name}.`, 'system');
+        showCampaignScreen();
+        return;
+      }
+    } else {
+      const c = cardForStep(p, p.step);
+      const chosenBy = s.type === 'branch' ? chooserFor(p, p.step) : null;
+      campBtn(extra, `Play: ${c.name}`, `${c.kind === 'battle' ? 'Battle, three Brigades a side' : c.archetype + ' · ' + c.turnLimit + ' rounds'}${chosenBy ? ` · chosen by ${SIDE_LABEL[chosenBy]}` : ''}`, ()=> playCampaignStep(p, c, chosenBy));
+    }
+    campBtn(extra, 'Abandon campaign', null, ()=>{ abandonCampaign(); showCampaignsList(); }, 'op-back');
+  }
+  campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
+}
+function playCampaignStep(p, card, chosenBy){
+  const f = flowById(p.id);
+  state.campaignRun = { id: p.id, step: p.step, stepId: f.steps[p.step].id, cardId: card.id, chosenBy };
+  state.campaign = null;
+  if(card.kind === 'operation'){ beginOperation(card, p.playerSide); return; }
+  // A Battle: equal armies, the Battle's own map, straight to deployment.
+  abandonSave();
+  AudioManager.stopMusic();
+  state.scenario = null;
+  state.mode = 'ai'; state.spectate = false; state.aiDifficulty = 'hard';
+  state.aiSide = p.playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  state.gameOver = false; state.winner = null;
+  if(!applyBattleMap(card)){ setBoardMode('standard'); }
+  sizeCanvas();
+  document.getElementById('overlay').classList.remove('show');
+  draw();
+  startAmbientLayer();
+  log(`${card.name}, ${card.date}. ${card.intro || ''}`, 'system');
+  initDeployment();
+}
+
 /* OPERATIONS (Operations and Campaigns brief, 2.7): the ready Operation
    cards, then a pre-battle brief (name, date, intro, both sides' objectives,
    the round limit) where the player picks a side. One AI level (Marshal), so
@@ -341,7 +457,7 @@ export function showOperationBrief(card){
     b.className = 'side-flag';
     b.setAttribute('aria-label', name);
     b.innerHTML = flagSvg;
-    b.onclick = ()=> beginOperation(card, mine);
+    b.onclick = ()=>{ state.campaignRun = null; beginOperation(card, mine); };   // from the menu: not a campaign step
     return b;
   };
   extra.appendChild(side(FLAG_BRITAIN, 'Britain', SIDES.RED));
@@ -544,6 +660,7 @@ export function showDifficultySelect(){
    map to cycle it, rather than a separate small preview modal.
 ========================================================= */
 export function beginBoardSetup(){
+  state.campaignRun = null;   // a standard match is not a campaign step
   // A new battle against the AI replaces any saved one (its record goes as an
   // incomplete match). Online and Group matches leave a saved AI battle alone.
   if(state.mode === 'ai' && !state.spectate && !isOnline() && !state.group) abandonSave();

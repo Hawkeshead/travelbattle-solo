@@ -1,4 +1,5 @@
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
+import { campaignContext, campaignFinished, recordResult } from './campaign-play.js';
 import { clearSave } from './match-save.js';
 import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
@@ -153,7 +154,7 @@ export function endGame(winner){
     recAwaitOnlineMerge(winner, () => ({ exportText: exportFullMatchLog() }));
   } else if(currentRecord()){
     const aiSide = state.spectate ? SIDES.BLUE : state.aiSide;
-    recFinalise({ winner, endReason: 'win_condition', exportText: exportFullMatchLog(),
+    recFinalise({ winner, endReason: 'win_condition', campaign: campaignContext(), exportText: exportFullMatchLog(),
       moveLog: aiSide ? exportAiMoveLog() : null, termSummary: aiSide ? summariseAiDecisions(aiSide) : null });
   }
   // A turn theme still playing when the match ends fades rather than running on.
@@ -211,6 +212,13 @@ export function endGame(winner){
       saveCampaignProgress();
       location.reload();
     };
+  } else if(state.campaignRun){
+    /* A campaign step (campaign-play.js): the result is recorded, and the
+       button goes back to the campaign rather than to a new battle. */
+    const p = recordResult(winner);
+    const done = p && campaignFinished(p);
+    document.getElementById('overlayBtn').textContent = done ? 'Campaign Result' : 'Continue Campaign';
+    document.getElementById('overlayBtn').onclick = ()=> import('./ui-menus.js').then(m => m.showCampaignScreen());
   } else {
     document.getElementById('overlayBtn').textContent = 'New Battle';
     document.getElementById('overlayBtn').onclick = ()=> location.reload();

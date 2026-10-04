@@ -359,6 +359,8 @@ export const recFinalise = guard(outcome => {
   try { rec.derived = Object.assign(deriveMeasures(rec, { flags }), keep); }
   catch(e){ rec.derived = keep; fault(e); }
   if(faults) rec.derived.recorder_faults = faults;
+  // A campaign step says which campaign, step and choice it was (campaign-play.js).
+  if(outcome && outcome.campaign) rec.derived.campaign = outcome.campaign;
   if(finalisedCb){ try { finalisedCb(rec); } catch(e){ fault(e); } }
   return rec;
 });
