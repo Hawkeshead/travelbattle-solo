@@ -10,7 +10,8 @@ export const UNIT_TYPES_ALLOWED = new Set(['BRIGADIER', 'GUARD', 'INFANTRY', 'HE
    here, and the engine's type table; nothing else should need to change. */
 export const CONDITION_TYPES = new Set(['HOLD_AREA', 'CLEAR_AREA', 'CONTROL_AREA', 'DESTROY', 'MARCH_OFF']);
 export const SPECIAL_RULES_ALLOWED = new Set(['chainWaivedTurn1']);
-const COLS = 20, ROWS = 10;
+let COLS = 20, ROWS = 10;   // the card's own map size, set per card in validateCard
+const MAP_GLYPHS = new Set(['.', ':', '*', '^', '#', '=']);
 
 const unitType = u => (typeof u === 'string' ? u : u && u.type);
 
@@ -42,7 +43,21 @@ export function validateCard(card){
 
   // Ready cards: everything the engine reads.
   const map = card.map;
-  if(!map || map.type !== 'standard') where(`map type "${map && map.type}" is not supported yet (step 2 has "standard"; "authored" arrives in step 3)`);
+  COLS = 20; ROWS = 10;
+  if(map && map.type === 'authored'){
+    /* A map drawn for the card: rows of . : * ^ # = (open, farmland, woods,
+       hill, buildings, road), 10 x 10 (a single board) or 20 x 10. */
+    const rows = map.terrain;
+    if(!Array.isArray(rows) || !rows.length) where('an authored map needs terrain rows');
+    else {
+      ROWS = rows.length; COLS = rows[0].length;
+      if(!((COLS === 10 && ROWS === 10) || (COLS === 20 && ROWS === 10))) where(`authored map is ${COLS} x ${ROWS}; it must be 10 x 10 or 20 x 10`);
+      rows.forEach((r, i) => {
+        if(r.length !== COLS) where(`authored map row ${i} is ${r.length} wide, not ${COLS}`);
+        for(const ch of r) if(!MAP_GLYPHS.has(ch)){ where(`authored map row ${i} has an unknown square "${ch}"`); break; }
+      });
+    }
+  } else if(!map || map.type !== 'standard') where(`map type "${map && map.type}" is not supported (standard or authored)`);
   else {
     for(const k of ['red', 'blue']) {
       if(!['A', 'B'].includes(map.boards && map.boards[k])) where(`map.boards.${k} must be A or B`);

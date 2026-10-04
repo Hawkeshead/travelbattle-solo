@@ -42,6 +42,17 @@ test('Flanders is ready (3 Battles, 4 Operations); Peninsular and Waterloo are d
   assert.ok(others.filter((c) => c.kind === 'operation').every((c) => c.win === null));
 });
 
+test('every authored map: areas sit on the ground their objective needs', () => {
+  const want = { village: '#', hill: '^' };
+  for (const c of cards.filter((x) => x.status === 'ready' && x.map && x.map.type === 'authored')) {
+    for (const [name, cells] of Object.entries(c.map.areas)) {
+      const g = want[name];
+      if (!g) continue;
+      for (const [x, y] of cells) assert.equal(c.map.terrain[y][x], g, `${c.id}: ${name} (${x},${y})`);
+    }
+  }
+});
+
 test('every area a condition or placement names is on its map, with a square for every unit placed', () => {
   // validateCard checks this; asserted here per card so a failure names it.
   for (const c of cards.filter((x) => x.status === 'ready' && x.kind === 'operation')) {
@@ -85,7 +96,9 @@ const opCards = cards.filter((c) => c.status === 'ready' && c.kind === 'operatio
 
 test('every ready Operation deploys both sides: every unit placed, one per square, in its area or on its own rows', () => {
   for (const card of opCards) {
-    const plan = planOperationPlacement(card, OPEN);
+    // Open ground the size of the card's own map (authored maps are 10 x 10).
+    const ground = card.map.type === 'authored' ? card.map.terrain.map((r) => [...r].map(() => 'OPEN')) : OPEN;
+    const plan = planOperationPlacement(card, ground);
     const want = ['british', 'french'].reduce((n, k) => n + card.forces[k].brigades.reduce((m, b) => m + b.units.length, 0), 0);
     assert.equal(plan.length, want, card.id + ': units placed');
     assert.equal(new Set(plan.map((p) => p.x + ',' + p.y)).size, plan.length, card.id + ': two units on one square');
@@ -98,7 +111,7 @@ test('every ready Operation deploys both sides: every unit placed, one per squar
         const sq = new Set(areaNames.flatMap((a) => card.map.areas[a].map(([x, y]) => x + ',' + y)));
         assert.ok(mine.every((p) => sq.has(p.x + ',' + p.y)), `${card.id}: ${k} outside its area`);
       } else {
-        const rows = side === 'red' ? [8, 9] : [0, 1];
+        const rows = side === 'red' ? [ground.length - 2, ground.length - 1] : [0, 1];
         assert.ok(mine.every((p) => rows.includes(p.y)), `${card.id}: ${k} off its own rows`);
       }
     }
@@ -114,7 +127,7 @@ test('HOLD_AREA forRounds advances once per round, however many units fall in it
   const c = card({});
   c.win.french = { combinator: 'any', conditions: [{ type: 'HOLD_AREA', area: 'village', forRounds: 2 }] };
   const streaks = {};
-  const units = [U('f1', 'blue', 'INFANTRY', 8, 2), U('f2', 'blue', 'INFANTRY', 7, 3)];
+  const units = [U('f1', 'blue', 'INFANTRY', 4, 2), U('f2', 'blue', 'INFANTRY', 4, 3)];   // in Lincelles' village
   useWorld({ units, card: c, streaks });
   // Units die mid-round: instant checks must not move the counter.
   units[1].removed = true;

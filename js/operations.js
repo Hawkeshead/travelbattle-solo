@@ -41,8 +41,30 @@ const unitType = u => (typeof u === 'string' ? u : u.type);
 export const exitRow = edge => (edge === 'britishEdge' ? ROWS - 1 : edge === 'frenchEdge' ? 0 : null);
 
 /* ---------- the map ---------- */
+/* AUTHORED MAPS (4 Oct 2026): an Operation can carry its own map, drawn for
+   it, instead of two standard boards: map.type 'authored', map.terrain a list
+   of rows, one character a square:
+     .  open grass    :  farmland (ploughed)    *  woods
+     ^  hill          #  buildings              =  road
+   A 10 x 10 map is a single board (boardMode 'single'); 20 x 10 is the usual
+   width. There are no physical boards to place, so no road-edge exclusions
+   and no farm overlay beyond the farmland squares themselves. */
+const GLYPH = { '.': 'OPEN', ':': 'PLOUGHED_FIELD', '*': 'WOODS', '^': 'HILL', '#': 'BUILDING', '=': 'ROAD' };
+export function authoredTerrain(rows){ return rows.map(r => [...r].map(ch => GLYPH[ch] || 'OPEN')); }
+
 export function applyLockedMap(card){
   const m = card.map;
+  if(m.type === 'authored'){
+    const t = authoredTerrain(m.terrain);
+    setBoardMode(t[0].length === 10 && t.length === 10 ? 'single' : 'standard');
+    state.boardAssignment = null;
+    state.boardRotation = null;
+    state.terrain = t;
+    state.grassStyles = assignGrassStyles(state.terrain);
+    state.buildingStyles = assignBuildingStyles(state.terrain);
+    state.excludedRoadEdges = new Set();
+    return;
+  }
   setBoardMode('standard');
   state.boardAssignment = { red: m.boards.red, blue: m.boards.blue };
   state.boardRotation = { red: m.rotation.red, blue: m.rotation.blue };

@@ -4,7 +4,7 @@
    returns where every unit of both sides starts, so the unit tests can check
    every ready card deploys on both sides.
 ========================================================= */
-const COLS = 20, ROWS = 10;
+let COLS = 20, ROWS = 10;   // taken from the terrain each time a plan is made
 const SIDE_OF = { british: 'red', french: 'blue' };
 const PREF = { BUILDING: 0, HILL: 1, WOODS: 2 };
 const unitType = u => (typeof u === 'string' ? u : u.type);
@@ -57,6 +57,7 @@ function fillEdge(side, units, centreX, taken){
 /* Every unit of both sides placed, as { side, type, x, y, brigadeId, formation }. */
 export function planOperationPlacement(card, terrain){
   TERRAIN = terrain;
+  if(terrain && terrain.length){ ROWS = terrain.length; COLS = terrain[0].length; }
   const taken = new Set();
   const plan = [];
   // Area placements first, then edge placements (2.2).

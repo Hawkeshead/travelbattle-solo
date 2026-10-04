@@ -31,7 +31,7 @@
    you discard it, and when a new battle starts (its record is then sent as an
    incomplete match, like any abandoned one).
 ========================================================= */
-import { state } from './data-core.js';
+import { setBoardMode, state } from './data-core.js';
 import { BUILD } from './build-info.js';
 import { isOnline } from './online-session.js';
 import { restoreState, snapshotState } from './engine-state.js';
@@ -142,6 +142,7 @@ export async function resumeSave(s, ui){
   resuming = true;
   try {
     restoreState(s.snap);
+    setBoardMode(state.boardMode || 'standard');   // the board's size lives outside state (COLS, ROWS)
     setRngState(s.rng);
     if(s.rec) recResume(s.rec);
     ui.prepare();

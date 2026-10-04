@@ -61,7 +61,11 @@ export const TB_DATA = (function(){
    forced rotation of that many 90° clockwise turns; 4-6 = that side's
    player chooses the rotation) — see beginBoardSetup().
 ========================================================= */
-export const HALF_COLS = 10, COLS = HALF_COLS*2; // each physical board is 10x10; combined map is always 20 wide
+export const HALF_COLS = 10; // each physical board is 10x10
+/* The map's width: 20 for the usual two boards side by side, 10 for an
+   Operation fought on a single board ('single', Operations and Campaigns,
+   4 Oct 2026). A live binding, so every module reading COLS follows it. */
+export let COLS = HALF_COLS*2;
 export let ROWS = 10; // 10 deep for a standard 2-board match; setBoardMode('grand') sets this to 20 for a 2x2, 4-board match
 export let CELL = 68; // recomputed responsively at runtime, see computeCellSize()
 
@@ -73,6 +77,7 @@ export let CELL = 68; // recomputed responsively at runtime, see computeCellSize
 export function setBoardMode(mode){
   state.boardMode = mode;
   ROWS = (mode === 'grand') ? HALF_COLS*2 : HALF_COLS;
+  COLS = (mode === 'single') ? HALF_COLS : HALF_COLS*2;
 }
 
 // Board A — exact terrain from Matthew's annotated spreadsheet (Aug 2026).

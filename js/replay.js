@@ -210,7 +210,9 @@ function sectionMetadata(){
     const sc = state.scenario, m = sc.map || {};
     out.push(`Operation       : ${sc.id}  (${sc.name})`);
     out.push(`Card hash       : ${cardHash(sc.id)}`);
-    out.push(`Map             : Britain board ${m.boards && m.boards.red} rotation ${m.rotation && m.rotation.red}, France board ${m.boards && m.boards.blue} rotation ${m.rotation && m.rotation.blue}; ${(m.overrides || []).length} overrides`);
+    out.push(m.type === 'authored'
+      ? `Map             : authored for this Operation, ${m.terrain[0].length} x ${m.terrain.length}${m.terrain[0].length === 10 ? ' (single board)' : ''}`
+      : `Map             : Britain board ${m.boards && m.boards.red} rotation ${m.rotation && m.rotation.red}, France board ${m.boards && m.boards.blue} rotation ${m.rotation && m.rotation.blue}; ${(m.overrides || []).length} overrides`);
     out.push(`Round limit     : ${sc.turnLimit}`);
   }
   out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
