@@ -64,7 +64,7 @@ export function showOverlay(title, html, btnLabel, onClick){
 /* Which pieces of art are in the repo. Only those are requested, so a missing
    file never shows a broken image or logs a 404: add an id here (and the
    title flag) when its file lands in assets/ui/menu/ (assets/ui/). */
-const MENU_ART_READY = new Set([]);
+const MENU_ART_READY = new Set(['ai', 'online', 'group', 'spectate', 'operations', 'campaigns', 'resume', 'again']);   // all eight, 4 Oct 2026
 const TITLE_ART_READY = true;   // Matthew's Grognards title, 4 Oct 2026
 export const MENU_ART = {
   ai: 'cuirass', online: 'despatch', group: 'drum', spectate: 'spyglass',
