@@ -65,7 +65,7 @@ export function showOverlay(title, html, btnLabel, onClick){
    file never shows a broken image or logs a 404: add an id here (and the
    title flag) when its file lands in assets/ui/menu/ (assets/ui/). */
 const MENU_ART_READY = new Set([]);
-const TITLE_ART_READY = false;
+const TITLE_ART_READY = true;   // Matthew's Grognards title, 4 Oct 2026
 export const MENU_ART = {
   ai: 'cuirass', online: 'despatch', group: 'drum', spectate: 'spyglass',
   operations: 'cannonballs', campaigns: 'campaign-map', resume: 'pocket-watch', again: 'shako',
@@ -92,9 +92,7 @@ function ensureTitleMenu(){
     document.body.appendChild(bar);
     const mark = document.createElement('div');
     mark.id = 'titleMark';
-    // The path is built rather than written out so the asset check does not
-    // demand the file before Matthew's art lands (TITLE_ART_READY says when).
-    const titleArt = ['assets', 'ui', 'title_grognards.webp'].join('/');
+    const titleArt = 'assets/ui/title_grognards.webp';
     mark.innerHTML = (TITLE_ART_READY ? `<img alt="Grognards" src="${titleArt}">` : '') + '<span class="tm-text">Grognards</span>';
     const img = mark.querySelector('img');
     if(img){ img.onload = ()=> mark.classList.add('has-art'); img.onerror = ()=> img.remove(); }

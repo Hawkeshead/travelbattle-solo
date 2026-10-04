@@ -1221,7 +1221,7 @@
      its label in small caps underneath. Hidden while any overlay screen is up. */
   #titleMark{ position:fixed; top:calc(12px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); z-index:30; pointer-events:none;
     text-align:center; animation:titleIn 1.4s ease-out both; }
-  #titleMark img{ display:block; height:min(22vh, 150px); width:auto; filter:drop-shadow(0 6px 12px rgba(0,0,0,.6)); }
+  #titleMark img{ display:block; height:min(24vh, 150px); width:auto; max-width:min(78vw, 640px); object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,.65)); }
   #titleMark .tm-text{ font-family:'Cinzel',serif; font-weight:800; font-size:min(11vh, 64px); letter-spacing:.14em; text-transform:uppercase;
     color:#e9cf7a; text-shadow:0 2px 0 #6b4a14, 0 4px 14px rgba(0,0,0,.75); }
   #titleMark.has-art .tm-text{ display:none; }
@@ -1364,6 +1364,7 @@
 </script>
   <link rel="preload" as="image" href="assets/ui/panel_frame.webp">
   <link rel="preload" as="image" href="assets/ui/panel_map_centre.webp">
+  <link rel="preload" as="image" href="assets/ui/title_grognards.webp">
 </head>
 <body>
 <div id="app">
