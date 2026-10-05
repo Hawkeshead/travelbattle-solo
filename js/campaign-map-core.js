@@ -31,7 +31,9 @@
      final turn, the side that destroyed more enemy unit value wins.
 ========================================================= */
 
-export const CAMPAIGN_VERSION = 1;
+/* 1: Phase 1. 2: Phase 2 (withdrawal and pursuit): armies gain restTurn,
+   a pending battle gains a stage. restoreCampaign upgrades older saves. */
+export const CAMPAIGN_VERSION = 2;
 export const SIDES_CM = ['british', 'french'];
 export const otherSideCM = s => (s === 'british' ? 'french' : 'british');
 const ARCHIVE_SIDE = { british: 'red', french: 'blue' };
@@ -51,6 +53,20 @@ export function unitValues(map){
   return (v && v.table) || RTS_POINT_VALUE;
 }
 export const valueOf = (map, unit) => unitValues(map)[unit.type] || 0;
+
+/* PHASE 2 SETTINGS, from the map's "withdrawal" block (config values):
+   aiWithdrawRatio  the French withdraw (and pursue on foot) when the other
+                    side's unit value is more than this many times theirs
+   pursuitInfantryDicePenalty  dice a pursuit without cavalry attacks short
+   rearguardTurns   rounds a rearguard must survive */
+export function withdrawalRules(map){
+  const w = (map && map.withdrawal) || {};
+  return {
+    aiWithdrawRatio: w.aiWithdrawRatio ?? 1.5,
+    pursuitInfantryDicePenalty: w.pursuitInfantryDicePenalty ?? 1,
+    rearguardTurns: w.rearguardTurns ?? 8,
+  };
+}
 
 /* The date of a turn: fortnightly from the map's start date. */
 export function dateForTurn(map, turn){
@@ -83,7 +99,7 @@ const ORDINAL = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
 /* The army a side starts with: its composition from army-compositions.json,
    each brigade led by a Brigadier (as deployment places one first). */
 function buildArmy(c, archive, side, spec, composition){
-  const army = { id: nextId(c, 'army'), side, name: spec.name, townId: spec.townId, brigades: [], hasMoved: false };
+  const army = { id: nextId(c, 'army'), side, name: spec.name, townId: spec.townId, brigades: [], hasMoved: false, restTurn: null };
   composition.brigades.forEach((b, i) => {
     const brigade = { id: nextId(c, 'brigade'), name: `${ORDINAL[i] || (i + 1) + 'th'} Brigade`, units: [] };
     brigade.units.push(makeUnit(c, archive, side, 'BRIGADIER'));
@@ -138,7 +154,17 @@ export const fightingUnits = b => b.units.filter(u => u.type !== 'BRIGADIER');
 export function describeArmy(a){
   return a.brigades.map(b => `${b.name} [${b.units.map(u => `${u.name} (${u.type})`).join(', ')}]`).join('; ');
 }
-export const armyStrength = (map, a) => a.brigades.reduce((n, b) => n + b.units.reduce((m, u) => m + valueOf(map, u), 0), 0);
+export const armyStrength = (map, a) => a.brigades.reduce((n, b) => n + brigadeValue(map, b), 0);
+export const brigadeValue = (map, b) => b.units.reduce((m, u) => m + valueOf(map, u), 0);
+const CAVALRY = new Set(['LIGHT_CAV', 'HEAVY_CAV']);
+export const hasCavalry = b => b.units.some(u => CAVALRY.has(u.type));
+/* An army resting after a withdrawal cannot move this turn (Phase 2's
+   placeholder cost; bread and money replace it in Phases 3 and 4). */
+export const isResting = (c, a) => a.restTurn != null && a.restTurn === c.turn && c.phase === a.side;
+/* The "cannot move" marker shows while restTurn is set: from the withdrawal
+   until the end of the phase it stood still in (cleared by endRests). */
+export const restPending = a => a.restTurn != null;
+function endRests(c, side){ for(const a of armiesOf(c, side)) if(a.restTurn != null && a.restTurn <= c.turn) a.restTurn = null; }
 
 /* ---------- the log ---------- */
 export function logEntry(c, map, side, kind, text, data){
@@ -148,6 +174,7 @@ export function logEntry(c, map, side, kind, text, data){
 /* ---------- moving ---------- */
 export function validMoves(c, map, army){
   if(!army || c.phase !== army.side || army.hasMoved || c.pendingBattle || c.result) return [];
+  if(isResting(c, army)) return [];
   return townById(map, army.townId).links.slice();
 }
 
@@ -165,9 +192,12 @@ export function moveArmy(c, map, armyId, townId){
     logEntry(c, map, army.side, 'move', `${army.name} marches from ${townName(map, from)} to ${townName(map, townId)}.`, { armyId, from, to: townId });
     return { kind: 'moved' };
   }
-  logEntry(c, map, army.side, 'attack', `${army.name} marches from ${townName(map, from)} on ${townName(map, townId)}, held by ${enemies.map(e => e.name).join(' and ')}: battle.`, { armyId, from, to: townId, defenders: enemies.map(e => e.id) });
   c.pendingBattle = makeBattle(c, map, army, from, enemies);
-  return { kind: 'battle', battle: c.pendingBattle };
+  const b = c.pendingBattle;
+  logEntry(c, map, army.side, 'attack', `${army.name} marches from ${townName(map, from)} on ${townName(map, townId)}, held by ${enemies.map(e => e.name).join(' and ')}.` +
+    (b.cornered ? ` ${enemies.map(e => e.name).join(' and ')} ${enemies.length === 1 ? 'is' : 'are'} cornered, with no line of retreat: battle.` : ' The defence may fight or withdraw.'),
+    { armyId, from, to: townId, defenders: enemies.map(e => e.id), cornered: b.cornered });
+  return { kind: 'battle', battle: b };
 }
 
 /* MAX_BRIGADES_PER_BATTLE. The tactical board is built for up to three
@@ -185,7 +215,7 @@ function makeBattle(c, map, attacker, fromTownId, defenders){
   };
   const participants = { [attacker.side]: pick([attacker]), [otherSideCM(attacker.side)]: pick(defenders) };
   const largest = Math.max(participants.british.length, participants.french.length);
-  return {
+  const b = {
     id: nextId(c, 'battle'),
     turn: c.turn,
     date: dateForTurn(map, c.turn),
@@ -197,7 +227,16 @@ function makeBattle(c, map, attacker, fromTownId, defenders){
     participants,
     // One brigade on the larger side: the 10 x 10 Operation board; two or three: the full board.
     boardMode: largest <= 1 ? 'single' : 'standard',
+    /* PHASE 2. 'decide': the defence chooses to fight or withdraw. 'battle':
+       it fights (or is cornered). 'pursuit': it withdrew and the attacker
+       chooses whether to chase. 'rearguard': a pursuit is on. */
+    kind: 'battle',
+    stage: 'decide',
+    cornered: false,
   };
+  const options = withdrawOptions(c, map, b, otherSideCM(attacker.side));
+  if(!options.length){ b.stage = 'battle'; b.cornered = true; }
+  return b;
 }
 
 /* The brigades (with their units) each side fields, in order. */
@@ -207,6 +246,182 @@ export function battleBrigades(c, battle, side){
     const brigade = army && army.brigades.find(b => b.id === p.brigadeId);
     return brigade ? { army, brigade } : null;
   }).filter(Boolean);
+}
+
+/* ---------- PHASE 2: WITHDRAWAL AND PURSUIT ----------
+
+   An attacked army may refuse battle. The sequence, all held on
+   c.pendingBattle so a save mid-way resumes at the same choice:
+     decide     the defence fights (-> 'battle') or withdraws, if any
+                neighbouring town is free of enemy armies. With none it is
+                cornered and goes straight to battle.
+     pursuit    it withdrew. The attacker chases with ONE brigade or lets it
+                go. Cavalry brigades must be chosen if there are any; with
+                none, a foot brigade may chase at a dice penalty.
+     rearguard  the withdrawing army's weakest brigade turns to cover the
+                retreat on a 10 x 10 board: it wins by lasting the set number
+                of rounds, the pursuer by breaking it.
+   A withdrawn army cannot move on its next turn (the placeholder cost until
+   bread and money arrive in Phases 3 and 4). The attacker holds the town. */
+
+/* Towns the defence could fall back to: road neighbours free of enemy armies. */
+export function withdrawOptions(c, map, battle, defenderSide){
+  return townById(map, battle.townId).links.filter(t => armiesAt(c, t, otherSideCM(defenderSide)).length === 0);
+}
+export const defenderSideOf = battle => otherSideCM(battle.attackerSide);
+const defendingArmies = (c, battle) => battle.defenderArmyIds.map(id => armyById(c, id)).filter(Boolean);
+export const totalValue = (map, armies) => armies.reduce((n, a) => n + armyStrength(map, a), 0);
+
+export function chooseFight(c, map){
+  const b = c.pendingBattle;
+  if(!b || b.stage !== 'decide') throw new Error('no fight-or-withdraw choice pending');
+  b.stage = 'battle';
+  logEntry(c, map, defenderSideOf(b), 'stand', `${defendingArmies(c, b).map(a => a.name).join(' and ')} stand${b.defenderArmyIds.length === 1 ? 's' : ''} and fight at ${townName(map, b.townId)}.`);
+}
+
+/* The rearguard: the withdrawing armies' weakest brigade, by total unit
+   value, the one with fewer units on a tie. */
+export function weakestBrigade(map, armies){
+  let best = null;
+  for(const a of armies) for(const br of a.brigades){
+    const v = brigadeValue(map, br), n = br.units.length;
+    if(!best || v < best.v || (v === best.v && n < best.n)) best = { army: a, brigade: br, v, n };
+  }
+  return best;
+}
+
+/* The defence withdraws to `toTownId`. Every defending army in the town goes,
+   and each rests on its next turn. */
+export function chooseWithdraw(c, map, toTownId){
+  const b = c.pendingBattle;
+  if(!b || b.stage !== 'decide') throw new Error('no fight-or-withdraw choice pending');
+  const side = defenderSideOf(b);
+  if(!withdrawOptions(c, map, b, side).includes(toTownId)) throw new Error('cannot withdraw to ' + toTownId);
+  const armies = defendingArmies(c, b);
+  // Its next own phase: later this turn if it moves second, otherwise next turn.
+  const restTurn = side === c.playerSide ? c.turn + 1 : c.turn;
+  for(const a of armies){ a.townId = toTownId; a.restTurn = restTurn; }
+  const rg = weakestBrigade(map, armies);
+  b.stage = 'pursuit';
+  b.withdrawal = { side, to: toTownId, armyIds: armies.map(a => a.id), rearguard: rg ? { armyId: rg.army.id, brigadeId: rg.brigade.id } : null, restTurn };
+  logEntry(c, map, side, 'withdraw', `${armies.map(a => a.name).join(' and ')} refuse${armies.length === 1 ? 's' : ''} battle and withdraw${armies.length === 1 ? 's' : ''} from ${townName(map, b.townId)} to ${townName(map, toTownId)}; ${armies.length === 1 ? 'it' : 'they'} cannot march on turn ${restTurn}. ${armyById(c, b.attackerArmyId).name} holds ${townName(map, b.townId)}.` +
+    (rg ? ` If pursued, ${rg.brigade.name} of ${rg.army.name} forms the rearguard.` : ''), { to: toTownId, armies: armies.map(a => a.id) });
+  return b.withdrawal;
+}
+
+/* Which brigades may pursue: the cavalry brigades if there are any (one of
+   them must go), otherwise any brigade, on foot, at the dice penalty. */
+export function pursuitChoices(c, map){
+  const b = c.pendingBattle;
+  const army = b && armyById(c, b.attackerArmyId);
+  if(!army) return { brigades: [], onFoot: false };
+  const cav = army.brigades.filter(hasCavalry);
+  return cav.length ? { brigades: cav, onFoot: false } : { brigades: army.brigades.slice(), onFoot: true };
+}
+
+export function choosePursue(c, map, brigadeId){
+  const b = c.pendingBattle;
+  if(!b || b.stage !== 'pursuit') throw new Error('no pursuit choice pending');
+  const choice = pursuitChoices(c, map);
+  const br = choice.brigades.find(x => x.id === brigadeId);
+  if(!br) throw new Error('that brigade may not pursue: ' + brigadeId);
+  if(!b.withdrawal.rearguard){ chooseLetGo(c, map); return null; }
+  const rules = withdrawalRules(map);
+  b.stage = 'rearguard';
+  b.kind = 'rearguard';
+  b.boardMode = 'single';
+  b.pursuit = { side: b.attackerSide, armyId: b.attackerArmyId, brigadeId, onFoot: choice.onFoot, dicePenalty: choice.onFoot ? rules.pursuitInfantryDicePenalty : 0 };
+  b.rearguardTurns = rules.rearguardTurns;
+  b.participants = { [b.attackerSide]: [{ armyId: b.attackerArmyId, brigadeId }], [b.withdrawal.side]: [{ armyId: b.withdrawal.rearguard.armyId, brigadeId: b.withdrawal.rearguard.brigadeId }] };
+  const rgArmy = armyById(c, b.withdrawal.rearguard.armyId);
+  const rgBrig = rgArmy.brigades.find(x => x.id === b.withdrawal.rearguard.brigadeId);
+  logEntry(c, map, b.attackerSide, 'pursue', `${br.name} of ${armyById(c, b.attackerArmyId).name} pursues${choice.onFoot ? ' on foot (no cavalry: attacking at ' + b.pursuit.dicePenalty + ' die fewer)' : ''}. ${rgBrig.name} of ${rgArmy.name} turns to cover the retreat to ${townName(map, b.withdrawal.to)}: it must hold for ${rules.rearguardTurns} rounds.`);
+  return b.pursuit;
+}
+
+export function chooseLetGo(c, map){
+  const b = c.pendingBattle;
+  if(!b || b.stage !== 'pursuit') throw new Error('no pursuit choice pending');
+  logEntry(c, map, b.attackerSide, 'noPursuit', `${armyById(c, b.attackerArmyId).name} lets the ${cap(b.withdrawal.side)} go.`);
+  c.pendingBattle = null;
+}
+
+/* THE FRENCH AI'S CHOICES (Phase 2). Ratios use the same unit values as the
+   campaign's scoring (the Real-Time clock-victory points).
+   - Defending: withdraw when the attacker's value exceeds theirs by the
+     configured ratio and a road is open; retreat to the free neighbour
+     furthest from every other British army.
+   - Attacking a withdrawn army: always pursue with cavalry if a brigade has
+     any (the strongest such brigade); with none, pursue on foot only when
+     its army's value exceeds the withdrawing armies' by the same ratio. */
+export function aiShouldWithdraw(c, map, b){
+  const side = defenderSideOf(b);
+  if(!withdrawOptions(c, map, b, side).length) return false;
+  const att = armyStrength(map, armyById(c, b.attackerArmyId));
+  const def = totalValue(map, defendingArmies(c, b));
+  return att > def * withdrawalRules(map).aiWithdrawRatio;
+}
+export function aiRetreatTown(c, map, b){
+  const side = defenderSideOf(b);
+  const enemies = armiesOf(c, otherSideCM(side));
+  const score = t => {
+    const ds = enemies.filter(e => e.id !== b.attackerArmyId).map(e => (shortestPath(map, t, e.townId) || []).length - 1).filter(d => d >= 0);
+    return ds.length ? Math.min(...ds) : 99;
+  };
+  const opts = withdrawOptions(c, map, b, side);
+  return opts.reduce((best, t) => (score(t) > score(best) ? t : best), opts[0]);
+}
+export function aiPursuit(c, map){
+  const b = c.pendingBattle;
+  const choice = pursuitChoices(c, map);
+  if(!choice.brigades.length || !b.withdrawal.rearguard) return null;
+  const strongest = choice.brigades.reduce((x, y) => (brigadeValue(map, y) > brigadeValue(map, x) ? y : x));
+  if(!choice.onFoot) return strongest.id;
+  const att = armyStrength(map, armyById(c, b.attackerArmyId));
+  const def = totalValue(map, b.withdrawal.armyIds.map(id => armyById(c, id)).filter(Boolean));
+  return att > def * withdrawalRules(map).aiWithdrawRatio ? strongest.id : null;
+}
+/* Makes whatever choices are the AI's to make, until one is the player's or
+   there is nothing left to choose. Returns the pending engagement or null. */
+export function resolveAiChoices(c, map){
+  for(let guard = 0; guard < 4; guard++){
+    const b = c.pendingBattle;
+    if(!b) return null;
+    if(b.stage === 'decide' && defenderSideOf(b) === c.aiSide){
+      if(aiShouldWithdraw(c, map, b)) chooseWithdraw(c, map, aiRetreatTown(c, map, b)); else chooseFight(c, map);
+      continue;
+    }
+    if(b.stage === 'pursuit' && b.attackerSide === c.aiSide){
+      const pick = aiPursuit(c, map);
+      if(pick) choosePursue(c, map, pick); else chooseLetGo(c, map);
+      continue;
+    }
+    return b;
+  }
+  return c.pendingBattle;
+}
+
+/* After the rearguard action. result: { winner, lost, matchUid? }. The dead
+   go for good; the rearguard's survivors are already with their army in the
+   retreat town, the pursuers with theirs in the town they took. Nobody
+   retreats further: the withdrawal has already happened. */
+export function applyRearguardResult(c, map, result){
+  const b = c.pendingBattle;
+  if(!b || b.stage !== 'rearguard') throw new Error('no rearguard action pending');
+  const lost = new Set(result.lost || []);
+  const summary = { battleId: b.id, townId: b.townId, winner: result.winner, rearguard: true, lostUnits: { british: [], french: [] }, brokenBrigades: { british: [], french: [] }, removedArmies: [], retreat: null, destroyedArmies: [] };
+  removeLosses(c, map, lost, summary);
+  const record = Object.assign({}, b, { winner: result.winner, matchUid: result.matchUid || null, summary, foughtAt: new Date().toISOString() });
+  c.battles.push(record);
+  c.pendingBattle = null;
+  const rgSide = b.withdrawal.side;
+  const lostText = k => summary.lostUnits[k].length ? summary.lostUnits[k].map(u => `${u.name} (${u.type}, ${u.brigade} of ${u.army})`).join('; ') : 'none';
+  logEntry(c, map, result.winner, 'rearguard',
+    `Rearguard action at ${townName(map, b.townId)} (10 x 10 board): ${result.winner === rgSide ? `the ${cap(rgSide)} rearguard held and covered the retreat to ${townName(map, b.withdrawal.to)}` : `the ${cap(b.attackerSide)} pursuit broke the rearguard`}. ` +
+    `British lost: ${lostText('british')}. French lost: ${lostText('french')}.` +
+    (summary.removedArmies.length ? ` Destroyed: ${summary.removedArmies.map(a => a.name).join(', ')}.` : ''), { battle: record });
+  checkVictory(c, map);
+  return summary;
 }
 
 /* ---------- splitting and merging ---------- */
@@ -224,7 +439,7 @@ export function splitArmy(c, map, armyId, brigadeIds, name){
   const moving = army.brigades.filter(b => ids.includes(b.id));
   if(moving.length !== ids.length) throw new Error('unknown brigade in split');
   army.brigades = army.brigades.filter(b => !ids.includes(b.id));
-  const fresh = { id: nextId(c, 'army'), side: army.side, name: name || nextArmyName(c, army.side), townId: army.townId, brigades: moving, hasMoved: army.hasMoved };
+  const fresh = { id: nextId(c, 'army'), side: army.side, name: name || nextArmyName(c, army.side), townId: army.townId, brigades: moving, hasMoved: army.hasMoved, restTurn: army.restTurn ?? null };
   c.armies.push(fresh);
   logEntry(c, map, army.side, 'split', `${fresh.name} detached from ${army.name} at ${townName(map, army.townId)}: ${describeArmy(fresh)}.`, { from: army.id, to: fresh.id, brigades: ids });
   return fresh;
@@ -244,6 +459,7 @@ export function mergeArmies(c, map, intoId, fromId){
   if(!canMerge(c, into, from)) throw new Error(`cannot merge ${fromId} into ${intoId}`);
   into.brigades.push(...from.brigades);
   into.hasMoved = into.hasMoved || from.hasMoved;
+  if(from.restTurn != null) into.restTurn = Math.max(into.restTurn ?? -1, from.restTurn);
   c.armies = c.armies.filter(a => a.id !== fromId);
   logEntry(c, map, into.side, 'merge', `${from.name} joins ${into.name} at ${townName(map, into.townId)}: now ${describeArmy(into)}.`, { into: intoId, from: fromId });
   return into;
@@ -253,6 +469,7 @@ export function mergeArmies(c, map, intoId, fromId){
 export function endPlayerPhase(c, map){
   if(c.phase !== c.playerSide || c.pendingBattle || c.result) throw new Error('not the player phase');
   logEntry(c, map, c.playerSide, 'endPhase', `${cap(c.playerSide)} phase ends.`);
+  endRests(c, c.playerSide);
   c.phase = c.aiSide;
   for(const a of armiesOf(c, c.aiSide)) a.hasMoved = false;
 }
@@ -282,6 +499,11 @@ export function aiStep(c, map){
   if(c.phase !== c.aiSide || c.pendingBattle || c.result) return { kind: 'done' };
   const army = armiesOf(c, c.aiSide).find(a => !a.hasMoved);
   if(!army) return { kind: 'done' };
+  if(isResting(c, army)){
+    army.hasMoved = true;
+    logEntry(c, map, army.side, 'rest', `${army.name} rests at ${townName(map, army.townId)} after its withdrawal and cannot march.`, { armyId: army.id });
+    return { kind: 'held', army };
+  }
   let best = null;
   for(const target of armiesOf(c, c.playerSide)){
     const path = shortestPath(map, army.townId, target.townId);
@@ -299,6 +521,7 @@ export function aiStep(c, map){
 export function endAiPhase(c, map){
   if(c.phase !== c.aiSide || c.pendingBattle || c.result) throw new Error('not the AI phase');
   logEntry(c, map, c.aiSide, 'endPhase', `${cap(c.aiSide)} phase ends.`);
+  endRests(c, c.aiSide);
   if(c.turn >= c.totalTurns){ finalReckoning(c, map); return; }
   c.turn += 1;
   c.phase = c.playerSide;
@@ -314,26 +537,11 @@ export function endAiPhase(c, map){
 export function applyBattleResult(c, map, result){
   const battle = c.pendingBattle;
   if(!battle) throw new Error('no battle pending');
+  if(battle.stage !== 'battle' && battle.stage !== 'decide') throw new Error('the pending engagement is not a battle (stage ' + battle.stage + ')');
   const winner = result.winner, loser = otherSideCM(winner);
   const lost = new Set(result.lost || []);
   const summary = { battleId: battle.id, townId: battle.townId, winner, lostUnits: { british: [], french: [] }, brokenBrigades: { british: [], french: [] }, removedArmies: [], retreat: null, destroyedArmies: [] };
-
-  for(const army of c.armies){
-    for(const b of army.brigades){
-      const dead = b.units.filter(u => lost.has(u.id));
-      for(const u of dead){
-        u.status = 'destroyed';
-        summary.lostUnits[army.side].push({ id: u.id, name: u.name, type: u.type, brigade: b.name, army: army.name });
-        c.destroyedValue[otherSideCM(army.side)] += valueOf(map, u);
-        c.unitsLost[army.side] += 1;
-      }
-      b.units = b.units.filter(u => !lost.has(u.id));
-      if(fightingUnits(b).length === 0) summary.brokenBrigades[army.side].push({ id: b.id, name: b.name, army: army.name });
-    }
-    army.brigades = army.brigades.filter(b => fightingUnits(b).length > 0);
-  }
-  for(const a of c.armies.filter(x => x.brigades.length === 0)) summary.removedArmies.push({ id: a.id, name: a.name, side: a.side });
-  c.armies = c.armies.filter(a => a.brigades.length > 0);
+  removeLosses(c, map, lost, summary);
 
   // The loser's armies in the town (fielded or standing by) fall back together.
   const losers = armiesAt(c, battle.townId, loser);
@@ -357,6 +565,29 @@ export function applyBattleResult(c, map, result){
   logEntry(c, map, winner, 'battle', battleText(map, record), { battle: record });
   checkVictory(c, map);
   return summary;
+}
+
+/* The dead go for good: each lost unit is removed (its value counted to the
+   side that destroyed it), a brigade with no fighting units left is broken
+   and removed, and an army with no brigades is removed. Shared by battles and
+   rearguard actions. */
+function removeLosses(c, map, lost, summary){
+  for(const army of c.armies){
+    for(const b of army.brigades){
+      const dead = b.units.filter(u => lost.has(u.id));
+      for(const u of dead){
+        u.status = 'destroyed';
+        summary.lostUnits[army.side].push({ id: u.id, name: u.name, type: u.type, brigade: b.name, army: army.name });
+        c.destroyedValue[otherSideCM(army.side)] += valueOf(map, u);
+        c.unitsLost[army.side] += 1;
+      }
+      b.units = b.units.filter(u => !lost.has(u.id));
+      if(fightingUnits(b).length === 0) summary.brokenBrigades[army.side].push({ id: b.id, name: b.name, army: army.name });
+    }
+    army.brigades = army.brigades.filter(b => fightingUnits(b).length > 0);
+  }
+  for(const a of c.armies.filter(x => x.brigades.length === 0)) summary.removedArmies.push({ id: a.id, name: a.name, side: a.side });
+  c.armies = c.armies.filter(a => a.brigades.length > 0);
 }
 
 /* Where a beaten army goes: a neighbouring town with no enemy army in it.
@@ -417,8 +648,26 @@ export function restoreCampaign(text){
   try {
     const c = JSON.parse(text);
     if(!c || c.kind !== 'campaign-map' || typeof c.version !== 'number' || c.version > CAMPAIGN_VERSION) return null;
-    return c;
+    return upgradeCampaign(c);
   } catch { return null; }
+}
+
+/* Brings an older save up to this version, filling new fields with their
+   defaults. Version 1 (Phase 1) had no withdrawals: no army is resting, and a
+   battle already pending was a straight fight (it was offered no choice), so
+   it stays one. */
+export function upgradeCampaign(c){
+  if(c.version < 2){
+    for(const a of c.armies) if(a.restTurn === undefined) a.restTurn = null;
+    if(c.pendingBattle){
+      c.pendingBattle.kind = c.pendingBattle.kind || 'battle';
+      c.pendingBattle.stage = c.pendingBattle.stage || 'battle';
+      c.pendingBattle.cornered = !!c.pendingBattle.cornered;
+    }
+    for(const b of c.battles) b.kind = b.kind || 'battle';
+    c.version = 2;
+  }
+  return c;
 }
 
 /* ---------- the campaign log export ---------- */
@@ -434,9 +683,9 @@ export function campaignLogText(c, map){
   for(const e of c.log){
     if(e.turn !== turn){ turn = e.turn; out.push(`== Turn ${e.turn}, ${e.date} ==`); }
     out.push(`  [${e.kind}${e.side ? ' ' + e.side : ''}] ${e.text}`);
-    if(e.kind === 'battle' && e.data && e.data.battle){
+    if((e.kind === 'battle' || e.kind === 'rearguard') && e.data && e.data.battle){
       const b = e.data.battle;
-      out.push(`      battle id ${b.id}, match ${b.matchUid || '(no record)'}, board ${b.boardMode}, attacker ${b.attackerSide} from ${townName(map, b.fromTownId)}`);
+      out.push(`      ${b.kind === 'rearguard' ? 'rearguard action' : 'battle'} id ${b.id}, match ${b.matchUid || '(no record)'}, board ${b.boardMode}, attacker ${b.attackerSide} from ${townName(map, b.fromTownId)}${b.pursuit ? `, pursuit ${b.pursuit.onFoot ? 'on foot (dice -' + b.pursuit.dicePenalty + ')' : 'with cavalry'}, rearguard to hold ${b.rearguardTurns} rounds` : ''}`);
       for(const s of SIDES_CM) out.push(`      ${s} fielded: ${b.participants[s].map(p => p.brigadeId + ' of ' + p.armyId).join(', ')}`);
     }
   }

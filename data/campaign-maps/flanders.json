@@ -685,5 +685,11 @@
    "beaumont",
    "maubeuge"
   ]
- ]
+ ],
+ "withdrawal": {
+  "note": "Phase 2. aiWithdrawRatio: the French AI withdraws (and pursues on foot) when the other side's unit value is more than this many times its own. pursuitInfantryDicePenalty: dice a pursuit with no cavalry attacks short, never below one. rearguardTurns: rounds a rearguard must survive.",
+  "aiWithdrawRatio": 1.5,
+  "pursuitInfantryDicePenalty": 1,
+  "rearguardTurns": 8
+ }
 }

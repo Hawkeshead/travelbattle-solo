@@ -191,3 +191,180 @@ test('the save round-trips and the log export reads', () => {
   assert.match(text, /Turn 1, 23 May 1793/);
   assert.match(text, /marches from Ostend to Bruges/);
 });
+
+/* ---------- PHASE 2: withdrawal and pursuit ---------- */
+const unitsOf = (types) => types.map((type, i) => ({ id: 'x' + type + i + Math.random().toString(36).slice(2, 6), name: type, type, xp: 0, status: 'active' }));
+const brigade = (id, types) => ({ id, name: id, units: unitsOf(['BRIGADIER', ...types]) });
+
+test('a cornered army cannot withdraw', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  f.townId = 'dunkirk'; b.townId = 'nieuport';
+  const blocker = cm.splitArmy(c, MAP, b.id, [b.brigades[2].id]);
+  blocker.townId = 'hondschoote';
+  cm.splitArmy(c, MAP, b.id, [b.brigades[1].id]);
+  cm.moveArmy(c, MAP, b.id, 'dunkirk');
+  assert.strictEqual(c.pendingBattle.cornered, true);
+  assert.strictEqual(c.pendingBattle.stage, 'battle');
+  assert.throws(() => cm.chooseWithdraw(c, MAP, 'hondschoote'));
+  // With a road open, the same army is offered the choice.
+  const d = fresh();
+  const [b2] = cm.armiesOf(d, 'british'), [f2] = cm.armiesOf(d, 'french');
+  f2.townId = 'dunkirk'; b2.townId = 'nieuport';
+  cm.moveArmy(d, MAP, b2.id, 'dunkirk');
+  assert.strictEqual(d.pendingBattle.stage, 'decide');
+  // The attacker came from Nieuport, so it is free too: both roads are open.
+  assert.deepStrictEqual(cm.withdrawOptions(d, MAP, d.pendingBattle, 'french').sort(), ['hondschoote', 'nieuport']);
+});
+
+test('the French withdraw only beyond the configured value ratio', () => {
+  const ratio = cm.withdrawalRules(MAP).aiWithdrawRatio;
+  assert.strictEqual(ratio, 1.5);
+  const setup = (frenchBrigades) => {
+    const c = fresh();
+    const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+    b.townId = 'ypres'; f.townId = 'menin';
+    f.brigades.splice(frenchBrigades);
+    cm.moveArmy(c, MAP, b.id, 'menin');
+    return { c, b, f };
+  };
+  // Three brigades against three: about even, so France stands.
+  const even = setup(3);
+  assert.ok(!cm.aiShouldWithdraw(even.c, MAP, even.c.pendingBattle));
+  cm.resolveAiChoices(even.c, MAP);
+  assert.strictEqual(even.c.pendingBattle.stage, 'battle');
+  // Three British brigades against one French: well past 1.5, France withdraws.
+  const weak = setup(1);
+  const att = cm.armyStrength(MAP, weak.b), def = cm.armyStrength(MAP, weak.f);
+  assert.ok(att > def * ratio, `${att} vs ${def}`);
+  cm.resolveAiChoices(weak.c, MAP);
+  assert.strictEqual(weak.c.pendingBattle.stage, 'pursuit');
+  assert.notStrictEqual(weak.f.townId, 'menin');
+  assert.strictEqual(weak.b.townId, 'menin', 'the attacker holds the town');
+  // Exactly at the ratio is not enough: "exceeds".
+  const edge = setup(3);
+  edge.f.brigades = [brigade('cbX', ['INFANTRY', 'INFANTRY'])];   // 8
+  edge.b.brigades = [brigade('cbY', ['INFANTRY', 'INFANTRY', 'INFANTRY'])];   // 12 = 8 x 1.5
+  assert.ok(!cm.aiShouldWithdraw(edge.c, MAP, edge.c.pendingBattle));
+  edge.b.brigades[0].units.push(...unitsOf(['INFANTRY']));   // 16
+  assert.ok(cm.aiShouldWithdraw(edge.c, MAP, edge.c.pendingBattle));
+});
+
+test('the AI retreats to the free town furthest from other British armies', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  // Menin's roads: Ypres, Courtrai, Lincelles. Britain attacks from Ypres with
+  // a second army standing at Tourcoing, next to Courtrai and Lincelles.
+  b.townId = 'ypres'; f.townId = 'menin'; f.brigades.splice(1);
+  const other = cm.splitArmy(c, MAP, b.id, [b.brigades[2].id]);
+  other.townId = 'tourcoing';
+  cm.moveArmy(c, MAP, b.id, 'menin');
+  const opts = cm.withdrawOptions(c, MAP, c.pendingBattle, 'french').sort();
+  assert.deepStrictEqual(opts, ['courtrai', 'lincelles', 'ypres']);
+  assert.strictEqual(cm.aiRetreatTown(c, MAP, c.pendingBattle), 'ypres');
+});
+
+test('the rearguard is the weakest brigade, fewest units on a tie', () => {
+  const army = { brigades: [brigade('a', ['GUARD', 'INFANTRY', 'LIGHT_CAV']), brigade('b', ['INFANTRY', 'INFANTRY']), brigade('c', ['ARTILLERY', 'ARTILLERY'])] };
+  assert.strictEqual(cm.weakestBrigade(MAP, [army]).brigade.id, 'b');   // 8 against 14 and 12
+  const tie = { brigades: [brigade('d', ['INFANTRY', 'INFANTRY', 'BRIGADIER'].slice(0, 2)), brigade('e', ['INFANTRY', 'INFANTRY'])] };
+  tie.brigades[0].units.push({ id: 'extra', name: 'B', type: 'BRIGADIER', xp: 0, status: 'active' });   // same value (8), one more unit
+  assert.strictEqual(cm.weakestBrigade(MAP, [tie]).brigade.id, 'e');
+});
+
+test('French pursuit: cavalry always, on foot only with the advantage', () => {
+  const withdrawn = (britishTypes, frenchBrigades) => {
+    const c = fresh();
+    const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+    f.brigades = frenchBrigades;
+    b.brigades = [brigade('cbB', britishTypes)];
+    b.townId = 'menin'; f.townId = 'lincelles';
+    cm.endPlayerPhase(c, MAP);
+    cm.moveArmy(c, MAP, f.id, 'menin');
+    cm.chooseWithdraw(c, MAP, 'ypres');   // the player's choice
+    return c;
+  };
+  // Has a cavalry brigade: pursues with it, never on foot, whatever the odds.
+  const cav = withdrawn(['GUARD', 'GUARD', 'INFANTRY'], [brigade('cbF1', ['INFANTRY', 'INFANTRY']), brigade('cbF2', ['LIGHT_CAV', 'INFANTRY'])]);
+  cm.resolveAiChoices(cav, MAP);
+  assert.strictEqual(cav.pendingBattle.stage, 'rearguard');
+  assert.strictEqual(cav.pendingBattle.pursuit.brigadeId, 'cbF2');
+  assert.strictEqual(cav.pendingBattle.pursuit.onFoot, false);
+  // No cavalry and no 1.5 advantage: lets them go.
+  const even = withdrawn(['INFANTRY', 'INFANTRY'], [brigade('cbF3', ['INFANTRY', 'INFANTRY'])]);
+  cm.resolveAiChoices(even, MAP);
+  assert.strictEqual(even.pendingBattle, null);
+  // No cavalry but more than 1.5 times the value: pursues on foot, penalised.
+  const strong = withdrawn(['INFANTRY'], [brigade('cbF4', ['INFANTRY', 'INFANTRY']), brigade('cbF5', ['GUARD', 'INFANTRY'])]);
+  cm.resolveAiChoices(strong, MAP);
+  assert.strictEqual(strong.pendingBattle.stage, 'rearguard');
+  assert.strictEqual(strong.pendingBattle.pursuit.onFoot, true);
+  assert.strictEqual(strong.pendingBattle.pursuit.dicePenalty, 1);
+  assert.strictEqual(strong.pendingBattle.pursuit.brigadeId, 'cbF5', 'the strongest brigade goes');
+});
+
+test('the player must pursue with cavalry if any brigade has it', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'ypres'; f.townId = 'menin'; f.brigades.splice(1);
+  cm.moveArmy(c, MAP, b.id, 'menin');
+  cm.chooseWithdraw(c, MAP, cm.aiRetreatTown(c, MAP, c.pendingBattle));
+  const choice = cm.pursuitChoices(c, MAP);
+  assert.strictEqual(choice.onFoot, false);
+  assert.ok(choice.brigades.every(cm.hasCavalry));
+  const footOnly = b.brigades.find(x => !cm.hasCavalry(x));
+  if(footOnly) assert.throws(() => cm.choosePursue(c, MAP, footOnly.id));
+  cm.choosePursue(c, MAP, choice.brigades[0].id);
+  assert.strictEqual(c.pendingBattle.boardMode, 'single');
+  assert.strictEqual(c.pendingBattle.rearguardTurns, 8);
+});
+
+test('a rearguard result is permanent, and a withdrawn army rests a turn', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'ypres'; f.townId = 'menin';
+  f.brigades.splice(2);
+  cm.moveArmy(c, MAP, b.id, 'menin');
+  cm.chooseWithdraw(c, MAP, 'lincelles');
+  const rg = c.pendingBattle.withdrawal.rearguard;
+  cm.choosePursue(c, MAP, cm.pursuitChoices(c, MAP).brigades[0].id);
+  const rgBrig = f.brigades.find(x => x.id === rg.brigadeId);
+  const lost = cm.fightingUnits(rgBrig).map(u => u.id);   // the rearguard is broken
+  const s = cm.applyRearguardResult(c, MAP, { winner: 'british', lost });
+  assert.strictEqual(c.pendingBattle, null);
+  assert.strictEqual(f.brigades.length, 1);
+  assert.strictEqual(f.townId, 'lincelles');
+  assert.strictEqual(b.townId, 'menin');
+  assert.strictEqual(s.brokenBrigades.french.length, 1);
+  assert.ok(c.log.some(e => e.kind === 'rearguard'));
+  // France withdrew in the British phase, so it rests in this turn's French phase.
+  assert.strictEqual(f.restTurn, c.turn);
+  assert.ok(cm.restPending(f));
+  cm.endPlayerPhase(c, MAP);
+  assert.deepStrictEqual(cm.validMoves(c, MAP, f), []);
+  assert.strictEqual(cm.aiStep(c, MAP).kind, 'held');
+  cm.endAiPhase(c, MAP);
+  assert.ok(!cm.restPending(f), 'free again next turn');
+});
+
+test('a Phase 1 (version 1) save loads and plays on', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british');
+  // What a Phase 1 save looked like: version 1, no restTurn, a pending battle with no stage.
+  const v1 = JSON.parse(cm.serialiseCampaign(c));
+  v1.version = 1;
+  for(const a of v1.armies) delete a.restTurn;
+  const back = cm.restoreCampaign(JSON.stringify(v1));
+  assert.strictEqual(back.version, cm.CAMPAIGN_VERSION);
+  assert.ok(back.armies.every(a => a.restTurn === null));
+  cm.moveArmy(back, MAP, b.id, 'bruges');
+  cm.endPlayerPhase(back, MAP);
+  while(cm.aiStep(back, MAP).kind !== 'done'){ /* French march */ }
+  cm.endAiPhase(back, MAP);
+  assert.strictEqual(back.turn, 2);
+  // A battle pending in a version 1 save stays a straight fight.
+  const p1 = JSON.parse(cm.serialiseCampaign(fresh()));
+  p1.version = 1;
+  p1.pendingBattle = { id: 'battle1', townId: 'menin', attackerSide: 'british', participants: { british: [], french: [] } };
+  assert.strictEqual(cm.restoreCampaign(JSON.stringify(p1)).pendingBattle.stage, 'battle');
+});
