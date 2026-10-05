@@ -94,7 +94,7 @@ export function recordMapBattle(winner){
   const outcome = readBattleOutcome(winner);
   const rec = currentRecord();
   outcome.matchUid = (rec && rec.matchUid) || null;
-  recorded = cm.applyBattleResult(c, mapFor(c), outcome);
+  recorded = c.pendingBattle.stage === 'rearguard' ? cm.applyRearguardResult(c, mapFor(c), outcome) : cm.applyBattleResult(c, mapFor(c), outcome);
   saveCampaignMap(c);
   return recorded;
 }
@@ -183,7 +183,8 @@ function armyCard(map, a, opts = {}){
     const check = opts.split ? `<label class="cmap-check"><input type="checkbox" data-split-brigade="${b.id}"> detach</label>` : '';
     return `<div class="cmap-brigade"><div class="b-name">${esc(b.name)} ${check}</div><ul>${units}</ul></div>`;
   }).join('');
-  return `<div class="cmap-army-card side-${a.side}"><div class="a-name">${esc(a.name)} <span class="a-where">at ${esc(cm.townName(map, a.townId))}${a.hasMoved && C.phase === a.side ? ' · has marched' : ''}</span></div>${brigades}</div>`;
+  const rest = cm.restPending(a) ? (cm.isResting(C, a) ? ' · withdrew: cannot march this turn' : ' · withdrew: cannot march next turn') : '';
+  return `<div class="cmap-army-card side-${a.side}"><div class="a-name">${esc(a.name)} <span class="a-where">at ${esc(cm.townName(map, a.townId))}${a.hasMoved && C.phase === a.side && !rest ? ' · has marched' : ''}${rest}</span></div>${brigades}</div>`;
 }
 
 function panelHTML(map, sel, moves){
@@ -207,6 +208,7 @@ function panelHTML(map, sel, moves){
     out.push(armyCard(map, sel));
     if(sel.side === C.playerSide && mine){
       if(moves.length) out.push(`<p class="cmap-hint">Tap a highlighted town to march there. Red means an enemy army holds it: marching in is an attack.</p>`);
+      else if(cm.isResting(C, sel)) out.push(`<p class="cmap-hint">This army withdrew from a fight and must rest this turn.</p>`);
       else if(sel.hasMoved) out.push(`<p class="cmap-hint">This army has marched this turn.</p>`);
       const others = cm.armiesAt(C, sel.townId, sel.side).filter(a => a.id !== sel.id);
       out.push(`<div class="cmap-actions">` +
@@ -223,7 +225,7 @@ function panelHTML(map, sel, moves){
   out.push(score);
   out.push(`<div class="cmap-actions bottom">` +
     (mine ? `<button data-act="end-turn" class="primary">End Turn</button>` : '') +
-    (C.pendingBattle && !view.aiRunning ? `<button data-act="to-battle" class="primary">To Battle</button>` : '') +
+    (C.pendingBattle && !view.aiRunning && (C.pendingBattle.stage === 'battle' || C.pendingBattle.stage === 'rearguard') ? `<button data-act="to-battle" class="primary">To Battle</button>` : '') +
     `<button data-act="log" class="ghost">Campaign Log</button><button data-act="menu" class="ghost">Main Menu</button></div>`);
   return out.join('');
 }
@@ -246,20 +248,14 @@ function renderModal(map){
       <p class="cmap-small">${C.battles.length} battle${C.battles.length === 1 ? '' : 's'} fought · ended on turn ${r.turn}, ${esc(cm.dateForTurn(map, r.turn))}</p>
       <div class="cmap-actions"><button data-act="log">Campaign Log</button><button data-act="new" class="primary">New Campaign</button><button data-act="menu" class="ghost">Main Menu</button></div>`;
   } else if(C.pendingBattle && !view.aiRunning){
-    const b = C.pendingBattle;
-    const side = s => cm.battleBrigades(C, b, s);
-    const list = s => side(s).map(x => `${esc(x.brigade.name)} of ${esc(x.army.name)} (${cm.fightingUnits(x.brigade).length} units)`).join('<br>');
-    const attacker = SIDE_NAME[b.attackerSide];
-    const reserves = cm.armiesAt(C, b.townId, cm.otherSideCM(b.attackerSide)).reduce((n, a) => n + a.brigades.length, 0) - b.participants[cm.otherSideCM(b.attackerSide)].length;
-    html = `<h3>Battle at ${esc(cm.townName(map, b.townId))}</h3><p>${attacker} attacks. ${b.boardMode === 'single' ? 'One brigade on the larger side: the 10 x 10 board.' : 'The full battlefield.'}</p>
-      <div class="cmap-sides"><div class="side-british"><b>Britain</b><br>${list('british')}</div><div class="side-french"><b>France</b><br>${list('french')}</div></div>
-      ${reserves > 0 ? `<p class="cmap-small">${reserves} more defending brigade${reserves === 1 ? ' stands' : 's stand'} by: a battle fields three brigades a side at most, and they share the defence's fate.</p>` : ''}
-      <p class="cmap-small">Losses are permanent. The loser falls back one town.</p>
-      <div class="cmap-actions"><button data-act="to-battle" class="primary">To Battle</button></div>`;
+    html = pendingHTML(map, C.pendingBattle);
   } else if(view.showBattle){
     const b = view.showBattle, s = b.summary;
     const lostList = k => s.lostUnits[k].length ? s.lostUnits[k].map(u => `${esc(u.name)} (${TYPE_NAME[u.type] || u.type})`).join(', ') : 'none';
-    html = `<h3>${b.winner === C.playerSide ? 'Victory' : 'Defeat'} at ${esc(cm.townName(map, b.townId))}</h3>
+    const heading = b.kind === 'rearguard'
+      ? (b.winner === b.withdrawal.side ? 'The rearguard holds' : 'The rearguard is broken') + ` at ${esc(cm.townName(map, b.townId))}`
+      : `${b.winner === C.playerSide ? 'Victory' : 'Defeat'} at ${esc(cm.townName(map, b.townId))}`;
+    html = `<h3>${heading}</h3>
       <p><b>British losses:</b> ${lostList('british')}</p><p><b>French losses:</b> ${lostList('french')}</p>
       ${s.brokenBrigades.british.length + s.brokenBrigades.french.length ? `<p class="cmap-small">Brigades broken: ${[...s.brokenBrigades.british, ...s.brokenBrigades.french].map(x => esc(x.name + ' of ' + x.army)).join(', ')}</p>` : ''}
       ${s.retreat ? `<p>${esc(s.retreat.armies.join(' and '))} fall${s.retreat.armies.length === 1 ? 's' : ''} back to ${esc(cm.townName(map, s.retreat.to))}.</p>` : ''}
@@ -268,6 +264,72 @@ function renderModal(map){
   }
   card.innerHTML = html;
   modal.classList.toggle('hidden', !html);
+}
+
+/* ---------- an engagement in progress (Phase 2 stages) ---------- */
+const brigadeLine = (b, army) => `${esc(b.name)}${army ? ' of ' + esc(army.name) : ''}: ${b.units.filter(u => u.type !== 'BRIGADIER').map(u => TYPE_NAME[u.type] || u.type).join(', ')}`;
+function pendingHTML(map, b){
+  const town = esc(cm.townName(map, b.townId));
+  const side = s => cm.battleBrigades(C, b, s);
+  const list = s => side(s).map(x => `${esc(x.brigade.name)} of ${esc(x.army.name)} (${cm.fightingUnits(x.brigade).length} units)`).join('<br>');
+  const sides = `<div class="cmap-sides"><div class="side-british"><b>Britain</b><br>${list('british')}</div><div class="side-french"><b>France</b><br>${list('french')}</div></div>`;
+  const defender = cm.defenderSideOf(b);
+  const attackerArmy = cm.armyById(C, b.attackerArmyId);
+
+  if(b.stage === 'decide'){
+    // Only ever the player's choice: the AI's is made the moment it is attacked.
+    if(view.mode === 'withdraw'){
+      const opts = cm.withdrawOptions(C, map, b, defender);
+      return `<h3>Withdraw from ${town}</h3><p>Choose the town to fall back to. ${esc(attackerArmy.name)} will hold ${town}, and your army cannot march on its next turn.</p>
+        ${opts.map(t => `<button class="cmap-wide" data-act="withdraw-to" data-town="${t}">Withdraw to ${esc(cm.townName(map, t))}</button>`).join('')}
+        <p class="cmap-small">If the French pursue, your weakest brigade turns to fight a rearguard action.</p>
+        <div class="cmap-actions"><button data-act="cancel" class="ghost">Back</button></div>`;
+    }
+    return `<h3>${SIDE_NAME[b.attackerSide]} attacks ${town}</h3><p>${esc(attackerArmy.name)} marches on ${town}. Stand and fight, or refuse battle and withdraw?</p>${sides}
+      <div class="cmap-actions"><button data-act="fight" class="primary">Fight</button><button data-act="withdraw">Withdraw</button></div>`;
+  }
+  if(b.stage === 'pursuit'){
+    const w = b.withdrawal;
+    const rgArmy = w.rearguard && cm.armyById(C, w.rearguard.armyId);
+    const rg = rgArmy && rgArmy.brigades.find(x => x.id === w.rearguard.brigadeId);
+    const choice = cm.pursuitChoices(C, map);
+    const turns = cm.withdrawalRules(map).rearguardTurns;
+    const pen = cm.withdrawalRules(map).pursuitInfantryDicePenalty;
+    return `<h3>The French withdraw</h3><p>${esc(w.armyIds.map(id => (cm.armyById(C, id) || {}).name).join(' and '))} refuse${w.armyIds.length === 1 ? 's' : ''} battle and fall${w.armyIds.length === 1 ? 's' : ''} back to ${esc(cm.townName(map, w.to))}. ${esc(attackerArmy.name)} holds ${town}.</p>
+      ${rg ? `<p class="cmap-small">Their rearguard would be ${brigadeLine(rg, rgArmy)}. To win, break it within ${turns} rounds.</p>` : ''}
+      <p class="cmap-hint">${choice.onFoot ? `<b>No cavalry.</b> You may pursue on foot, but your pursuing units attack with ${pen} die fewer (never below one) for the whole fight.` : 'Pursue with one brigade. You have cavalry, so it must be a brigade with horse.'}</p>
+      ${choice.brigades.map(br => `<button class="cmap-wide" data-act="pursue" data-brigade="${br.id}">Pursue with ${brigadeLine(br)}${choice.onFoot ? ' (on foot)' : ''}</button>`).join('')}
+      <div class="cmap-actions"><button data-act="let-go" class="ghost">Let them go</button></div>`;
+  }
+  if(b.stage === 'rearguard'){
+    const pu = side(b.attackerSide)[0], rg = side(b.withdrawal.side)[0];
+    const mine = b.withdrawal.side === C.playerSide;
+    return `<h3>Rearguard action at ${town}</h3>
+      <p>${mine ? 'Your' : 'The French'} army falls back to ${esc(cm.townName(map, b.withdrawal.to))} while ${rg ? brigadeLine(rg.brigade, rg.army) : 'its rearguard'} holds off ${pu ? brigadeLine(pu.brigade, pu.army) : 'the pursuit'}.</p>
+      <p><b>Rearguard:</b> survive ${b.rearguardTurns} rounds. <b>Pursuit:</b> break the rearguard brigade.</p>
+      ${b.pursuit.onFoot ? `<p class="cmap-small">The pursuit has no cavalry: its units attack with ${b.pursuit.dicePenalty} die fewer (never below one).</p>` : ''}
+      <p class="cmap-small">The 10 x 10 board. The rearguard stands on the edge toward its retreat. Losses are permanent.</p>
+      <div class="cmap-actions"><button data-act="to-battle" class="primary">To Battle</button></div>`;
+  }
+  // A battle: chosen, or forced on a cornered army.
+  const reserves = cm.armiesAt(C, b.townId, defender).reduce((n, a) => n + a.brigades.length, 0) - b.participants[defender].length;
+  return `<h3>Battle at ${town}</h3>
+    ${b.cornered ? `<p class="cmap-cornered">Cornered: no line of retreat</p>` : ''}
+    <p>${SIDE_NAME[b.attackerSide]} attacks. ${b.boardMode === 'single' ? 'One brigade on the larger side: the 10 x 10 board.' : 'The full battlefield.'}</p>${sides}
+    ${reserves > 0 ? `<p class="cmap-small">${reserves} more defending brigade${reserves === 1 ? ' stands' : 's stand'} by: a battle fields three brigades a side at most, and they share the defence's fate.</p>` : ''}
+    <p class="cmap-small">Losses are permanent. The loser falls back one town.</p>
+    <div class="cmap-actions"><button data-act="to-battle" class="primary">To Battle</button></div>`;
+}
+
+/* Lets the AI make any choice that is its own, saves, and carries on: back
+   into the French march if the engagement has ended there. */
+function afterChoice(){
+  const map = mapFor(C);
+  cm.resolveAiChoices(C, map);
+  saveCampaignMap(C);
+  view.mode = null;
+  if(!C.pendingBattle && C.phase === C.aiSide && !C.result){ render(); setTimeout(runAi, AI_STEP_MS); return; }
+  render();
 }
 
 /* ---------- input ---------- */
@@ -305,9 +367,11 @@ function onMapClick(e){
 function march(army, townId){
   const map = mapFor(C);
   const r = cm.moveArmy(C, map, army.id, townId);
+  if(r.kind === 'battle') cm.resolveAiChoices(C, map);   // the French decide at once whether to stand
   saveCampaignMap(C);
   view.selectedArmyId = r.kind === 'moved' ? army.id : null;
-  view.message = r.kind === 'moved' ? `${army.name} marches to ${cm.townName(map, townId)}.` : '';
+  view.message = r.kind === 'moved' ? `${army.name} marches to ${cm.townName(map, townId)}.`
+    : !C.pendingBattle ? `The French withdrew and ${army.name} holds ${cm.townName(map, townId)}.` : '';
   render();
 }
 
@@ -340,6 +404,11 @@ function onPanelClick(e){
       view.message = `${from.name} joins ${into.name}.`;
     }
     else if(act === 'end-turn'){ endTurn(); return; }
+    else if(act === 'fight'){ cm.chooseFight(C, map); afterChoice(); return; }
+    else if(act === 'withdraw'){ view.mode = 'withdraw'; }
+    else if(act === 'withdraw-to'){ cm.chooseWithdraw(C, map, b.getAttribute('data-town')); afterChoice(); return; }
+    else if(act === 'pursue'){ cm.choosePursue(C, map, b.getAttribute('data-brigade')); afterChoice(); return; }
+    else if(act === 'let-go'){ cm.chooseLetGo(C, map); afterChoice(); return; }
     else if(act === 'to-battle'){ saveCampaignMap(C); reloadInto('battle'); return; }
     else if(act === 'dismiss'){ view.showBattle = null; }
     else if(act === 'log') view.mode = 'log';
@@ -385,6 +454,8 @@ function runAi(){
     return;
   }
   if(r.kind === 'battle'){
+    cm.resolveAiChoices(C, map);
+    saveCampaignMap(C);
     view.aiRunning = false;
     view.message = `${r.army.name} attacks ${cm.townName(map, r.battle.townId)}!`;
     render();
@@ -448,5 +519,6 @@ const CSS = `
 #cmap .cmap-tally th{font-family:'Cinzel',serif;font-size:12px;text-align:right;}
 #cmap .cmap-tally td{padding:3px 0;border-bottom:1px solid #c9b989;}
 #cmap .cmap-tally td+td{text-align:right;font-weight:700;}
+#cmap .cmap-cornered{font-family:'Cinzel',serif;font-weight:800;font-size:15px!important;color:#8c2f2f;text-align:center;border:2px solid #8c2f2f;border-radius:4px;padding:6px;background:rgba(140,47,47,.08);}
 #cmap .cmap-log{width:100%;height:50vh;font-family:'IBM Plex Mono',monospace;font-size:11px;background:#f7efd9;border:1px solid #a8823f;}
 `;

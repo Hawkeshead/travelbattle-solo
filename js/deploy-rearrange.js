@@ -22,7 +22,7 @@
    finger.
 ========================================================= */
 import { ROWS, SIDES, UNIT_TYPES, state } from './data-core.js';
-import { inBounds, terrainAt, unitsAt } from './engine-rules.js';
+import { homeRowOf, inBounds, terrainAt, unitsAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { cellFromClient, draw, fromScreen, setPointerClaim } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
@@ -61,7 +61,7 @@ function legalFor(u, x, y, homeArea){
     return cells.some(([ax, ay]) => ax === x && ay === y);
   }
   const rows = state.boardMode === 'grand' ? 3 : 2;
-  return u.side === SIDES.RED ? y >= ROWS - rows : y < rows;
+  return homeRowOf(u.side) === ROWS - 1 ? y >= ROWS - rows : y < rows;
 }
 function legalSquares(u){
   const home = areaOf(u);

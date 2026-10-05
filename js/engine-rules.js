@@ -98,6 +98,24 @@ export function brigadierDisplacementCell(x, y, fromX, fromY){
   return null;
 }
 
+/* A SIDE'S HOME EDGE: the row it deploys on and routs back to. Britain the
+   bottom row and France the top, everywhere, except a campaign map rearguard
+   action (campaign-map-battle.js), where the rearguard stands on the edge
+   toward its retreat town and the pursuers on the other, so either side can
+   be at the top. */
+export function homeRowOf(side){
+  const h = state.mapBattle && state.mapBattle.homeRow;
+  if(h && h[side] != null) return h[side] === 'top' ? 0 : ROWS - 1;
+  return side === SIDES.RED ? ROWS - 1 : 0;
+}
+
+/* CAMPAIGN MAP PURSUIT ON FOOT. A pursuit with no cavalry attacks at the
+   configured number of dice fewer, never below one, for the whole fight. */
+export function pursuitDicePenalty(unit, defending){
+  const p = state.mapBattle && state.mapBattle.pursuit;
+  return (p && p.dicePenalty && !defending && unit.side === p.side) ? p.dicePenalty : 0;
+}
+
 export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
 
 // Woods physically conceal whoever's standing in them (the tree-cluster piece
@@ -614,7 +632,8 @@ export function volleyTargets(u){
    (dice[6,1] x2 kept 6), so a player reading a volley panel is reading the same
    notation they already know. */
 export function volleyDiceCount(shooter, target){
-  return (shooter.formation === 'square' && UNIT_TYPES[target.type].isCavalry) ? 2 : 1;
+  const dice = (shooter.formation === 'square' && UNIT_TYPES[target.type].isCavalry) ? 2 : 1;
+  return Math.max(1, dice - pursuitDicePenalty(shooter, false));
 }
 
 /* Cover is applied to the EFFECT roll, which is where artillery already applies
@@ -872,6 +891,11 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   // totals and obvious in the list.
   valueBonus += valueBonusDirect;
   for(const r of directReasons) reasons.push(r);
+  const footPenalty = pursuitDicePenalty(unit, defending);
+  if(footPenalty){
+    dice = Math.max(1, dice - footPenalty);
+    reasons.push(`Pursuing on foot: ${footPenalty} die fewer (never below one)`);
+  }
   return { dice, valueBonus, reasons, sources: sources.concat(directReasons) };
 }
 
@@ -1439,7 +1463,7 @@ export function retreatAndRally(loser, onComplete){
     free.sort((a,b)=> chebyshev(a,ref) - chebyshev(b,ref));
     cell = free[0] || { x:loser.x, y:loser.y };
   } else {
-    const edgeY = loser.side===SIDES.RED ? ROWS-1 : 0;
+    const edgeY = homeRowOf(loser.side);
     const preferredX = brig ? clamp(brig.x,0,COLS-1) : loser.x;
     cell = findNearestFreeEdgeCell(edgeY, preferredX, loser.id);
   }

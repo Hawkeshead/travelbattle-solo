@@ -140,7 +140,7 @@ export function startBattle(){
     aiSide: state.mode==='ai' ? state.aiSide : null,
     boardMode: state.boardMode || 'standard',
     // A campaign map battle (campaign-map-battle.js): which campaign, turn and town.
-    campaignMap: state.mapBattle ? { campaignId: state.mapBattle.campaignId, battleId: state.mapBattle.battleId,
+    campaignMap: state.mapBattle ? { kind: state.mapBattle.kind || 'battle', campaignId: state.mapBattle.campaignId, battleId: state.mapBattle.battleId,
       turn: state.mapBattle.turn, date: state.mapBattle.date, townId: state.mapBattle.townId, town: state.mapBattle.townName } : null,
     deployment: state.units.map(u => ({
       id:u.id, name:u.historicalName || u.type, type:u.type, side:u.side,

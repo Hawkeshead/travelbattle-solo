@@ -219,7 +219,11 @@ function sectionMetadata(){
      and the town, so a battle's export can be matched to the campaign log. */
   if(m.campaignMap){
     const cm = m.campaignMap;
-    out.push(`Campaign map    : campaign ${cm.campaignId}, battle ${cm.battleId}`);
+    out.push(`Campaign map    : campaign ${cm.campaignId}, battle ${cm.battleId}${cm.kind === 'rearguard' ? ' (rearguard action)' : ''}`);
+    if(cm.kind === 'rearguard' && state.mapBattle && state.mapBattle.pursuit){
+      const p = state.mapBattle.pursuit;
+      out.push(`Rearguard       : covering the retreat to ${state.mapBattle.retreatTownName}; pursuit ${p.onFoot ? 'on foot, ' + p.dicePenalty + ' die fewer' : 'with cavalry'}`);
+    }
     out.push(`Campaign turn   : ${cm.turn} (${cm.date})`);
     out.push(`Town            : ${cm.town} (${cm.townId})`);
     if(state.mapBattle && state.mapBattle.ground) out.push(`Ground          : ${state.mapBattle.ground}`);

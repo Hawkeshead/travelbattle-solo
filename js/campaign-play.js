@@ -106,7 +106,7 @@ export function campaignContext(){
   /* A campaign MAP battle (campaign-map-battle.js) is tagged with the campaign,
      the map turn and the town, so its match record can be found from the map. */
   const mb = state.mapBattle;
-  if(mb) return { kind: 'campaign-map', campaignId: mb.campaignId, battleId: mb.battleId, turn: mb.turn, date: mb.date, townId: mb.townId, town: mb.townName };
+  if(mb) return { kind: 'campaign-map', battleType: mb.kind || 'battle', rearguard: mb.kind === 'rearguard', campaignId: mb.campaignId, battleId: mb.battleId, turn: mb.turn, date: mb.date, townId: mb.townId, town: mb.townName };
   const run = state.campaignRun;
   return run ? { id: run.id, step: run.step, stepId: run.stepId, card: run.cardId, chosenBy: run.chosenBy || null } : null;
 }

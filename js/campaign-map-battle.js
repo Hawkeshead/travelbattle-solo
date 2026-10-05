@@ -45,7 +45,8 @@ import { log, newUnit, resetHistoricalIdentities, resetUndoStack } from './engin
 import { authoredTerrain, redrawOperation } from './operations.js';
 import { getCard } from './scenario-cards.js';
 import { offerBeginBattle } from './ui-deployment.js';
-import { battleBrigades, townById } from './campaign-map-core.js';
+import { battleBrigades, fightingUnits, townById } from './campaign-map-core.js';
+import { showObjectivePanel } from './operation-panel.js';
 
 const ENGINE_SIDE = { british: SIDES.RED, french: SIDES.BLUE };
 export const CM_SIDE = { [SIDES.RED]: 'british', [SIDES.BLUE]: 'french' };
@@ -133,9 +134,9 @@ const legalOn = (terrain, type, x, y) => {
    Brigade starts in its own chain. A square the unit may not stand on (woods
    for horse and guns, buildings for horse) is skipped for the nearest legal
    one on the side's rows. Returns [{ type, x, y, brigadeId, unit }]. */
-export function placeSide(terrain, side, brigades){
+export function placeSide(terrain, side, brigades, atTop = side !== SIDES.RED){
   const rows = terrain.length, cols = terrain[0].length;
-  const [front, back] = side === SIDES.RED ? [rows - 2, rows - 1] : [1, 0];
+  const [front, back] = atTop ? [1, 0] : [rows - 2, rows - 1];
   const taken = new Set();
   const widths = brigades.map(b => Math.max(b.units.filter(u => FRONT.has(u.type)).length, b.units.filter(u => !FRONT.has(u.type)).length));
   const total = widths.reduce((a, b) => a + b, 0) + (brigades.length - 1);
@@ -169,13 +170,14 @@ export function placeSide(terrain, side, brigades){
 }
 
 /* ---------- starting the battle ---------- */
-/* Sets the board up for the campaign's pending battle and puts both armies
-   on it, ready for Begin Battle. */
+/* Sets the board up for the campaign's pending engagement (a battle, or a
+   rearguard action) and puts both sides on it, ready for Begin Battle. */
 export function setupMapBattle(c, map){
   const battle = c.pendingBattle;
   if(!battle) throw new Error('no battle pending');
+  const rearguard = battle.stage === 'rearguard';
   const town = townById(map, battle.townId);
-  const ground = buildBattleTerrain(town, battle.boardMode, c.id + ':' + battle.id);
+  const ground = buildBattleTerrain(town, battle.boardMode, c.id + ':' + battle.id + (rearguard ? ':rearguard' : ''));
 
   state.scenario = null;
   state.campaign = null;
@@ -195,15 +197,31 @@ export function setupMapBattle(c, map){
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = new Set();
 
+  /* A REARGUARD STANDS ON THE EDGE TOWARD ITS RETREAT TOWN, the pursuers on
+     the other. The board runs north to south, so that is the top edge when
+     the retreat town lies north of the town fought over, the bottom when it
+     lies south. Either side can therefore be at the top here, which is why
+     the engine asks homeRowOf (engine-rules) instead of assuming Britain at
+     the bottom. */
+  let homeRow = null, rgSide = null, puSide = null, retreatTown = null;
+  if(rearguard){
+    rgSide = battle.withdrawal.side; puSide = battle.attackerSide;
+    retreatTown = townById(map, battle.withdrawal.to);
+    const rgTop = retreatTown.y < town.y || (retreatTown.y === town.y && rgSide !== 'british');
+    homeRow = { [ENGINE_SIDE[rgSide]]: rgTop ? 'top' : 'bottom', [ENGINE_SIDE[puSide]]: rgTop ? 'bottom' : 'top' };
+  }
+
   resetHistoricalIdentities();
   resetUndoStack();
   state.units = [];
-  const counts = {};
+  const counts = {}, fighters = {};
   for(const cmSide of ['british', 'french']){
     const side = ENGINE_SIDE[cmSide];
     const brigades = battleBrigades(c, battle, cmSide).map(x => x.brigade);
     counts[side] = brigades.length;
-    for(const p of placeSide(state.terrain, side, brigades)){
+    fighters[cmSide] = brigades.reduce((n, b) => n + fightingUnits(b).length, 0);
+    const atTop = homeRow ? homeRow[side] === 'top' : side !== SIDES.RED;
+    for(const p of placeSide(state.terrain, side, brigades, atTop)){
       const u = newUnit(side, p.type, p.x, p.y, p.brigadeId);
       u.historicalName = p.unit.name;
       u.historicalBio = bioFor(side, p.unit) || u.historicalBio;
@@ -212,15 +230,62 @@ export function setupMapBattle(c, map){
     }
   }
   state.mapBattle = {
+    kind: rearguard ? 'rearguard' : 'battle',
     campaignId: c.id, battleId: battle.id, turn: battle.turn, date: battle.date,
     townId: battle.townId, townName: town.name, attackerSide: battle.attackerSide,
     brigadeCount: counts, ground: ground.source,
   };
+  if(rearguard){
+    state.mapBattle.homeRow = homeRow;
+    state.mapBattle.retreatTownName = retreatTown.name;
+    state.mapBattle.pursuit = { side: ENGINE_SIDE[puSide], dicePenalty: battle.pursuit.dicePenalty || 0, onFoot: !!battle.pursuit.onFoot };
+    state.scenario = rearguardCard(battle, town, retreatTown, rgSide, puSide, fighters, state.terrain);
+  }
   state.phase = 'deploy';
   state.deployPool = { red: [], blue: [] };
   state.deployBrigadeIndex = { red: counts[SIDES.RED], blue: counts[SIDES.BLUE] };
-  log(`Campaign battle at ${town.name}, ${battle.date} (turn ${battle.turn}). ${battle.attackerSide === 'british' ? 'Britain' : 'France'} attacks. Ground: ${ground.source}.`, 'system');
+  log(rearguard
+    ? `Rearguard action at ${town.name}, ${battle.date} (turn ${battle.turn}). The ${rgSide === 'british' ? 'British' : 'French'} rearguard covers the retreat to ${retreatTown.name} and must hold for ${battle.rearguardTurns} rounds; the ${puSide === 'british' ? 'British' : 'French'} pursuit must break it${battle.pursuit.onFoot ? `, attacking on foot at ${battle.pursuit.dicePenalty} die fewer` : ''}. Ground: ${ground.source}.`
+    : `Campaign battle at ${town.name}, ${battle.date} (turn ${battle.turn}). ${battle.attackerSide === 'british' ? 'Britain' : 'France'} attacks. Ground: ${ground.source}.`, 'system');
   return state.mapBattle;
+}
+
+/* THE REARGUARD AS AN OPERATION. Rather than new rules and new AI, the
+   rearguard action is an Operation card made on the spot, so the existing
+   objective engine, round counter, objective panel and AI roles all apply:
+   - the pursuer's objective is DESTROY every fighting unit of the rearguard
+     brigade (breaking it), with the AI role "hunt" (pull toward the units it
+     must destroy, and a bonus for fighting them);
+   - the rearguard has no objective but time: the card gives it the win when
+     the rounds run out (ifTimeExpires), with the AI role "hold" (a little
+     less eager to start fights; "hold" has no area here to stand in);
+   - either side with no fighting units left loses, as in every Operation. */
+const GLYPH_OF = { OPEN: '.', PLOUGHED_FIELD: ':', WOODS: '*', HILL: '^', BUILDING: '#', ROAD: '=' };
+function rearguardCard(battle, town, retreatTown, rgSide, puSide, fighters, terrain){
+  const turns = battle.rearguardTurns;
+  const nRg = fighters[rgSide];
+  const name = s => (s === 'british' ? 'British' : 'French');
+  return {
+    id: 'campaign-rearguard', kind: 'operation', status: 'ready', campaign: null,
+    name: `Rearguard at ${town.name}`, date: battle.date, archetype: 'Rearguard action',
+    intro: `The ${name(rgSide)} army has refused battle and is falling back to ${retreatTown.name}. One brigade turns to hold off the ${name(puSide)} pursuit.`,
+    firstPlayer: puSide,
+    turnLimit: turns,
+    map: { type: 'authored', terrain: terrain.map(r => r.map(t => GLYPH_OF[t] || '.').join('')), areas: {} },
+    forces: { british: { brigades: [{ units: [] }] }, french: { brigades: [{ units: [] }] } },
+    specialRules: {},
+    win: {
+      [puSide]: { text: `Break the rearguard: destroy all ${nRg} of its fighting units within ${turns} rounds`, combinator: 'any', conditions: [{ type: 'DESTROY', count: nRg }] },
+      [rgSide]: { text: `Hold for ${turns} rounds to cover the retreat to ${retreatTown.name}`, combinator: 'any', conditions: [] },
+    },
+    ifTimeExpires: rgSide, ifBothMet: null,
+    aiRoles: { [puSide]: 'hunt', [rgSide]: 'hold' },
+    outcomes: {
+      [rgSide === 'british' ? 'britishWin' : 'frenchWin']: `The rearguard holds, and the army reaches ${retreatTown.name} intact.`,
+      [puSide === 'british' ? 'britishWin' : 'frenchWin']: `The rearguard is broken; the pursuit has drawn blood.`,
+    },
+    _startFighters: { british: fighters.british, french: fighters.french },
+  };
 }
 function bioFor(side, unit){
   const list = (TB_DATA.unitArchive[side] && TB_DATA.unitArchive[side][unit.type]) || [];
@@ -236,6 +301,7 @@ export function launchMapBattle(c, map, startAmbient){
   document.getElementById('overlay').classList.remove('show');
   redrawOperation();
   if(startAmbient) startAmbient();
+  if(state.scenario) showObjectivePanel();   // a rearguard: round counter and both objectives
   offerBeginBattle();
   log('Arrange your units if you wish: drag one to another square on your own rows, or onto another of your units to swap them. Then Begin Battle.', 'system');
 }

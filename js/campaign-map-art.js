@@ -19,7 +19,7 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 /* Where a town's name goes when below it would collide (the crowded country
    round Lille, and Antwerp at the map's edge). Art, not data: a new drawing
    of the map lays its labels out for itself. */
-const LABEL_AT = { menin: 'left', courtrai: 'right', lincelles: 'left', tourcoing: 'right', antwerp: 'left' };
+const LABEL_AT = { courtrai: 'right', lincelles: 'left', tourcoing: 'right', antwerp: 'left' };
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /* Where each army's flag sits: in a row above its town. */
@@ -96,6 +96,11 @@ export function renderMapSVG(map, c, view = {}){
     parts.push(`<line x1="${s.x - 15}" y1="${s.y - 15}" x2="${t.x}" y2="${t.y - 12}" stroke="${INK}" stroke-width="1.5" opacity="0.5"/>`);
     parts.push(`<rect x="${s.x - 18}" y="${s.y - 15}" width="36" height="28" rx="3" fill="${SIDE_FILL[a.side]}" stroke="${selected ? BRASS_BRIGHT : INK}" stroke-width="${selected ? 5 : 2}" opacity="${a.hasMoved && c.phase === a.side ? 0.6 : 1}"/>`);
     parts.push(`<text x="${s.x}" y="${s.y + 6}" text-anchor="middle" font-family="Cinzel, serif" font-weight="800" font-size="17" fill="#f3e7c6">${ROMAN[a.brigades.length] || a.brigades.length}</text>`);
+    // Withdrew from a fight: cannot march on its next turn.
+    if(a.restTurn != null){
+      parts.push(`<g class="cmap-rest"><rect x="${s.x - 30}" y="${s.y + 15}" width="60" height="18" rx="3" fill="#efe3c2" stroke="#8c2f2f" stroke-width="2"/>` +
+        `<text x="${s.x}" y="${s.y + 28.5}" text-anchor="middle" font-family="Cinzel, serif" font-weight="800" font-size="12" fill="#8c2f2f">RESTING</text></g>`);
+    }
     parts.push(`<rect x="${s.x - 24}" y="${s.y - 21}" width="48" height="40" fill="transparent"/>`);
     parts.push(`</g>`);
   }

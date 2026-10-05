@@ -139,6 +139,12 @@ export function objectiveStatusLine(side){
         (missing.length ? `, ${missing.map(t => t === 'BRIGADIER' ? 'Brigadier' : t.toLowerCase()).join(' and ')} still on the field` : ''));
     }
   }
+  /* A side whose only objective is to last (no conditions of its own, and the
+     card gives it the win when time runs out): a campaign rearguard. */
+  if(!(w.conditions || []).length && state.scenario.ifTimeExpires === SIDE_KEY[side]){
+    const left = Math.max(0, state.scenario.turnLimit - currentRound() + 1);
+    parts.push(`Hold on: ${left} round${left === 1 ? '' : 's'} to go`);
+  }
   return [...new Set(parts)].join(' · ');
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);

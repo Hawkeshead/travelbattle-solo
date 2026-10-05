@@ -4,7 +4,7 @@ import { recAi } from './telemetry/recorder.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -2287,7 +2287,7 @@ export function missionMoveBonus(u, side, pos, mission, plan){
     case 'HOLD':
       return terrainSeekBonus(u.type, pos.x, pos.y) * 1.5 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos));
     case 'WITHDRAW':
-      { const homeRow = side===SIDES.RED ? ROWS-1 : 0;
+      { const homeRow = homeRowOf(side);
         return Math.max(0, 4-Math.abs(pos.y-homeRow)) * 0.2 + rallyPointPullBonus(pos, getDefensiveRallyPoint(side, pos)); }
     case 'COUNTERATTACK':
       return nearestTargetDist!=null
