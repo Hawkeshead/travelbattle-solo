@@ -30,7 +30,6 @@
    - Victory: destroy every enemy army. If neither side manages it by the
      final turn, the side that destroyed more enemy unit value wins.
 ========================================================= */
-import { POINT_VALUE } from './rts/constants.js';
 
 export const CAMPAIGN_VERSION = 1;
 export const SIDES_CM = ['british', 'french'];
@@ -43,13 +42,13 @@ export const townById = (map, id) => map.towns.find(t => t.id === id) || null;
 export const townName = (map, id) => (townById(map, id) || { name: id }).name;
 export const linked = (map, a, b) => !!(townById(map, a) && townById(map, a).links.includes(b));
 
-/* What each unit type is worth when destroyed. 'rts' is the Real-Time clock
-   victory table (Guard, cavalry and guns worth more than line infantry); a
-   map may carry its own table instead. */
+/* What each unit type is worth when destroyed: the map's own table, which
+   for Flanders is the Real-Time clock-victory points (Guard, cavalry and guns
+   worth more than line infantry). The fallback is the same table. */
+const RTS_POINT_VALUE = { INFANTRY: 4, GUARD: 5, LIGHT_CAV: 5, HEAVY_CAV: 5, ARTILLERY: 6, BRIGADIER: 0 };
 export function unitValues(map){
   const v = map && map.unitValues;
-  if(v && v.source === 'table' && v.table) return v.table;
-  return POINT_VALUE;
+  return (v && v.table) || RTS_POINT_VALUE;
 }
 export const valueOf = (map, unit) => unitValues(map)[unit.type] || 0;
 

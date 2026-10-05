@@ -29,6 +29,8 @@ export const TB_DATA = (function(){
       terrainLayouts: loadJSON('data/terrain-layouts.json'),
       unitTypes: loadJSON('data/unit-types.json'),
       armyCompositions: loadJSON('data/army-compositions.json'),
+      /* Campaign maps (campaign-map-core.js), one file per map, keyed by id. */
+      campaignMaps: { flanders: loadJSON('data/campaign-maps/flanders.json') },
     };
   } catch (err) {
     document.body.innerHTML = '<div style="color:#eee;background:#2a1414;padding:40px;font-family:sans-serif;max-width:600px;margin:60px auto;border:1px solid #a33;border-radius:8px;">'
@@ -414,6 +416,7 @@ export let state = {
   aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
   scenario: null,   // active Operation, or null for a standard full-army battle
   campaign: null,   // active Campaign, or null when not playing one
+  mapBattle: null,  // a campaign MAP battle in play (campaign-map-battle.js), or null
   campaignFlowIndex: 0,
   campaignLastWinner: null,
   campaignRecord: [],

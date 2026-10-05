@@ -198,7 +198,9 @@ export function endGame(winner){
   const outcome = state.scenario && state.scenario.outcomes ? state.scenario.outcomes[winner === SIDES.RED ? 'britishWin' : 'frenchWin'] : null;
   const bodyText = state.scenario
     ? `${(state.scenarioResult && state.scenarioResult.reason) || SIDE_LABEL[winner] + ' achieves the objective'}.${outcome ? ' ' + outcome : ''}`
-    : `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
+    : state.mapBattle
+      ? `The enemy's Brigades are broken. ${SIDE_LABEL[winner]} holds the field at ${state.mapBattle.townName}.`
+      : `Two of the enemy's three Brigades are broken. ${SIDE_LABEL[winner]} holds the field.`;
   document.getElementById('overlayText').textContent = bodyText;
   const modeChoices = document.getElementById('modeChoices');
   if(modeChoices) modeChoices.style.display = 'none';
@@ -219,6 +221,13 @@ export function endGame(winner){
     const done = p && campaignFinished(p);
     document.getElementById('overlayBtn').textContent = done ? 'Campaign Result' : 'Continue Campaign';
     document.getElementById('overlayBtn').onclick = ()=> import('./ui-menus.js').then(m => m.showCampaignScreen());
+  } else if(state.mapBattle){
+    /* A campaign MAP battle: the result goes back to the map now (losses
+       permanent, the loser retreats, autosaved), and the button returns there. */
+    const mapUi = import('./campaign-map-ui.js');
+    mapUi.then(m => m.recordMapBattle(winner));
+    document.getElementById('overlayBtn').textContent = 'Return to Campaign Map';
+    document.getElementById('overlayBtn').onclick = ()=> mapUi.then(m => m.returnToMapAfterBattle(winner));
   } else {
     document.getElementById('overlayBtn').textContent = 'New Battle';
     document.getElementById('overlayBtn').onclick = ()=> location.reload();

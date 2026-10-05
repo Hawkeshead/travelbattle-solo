@@ -1678,6 +1678,7 @@ export function checkWinCondition(){
   if(state.replaying) return;
   if(state.scenario){ checkScenarioObjective(); return; }
   if(state.group){ checkGroupBreaks(); return; }
+  if(state.mapBattle){ checkMapBattleWin(); return; }
   for(const side of [SIDES.RED, SIDES.BLUE]){
     let brokenCount = 0;
     for(let bId=0; bId<3; bId++){
@@ -1694,6 +1695,27 @@ export function checkWinCondition(){
   }
 }
 
+
+/* CAMPAIGN MAP BATTLES (campaign-map-battle.js). The standard rule is two of
+   three Brigades broken, which is "more than half". A map battle can field one,
+   two or three Brigades a side, so the same rule is applied as more than half
+   of the Brigades that side brought: one of one, two of two, two of three. */
+export function checkMapBattleWin(){
+  const count = state.mapBattle.brigadeCount || {};
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const n = count[side] || 0;
+    if(!n) continue;
+    let broken = 0;
+    for(let bId = 0; bId < n; bId++){
+      const group = state.units.filter(u => u.side === side && u.brigadeId === bId);
+      if(group.length && !group.some(u => !u.removed && u.type !== 'BRIGADIER')) broken++;
+    }
+    if(broken >= Math.floor(n / 2) + 1){
+      endGame(side === SIDES.RED ? SIDES.BLUE : SIDES.RED);
+      return;
+    }
+  }
+}
 
 /* GROUP: an army with 2 of its 3 Brigades broken leaves the field. Its
    surviving units withdraw (not killed: no skull, logged as Withdrawn) and its

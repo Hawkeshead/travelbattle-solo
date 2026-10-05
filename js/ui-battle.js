@@ -139,6 +139,9 @@ export function startBattle(){
     playerSide: state.mode==='ai' ? (state.aiSide===SIDES.RED ? SIDES.BLUE : SIDES.RED) : null,
     aiSide: state.mode==='ai' ? state.aiSide : null,
     boardMode: state.boardMode || 'standard',
+    // A campaign map battle (campaign-map-battle.js): which campaign, turn and town.
+    campaignMap: state.mapBattle ? { campaignId: state.mapBattle.campaignId, battleId: state.mapBattle.battleId,
+      turn: state.mapBattle.turn, date: state.mapBattle.date, townId: state.mapBattle.townId, town: state.mapBattle.townName } : null,
     deployment: state.units.map(u => ({
       id:u.id, name:u.historicalName || u.type, type:u.type, side:u.side,
       brigadeId:u.brigadeId, x:u.x, y:u.y, formation:u.formation || 'line',
@@ -205,7 +208,7 @@ export function brigadeBrokenStatus(side){
   const out = [];
   // Group: two armies per side, brigades 0-2 and 3-5. Operations: the Brigades
   // the card gives the side (one pip each; usually just one).
-  const count = state.group ? 6 : (state.scenario && state.scenario.forces && state.scenario.forces.british ? brigadeIdsFor(side).length : 3);
+  const count = state.group ? 6 : state.mapBattle ? (state.mapBattle.brigadeCount[side] || 0) : (state.scenario && state.scenario.forces && state.scenario.forces.british ? brigadeIdsFor(side).length : 3);
   for(let bId=0; bId<count; bId++){
     const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
     const combatUnits = group.filter(u=>u.type!=='BRIGADIER');

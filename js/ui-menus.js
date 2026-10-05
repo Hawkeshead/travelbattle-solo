@@ -418,7 +418,21 @@ export function showCampaignsList(){
     const ready = flowReady(f);
     campBtn(extra, f.name, ready ? `${f.years} · ${f.steps.length} engagements` : `${f.years} · coming soon`, ready ? ()=> showCampaignSide(f) : null);
   }
+  // The campaign MAP (campaign-map-ui.js): a separate, sandbox mode.
+  campBtn(extra, 'Campaign Map', 'Flanders 1793 · march town to town, fight every battle', ()=> showCampaignMapMenu());
   campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
+}
+/* New or Continue for the campaign map. Britain is the player, France the AI. */
+function showCampaignMapMenu(){
+  import('./campaign-map-ui.js').then(m => {
+    const map = m.defaultMap();
+    const saved = m.loadCampaignMap();
+    const extra = campaignBox('Campaign Map', `<div class="op-brief"><div class="op-date">${map.name}</div><p class="op-intro">Lead the British army through Flanders. March along the roads one town a turn, split and merge your armies, and fight every clash on the battlefield. Losses are permanent. Destroy every French field army, or have destroyed more of theirs than they have of yours when the campaign ends.</p>` +
+      (saved ? '<p class="op-limit">Starting a new campaign replaces the one in progress.</p>' : '') + '</div>');
+    if(saved) campBtn(extra, 'Continue', m.describeSave(saved), ()=> m.showCampaignMap());
+    campBtn(extra, 'New Campaign', 'You command Britain · France is the AI', ()=> m.newCampaignMap());
+    campBtn(extra, 'Back', null, ()=> showCampaignsList(), 'op-back');
+  });
 }
 function showCampaignSide(f){
   campaignBox(f.name, `<div class="op-brief"><div class="op-date">${f.years}</div><p class="op-intro">${f.brief}</p>` +
@@ -758,6 +772,7 @@ export function showDifficultySelect(){
 export function beginBoardSetup(){
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   state.campaignRun = null;   // a standard match is not a campaign step
+  state.mapBattle = null;     // nor a campaign map battle
   // A new battle against the AI replaces any saved one (its record goes as an
   // incomplete match). Online and Group matches leave a saved AI battle alone.
   if(state.mode === 'ai' && !state.spectate && !isOnline() && !state.group) abandonSave();

@@ -40,6 +40,7 @@ export function rearrangeOpen(){
   const me = playerSide();
   if(!me) return false;
   if(state.scenario && state.scenario.kind === 'operation') return true;
+  if(state.mapBattle) return true;   // campaign map battle: placed for you, rearrange freely
   return state.deployBrigadeIndex && state.deployBrigadeIndex[me] >= 3;
 }
 

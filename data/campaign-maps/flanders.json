@@ -29,8 +29,16 @@
   ]
  },
  "unitValues": {
-  "source": "rts",
-  "note": "'rts' means the Real-Time clock-victory table (js/rts/constants.js POINT_VALUE): Guard, cavalry and guns worth more than line infantry, Brigadiers 0. A map may instead give its own { TYPE: value } table here as 'table'."
+  "source": "table",
+  "note": "The Real-Time clock-victory points (js/rts/constants.js POINT_VALUE): Guard, cavalry and guns worth more than line infantry, Brigadiers 0. Copied here because game code outside js/rts may not import from it; test/campaign-map.test.js fails if the two ever differ.",
+  "table": {
+   "INFANTRY": 4,
+   "GUARD": 5,
+   "LIGHT_CAV": 5,
+   "HEAVY_CAV": 5,
+   "ARTILLERY": 6,
+   "BRIGADIER": 0
+  }
  },
  "towns": [
   {

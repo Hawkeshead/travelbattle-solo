@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import * as cm from '../js/campaign-map-core.js';
+import { POINT_VALUE } from '../js/rts/constants.js';
 
 const json = p => JSON.parse(fs.readFileSync(new URL(p, import.meta.url), 'utf8'));
 const MAP = json('../data/campaign-maps/flanders.json');
@@ -33,6 +34,10 @@ test('the Flanders map is well formed', () => {
   assert.ok(cm.townById(MAP, 'ostend').isDepot && cm.townById(MAP, 'lille').isDepot);
   const sites = MAP.towns.filter(t => t.historicalSiteId).map(t => t.name).sort();
   assert.deepStrictEqual(sites, ["Beaumont", "Caesar's Camp", 'Famars', 'Hondschoote', 'Lincelles', 'Tourcoing', 'Willems']);
+});
+
+test('unit values are the Real-Time clock-victory points', () => {
+  assert.deepStrictEqual(cm.unitValues(MAP), POINT_VALUE);
 });
 
 test('each side starts with the default three-brigade army at its depot', () => {

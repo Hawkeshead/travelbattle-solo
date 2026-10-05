@@ -103,6 +103,10 @@ export function tally(p){
 
 /* What the match record should say about the campaign (telemetry). */
 export function campaignContext(){
+  /* A campaign MAP battle (campaign-map-battle.js) is tagged with the campaign,
+     the map turn and the town, so its match record can be found from the map. */
+  const mb = state.mapBattle;
+  if(mb) return { kind: 'campaign-map', campaignId: mb.campaignId, battleId: mb.battleId, turn: mb.turn, date: mb.date, townId: mb.townId, town: mb.townName };
   const run = state.campaignRun;
   return run ? { id: run.id, step: run.step, stepId: run.stepId, card: run.cardId, chosenBy: run.chosenBy || null } : null;
 }
@@ -111,6 +115,7 @@ export function campaignContext(){
 /* Sets up the board for a campaign Battle: the card's authored map, no
    orientation roll. The caller then starts deployment as a standard match. */
 export function applyBattleMap(card){
+  state.mapBattle = null;   // a scripted campaign Battle, not a campaign map battle
   const m = card.map;
   if(m && m.type === 'authored'){
     const t = authoredTerrain(m.terrain);

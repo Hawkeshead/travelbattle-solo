@@ -215,6 +215,15 @@ function sectionMetadata(){
       : `Map             : Britain board ${m.boards && m.boards.red} rotation ${m.rotation && m.rotation.red}, France board ${m.boards && m.boards.blue} rotation ${m.rotation && m.rotation.blue}; ${(m.overrides || []).length} overrides`);
     out.push(`Round limit     : ${sc.turnLimit}`);
   }
+  /* CAMPAIGN MAP battles (campaign-map-battle.js): the campaign, the map turn
+     and the town, so a battle's export can be matched to the campaign log. */
+  if(m.campaignMap){
+    const cm = m.campaignMap;
+    out.push(`Campaign map    : campaign ${cm.campaignId}, battle ${cm.battleId}`);
+    out.push(`Campaign turn   : ${cm.turn} (${cm.date})`);
+    out.push(`Town            : ${cm.town} (${cm.townId})`);
+    if(state.mapBattle && state.mapBattle.ground) out.push(`Ground          : ${state.mapBattle.ground}`);
+  }
   out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
   return out;
 }

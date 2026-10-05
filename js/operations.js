@@ -87,6 +87,7 @@ export function setupOperation(cardOrId, playerSide){
     _startFighters: Object.fromEntries(['british', 'french'].map(k => [k, card.forces[k].brigades.reduce((n, b) => n + b.units.filter(u => unitType(u) !== 'BRIGADIER').length, 0)])),
   });
   state.campaign = null;
+  state.mapBattle = null;   // an Operation is never a campaign map battle
   state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {};
   state.gameOver = false; state.winner = null;
   state.turnNumber = 1;
