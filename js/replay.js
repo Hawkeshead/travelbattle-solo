@@ -2,7 +2,7 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js
 import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
-import { removeUnit } from './engine-rules.js';
+import { removeUnit, setTurnedAround } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 
@@ -95,7 +95,7 @@ export function applyReplayEvent(ev){
     showReplayHitRing(ev.x, ev.y);
     if(ev.hit === false) return;   // shot fell wide: nothing landed to replay
     const u = state.units.find(x=>x.id===ev.targetId);
-    if(u && ev.effect==='disrupt') u.turnOnly = true;
+    if(u && ev.effect==='disrupt') setTurnedAround(u);
     return;
   }
   if(ev.type==='status'){

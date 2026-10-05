@@ -4,7 +4,7 @@ import { recAi } from './telemetry/recorder.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasChargeableTargetAt, hasLOS, isAdjacent, isCleanChargeRun, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -479,6 +479,45 @@ export const BRIGADIER_TRAIL_MIN = 1;
 export const BRIGADIER_TRAIL_MAX = 2;
 export const BRIGADIER_TRAIL_WEIGHT = 0.9;
 export const BRIGADIER_CONTACT_PENALTY = 2.5;
+
+/* SEVERING AN ENEMY BRIGADIER'S CHAIN. A Brigadier cannot be attacked, but a
+   unit that ends its move on his square shoves him clear, and if that pulls him
+   away from his own units, every one of them that no longer touches the chain
+   back to him is frozen: it cannot move until he comes back for it. That is a
+   real, legal tactic (it costs the enemy whole units' worth of tempo without a
+   die being rolled), so it is valued per unit it would freeze rather than
+   left to happen by accident. Tunable as BRIG_SEVER_VALUE; 0 turns it off. */
+export const BRIG_SEVER_VALUE = 1.5;
+/* An Operation VIP (Wellington, Colbert) is captured by a unit ending its move
+   on his square, and capturing him is usually the Operation's whole objective. */
+export const VIP_CAPTURE_VALUE = 8.0;
+
+/* How many of `brig`'s units would lose their chain (and so be frozen) if a unit
+   moving from (fromX,fromY) ended its move on his square at `to`. Asks the
+   engine's own displacement and cohesion rules rather than guessing: the
+   Brigadier is put where he would be shoved, the chain is recomputed, and both
+   are put back. The mover is placed at its ORIGIN while asking, which is where
+   it really stands when the shove happens. */
+export function unitsFrozenByDisplacing(brig, mover, fromX, fromY, to){
+  if(!brig || isVip(brig)) return 0;
+  const mx = mover.x, my = mover.y;
+  mover.x = fromX; mover.y = fromY;
+  const cell = brigadierDisplacementCell(to.x, to.y, fromX, fromY);
+  let frozen = 0;
+  if(cell){
+    const before = movableUnitsForSide(brig.side);
+    const bx = brig.x, by = brig.y;
+    brig.x = cell.x; brig.y = cell.y;
+    const after = movableUnitsForSide(brig.side);
+    brig.x = bx; brig.y = by;
+    for(const o of state.units){
+      if(o.removed || o.side!==brig.side || o.brigadeId!==brig.brigadeId || o.id===brig.id) continue;
+      if(before.has(o.id) && !after.has(o.id)) frozen++;
+    }
+  }
+  mover.x = mx; mover.y = my;
+  return frozen;
+}
 
 // Staying put when there is a shot to take. A gun may move OR fire, so moving
 // with a target in view throws the shot away.
@@ -4252,13 +4291,28 @@ export function aiDecideAndExecuteMove(u){
     // Also coordinates with an Attack Column already formed this turn (Manoeuvre
     // #19, Hammer and Column) — a charge against the same target the Column is
     // already threatening is worth more than an isolated one.
+    //
+    // Asks the engine's own charge rule (isChargeMove in engine-rules), so the
+    // AI is paid only for a charge the player could also make: never one aimed
+    // at a lone Brigadier, who cannot be attacked.
     let isChargeMove = false;
-    if(seekTactics && t.isCavalry && !c.stay && isCleanChargeRun(ox,oy,c.x,c.y)){
-      const chargeableTarget = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(c,o) &&
-        o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(c.x,c.y).elevation);
-      if(chargeableTarget){
-        isChargeMove = true;
-        s += addScore(parts, 'chargeBonus', 2.2);
+    if(seekTactics && t.isCavalry && !c.stay && isChargeMoveRule(u, ox, oy, c)){
+      isChargeMove = true;
+      s += addScore(parts, 'chargeBonus', 2.2);
+    }
+    /* Ending a move on an enemy Brigadier's square: never an attack, but either
+       a shove that may sever his chain (valued per unit it would freeze) or, for
+       an Operation VIP, a capture. See BRIG_SEVER_VALUE. */
+    if(!c.stay){
+      const enemyBrig = enemyBrigadierAt(c.x, c.y, side);
+      if(enemyBrig && isVip(enemyBrig)){
+        s += addScore(parts, 'vipCapture', tune(side, 'VIP_CAPTURE_VALUE', VIP_CAPTURE_VALUE));
+      } else if(enemyBrig){
+        const sever = tune(side, 'BRIG_SEVER_VALUE', BRIG_SEVER_VALUE);
+        if(sever > 0){
+          const frozen = unitsFrozenByDisplacing(enemyBrig, u, ox, oy, c);
+          if(frozen > 0) s += addScore(parts, 'brigadierSever', frozen * sever);
+        }
       }
     }
     /* INTENT: the job this unit already had, pulling it toward wherever its
@@ -4535,7 +4589,7 @@ export function aiDecideAndExecuteMove(u){
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
     // being pulled into contact. Everything else stays 0-ply, same cost as before.
     if(mission){
-      const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o));
+      const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o) && canAttackTarget(u,o));
       const committingReserve = (mission==='RESERVE' || mission==='FIX') && !c.stay && nearestEnemyDist(c,side) <= unitBaseMove(u)+1;
       if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
     }
@@ -4682,13 +4736,22 @@ export function aiDecideAndExecuteMove(u){
 
   if(best && !best.stay){
     const fromX=u.x, fromY=u.y;
+    /* Decided BEFORE the displacement below, which can move or (for a VIP)
+       capture whoever stands on the destination and so change the answer. The
+       same rule the player's Charge button uses. */
+    const isCharge = isChargeMoveRule(u, fromX, fromY, best);
+    /* Recorded for the simulator: how often the AI shoves an enemy Brigadier,
+       and how many of his units each shove left cut off. */
+    {
+      const enemyBrig = enemyBrigadierAt(best.x, best.y, side);
+      if(enemyBrig && !isVip(enemyBrig)){
+        if(!state.brigDisplacements) state.brigDisplacements = [];
+        state.brigDisplacements.push({ side, turn: state.turnNumber,
+          frozen: unitsFrozenByDisplacing(enemyBrig, u, fromX, fromY, best) });
+      }
+    }
     displaceBrigadierIfPresent(best.x, best.y, fromX, fromY);
     if(t.isArtillery && !isHorseArtillery(u) && terrainAt(best.x,best.y).plough) consumePloughEscort(u);
-    // u.charged is set AFTER this call (a few lines below), so it cannot be read
-    // here. The charge is detected from the move itself, using the same test the
-    // engine applies when it sets the flag.
-    const isCharge = t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) &&
-      hasChargeableTargetAt(side, best);
     /* THE UNIT ANSWERS BEFORE IT MOVES. Its selection cue plays first (the
        infantry's "oui!", the sabre, the gun, the Brigadier's call), and the
        unit holds where it stands for AI_CUE_LEAD_MS before its animation and
@@ -4724,7 +4787,7 @@ export function aiDecideAndExecuteMove(u){
       AudioManager.playEffect('artillery-move', 'audio/effects/artillery-move.wav', 'movement',
         { durationMs: moveAnimationMs(moveSteps), loop: true, delayMs: lead });
     }
-    if(t.isCavalry && isCleanChargeRun(fromX,fromY,best.x,best.y) && hasChargeableTargetAt(side, best)){
+    if(isCharge){
       u.charged = true;
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);
     } else {
@@ -4733,7 +4796,7 @@ export function aiDecideAndExecuteMove(u){
     if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD')){
       const stacked = unitsAt(best.x,best.y).some(o=>!o.removed && o.id!==u.id && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
       if(stacked){
-        const nearbyEnemy = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(best,o));
+        const nearbyEnemy = state.units.find(o=>!o.removed && o.side!==side && isAdjacent(best,o) && canAttackTarget(u,o));
         if(nearbyEnemy) state.turnComboTarget = nearbyEnemy.id;
       }
     }
@@ -5123,9 +5186,9 @@ export function simulateFightAftermathScore(attacker, defender, side){
                  dRemoved:defender.removed, dX:defender.x, dY:defender.y, dTurnOnly:defender.turnOnly };
 
   if(margin >= 3){ defender.removed = true; }
-  else if(margin >= 1){ defender.turnOnly = true; }
+  else if(margin >= 1){ setTurnedAround(defender); }
   else if(margin <= -3){ attacker.removed = true; }
-  else if(margin <= -1){ attacker.turnOnly = true; }
+  else if(margin <= -1){ setTurnedAround(attacker); }
   // roughly even (|margin|<1): treat as a draw, no change — matches the real rule's tie-continues behaviour
 
   // "And then what" — a fight that wins but leaves the attacker (if it survives)

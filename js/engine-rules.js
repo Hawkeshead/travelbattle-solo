@@ -41,9 +41,61 @@ export function pickUnitAtCell(x,y){
    attacker's TYPE and the defender's SQUARE, not on where the attacker stands,
    which is what lets the AI ask the question about a prospective move. */
 export function canAttackTarget(attacker, defender){
-  if(defender.type==='BRIGADIER') return false;
+  /* Every Brigadier, an Operation VIP included. A VIP is not fought: he is
+     taken by a unit ending its move in his square (see isVip and
+     displaceBrigadierIfPresent), so he is a charge DESTINATION, never a melee
+     target. */
+  if(defender.type==='BRIGADIER' || isVip(defender)) return false;
   if(UNIT_TYPES[attacker.type].isCavalry && terrainAt(defender.x,defender.y).key==='BUILDING') return false;
   return true;
+}
+
+/* OPERATION VIPs (Wellington, Colbert, and any future one). Identified by the
+   captureRule an Operation's hubSpecial.vip card gives them, not by name, so a
+   new VIP needs no code. The one exception to Brigadier immunity: an enemy that
+   ends its move in a VIP's square captures him rather than shoving him aside. */
+export function isVip(u){ return !!(u && u.captureRule); }
+
+/* THE ONE PLACE "TURNED AROUND" IS SET. A Brigadier is a lone rider, not a
+   formed body, so he has no front to be turned from, and since he can never be
+   attacked the +1 a turned unit gives its attacker could never mean anything
+   for him either. Guarded here, where the status is applied, so no source
+   (a pushback shove, a displacement, a gun's 4, a replay) can give him the badge.
+   Returns whether the status took. */
+export function setTurnedAround(u){
+  if(!u || u.type==='BRIGADIER' || isVip(u)) return false;
+  u.turnOnly = true;
+  return true;
+}
+/* Read side of the same rule, for anything that grants a bonus or draws a badge
+   from the status: belt and braces against a save from before the guard. */
+export function isTurnedAround(u){
+  return !!(u && u.turnOnly && u.type!=='BRIGADIER' && !isVip(u));
+}
+
+/* An enemy Brigadier (or VIP) standing alone on (x,y), from `side`'s point of
+   view. Movement may end on him; nothing may attack him. */
+export function enemyBrigadierAt(x, y, side){
+  const here = unitsAt(x,y).filter(o=>o.side!==side);
+  return (here.length===1 && (here[0].type==='BRIGADIER' || isVip(here[0]))) ? here[0] : null;
+}
+
+/* Where a Brigadier shoved off (x,y) by a unit arriving from (fromX,fromY)
+   lands: two squares straight on, then one, then the nearer flanks, then any
+   free neighbour. Null if every square around him is taken (he then stays put,
+   sharing the square). Pure, so the AI can ask where he WOULD go before it
+   commits a move; displaceBrigadierIfPresent (render-board.js) applies it. */
+export function brigadierDisplacementCell(x, y, fromX, fromY){
+  const dx = Math.sign(x-fromX) || 0, dy = Math.sign(y-fromY) || 0;
+  const candidates = [
+    {x:x+dx*2, y:y+dy*2}, {x:x+dx, y:y+dy},
+    {x:x+dx, y:y}, {x:x, y:y+dy},
+    ...neighbors8(x,y)
+  ];
+  for(const c of candidates){
+    if(inBounds(c.x,c.y) && unitsAt(c.x,c.y).length===0) return c;
+  }
+  return null;
 }
 
 export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
@@ -213,16 +265,39 @@ export function isCleanChargeRun(fromX, fromY, toX, toY){
 // Is `pos` adjacent to at least one enemy this side could legally charge? (not in
 // Square, and not on higher ground than the charging destination — matches the
 // "can't charge uphill or against a Square" restriction).
-export function hasChargeableTargetAt(side, pos){
+//
+// Runs every candidate through canAttackTarget, the shared legality check that
+// melee, the Attack Column and the AI already use, so a charge can never be
+// aimed at something no fight could be started against: no Brigadier, and no
+// unit sheltering in a building. `attacker` is the charging unit; without one a
+// generic Cavalry attacker is assumed (canAttackTarget reads only its type).
+export function hasChargeableTargetAt(side, pos, attacker){
+  const a = attacker || { type:'LIGHT_CAV', side };
   return state.units.some(o=>!o.removed && o.side!==side && !isConcealedFromEnemy(o) && isAdjacent(pos,o) &&
-    o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(pos.x,pos.y).elevation);
+    o.formation!=='square' && terrainAt(o.x,o.y).elevation<=terrainAt(pos.x,pos.y).elevation &&
+    canAttackTarget(a, o));
 }
-// Every legal move for a Cavalry unit that would count as a clean charge run
-// AND land it adjacent to something worth charging — the set of squares the
-// Charge button highlights.
+/* Whether a Cavalry move from (fromX,fromY) to `to` is a charge. Two kinds:
+   a clean run that lands next to something it may fight, or a clean run INTO an
+   Operation VIP's square, which captures him (his captureRule).
+
+   A run that ends on an ordinary enemy Brigadier's square is NOT a charge, even
+   if a real target stands beside it. Ending a move there still shoves him clear
+   (that is movement, and the Move highlight offers it), but the Charge
+   highlight on his square read as "attack the Brigadier", which is the one
+   thing nobody may do. */
+export function isChargeMove(u, fromX, fromY, to){
+  if(!UNIT_TYPES[u.type].isCavalry) return false;
+  if(!isCleanChargeRun(fromX, fromY, to.x, to.y)) return false;
+  const brig = enemyBrigadierAt(to.x, to.y, u.side);
+  if(brig) return isVip(brig);
+  return hasChargeableTargetAt(u.side, to, u);
+}
+// Every legal move for a Cavalry unit that would count as a charge (above):
+// the set of squares the Charge button highlights.
 export function computeChargeDestinations(u){
   if(!UNIT_TYPES[u.type].isCavalry) return [];
-  return legalMoves(u).filter(m => isCleanChargeRun(u.x,u.y,m.x,m.y) && hasChargeableTargetAt(u.side, m));
+  return legalMoves(u).filter(m => isChargeMove(u, u.x, u.y, m));
 }
 
 export function unitBaseMove(u){
@@ -331,7 +406,7 @@ export function legalMoves(u){
       // occupancy check
       const occ = unitsAt(n.x,n.y).filter(o=>o.id!==u.id && o.side===u.side);
       const enemyUnitsHere = unitsAt(n.x,n.y).filter(o=>o.side!==u.side);
-      const enemyOcc = enemyUnitsHere.length>0 && !(enemyUnitsHere.length===1 && enemyUnitsHere[0].type==='BRIGADIER');
+      const enemyOcc = enemyUnitsHere.length>0 && !(enemyUnitsHere.length===1 && (enemyUnitsHere[0].type==='BRIGADIER' || isVip(enemyUnitsHere[0])));
       if(enemyOcc) continue; // can't move onto an enemy square (that's a fight, not a move) — except a lone Brigadier, who gets shoved aside instead
       if(occ.length>0){
         /* A SQUARE WILL NOT BE DOUBLED INTO.
@@ -553,7 +628,7 @@ export function volleyDiceCount(shooter, target){
 export function volleyModifiers(target){
   const terr = terrainAt(target.x, target.y);
   const inCover = terr.key === 'WOODS' || terr.key === 'BUILDING';
-  return { turnedBonus: target.turnOnly ? 1 : 0, coverPenalty: inCover ? 1 : 0 };
+  return { turnedBonus: isTurnedAround(target) ? 1 : 0, coverPenalty: inCover ? 1 : 0 };
 }
 
 export function artilleryTargets(gun){
@@ -917,7 +992,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
      in the panel's notes), but they were hidden from the log, which is exactly
      where someone checking the arithmetic would look. */
   const extraASources = [];
-  if(defender.turnOnly){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); extraASources.push('Defender turned around +1'); }
+  if(isTurnedAround(defender)){ aValueBonus += 1; aReasons.push('Defender turned around: +1 to roll'); extraASources.push('Defender turned around +1'); }
   if(ambushMode){ aValueBonus += 1; aReasons.push('Ambush: +1 to roll'); extraASources.push('Ambush +1'); }
   /* The Attacking Artillery bonus used to be a flat +1 applied here. It moved
      into combatBonuses under W5, where it grants a second die instead and is
@@ -1248,7 +1323,7 @@ export function pushBack(loser, winner){
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
         animateUnitTo(blocker, bx, by, 'pushback');   // shoved aside by the unit being pushed into it
         playMovementAudio(blocker, Math.max(Math.abs(bx-blocker.x), Math.abs(by-blocker.y)) || 1, 'pushback');
-        blocker.turnOnly = true;
+        setTurnedAround(blocker);
         log(`${unitLabel(blocker)} is shoved back by the retreat.`, 'combat');
       } else {
         landingClear = false; // nowhere for the blocker to go — loser can't retreat into it either
@@ -1298,7 +1373,7 @@ export function pushBack(loser, winner){
       log(`${unitLabel(loser)} is pinned against the board edge with nowhere to go.`, 'combat');
     }
   }
-  loser.turnOnly = true;
+  setTurnedAround(loser);
   log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
 }
 
@@ -1386,7 +1461,7 @@ export function retreatAndRally(loser, onComplete){
      A unit with nowhere to go (already on its edge, or the edge full) holds its
      square either way, and is turned about either way. */
   const nowhereToGo = (cell.x === loser.x && cell.y === loser.y);
-  loser.turnOnly = true;
+  setTurnedAround(loser);
   loser.rallying = true;
 
   const t = UNIT_TYPES[loser.type];
