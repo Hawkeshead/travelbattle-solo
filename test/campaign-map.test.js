@@ -443,3 +443,56 @@ test('a version 2 save gains a purse and plays on', () => {
   cm.endPlayerPhase(back, MAP);
   assert.strictEqual(back.gold.french, 22);
 });
+
+/* ---------- THE FRENCH STRATEGIC AI (campaign-map-ai.js) ---------- */
+import * as ai from '../js/campaign-map-ai.js';
+const frenchTurnWith = (c) => { cm.endPlayerPhase(c, MAP); return ai.strategicAiStep(c, MAP); };
+
+test('the AI never marches on an army it cannot beat', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'menin'; f.townId = 'lincelles';
+  f.brigades.splice(1);   // France one brigade, Britain three
+  const r = frenchTurnWith(c);
+  assert.notStrictEqual(f.townId, 'menin');
+  assert.ok(r.kind !== 'battle');
+});
+
+test('the AI attacks with the odds', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'menin'; f.townId = 'lincelles';
+  b.brigades.splice(1);   // Britain one brigade, France three
+  const r = frenchTurnWith(c);
+  assert.strictEqual(r.kind, 'battle');
+  assert.strictEqual(c.pendingBattle.townId, 'menin');
+});
+
+test('the AI takes an undefended British town', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'antwerp';   // far away
+  f.townId = 'tourcoing';   // next to Courtrai (British, undefended)
+  frenchTurnWith(c);
+  assert.strictEqual(c.towns[f.townId].owner, 'french');
+  assert.notStrictEqual(f.townId, 'tourcoing', 'it moved to take a town');
+});
+
+test('the AI pulls an army home when Britain nears Lille', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'menin';   // two roads from Lille
+  f.townId = 'valenciennes';   // one road from Lille
+  f.brigades.splice(2);
+  frenchTurnWith(c);
+  assert.strictEqual(f.townId, 'lille');
+});
+
+test('the AI never spends its way into losing money each turn', () => {
+  const c = fresh();
+  cm.endPlayerPhase(c, MAP);
+  c.gold.french = 200;
+  ai.strategicAiRecruit(c, MAP, ARCHIVE);
+  assert.ok(cm.incomeOf(c, MAP, 'french').net >= 0, `net ${cm.incomeOf(c, MAP, 'french').net}`);
+  assert.ok(c.gold.french < 200, 'but it did spend');
+});

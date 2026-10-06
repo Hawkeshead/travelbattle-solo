@@ -21,6 +21,7 @@
 ========================================================= */
 import { TB_DATA, state } from './data-core.js';
 import * as cm from './campaign-map-core.js';
+import { strategicAiRecruit, strategicAiStep } from './campaign-map-ai.js';
 import { renderMapSVG } from './campaign-map-art.js';
 import { launchMapBattle, readBattleOutcome } from './campaign-map-battle.js';
 import { currentRecord } from './telemetry/recorder.js';
@@ -475,7 +476,7 @@ function download(name, text){
 /* ---------- the turn ---------- */
 function endTurn(){
   cm.endPlayerPhase(C, mapFor(C));
-  cm.aiRecruit(C, mapFor(C), TB_DATA.unitArchive);   // France pays and spends at Lille as its phase begins
+  strategicAiRecruit(C, mapFor(C), TB_DATA.unitArchive);   // France is paid as its phase begins, and spends at Lille
   view.selectedArmyId = null; view.mode = null; view.message = '';
   saveCampaignMap(C);
   runAi();
@@ -484,7 +485,7 @@ function runAi(){
   const map = mapFor(C);
   if(C.result || C.pendingBattle || C.phase !== C.aiSide){ view.aiRunning = false; render(); return; }
   view.aiRunning = true;
-  const r = cm.aiStep(C, map);
+  const r = strategicAiStep(C, map);
   saveCampaignMap(C);
   if(r.kind === 'done'){
     cm.endAiPhase(C, map);

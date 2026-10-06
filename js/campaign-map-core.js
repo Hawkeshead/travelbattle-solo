@@ -533,7 +533,8 @@ export function raiseBrigade(c, map, archive, side){
   logEntry(c, map, side, 'recruit', `${brigade.name} raised at ${d.name} for ${rules.newBrigadeCost} gold and joins ${army.name}: ${brigade.units.map(u => `${u.name} (${u.type})`).join(', ')}; ${c.gold[side]} left.`, { armyId: army.id, brigadeId: brigade.id, cost: rules.newBrigadeCost });
   return { army, brigade };
 }
-/* The French AI's spending (placeholder until Phase 5's strategic AI): raise
+/* The placeholder's spending (the control; the game uses strategicAiRecruit
+   in campaign-map-ai.js): raise
    a brigade at Lille whenever it can afford one, then top up brigades of any
    army standing there with infantry, keeping nothing back. */
 export function aiRecruit(c, map, archive){
@@ -615,9 +616,11 @@ export function shortestPath(map, from, to){
   return null;
 }
 
-/* THE PLACEHOLDER FRENCH AI (Phase 1 only; the strategic AI is Phase 5).
-   Each French army advances one town along the shortest road toward the
-   nearest British army, and that is all. Moves the next French army that has
+/* THE PLACEHOLDER FRENCH AI (Phase 1). The game now plays the strategic AI
+   (campaign-map-ai.js); this stays as the control it is measured against
+   (tools/sim/campaign-ai-check.mjs) and for the tests. Each French army
+   advances one town along the shortest road toward the nearest British
+   army, and that is all. Moves the next French army that has
    not moved; returns its outcome, or { kind:'done' } when all have moved. */
 export function aiStep(c, map){
   if(c.phase !== c.aiSide || c.pendingBattle || c.result) return { kind: 'done' };

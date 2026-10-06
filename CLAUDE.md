@@ -2,7 +2,7 @@
 Solo browser Napoleonic wargame. Owner is new to game design: explain decisions in gameplay/balance terms, not jargon. Never use em dashes in copy; use round brackets.
 
 ## Before every commit
-- Run `npm run check` (check-assets.mjs, check-module-boundaries.mjs, eslint clean at 0 warnings/0 errors, 98 passing tests in test/*.test.js); run `npm ci` first in a fresh container
+- Run `npm run check` (check-assets.mjs, check-module-boundaries.mjs, eslint clean at 0 warnings/0 errors, 103 passing tests in test/*.test.js); run `npm ci` first in a fresh container
 - Visual changes: Playwright screenshots on the real game with real assets
 - Long, explanatory commit messages (what changed and why)
 - Commit and push WIP on long tasks
