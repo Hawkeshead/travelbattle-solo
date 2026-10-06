@@ -1,4 +1,5 @@
 import { offerBeginBattle } from './ui-deployment.js';
+import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
 import { getCard, readyCards } from './scenario-cards.js';
 import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
@@ -78,6 +79,7 @@ export function prepareTitleBoard(){
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+  state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -721,12 +723,29 @@ function chevronSvg(n){
    the rts-variant branch; set RTS_ENABLED back to true to offer it again. */
 export const RTS_ENABLED = false;
 let battleMode = 'turn';
+/* MAP: Random (generated boards, the default) or Classic (the two original
+   boards), remembered on this phone. Offered on the side select. */
+const MAP_STYLE_KEY = 'fc_map_style';
+export function mapStyle(){ try { return localStorage.getItem(MAP_STYLE_KEY) === 'classic' ? 'classic' : 'random'; } catch { return 'random'; } }
+function mapToggleHtml(){
+  const cur = mapStyle();
+  const b = (v, l) => `<button type="button" class="mode-btn${cur === v ? ' on' : ''}" data-map="${v}">${l}</button>`;
+  return `<span id="mapStyleToggle" class="mode-toggle"><span class="mode-label">Map</span>${b('random', 'Random')}${b('classic', 'Classic')}</span>`;
+}
+function wireMapToggle(){
+  document.querySelectorAll('#mapStyleToggle [data-map]').forEach(btn => {
+    btn.onclick = (e)=>{ e.stopPropagation();
+      try { localStorage.setItem(MAP_STYLE_KEY, btn.dataset.map); } catch { /* not remembered */ }
+      document.getElementById('mapStyleToggle').outerHTML = mapToggleHtml(); wireMapToggle(); };
+  });
+}
 function modeToggleHtml(){
-  if(!RTS_ENABLED) return '';
+  if(!RTS_ENABLED) return mapToggleHtml();
   const b = (v, label) => `<button type="button" class="mode-btn${battleMode === v ? ' on' : ''}" data-mode="${v}" aria-pressed="${battleMode === v}">${label}</button>`;
   return `<span id="battleModeToggle" class="mode-toggle"><span class="mode-label">Battle</span>${b('turn','Turn-Based')}${b('rts','Real-Time')}</span>`;
 }
 function wireModeToggle(){
+  wireMapToggle();
   document.querySelectorAll('#battleModeToggle [data-mode]').forEach(btn => btn.onclick = () => {
     battleMode = btn.dataset.mode;
     document.getElementById('battleModeToggle').outerHTML = modeToggleHtml();
@@ -795,10 +814,37 @@ export function beginBoardSetup(){
   if(state.mode === 'ai' && !state.spectate && !isOnline() && !state.group) abandonSave();
   setBoardMode('standard');
   AudioManager.stopMusic();
+  /* RANDOM OR CLASSIC (6 Oct 2026). Random: two boards from the generator
+     (map-generator.js), seeded from the match's own generator so the match
+     still replays exactly, roads on their own layer, no rotation (the road
+     exits only line up unrotated, so there is no orientation step). Classic:
+     the two original boards, rotated and oriented as before. Online and Group
+     matches stay Classic for now (the other phone would need the seeds). */
+  if(mapStyle() === 'random' && !isOnline() && !state.group){
+    const seeds = [Math.floor(seededRandom() * 2 ** 31), Math.floor(seededRandom() * 2 ** 31)];
+    const left = generateBoard(seeds[0]), right = generateBoard(seeds[1]);
+    state.mapSeeds = seeds;
+    state.boardAssignment = null; state.boardRotation = null;
+    state.terrain = left.terrain.map((row, y) => [...row, ...right.terrain[y]]);
+    state.roads = left.road.map((row, y) => [...row, ...right.road[y]]);
+    state.grassStyles = assignGrassStyles(state.terrain);
+    state.buildingStyles = assignBuildingStyles(state.terrain);
+    state.excludedRoadEdges = new Set();
+    sizeCanvas();
+    document.getElementById('overlay').classList.remove('show');
+    log(`A new battlefield: random boards ${seeds[0]} and ${seeds[1]}.`, 'system');
+    const toDeployment = ()=>{ startAmbientLayer(); state.phase = 'deploy'; initDeployment(); };
+    if(state.mode==='ai' && !state.campaign){
+      AudioManager.playAmbience('audio/ambience/countryside.mp3');
+      playBoardIntroAnimation(toDeployment);
+    } else { draw(); toDeployment(); }
+    return;
+  }
   const keys = seededRandom()<0.5 ? ['A','B'] : ['B','A'];
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+  state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -900,6 +946,7 @@ function runRotationPicks(eligibleSides, i){
     const chosen = Math.floor(seededRandom()*4);
     state.boardRotation[side] = chosen;
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
+    state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -1031,6 +1078,7 @@ export function beginGrandBoardSetup(){
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
+  state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSetGrand(quadrants);

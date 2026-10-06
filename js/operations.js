@@ -60,6 +60,7 @@ export function applyLockedMap(card){
     state.boardAssignment = null;
     state.boardRotation = null;
     state.terrain = t;
+    state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = new Set();
@@ -71,6 +72,7 @@ export function applyLockedMap(card){
   const t = buildTerrainMap(state.boardAssignment, state.boardRotation);
   for(const o of (m.overrides || [])) if(t[o.y]) t[o.y][o.x] = o.terrain;
   state.terrain = t;
+  state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);

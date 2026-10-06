@@ -16,7 +16,25 @@ import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.j
    GEOMETRY HELPERS
 ========================================================= */
 export function inBounds(x,y){ return x>=0 && x<COLS && y>=0 && y<ROWS; }
-export function terrainAt(x,y){ return TERRAIN[state.terrain[y][x]]; }
+/* THE ROAD LAYER (generated maps, 6 Oct 2026). Where state.roads marks a
+   square, the terrain there is still itself (a hill keeps its height, a wood
+   its cover and sight-blocking, a village its defence) but it is also a road:
+   isRoad for the road movement bonus, and no ploughed-field penalty (a road
+   through farmland is not hard going for horses or guns). One merged object
+   per terrain kind, made once. */
+const ROADED = {};
+function roaded(base){
+  if(base.isRoad) return base;
+  /* A road through a wood is open to horse and guns (agreed with Matthew, 6
+     Oct 2026), so a roaded wood loses the wood's who-may-enter limit; a
+     village keeps its own (cavalry never go into buildings). */
+  const extra = base.key === 'WOODS' ? { restrictTo: null } : {};
+  return ROADED[base.key] || (ROADED[base.key] = Object.freeze({ ...base, isRoad: true, plough: false, roadOverlay: true, ...extra }));
+}
+export function terrainAt(x,y){
+  const base = TERRAIN[state.terrain[y][x]];
+  return (state.roads && state.roads[y] && state.roads[y][x]) ? roaded(base) : base;
+}
 export function unitsAt(x,y){ return state.units.filter(u=>!u.removed && u.x===x && u.y===y); }
 export function unitAt(x,y, excludeId){ return state.units.find(u=>!u.removed && u.x===x && u.y===y && u.id!==excludeId); }
 
@@ -836,7 +854,9 @@ export function combatBonuses(unit, opponent, defending, extraSources){
     directReasons.push('Ambushed cavalry: no 2nd die');
   }
   else if(t.isCavalry && (oppT.key==='INFANTRY'||oppT.key==='GUARD') && opponent.formation!=='square'){
-    if(!defending && terrainAt(opponent.x, opponent.y).key === 'WOODS'){
+    // A charge along a road through the wood keeps its second die (road layer, 6 Oct 2026).
+    const woodsAt = terrainAt(opponent.x, opponent.y);
+    if(!defending && woodsAt.key === 'WOODS' && !woodsAt.roadOverlay){
       directReasons.push('Cavalry into woods: no 2nd die');
     } else {
       sources.push('Cavalry vs non-Square Infantry');

@@ -287,10 +287,19 @@ function sectionDeployment(){
   out.push('   ' + Array.from({length:COLS}, (_,x)=> String(x%10)).join(''));
   for(let y=0;y<ROWS;y++){
     let row = '';
-    for(let x=0;x<COLS;x++) row += (TERRAIN_GLYPH[state.terrain[y][x]] || '?');
+    for(let x=0;x<COLS;x++){
+      const g = TERRAIN_GLYPH[state.terrain[y][x]] || '?';
+      // Generated maps carry roads on their own layer: a road over open ground
+      // prints '=', a road over anything else prints that terrain's letter in
+      // capitals (H hill, W woods, F farmland); buildings are road anyway.
+      const onRoad = state.roads && state.roads[y] && state.roads[y][x];
+      row += !onRoad ? g : g === '.' ? '=' : ({ '^': 'H', '*': 'W', ':': 'F' }[g] || g);
+    }
     out.push(String(y).padStart(2) + ' ' + row);
   }
-  out.push('   legend: . open  = road  ^ hill  * woods  # building  : ploughed');
+  out.push('   legend: . open  = road  ^ hill  * woods  # building  : ploughed' +
+    (state.roads ? '   (road layer: H W F = hill, woods, farmland with a road through)' : ''));
+  if(state.mapSeeds) out.push(`   random boards, seeds ${state.mapSeeds.join(' and ')}`);
   return out;
 }
 

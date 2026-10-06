@@ -320,10 +320,12 @@ export function validateBoard(board){
   if(nets.length < 1 || nets.length > 2) errors.push(`${nets.length} road networks (1 or 2 allowed)`);
   for(const [name, e] of Object.entries(EXITS)) if(!road[e.y][e.x]) errors.push(`no road at the ${name} exit`);
   const isExit = (x, y) => Object.values(EXITS).some(e => e.x === x && e.y === y);
+  // (A building at the end of a run is the village, not a dead end.)
   for(let y = 0; y < BOARD; y++) for(let x = 0; x < BOARD; x++)
-    if(road[y][x] && !isExit(x, y) && roadDegree(road, x, y) <= 1) errors.push(`dead end at (${x},${y})`);
+    if(road[y][x] && t[y][x] !== 'BUILDING' && !isExit(x, y) && roadDegree(road, x, y) <= 1) errors.push(`dead end at (${x},${y})`);
   for(let y = 0; y < BOARD - 1; y++) for(let x = 0; x < BOARD - 1; x++)
-    if(road[y][x] && road[y][x + 1] && road[y + 1][x] && road[y + 1][x + 1]) errors.push(`road block at (${x},${y})`);
+    if(road[y][x] && road[y][x + 1] && road[y + 1][x] && road[y + 1][x + 1] &&
+       [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]].some(([a, b]) => t[b][a] !== 'BUILDING')) errors.push(`road block at (${x},${y})`);
   // No long straight stretches: count runs along rows and columns.
   for(let y = 0; y < BOARD; y++){ let r = 0; for(let x = 0; x < BOARD; x++){ r = road[y][x] && (x === 0 || road[y][x - 1]) ? r + 1 : (road[y][x] ? 1 : 0);
     if(r > MAX_STRAIGHT){ errors.push(`straight road along row ${y}`); break; } } }
@@ -332,7 +334,13 @@ export function validateBoard(board){
   const villages = villagesOf(t);
   if(!villages.length) errors.push('no village');
   villages.forEach((v, i) => {
-    const through = v.some(([x, y]) => road[y][x] && roadDegree(road, x, y) >= 2);
+    // A road passes through when the village joins at least two road squares
+    // that are not part of it (in one side, out the other).
+    const inV = new Set(v.map(([x, y]) => x + ',' + y));
+    const outside = new Set();
+    for(const [x, y] of v) for(const [dx, dy] of N4){ const nx = x + dx, ny = y + dy;
+      if(inB(nx, ny) && road[ny][nx] && !inV.has(nx + ',' + ny)) outside.add(nx + ',' + ny); }
+    const through = outside.size >= 2;
     if(!through) errors.push(`village ${i + 1} has no road through it`);
   });
   return errors;
@@ -343,11 +351,14 @@ export function validateBoard(board){
    seed's own sequence is tried, so the result is still fixed by the seed. */
 export function generateBoard(seed){
   const rng = rngFrom(seed);
-  for(let attempt = 0; attempt < 60; attempt++){
+  for(let attempt = 0; attempt < 200; attempt++){
     const terrain = makeTerrain(rng);
     const road = makeRoads(terrain, rng);
     if(!road) continue;
     makeVillages(terrain, road, rng);
+    // Every building square counts as road (Matthew's rule): mark them on the
+    // road layer too, so the rules and the drawing need look only at it.
+    for(let y = 0; y < BOARD; y++) for(let x = 0; x < BOARD; x++) if(terrain[y][x] === 'BUILDING') road[y][x] = true;
     const board = { terrain, road, seed, attempt };
     if(validateBoard(board).length === 0) return board;
   }

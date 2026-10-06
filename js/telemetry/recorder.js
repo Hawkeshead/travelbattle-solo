@@ -250,7 +250,8 @@ function pushEventRaw(type, side, unitId, payload, phaseOverride, turnOverride, 
 const VOLLEY_NEEDED = { disrupt: 4, knockback: 6 };
 function roadBothEnds(a, b){
   const t = state.terrain;
-  const road = p => !!(p && t && t[p.y] && t[p.y][p.x] === 'ROAD');
+  // A road square: the classic ROAD terrain, any building, or the road layer of a generated map.
+  const road = p => !!(p && t && t[p.y] && (t[p.y][p.x] === 'ROAD' || t[p.y][p.x] === 'BUILDING' || (state.roads && state.roads[p.y] && state.roads[p.y][p.x])));
   return a && b ? road(a) && road(b) : null;
 }
 function friendsAround(id){

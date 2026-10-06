@@ -195,6 +195,7 @@ export function setupMapBattle(c, map){
   setBoardMode(battle.boardMode);
   state.boardAssignment = null; state.boardRotation = null;
   state.terrain = ground.terrain;
+  state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = new Set();

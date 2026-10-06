@@ -159,10 +159,19 @@ export const ROAD = {
 const D4 = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
 /* Node keys: 'c:x,y' road square, 'v:x,y' village square, 'e:x,y,dx,dy' exit. */
-export function buildRoadGraph(terrain, excludedEdgeKey){
+/* With a road layer (state.roads, generated maps, 6 Oct 2026), a road square
+   is any square the layer marks, over any terrain, and EVERY building square
+   counts as road too (Matthew's rule): so a road runs straight through a
+   village as a plain run of road, drawn under the village art, instead of
+   stopping at its edge and jumping to the nearest road on the far side (the
+   jump is what made a loop on one sample board). Without a layer, the
+   classic boards' rules below are unchanged. */
+export function buildRoadGraph(terrain, excludedEdgeKey, roadLayer){
   const rows = terrain.length, cols = terrain[0].length;
   const inB = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows;
-  const isRoad = (x, y) => inB(x, y) && terrain[y][x] === 'ROAD';
+  const isRoad = roadLayer
+    ? (x, y) => inB(x, y) && (!!roadLayer[y][x] || terrain[y][x] === 'BUILDING')
+    : (x, y) => inB(x, y) && terrain[y][x] === 'ROAD';
   const isBuilding = (x, y) => inB(x, y) && terrain[y][x] === 'BUILDING';
   const adj = new Map();
   const node = k => { if(!adj.has(k)) adj.set(k, new Set()); return adj.get(k); };
@@ -178,7 +187,8 @@ export function buildRoadGraph(terrain, excludedEdgeKey){
   }
   // Villages: a road that dead-ends (0 or 1 links) beside a village runs into
   // it, then on to the nearest other road square touching that village.
-  for(const [x, y] of cells){
+  // (Not with a road layer: there the village squares are road themselves.)
+  for(const [x, y] of (roadLayer ? [] : cells)){
     if(adj.get(`c:${x},${y}`).size > 1) continue;
     for(const [dx, dy] of D4){
       const vx = x + dx, vy = y + dy;
@@ -197,6 +207,7 @@ export function buildRoadGraph(terrain, excludedEdgeKey){
   // square exits only if it has fewer than two links.
   for(const [x, y] of cells){
     if(adj.get(`c:${x},${y}`).size >= 2) continue;
+    if(roadLayer && terrain[y][x] === 'BUILDING') continue;   // a village never runs off the map
     for(const [dx, dy] of D4) if(!inB(x + dx, y + dy)) link(`c:${x},${y}`, `e:${x},${y},${dx},${dy}`);
   }
   return adj;

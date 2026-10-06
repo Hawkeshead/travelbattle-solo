@@ -1663,7 +1663,7 @@ function farmOverlayForState(){
 let v2LayoutCache = null;
 function v2Layout(){
   const t = state.terrain;
-  const sig = JSON.stringify([state.boardMode, state.boardAssignment, state.boardRotation, state.grandQuadrants]);
+  const sig = JSON.stringify([state.boardMode, state.boardAssignment, state.boardRotation, state.grandQuadrants, state.mapSeeds || null]);
   if(v2LayoutCache && v2LayoutCache.terrain === t && v2LayoutCache.sig === sig) return v2LayoutCache;
   // A different board (a new match): the sharper copies made for the last one go.
   // Not for the Army Picker's preview, which draws the same board in a scope of its own.
@@ -1676,7 +1676,7 @@ function v2Layout(){
     terrain: t, sig, overlay, diagram: diagramScopeActive,
     grass: grassPicks(t, overlay),
     farms: farmPicks(farmCells),
-    roadChains: roadChains(buildRoadGraph(t, (x1, y1, x2, y2) => excluded.has(edgeKey(x1, y1, x2, y2)))),
+    roadChains: roadChains(buildRoadGraph(t, (x1, y1, x2, y2) => excluded.has(edgeKey(x1, y1, x2, y2)), state.roads || null)),
     roadLines: null,
   };
   return v2LayoutCache;

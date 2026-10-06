@@ -128,6 +128,7 @@ export function applyBattleMap(card){
     setBoardMode(t[0].length === 10 ? 'single' : 'standard');
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = t;
+    state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
     state.grassStyles = assignGrassStyles(t);
     state.buildingStyles = assignBuildingStyles(t);
     state.excludedRoadEdges = new Set();
