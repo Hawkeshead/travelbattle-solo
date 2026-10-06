@@ -524,3 +524,22 @@ test('winter quarters: own towns only, no attacks, half income', () => {
   assert.strictEqual(c.pendingBattle, null);
   assert.strictEqual(c.towns.ypres.owner, 'british');
 });
+
+/* ---------- TWO PLAYERS ON ONE PHONE ---------- */
+test('two-player campaign: every choice is left to a person', () => {
+  const c = cm.createCampaign(MAP, COMPS, ARCHIVE, { id: 'hs', now: 'x', hotseat: true });
+  assert.ok(cm.isHotseat(c) && cm.isHuman(c, 'british') && cm.isHuman(c, 'french'));
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'ypres'; f.townId = 'menin'; f.brigades.splice(1);   // France weak: the AI would withdraw
+  cm.moveArmy(c, MAP, b.id, 'menin');
+  cm.resolveAiChoices(c, MAP);
+  assert.strictEqual(c.pendingBattle.stage, 'decide', 'France decides for itself');
+  cm.chooseWithdraw(c, MAP, 'lincelles');
+  cm.resolveAiChoices(c, MAP);
+  assert.strictEqual(c.pendingBattle.stage, 'pursuit', 'Britain decides for itself');
+  // A solo campaign still lets the AI decide.
+  const s = fresh();
+  assert.ok(!cm.isHotseat(s) && !cm.isHuman(s, 'french'));
+  const v = JSON.parse(cm.serialiseCampaign(s)); delete v.humans;
+  assert.ok(cm.isHuman(cm.restoreCampaign(JSON.stringify(v)), 'british'), 'older saves: Britain is the person');
+});

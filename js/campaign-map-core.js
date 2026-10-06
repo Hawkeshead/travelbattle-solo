@@ -138,8 +138,12 @@ export function createCampaign(map, compositions, archive, opts = {}){
     id: opts.id || ('cm-' + Date.now().toString(36)),
     mapId: map.id,
     createdAt: opts.now || new Date().toISOString(),
+    /* playerSide moves first each turn, aiSide second. Which of them a person
+       commands is `humans`: Britain alone (solo, France the AI), or both
+       (two players taking turns on one phone). */
     playerSide: map.playerSide || 'british',
     aiSide: map.aiSide || 'french',
+    humans: opts.hotseat ? ['british', 'french'] : [map.playerSide || 'british'],
     totalTurns: map.totalTurns,
     maxArmies: map.maxArmiesPerSide || 3,
     maxBrigades: map.maxBrigadesPerArmy || 3,
@@ -167,6 +171,11 @@ export function createCampaign(map, compositions, archive, opts = {}){
   logEntry(c, map, null, 'start', `Campaign begins: ${map.name}. ${c.armies.map(a => `${a.name} (${a.side}) at ${townName(map, a.townId)}, ${describeArmy(a)}`).join('; ')}.`);
   return c;
 }
+
+/* Whether a person commands `side` (else the AI does). Saves from before
+   two-player campaigns have no humans list: the first mover alone. */
+export const isHuman = (c, side) => (c.humans || [c.playerSide]).includes(side);
+export const isHotseat = c => (c.humans || []).length > 1;
 
 /* ---------- looking things up ---------- */
 export const armyById = (c, id) => c.armies.find(a => a.id === id) || null;
@@ -416,11 +425,11 @@ export function resolveAiChoices(c, map){
   for(let guard = 0; guard < 4; guard++){
     const b = c.pendingBattle;
     if(!b) return null;
-    if(b.stage === 'decide' && defenderSideOf(b) === c.aiSide){
+    if(b.stage === 'decide' && !isHuman(c, defenderSideOf(b))){
       if(aiShouldWithdraw(c, map, b)) chooseWithdraw(c, map, aiRetreatTown(c, map, b)); else chooseFight(c, map);
       continue;
     }
-    if(b.stage === 'pursuit' && b.attackerSide === c.aiSide){
+    if(b.stage === 'pursuit' && !isHuman(c, b.attackerSide)){
       const pick = aiPursuit(c, map);
       if(pick) choosePursue(c, map, pick); else chooseLetGo(c, map);
       continue;
@@ -843,7 +852,7 @@ export function campaignLogText(c, map){
   const out = [];
   out.push(`GROGNARDS CAMPAIGN MAP LOG`);
   out.push(`Campaign ${c.id} on ${map.name} (map ${c.mapId}), save version ${c.version}`);
-  out.push(`Started ${c.createdAt}. Player ${c.playerSide}, AI ${c.aiSide}. Turn ${c.turn} of ${c.totalTurns} (${dateForTurn(map, c.turn)}), phase ${c.phase}.`);
+  out.push(`Started ${c.createdAt}. ${isHotseat(c) ? 'Two players: Britain and France both human' : `Player ${c.playerSide}, AI ${c.aiSide}`}. Turn ${c.turn} of ${c.totalTurns} (${dateForTurn(map, c.turn)}), phase ${c.phase}.`);
   out.push(`Enemy value destroyed: British ${c.destroyedValue.british}, French ${c.destroyedValue.french}. Units lost: British ${c.unitsLost.british}, French ${c.unitsLost.french}.`);
   if(c.result) out.push(`RESULT: ${c.result.winner === 'draw' ? 'Draw' : cap(c.result.winner) + ' victory'}, ${c.result.reason} (turn ${c.result.turn}).`);
   out.push('');

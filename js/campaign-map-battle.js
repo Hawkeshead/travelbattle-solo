@@ -45,6 +45,7 @@ import { log, newUnit, resetHistoricalIdentities, resetUndoStack } from './engin
 import { authoredTerrain, redrawOperation } from './operations.js';
 import { getCard } from './scenario-cards.js';
 import { offerBeginBattle } from './ui-deployment.js';
+import * as cm from './campaign-map-core.js';
 import { battleBrigades, fightingUnits, townById } from './campaign-map-core.js';
 import { showObjectivePanel } from './operation-panel.js';
 
@@ -186,8 +187,9 @@ export function setupMapBattle(c, map){
   state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {};
   state.gameOver = false; state.winner = null; state._endDeferred = false;
   state.turnNumber = 1;
-  state.mode = 'ai'; state.spectate = false;
-  state.aiSide = ENGINE_SIDE[c.aiSide];
+  state.spectate = false;
+  if(cm.isHotseat(c)){ state.mode = 'hotseat'; state.aiSide = null; }   // two players: both sides are people
+  else { state.mode = 'ai'; state.aiSide = ENGINE_SIDE[c.aiSide]; }
   state.aiDifficulty = 'hard';
 
   setBoardMode(battle.boardMode);

@@ -42,8 +42,9 @@ export function saveCampaignMap(c){
 }
 export function describeSave(c){
   const map = mapFor(c);
+  const who = cm.isHotseat(c) ? 'two players · ' : '';
   if(c.result) return `finished: ${c.result.winner === 'draw' ? 'a draw' : c.result.winner === 'british' ? 'British victory' : 'French victory'}`;
-  return `turn ${c.turn} of ${c.totalTurns} · ${cm.dateForTurn(map, c.turn)}${c.pendingBattle ? ' · a battle is waiting' : ''}`;
+  return `${who}turn ${c.turn} of ${c.totalTurns} · ${cm.dateForTurn(map, c.turn)}${c.pendingBattle ? ' · a battle is waiting' : ''}`;
 }
 
 /* ---------- screen state ---------- */
@@ -55,12 +56,19 @@ function reloadInto(where){
   location.reload();
 }
 
+/* WHO IS ACTING. Solo: always the player's side (Britain). Two players on
+   one phone: whichever side's phase it is. */
+const ADJ = { british: 'British', french: 'French' };
+const FLAG_COLOUR = { british: 'red', french: 'blue' };
+const me = () => (cm.isHotseat(C) && (C.phase === 'british' || C.phase === 'french')) ? C.phase : C.playerSide;
+const aiTurn = () => C.phase === C.aiSide && !cm.isHuman(C, C.aiSide);
+
 /* ---------- entry points ---------- */
-export function newCampaignMap(){
+export function newCampaignMap(opts = {}){
   const map = defaultMap();
-  C = cm.createCampaign(map, TB_DATA.armyCompositions, TB_DATA.unitArchive);
+  C = cm.createCampaign(map, TB_DATA.armyCompositions, TB_DATA.unitArchive, { hotseat: !!opts.hotseat });
   saveCampaignMap(C);
-  view = { selectedArmyId: null, mode: null, message: 'Turn 1. Tap your army (the red flag at Ostend) to see where it can march.', showBattle: null, aiRunning: false };
+  view = { selectedArmyId: null, mode: null, message: opts.hotseat ? 'Two players, one phone. Britain moves first: tap the red flag at Ostend.' : 'Turn 1. Tap your army (the red flag at Ostend) to see where it can march.', showBattle: null, aiRunning: false };
   open();
 }
 export function showCampaignMap(){
@@ -111,9 +119,9 @@ function open(){
   const ov = document.getElementById('overlay'); if(ov) ov.classList.remove('show');
   document.getElementById('cmap').classList.add('show');
   render();
-  centreOn(cm.armiesOf(C, C.playerSide)[0]);
-  // A French phase interrupted by a battle carries on by itself.
-  if(C.phase === C.aiSide && !C.pendingBattle && !C.result) setTimeout(runAi, view.showBattle ? 1200 : 400);
+  centreOn(cm.armiesOf(C, me())[0]);
+  // A French AI phase interrupted by a battle carries on by itself.
+  if(aiTurn() && !C.pendingBattle && !C.result) setTimeout(runAi, view.showBattle ? 1200 : 400);
 }
 
 function ensureScreen(){
@@ -153,13 +161,13 @@ function render(){
   const root = document.getElementById('cmap');
   const sel = C.armies.find(a => a.id === view.selectedArmyId) || null;
   if(!sel) view.selectedArmyId = null;
-  const moves = sel && sel.side === C.playerSide ? cm.validMoves(C, map, sel) : [];
+  const moves = sel && sel.side === me() ? cm.validMoves(C, map, sel) : [];
   root.querySelector('.cmap-title').textContent = map.name;
-  const phase = C.result ? 'Campaign over' : C.phase === C.playerSide ? 'Your move' : 'The French march';
-  const purse = cm.incomeOf(C, map, C.playerSide);
+  const phase = C.result ? 'Campaign over' : cm.isHotseat(C) ? `${ADJ[C.phase]} move` : C.phase === C.playerSide ? 'Your move' : 'The French march';
+  const purse = cm.incomeOf(C, map, me());
   const season = cm.isWinter(map, C.turn) ? 'Winter quarters' : cm.seasonOf(map, C.turn);
   root.querySelector('.cmap-date').textContent = `Turn ${C.turn} of ${C.totalTurns} · ${cm.dateForTurn(map, C.turn)} · ${season} · ${phase}`;
-  root.querySelector('.cmap-gold').textContent = `Gold ${C.gold[C.playerSide]} (${purse.net >= 0 ? '+' : ''}${purse.net} a turn)`;
+  root.querySelector('.cmap-gold').textContent = `${cm.isHotseat(C) ? ADJ[me()] + ' gold' : 'Gold'} ${C.gold[me()]} (${purse.net >= 0 ? '+' : ''}${purse.net} a turn)`;
   const last = C.battles[C.battles.length - 1];
   root.querySelector('.cmap-canvas').innerHTML = renderMapSVG(map, C, { winter: cm.isWinter(map, C.turn), selectedArmyId: view.selectedArmyId, moves, lastBattleTownId: last && last.turn === C.turn ? last.townId : null });
   root.querySelector('.cmap-panel').innerHTML = panelHTML(map, sel, moves);
@@ -194,7 +202,7 @@ function armyCard(map, a, opts = {}){
 function panelHTML(map, sel, moves){
   const out = [];
   if(view.message) out.push(`<p class="cmap-msg">${esc(view.message)}</p>`);
-  const mine = C.phase === C.playerSide && !C.result && !C.pendingBattle && !view.aiRunning;
+  const mine = C.phase === me() && cm.isHuman(C, C.phase) && !C.result && !C.pendingBattle && !view.aiRunning && !view.handover;
   if(sel){
     if(view.mode === 'split'){
       out.push(`<p class="cmap-hint">Choose one or two brigades to detach into a new army here.</p>`);
@@ -211,7 +219,7 @@ function panelHTML(map, sel, moves){
       return out.join('');
     }
     out.push(armyCard(map, sel));
-    if(sel.side === C.playerSide && mine){
+    if(sel.side === me() && mine){
       if(moves.length) out.push(`<p class="cmap-hint">Tap a highlighted town to march there.${cm.isWinter(map, C.turn) ? ' Winter quarters: only through your own towns.' : ' Red means an enemy army holds it: marching in is an attack.'}</p>`);
       else if(cm.isWinter(map, C.turn) && !sel.hasMoved && !cm.isResting(C, sel)) out.push(`<p class="cmap-hint">Winter quarters: no road from here leads to a town of yours, so this army stays put.</p>`);
       else if(cm.isResting(C, sel)) out.push(`<p class="cmap-hint">This army withdrew from a fight and must rest this turn.</p>`);
@@ -228,16 +236,16 @@ function panelHTML(map, sel, moves){
   } else if(mine){
     out.push(cm.isWinter(map, C.turn)
       ? `<p class="cmap-hint">Winter quarters until March: armies march only through your own towns, and towns pay half. A good time to recruit and regroup.</p>`
-      : `<p class="cmap-hint">Tap one of your armies (red flags) to command it. Each army may march one town along a road each turn.</p>`);
+      : `<p class="cmap-hint">Tap one of your armies (${FLAG_COLOUR[me()]} flags) to command it. Each army may march one town along a road each turn.</p>`);
   } else if(view.aiRunning){
     out.push(`<p class="cmap-hint">The French are on the march…</p>`);
   }
-  const purse = cm.incomeOf(C, map, C.playerSide);
-  const score = `<div class="cmap-score">Gold ${C.gold[C.playerSide]} · towns ${purse.towns}${purse.subsidy ? ` + subsidy ${purse.subsidy}` : ''} − upkeep ${purse.upkeep} = ${purse.net >= 0 ? '+' : ''}${purse.net} a turn<br>Enemy value destroyed: Britain ${C.destroyedValue.british} · France ${C.destroyedValue.french}</div>`;
+  const purse = cm.incomeOf(C, map, me());
+  const score = `<div class="cmap-score">Gold ${C.gold[me()]} · towns ${purse.towns}${purse.subsidy ? ` + subsidy ${purse.subsidy}` : ''} − upkeep ${purse.upkeep} = ${purse.net >= 0 ? '+' : ''}${purse.net} a turn<br>Enemy value destroyed: Britain ${C.destroyedValue.british} · France ${C.destroyedValue.french}</div>`;
   out.push(score);
   out.push(`<div class="cmap-actions bottom">` +
     (mine ? `<button data-act="end-turn" class="primary">End Turn</button>` : '') +
-    (mine && !sel && cm.canRecruitAt(C, map, C.playerSide, (cm.homeDepot(map, C.playerSide) || {}).id) ? `<button data-act="recruit">Recruit at ${esc(cm.homeDepot(map, C.playerSide).name)}</button>` : '') +
+    (mine && !sel && cm.canRecruitAt(C, map, me(), (cm.homeDepot(map, me()) || {}).id) ? `<button data-act="recruit">Recruit at ${esc(cm.homeDepot(map, me()).name)}</button>` : '') +
     (C.pendingBattle && !view.aiRunning && (C.pendingBattle.stage === 'battle' || C.pendingBattle.stage === 'rearguard') ? `<button data-act="to-battle" class="primary">To Battle</button>` : '') +
     `<button data-act="log" class="ghost">Campaign Log</button><button data-act="menu" class="ghost">Main Menu</button></div>`);
   return out.join('');
@@ -247,12 +255,16 @@ function renderModal(map){
   const modal = document.querySelector('#cmap .cmap-modal');
   const card = modal.querySelector('.cmap-card');
   let html = '';
-  if(view.mode === 'log'){
+  if(view.handover && !C.result){
+    html = `<h3>${SIDE_NAME[view.handover]} to move</h3><p>Pass the phone to the ${ADJ[view.handover]} player.</p>
+      <p class="cmap-small">Turn ${C.turn} of ${C.totalTurns} · ${esc(cm.dateForTurn(map, C.turn))} · ${ADJ[view.handover]} gold ${C.gold[view.handover]}</p>
+      <div class="cmap-actions"><button data-act="take-over" class="primary">I am ${SIDE_NAME[view.handover]}</button></div>`;
+  } else if(view.mode === 'log'){
     html = `<h3>Campaign Log</h3><textarea class="cmap-log" readonly>${esc(cm.campaignLogText(C, map))}</textarea>
       <div class="cmap-actions"><button data-act="log-copy">Copy</button><button data-act="log-download">Download</button><button data-act="cancel" class="ghost">Close</button></div>`;
   } else if(C.result){
     const r = C.result;
-    const title = r.winner === 'draw' ? 'A Drawn Campaign' : r.winner === C.playerSide ? 'British Victory' : 'French Victory';
+    const title = r.winner === 'draw' ? 'A Drawn Campaign' : `${ADJ[r.winner]} Victory`;
     html = `<h3>${title}</h3><p>${esc(r.reason)}.</p>
       <table class="cmap-tally"><tr><th></th><th>Britain</th><th>France</th></tr>
       <tr><td>Enemy value destroyed</td><td>${C.destroyedValue.british}</td><td>${C.destroyedValue.french}</td></tr>
@@ -268,7 +280,7 @@ function renderModal(map){
     const lostList = k => s.lostUnits[k].length ? s.lostUnits[k].map(u => `${esc(u.name)} (${TYPE_NAME[u.type] || u.type})`).join(', ') : 'none';
     const heading = b.kind === 'rearguard'
       ? (b.winner === b.withdrawal.side ? 'The rearguard holds' : 'The rearguard is broken') + ` at ${esc(cm.townName(map, b.townId))}`
-      : `${b.winner === C.playerSide ? 'Victory' : 'Defeat'} at ${esc(cm.townName(map, b.townId))}`;
+      : cm.isHotseat(C) ? `${ADJ[b.winner]} victory at ${esc(cm.townName(map, b.townId))}` : `${b.winner === C.playerSide ? 'Victory' : 'Defeat'} at ${esc(cm.townName(map, b.townId))}`;
     html = `<h3>${heading}</h3>
       <p><b>British losses:</b> ${lostList('british')}</p><p><b>French losses:</b> ${lostList('french')}</p>
       ${s.brokenBrigades.british.length + s.brokenBrigades.french.length ? `<p class="cmap-small">Brigades broken: ${[...s.brokenBrigades.british, ...s.brokenBrigades.french].map(x => esc(x.name + ' of ' + x.army)).join(', ')}</p>` : ''}
@@ -283,7 +295,7 @@ function renderModal(map){
 /* ---------- recruiting at the home depot ---------- */
 const RECRUIT_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY'];
 function recruitHTML(map){
-  const side = C.playerSide, depot = cm.homeDepot(map, side), rules = cm.economyRules(map), gold = C.gold[side];
+  const side = me(), depot = cm.homeDepot(map, side), rules = cm.economyRules(map), gold = C.gold[side];
   const here = cm.armiesAt(C, depot.id, side);
   const out = [`<p class="cmap-hint"><b>Recruit at ${esc(depot.name)}</b> · gold ${gold}. New men join at once. Every fighting unit costs ${rules.upkeepPerUnit} gold a turn in upkeep.</p>`];
   for(const a of here){
@@ -317,10 +329,10 @@ function pendingHTML(map, b){
       const opts = cm.withdrawOptions(C, map, b, defender);
       return `<h3>Withdraw from ${town}</h3><p>Choose the town to fall back to. ${esc(attackerArmy.name)} will hold ${town}, and your army cannot march on its next turn.</p>
         ${opts.map(t => `<button class="cmap-wide" data-act="withdraw-to" data-town="${t}">Withdraw to ${esc(cm.townName(map, t))}</button>`).join('')}
-        <p class="cmap-small">If the French pursue, your weakest brigade turns to fight a rearguard action.</p>
+        <p class="cmap-small">If the ${ADJ[b.attackerSide]} pursue, your weakest brigade turns to fight a rearguard action.</p>
         <div class="cmap-actions"><button data-act="cancel" class="ghost">Back</button></div>`;
     }
-    return `<h3>${SIDE_NAME[b.attackerSide]} attacks ${town}</h3><p>${esc(attackerArmy.name)} marches on ${town}. Stand and fight, or refuse battle and withdraw?</p>${sides}
+    return `<h3>${SIDE_NAME[b.attackerSide]} attacks ${town}</h3>${cm.isHotseat(C) ? `<p class="cmap-pass">${SIDE_NAME[defender]} to decide: pass the phone</p>` : ''}<p>${esc(attackerArmy.name)} marches on ${town}. Stand and fight, or refuse battle and withdraw?</p>${sides}
       <div class="cmap-actions"><button data-act="fight" class="primary">Fight</button><button data-act="withdraw">Withdraw</button></div>`;
   }
   if(b.stage === 'pursuit'){
@@ -330,7 +342,7 @@ function pendingHTML(map, b){
     const choice = cm.pursuitChoices(C, map);
     const turns = cm.withdrawalRules(map).rearguardTurns;
     const pen = cm.withdrawalRules(map).pursuitInfantryDicePenalty;
-    return `<h3>The French withdraw</h3><p>${esc(w.armyIds.map(id => (cm.armyById(C, id) || {}).name).join(' and '))} refuse${w.armyIds.length === 1 ? 's' : ''} battle and fall${w.armyIds.length === 1 ? 's' : ''} back to ${esc(cm.townName(map, w.to))}. ${esc(attackerArmy.name)} holds ${town}.</p>
+    return `<h3>The ${ADJ[w.side]} withdraw</h3>${cm.isHotseat(C) ? `<p class="cmap-pass">${SIDE_NAME[b.attackerSide]} to decide: pass the phone</p>` : ''}<p>${esc(w.armyIds.map(id => (cm.armyById(C, id) || {}).name).join(' and '))} refuse${w.armyIds.length === 1 ? 's' : ''} battle and fall${w.armyIds.length === 1 ? 's' : ''} back to ${esc(cm.townName(map, w.to))}. ${esc(attackerArmy.name)} holds ${town}.</p>
       ${rg ? `<p class="cmap-small">Their rearguard would be ${brigadeLine(rg, rgArmy)}. To win, break it within ${turns} rounds.</p>` : ''}
       <p class="cmap-hint">${choice.onFoot ? `<b>No cavalry.</b> You may pursue on foot, but your pursuing units attack with ${pen} die fewer (never below one) for the whole fight.` : 'Pursue with one brigade. You have cavalry, so it must be a brigade with horse.'}</p>
       ${choice.brigades.map(br => `<button class="cmap-wide" data-act="pursue" data-brigade="${br.id}">Pursue with ${brigadeLine(br)}${choice.onFoot ? ' (on foot)' : ''}</button>`).join('')}
@@ -338,9 +350,9 @@ function pendingHTML(map, b){
   }
   if(b.stage === 'rearguard'){
     const pu = side(b.attackerSide)[0], rg = side(b.withdrawal.side)[0];
-    const mine = b.withdrawal.side === C.playerSide;
+    const mine = !cm.isHotseat(C) && b.withdrawal.side === C.playerSide;
     return `<h3>Rearguard action at ${town}</h3>
-      <p>${mine ? 'Your' : 'The French'} army falls back to ${esc(cm.townName(map, b.withdrawal.to))} while ${rg ? brigadeLine(rg.brigade, rg.army) : 'its rearguard'} holds off ${pu ? brigadeLine(pu.brigade, pu.army) : 'the pursuit'}.</p>
+      <p>${mine ? 'Your' : 'The ' + ADJ[b.withdrawal.side]} army falls back to ${esc(cm.townName(map, b.withdrawal.to))} while ${rg ? brigadeLine(rg.brigade, rg.army) : 'its rearguard'} holds off ${pu ? brigadeLine(pu.brigade, pu.army) : 'the pursuit'}.</p>
       <p><b>Rearguard:</b> survive ${b.rearguardTurns} rounds. <b>Pursuit:</b> break the rearguard brigade.</p>
       ${b.pursuit.onFoot ? `<p class="cmap-small">The pursuit has no cavalry: its units attack with ${b.pursuit.dicePenalty} die fewer (never below one).</p>` : ''}
       <p class="cmap-small">The 10 x 10 board. The rearguard stands on the edge toward its retreat. Losses are permanent.</p>
@@ -363,7 +375,7 @@ function afterChoice(){
   cm.resolveAiChoices(C, map);
   saveCampaignMap(C);
   view.mode = null;
-  if(!C.pendingBattle && C.phase === C.aiSide && !C.result){ render(); setTimeout(runAi, AI_STEP_MS); return; }
+  if(!C.pendingBattle && aiTurn() && !C.result){ render(); setTimeout(runAi, AI_STEP_MS); return; }
   render();
 }
 
@@ -376,16 +388,16 @@ function onMapClick(e){
   const sel = C.armies.find(a => a.id === view.selectedArmyId);
   // A highlighted town takes priority: that is the march.
   const townId = townEl ? townEl.getAttribute('data-town') : armyEl ? (C.armies.find(a => a.id === armyEl.getAttribute('data-army')) || {}).townId : null;
-  if(sel && townId && sel.side === C.playerSide && cm.validMoves(C, map, sel).includes(townId)){ march(sel, townId); return; }
+  if(sel && townId && sel.side === me() && cm.validMoves(C, map, sel).includes(townId)){ march(sel, townId); return; }
   view.mode = null;
   if(armyEl){
     const a = C.armies.find(x => x.id === armyEl.getAttribute('data-army'));
-    if(a && a.side === C.playerSide){ view.selectedArmyId = view.selectedArmyId === a.id ? null : a.id; view.message = ''; }
-    else if(a){ view.selectedArmyId = null; view.message = `${a.name} (France): ${a.brigades.length} brigade${a.brigades.length === 1 ? '' : 's'} at ${cm.townName(map, a.townId)}.`; }
+    if(a && a.side === me()){ view.selectedArmyId = view.selectedArmyId === a.id ? null : a.id; view.message = ''; }
+    else if(a){ view.selectedArmyId = null; view.message = `${a.name} (${SIDE_NAME[a.side]}): ${a.brigades.length} brigade${a.brigades.length === 1 ? '' : 's'} at ${cm.townName(map, a.townId)}.`; }
     render(); return;
   }
   if(townId){
-    const own = cm.armiesAt(C, townId, C.playerSide);
+    const own = cm.armiesAt(C, townId, me());
     if(own.length){
       const i = own.findIndex(a => a.id === view.selectedArmyId);
       view.selectedArmyId = own[(i + 1) % own.length].id;
@@ -427,7 +439,7 @@ function onPanelClick(e){
       view.message = `${u.name} recruited.`;
     }
     else if(act === 'raise'){
-      const r = cm.raiseBrigade(C, map, TB_DATA.unitArchive, C.playerSide);
+      const r = cm.raiseBrigade(C, map, TB_DATA.unitArchive, me());
       saveCampaignMap(C);
       view.message = `${r.brigade.name} raised; it joins ${r.army.name}.`;
     }
@@ -457,6 +469,7 @@ function onPanelClick(e){
     else if(act === 'let-go'){ cm.chooseLetGo(C, map); afterChoice(); return; }
     else if(act === 'to-battle'){ saveCampaignMap(C); reloadInto('battle'); return; }
     else if(act === 'dismiss'){ view.showBattle = null; }
+    else if(act === 'take-over'){ view.handover = null; centreOn(cm.armiesOf(C, me())[0]); }
     else if(act === 'log') view.mode = 'log';
     else if(act === 'log-copy'){ try { navigator.clipboard.writeText(cm.campaignLogText(C, map)); view.message = 'Campaign log copied.'; } catch { /* no clipboard */ } view.mode = null; }
     else if(act === 'log-download'){ download(`campaign-${C.id}-turn${C.turn}.txt`, cm.campaignLogText(C, map)); return; }
@@ -480,15 +493,27 @@ function download(name, text){
 
 /* ---------- the turn ---------- */
 function endTurn(){
-  cm.endPlayerPhase(C, mapFor(C));
-  strategicAiRecruit(C, mapFor(C), TB_DATA.unitArchive);   // France is paid as its phase begins, and spends at Lille
+  const map = mapFor(C);
   view.selectedArmyId = null; view.mode = null; view.message = '';
+  if(C.phase === C.playerSide){
+    cm.endPlayerPhase(C, map);
+    if(!cm.isHuman(C, C.aiSide)){
+      strategicAiRecruit(C, map, TB_DATA.unitArchive);   // France is paid as its phase begins, and spends at Lille
+      saveCampaignMap(C);
+      runAi();
+      return;
+    }
+  } else {
+    cm.endAiPhase(C, map);   // the second side's phase (France), played by a person in two-player
+  }
   saveCampaignMap(C);
-  runAi();
+  // Two players on one phone: hand over before the other side sees its turn.
+  if(cm.isHotseat(C) && !C.result) view.handover = C.phase;
+  render();
 }
 function runAi(){
   const map = mapFor(C);
-  if(C.result || C.pendingBattle || C.phase !== C.aiSide){ view.aiRunning = false; render(); return; }
+  if(C.result || C.pendingBattle || !aiTurn()){ view.aiRunning = false; render(); return; }
   view.aiRunning = true;
   const r = strategicAiStep(C, map);
   saveCampaignMap(C);
@@ -590,6 +615,7 @@ const CSS = `
 #cmap .cmap-tally th{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.06em;text-align:right;}
 #cmap .cmap-tally td{padding:3px 0;border-bottom:1px solid rgba(154,122,54,.45);text-align:left;}
 #cmap .cmap-tally td+td{text-align:right;font-weight:700;}
+#cmap .cmap-pass{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.08em;font-size:13px!important;color:#4a2e1a;text-align:center!important;}
 #cmap .cmap-cornered{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:13px!important;color:#7a1f1f;text-align:center!important;border:2px solid #7a1f1f;border-radius:2px;padding:6px;background:rgba(122,31,31,.07);transform:rotate(-1.2deg);}
 #cmap .cmap-log{width:100%;box-sizing:border-box;height:50vh;font-family:'IBM Plex Mono',monospace;font-size:11px;background:rgba(247,239,217,.9);border:1px solid #9a7a36;color:#2e2010;}
 `;

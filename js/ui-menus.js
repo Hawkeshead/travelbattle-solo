@@ -431,6 +431,7 @@ function showCampaignMapMenu(){
       (saved ? '<p class="op-limit">Starting a new campaign replaces the one in progress.</p>' : '') + '</div>');
     if(saved) campBtn(extra, 'Continue', m.describeSave(saved), ()=> m.showCampaignMap());
     campBtn(extra, 'New Campaign', 'You command Britain · France is the AI', ()=> m.newCampaignMap());
+    campBtn(extra, 'New Campaign: Two Players', 'Britain and France on one phone, passed between turns', ()=> m.newCampaignMap({ hotseat: true }));
     campBtn(extra, 'Back', null, ()=> showCampaignsList(), 'op-back');
   });
 }
