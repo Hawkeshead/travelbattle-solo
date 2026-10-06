@@ -473,52 +473,73 @@ export const _test = {
   rerender: () => render(),
 };
 
+/* THE MENUS' LOOK (index.html: the Campaigns folio, html.panel-art). The
+   screen is the desk; the map and the command panel are each set in the
+   walnut frame with brass corners (assets/ui/panel_frame.webp) on the map
+   parchment (assets/ui/panel_map_centre.webp); titles are brass plaques;
+   main actions are walnut buttons with cream lettering, the rest parchment
+   buttons, exactly as on the Campaigns and Operations screens. */
+const FRAME = `border:12px solid #3b2416;border-radius:0;border-image:url(assets/ui/panel_frame.webp) 75 / 12px stretch;`;
+const PARCHMENT = `background:#e3d4ae url(assets/ui/panel_map_centre.webp) center / 230% auto no-repeat;background-clip:padding-box;`;
+const PLAQUE = `position:relative;display:inline-block;font-family:'Cinzel',serif;font-weight:700;color:#3A2C0D;letter-spacing:.14em;text-transform:uppercase;
+  background:linear-gradient(168deg,#CBAA5C 0%,#9A7A36 34%,#C0A050 62%,#7C6229 100%);border-radius:2px;text-shadow:0 1px 0 rgba(255,240,200,.42);
+  box-shadow:inset 0 1px 0 rgba(255,240,200,.6),inset 0 -2px 4px rgba(0,0,0,.5),0 3px 7px rgba(0,0,0,.62);`;
 const CSS = `
-#cmap{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;background:#241708;color:#3b3020;font-family:'Cormorant Garamond',serif;
+#cmap{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;color:#3B3020;font-family:'Cormorant Garamond',serif;
+  background:radial-gradient(ellipse 90% 55% at 50% 22%,rgba(255,196,120,.16),transparent 70%),linear-gradient(180deg,#2c1c0e,#1a1008 60%,#120b05);
   padding:var(--sa-top,0) var(--sa-right,0) var(--sa-bottom,0) var(--sa-left,0);}
 #cmap.show{display:flex;}
-#cmap .cmap-head{flex:0 0 auto;text-align:center;padding:10px 12px 8px;background:linear-gradient(#CBAA5C,#7C6229);color:#3A2C0D;box-shadow:0 2px 8px rgba(0,0,0,.5);}
-#cmap .cmap-title{font-family:'Cinzel',serif;font-weight:800;font-size:18px;letter-spacing:.06em;}
-#cmap .cmap-date{font-family:'Cinzel',serif;font-weight:600;font-size:12px;margin-top:2px;}
-#cmap .cmap-view{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;}
+#cmap .cmap-head{flex:0 0 auto;text-align:center;padding:10px 12px 6px;}
+#cmap .cmap-title{${PLAQUE}font-size:15px;padding:8px 20px 7px;}
+#cmap .cmap-title::after{content:"";position:absolute;inset:4px;border:1px solid rgba(62,47,17,.5);border-radius:1px;pointer-events:none;}
+#cmap .cmap-date{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:15px;color:#e9d9b0;margin-top:6px;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+#cmap .cmap-view{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin:2px 8px 6px;${FRAME}background:#e3d4ae;box-shadow:0 10px 24px rgba(0,0,0,.6);}
 #cmap .cmap-canvas{width:max-content;min-width:100%;min-height:100%;display:flex;align-items:center;}
 #cmap .cmap-svg{display:block;flex:0 0 auto;margin:0 auto;touch-action:pan-x pan-y;}
 #cmap .cmap-hit,#cmap .cmap-army{cursor:pointer;}
-#cmap .cmap-panel{flex:0 0 auto;max-height:38vh;overflow:auto;padding:10px 14px 12px;background:linear-gradient(#F0E5C7,#E2D2AA 60%,#CFBB90);box-shadow:0 -3px 10px rgba(0,0,0,.45);}
-#cmap .cmap-msg{margin:0 0 6px;font-style:italic;font-size:16px;}
-#cmap .cmap-hint{margin:4px 0 8px;font-size:15px;color:#5a4a30;}
-#cmap .cmap-score{font-family:'Cinzel',serif;font-size:11px;color:#7a6b4d;margin:6px 0 2px;}
-#cmap .cmap-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
-#cmap button{font-family:'Cinzel',serif;font-weight:700;font-size:13px;padding:10px 14px;min-height:44px;border-radius:6px;border:1px solid #6b5326;
-  background:linear-gradient(#d1a64e,#8a6a34);color:#2a1e08;cursor:pointer;}
-#cmap button.primary{background:linear-gradient(#e2bb63,#a8823f);box-shadow:0 0 0 2px rgba(209,166,78,.35);}
-#cmap button.ghost{background:transparent;color:#5a4a30;border-color:#a8823f;}
+#cmap .cmap-panel{flex:0 0 auto;max-height:38vh;overflow:auto;margin:0 8px 8px;padding:8px 12px 10px;${FRAME}${PARCHMENT}box-shadow:0 10px 24px rgba(0,0,0,.6);}
+#cmap .cmap-msg{margin:0 0 6px;font-style:italic;font-size:16px;color:#3B3020;}
+#cmap .cmap-hint{margin:4px 0 8px;font-size:15px;color:#4d3f27;}
+#cmap .cmap-score{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.04em;color:#6b5636;margin:6px 0 2px;}
+#cmap .cmap-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;justify-content:center;}
+#cmap button{font-family:'Cinzel',serif;font-weight:600;font-size:12.5px;letter-spacing:.08em;padding:9px 14px;min-height:44px;border-radius:4px;cursor:pointer;
+  background:rgba(240,228,198,.85);color:#2e2010;border:1px solid #9a7a36;text-shadow:none;
+  box-shadow:0 2px 4px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.5);transition:transform .12s,filter .15s;}
+#cmap button:hover{filter:brightness(1.06);}
+#cmap button:active{transform:translateY(1px) scale(.98);}
+#cmap button.primary{background:linear-gradient(180deg,#4a2e1a,#2f1c10);color:#f2e3c0;border:1px solid #b8913f;
+  box-shadow:0 3px 7px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,220,160,.18);}
+#cmap button.ghost{background:rgba(240,228,198,.55);}
 #cmap button:disabled{opacity:.45;cursor:default;}
-#cmap .cmap-wide{display:block;width:100%;margin:6px 0;}
-#cmap .cmap-army-card{border-left:5px solid #8c2f2f;padding:2px 0 2px 10px;margin:4px 0;}
+/* A list of choices (retreat towns, pursuing brigades, merges): the menus'
+   op-choice buttons, parchment and left-aligned. */
+#cmap .cmap-wide{display:block;width:100%;margin:6px 0;padding:10px 14px;text-align:left;line-height:1.3;font-size:13px;}
+#cmap .cmap-army-card{border-left:4px solid #8c2f2f;padding:2px 0 2px 10px;margin:4px 0;}
 #cmap .cmap-army-card.side-french{border-left-color:#2c3e63;}
-#cmap .a-name{font-family:'Cinzel',serif;font-weight:800;font-size:15px;}
-#cmap .a-where{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:14px;color:#7a6b4d;}
+#cmap .a-name{font-family:'Cinzel',serif;font-weight:700;font-size:15px;letter-spacing:.06em;}
+#cmap .a-where{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:14px;color:#6b5636;letter-spacing:0;}
 #cmap .cmap-brigade{margin-top:6px;}
-#cmap .b-name{font-family:'Cinzel',serif;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;}
-#cmap .cmap-brigade ul{list-style:none;margin:2px 0 0;padding:0;columns:2;column-gap:12px;font-size:13px;line-height:1.2;}
+#cmap .b-name{font-family:'Cinzel',serif;font-weight:600;font-size:12.5px;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;}
+#cmap .cmap-brigade ul{list-style:none;margin:2px 0 0;padding:0;columns:2;column-gap:12px;font-size:14px;line-height:1.2;}
 #cmap .cmap-brigade li.brig{font-weight:700;}
-#cmap .u-type{font-family:'Cinzel',serif;font-size:10px;color:#7a6b4d;}
+#cmap .u-type{font-family:'Cinzel',serif;font-size:9.5px;letter-spacing:.06em;color:#6b5636;}
 #cmap .cmap-check{font-family:'Cormorant Garamond',serif;font-size:15px;display:flex;gap:6px;align-items:center;}
-#cmap .cmap-check input{width:22px;height:22px;}
-#cmap .cmap-modal{position:absolute;inset:0;background:rgba(20,12,4,.6);display:flex;align-items:flex-start;justify-content:center;padding:calc(var(--sa-top,0px) + 70px) 14px 14px;overflow:auto;}
+#cmap .cmap-check input{width:22px;height:22px;accent-color:#4a2e1a;}
+#cmap .cmap-modal{position:absolute;inset:0;background:rgba(18,10,4,.62);display:flex;align-items:flex-start;justify-content:center;padding:calc(var(--sa-top,0px) + 64px) 12px 14px;overflow:auto;}
 #cmap .cmap-modal.hidden{display:none;}
-#cmap .cmap-card{width:100%;max-width:440px;background:linear-gradient(#F0E5C7,#E2D2AA 60%,#CFBB90);border:2px solid #a8823f;border-radius:6px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.6);}
-#cmap .cmap-card h3{margin:0 0 6px;font-family:'Cinzel',serif;font-weight:800;font-size:20px;text-align:center;}
-#cmap .cmap-card p{margin:6px 0;font-size:16px;}
-#cmap .cmap-small{font-size:14px!important;color:#5a4a30;}
-#cmap .cmap-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px;margin:8px 0;}
+#cmap .cmap-card{width:100%;max-width:440px;box-sizing:border-box;${FRAME}border-width:14px;border-image-width:14px;${PARCHMENT}background-size:cover;padding:14px 14px 14px;text-align:center;box-shadow:0 16px 34px rgba(0,0,0,.7);}
+#cmap .cmap-card h3{${PLAQUE}font-size:15px;padding:9px 18px 8px;margin:0 0 10px;}
+#cmap .cmap-card h3::after{content:"";position:absolute;inset:4px;border:1px solid rgba(62,47,17,.5);border-radius:1px;pointer-events:none;}
+#cmap .cmap-card p{margin:6px 0;font-size:16px;line-height:1.35;text-align:left;}
+#cmap .cmap-small{font-size:14px!important;color:#4d3f27;}
+#cmap .cmap-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px;margin:8px 0;text-align:left;}
+#cmap .cmap-sides b{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.06em;font-size:13px;}
 #cmap .cmap-sides .side-british{border-left:4px solid #8c2f2f;padding-left:8px;}
 #cmap .cmap-sides .side-french{border-left:4px solid #2c3e63;padding-left:8px;}
 #cmap .cmap-tally{width:100%;border-collapse:collapse;font-size:15px;margin:8px 0;}
-#cmap .cmap-tally th{font-family:'Cinzel',serif;font-size:12px;text-align:right;}
-#cmap .cmap-tally td{padding:3px 0;border-bottom:1px solid #c9b989;}
+#cmap .cmap-tally th{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.06em;text-align:right;}
+#cmap .cmap-tally td{padding:3px 0;border-bottom:1px solid rgba(154,122,54,.45);text-align:left;}
 #cmap .cmap-tally td+td{text-align:right;font-weight:700;}
-#cmap .cmap-cornered{font-family:'Cinzel',serif;font-weight:800;font-size:15px!important;color:#8c2f2f;text-align:center;border:2px solid #8c2f2f;border-radius:4px;padding:6px;background:rgba(140,47,47,.08);}
-#cmap .cmap-log{width:100%;height:50vh;font-family:'IBM Plex Mono',monospace;font-size:11px;background:#f7efd9;border:1px solid #a8823f;}
+#cmap .cmap-cornered{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:13px!important;color:#7a1f1f;text-align:center!important;border:2px solid #7a1f1f;border-radius:2px;padding:6px;background:rgba(122,31,31,.07);transform:rotate(-1.2deg);}
+#cmap .cmap-log{width:100%;box-sizing:border-box;height:50vh;font-family:'IBM Plex Mono',monospace;font-size:11px;background:rgba(247,239,217,.9);border:1px solid #9a7a36;color:#2e2010;}
 `;

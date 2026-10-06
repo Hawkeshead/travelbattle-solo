@@ -12,14 +12,14 @@
    inked lines, towns as seals in their owner's colour, armies as small
    flags beside their town showing how many brigades they hold.
 ========================================================= */
-const INK = '#3b3020', INK_DIM = '#7a6b4d', BRASS = '#a8823f', BRASS_BRIGHT = '#d1a64e';
+const INK = '#3b3020', INK_DIM = '#7a6b4d', BRASS_BRIGHT = '#d1a64e';
 const SIDE_FILL = { british: '#8c2f2f', french: '#2c3e63' };
 const OWNER_FILL = { british: '#c9a49a', french: '#a4adc4' };
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
 /* Where a town's name goes when below it would collide (the crowded country
    round Lille, and Antwerp at the map's edge). Art, not data: a new drawing
    of the map lays its labels out for itself. */
-const LABEL_AT = { courtrai: 'right', lincelles: 'left', tourcoing: 'right', antwerp: 'left' };
+const LABEL_AT = { courtrai: 'right', lincelles: 'left', tourcoing: 'right', antwerp: 'left', tournai: 'right', famars: 'right' };
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /* Where each army's flag sits: in a row above its town. */
@@ -51,11 +51,15 @@ export function renderMapSVG(map, c, view = {}){
     <radialGradient id="cmPaper" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="#f0e5c7"/><stop offset="0.7" stop-color="#e2d2aa"/><stop offset="1" stop-color="#c9b385"/></radialGradient>
     <linearGradient id="cmSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fa3a0"/><stop offset="1" stop-color="#b9c2b0"/></linearGradient>
   </defs>`);
+  /* The menus' own map parchment (assets/ui/panel_map_centre.webp: aged
+     paper, rivers and a compass drawn round the edges), so the campaign map
+     reads as the same document as the Campaigns folio. The plain colour
+     underneath shows until the image arrives. */
   parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="url(#cmPaper)"/>`);
+  parts.push(`<image href="assets/ui/panel_map_centre.webp" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>`);
   // The North Sea along the top left: the coast runs from Dunkirk past Ostend toward the Scheldt.
-  parts.push(`<path d="M0,0 L700,0 C640,10 600,8 560,16 C470,30 380,8 300,18 C250,26 230,60 190,92 C140,128 80,130 0,128 Z" fill="url(#cmSea)" opacity="0.75"/>`);
+  parts.push(`<path d="M0,0 L700,0 C640,10 600,8 560,16 C470,30 380,8 300,18 C250,26 230,60 190,92 C140,128 80,130 0,128 Z" fill="url(#cmSea)" opacity="0.55"/>`);
   parts.push(`<text x="70" y="50" font-family="IM Fell English, Cormorant Garamond, serif" font-style="italic" font-size="26" fill="#4d5c58" opacity="0.8">North Sea</text>`);
-  parts.push(`<rect x="8" y="8" width="${W - 16}" height="${H - 16}" fill="none" stroke="${BRASS}" stroke-width="3" opacity="0.6"/>`);
 
   // Roads: inked, a selected army's legal marches picked out in brass.
   for(const [a, b] of map.roads){
