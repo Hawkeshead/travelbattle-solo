@@ -739,7 +739,13 @@ export function owesAFight(u, side){
      only against the finishing target: heavy cavalry into a gun in the open
      qualifies, light infantry into a gun in a building does not. */
   if(missionFor(u) === 'PRESERVE' && !releasedForFinishing(u)) return false;
-  return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o));
+  /* A GARRISON IS NOT MADE TO SALLY OUT (Matthew, 5 Oct 2026). A unit in a
+     building may attack an enemy outside it, but is never obliged to: only an
+     enemy that is itself in a building can make it owe a fight. So a garrison
+     with only outside enemies next to it does not hold up End Fight. */
+  const inBuilding = p => terrainAt(p.x, p.y).key === 'BUILDING';
+  const garrison = inBuilding(u);
+  return state.units.some(o=>!o.removed && o.side!==side && isAdjacent(u,o) && canAttackTarget(u,o) && (!garrison || inBuilding(o)));
 }
 
 export function anyFightsAvailable(side){
