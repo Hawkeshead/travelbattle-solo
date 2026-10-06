@@ -27,7 +27,7 @@
 ========================================================= */
 import { SIDES, SIDE_LABEL, TB_DATA, setBoardMode, assignBuildingStyles, assignGrassStyles, state } from './data-core.js';
 import { getCard } from './scenario-cards.js';
-import { authoredTerrain } from './operations.js';
+import { authoredRoads, authoredTerrain } from './operations.js';
 import { seededRandom } from './engine-rules.js';
 
 const KEY = 'fc_campaign_v2';
@@ -128,7 +128,7 @@ export function applyBattleMap(card){
     setBoardMode(t[0].length === 10 ? 'single' : 'standard');
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = t;
-    state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
+    state.roads = authoredRoads(m, t); state.mapSeeds = null;   // the Battle's own road layer
     state.grassStyles = assignGrassStyles(t);
     state.buildingStyles = assignBuildingStyles(t);
     state.excludedRoadEdges = new Set();

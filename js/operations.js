@@ -50,6 +50,13 @@ export const exitRow = edge => (edge === 'britishEdge' ? ROWS - 1 : edge === 'fr
    width. There are no physical boards to place, so no road-edge exclusions
    and no farm overlay beyond the farmland squares themselves. */
 const GLYPH = { '.': 'OPEN', ':': 'PLOUGHED_FIELD', '*': 'WOODS', '^': 'HILL', '#': 'BUILDING', '=': 'ROAD' };
+/* An authored map's road layer (map.roads, rows of '=' and '.', written by
+   tools/maps/add-roads.mjs to the generated boards' rules), with every
+   building square counted as road; null for a map without one. */
+export function authoredRoads(m, t){
+  if(!m || !Array.isArray(m.roads)) return null;
+  return m.roads.map((row, y) => [...row].map((ch, x) => ch === '=' || t[y][x] === 'BUILDING'));
+}
 export function authoredTerrain(rows){ return rows.map(r => [...r].map(ch => GLYPH[ch] || 'OPEN')); }
 
 export function applyLockedMap(card){
@@ -60,7 +67,7 @@ export function applyLockedMap(card){
     state.boardAssignment = null;
     state.boardRotation = null;
     state.terrain = t;
-    state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
+    state.roads = authoredRoads(m, t); state.mapSeeds = null;   // its own road layer (tools/maps/add-roads.mjs), buildings as road
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = new Set();

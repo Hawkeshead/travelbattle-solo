@@ -325,7 +325,7 @@ export function validateBoard(board){
     if(road[y][x] && t[y][x] !== 'BUILDING' && !isExit(x, y) && roadDegree(road, x, y) <= 1) errors.push(`dead end at (${x},${y})`);
   for(let y = 0; y < BOARD - 1; y++) for(let x = 0; x < BOARD - 1; x++)
     if(road[y][x] && road[y][x + 1] && road[y + 1][x] && road[y + 1][x + 1] &&
-       [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]].some(([a, b]) => t[b][a] !== 'BUILDING')) errors.push(`road block at (${x},${y})`);
+       [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]].every(([a, b]) => t[b][a] !== 'BUILDING')) errors.push(`road block at (${x},${y})`);   // a road turning round a village's corner is fine
   // No long straight stretches: count runs along rows and columns.
   for(let y = 0; y < BOARD; y++){ let r = 0; for(let x = 0; x < BOARD; x++){ r = road[y][x] && (x === 0 || road[y][x - 1]) ? r + 1 : (road[y][x] ? 1 : 0);
     if(r > MAX_STRAIGHT){ errors.push(`straight road along row ${y}`); break; } } }
@@ -363,6 +363,53 @@ export function generateBoard(seed){
     if(validateBoard(board).length === 0) return board;
   }
   throw new Error(`no valid board for seed ${seed}`);
+}
+
+/* ---------- roads for a hand-drawn board ---------- */
+/* Roads for a board whose terrain is already fixed (an Operation's or a
+   campaign Battle's own map), to the same rules as a generated board: exits
+   at square 7 on every edge, one or two networks, buildings count as road,
+   a road through every village, no dead ends, no long straights. Villages are
+   where the author put them, so each is joined to the network from two
+   different sides; candidates that break a rule are thrown away and the next
+   one in the seed's sequence tried. Returns the road layer (buildings marked)
+   or null if no candidate passes. */
+export function roadsForTerrain(terrain, seed, tries = 400){
+  const rng = rngFrom(seed);
+  for(let attempt = 0; attempt < tries; attempt++){
+    const road = makeRoads(terrain, rng);
+    if(!road) continue;
+    for(let y = 0; y < BOARD; y++) for(let x = 0; x < BOARD; x++) if(terrain[y][x] === 'BUILDING') road[y][x] = true;
+    const cost = terrain.map(row => row.map(k => COST[k] + rng.next() * 1.4));
+    let ok = true;
+    for(const v of villagesOf(terrain)){
+      const inV = new Set(v.map(([x, y]) => x + ',' + y));
+      // Its outside neighbours, and the two farthest apart: in one side, out the other.
+      const outside = [];
+      for(const [x, y] of v) for(const [dx, dy] of N4){ const nx = x + dx, ny = y + dy;
+        if(inB(nx, ny) && !inV.has(nx + ',' + ny) && terrain[ny][nx] !== 'BUILDING') outside.push([nx, ny]); }
+      if(outside.length < 2){ ok = false; break; }
+      let best = null, bd = -1;
+      for(let i = 0; i < outside.length; i++) for(let j = i + 1; j < outside.length; j++){
+        const d = Math.abs(outside[i][0] - outside[j][0]) + Math.abs(outside[i][1] - outside[j][1]) + rng.next() * 0.5;
+        if(d > bd){ bd = d; best = [outside[i], outside[j]]; }
+      }
+      for(const [sx, sy] of best){
+        if(road[sy][sx]) continue;
+        const p = route(cost, { x: sx, y: sy }, (x, y) => road[y][x] && !inV.has(x + ',' + y), road, null);
+        if(!p){ ok = false; break; }
+        lay(road, p);
+      }
+      if(!ok) break;
+    }
+    if(!ok) continue;
+    pruneDeadEnds(road);
+    for(let y = 0; y < BOARD; y++) for(let x = 0; x < BOARD; x++) if(terrain[y][x] === 'BUILDING') road[y][x] = true;
+    const errs = validateBoard({ terrain, road });
+    if(errs.length === 0) return road;
+    if(roadsForTerrain.debug) roadsForTerrain.debug.push(errs.join('; '));
+  }
+  return null;
 }
 
 /* ASCII for logs and tests: terrain letter, upper case where a road runs. */
