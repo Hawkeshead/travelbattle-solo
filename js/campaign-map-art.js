@@ -39,7 +39,7 @@ export function armySlots(c, map){
   return out;
 }
 
-/* view: { selectedArmyId, moves: [townId], lastBattleTownId } */
+/* view: { selectedArmyId, moves: [townId], lastBattleTownId, winter, readySide } */
 export function renderMapSVG(map, c, view = {}){
   const W = map.width, H = map.height;
   const moves = new Set(view.moves || []);
@@ -99,8 +99,11 @@ export function renderMapSVG(map, c, view = {}){
     const s = slots[a.id];
     const t = town(a.townId);
     const selected = sel && sel.id === a.id;
-    parts.push(`<g data-army="${a.id}" class="cmap-army${a.hasMoved ? ' moved' : ''}">`);
+    // Ready to march this turn: the flag pulses, so the player sees what to tap.
+    const ready = view.readySide === a.side && !a.hasMoved && a.restTurn !== c.turn;
+    parts.push(`<g data-army="${a.id}" class="cmap-army${a.hasMoved ? ' moved' : ''}${ready ? ' ready' : ''}">`);
     parts.push(`<line x1="${s.x - 15}" y1="${s.y - 15}" x2="${t.x}" y2="${t.y - 12}" stroke="${INK}" stroke-width="1.5" opacity="0.5"/>`);
+    if(ready) parts.push(`<rect class="cmap-pulse" x="${s.x - 18}" y="${s.y - 15}" width="36" height="28" rx="3" fill="none" stroke="${BRASS_BRIGHT}" stroke-width="4"/>`);
     parts.push(`<rect x="${s.x - 18}" y="${s.y - 15}" width="36" height="28" rx="3" fill="${SIDE_FILL[a.side]}" stroke="${selected ? BRASS_BRIGHT : INK}" stroke-width="${selected ? 5 : 2}" opacity="${a.hasMoved && c.phase === a.side ? 0.6 : 1}"/>`);
     parts.push(`<text x="${s.x}" y="${s.y + 6}" text-anchor="middle" font-family="Cinzel, serif" font-weight="800" font-size="17" fill="#f3e7c6">${ROMAN[a.brigades.length] || a.brigades.length}</text>`);
     // Withdrew from a fight: cannot march on its next turn.
