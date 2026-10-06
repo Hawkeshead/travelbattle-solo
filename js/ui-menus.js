@@ -9,7 +9,7 @@ import { SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGra
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
-import { beginDiagramMode, clearTransientRenderState, draw, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
+import { beginDiagramMode, clearTransientRenderState, draw, syncAmbientClip, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
 import { beginFightPhase, beginFirePhase, beginMovePhase, endMovePhase, renderBrigadeStatus, selectUnit, updateHeader } from './ui-battle.js';
@@ -443,7 +443,10 @@ export function showCampaignScreen(){
     const c = cardForStep(p, i);
     const name = c ? c.name : (s.type === 'branch' ? s.options.map(id => getCard(id).name.replace(/^Battle of /, '')).join(' or ') : s.card);
     const mark = r ? `<b class="${r.winner}">${SIDE_LABEL[r.winner]} won</b>` : i === p.step ? '<b>next</b>' : '';
-    return `<li class="${i === p.step ? 'now' : ''}"><span>${i + 1}. ${name}</span><span>${mark}</span></li>`;
+    // The recap under a finished step: rounds and losses (and an Operation's reason).
+    const recap = r && r.rounds != null
+      ? `<div class="camp-recap">${r.rounds} round${r.rounds === 1 ? '' : 's'} · units lost: Britain ${r.lost.red}, France ${r.lost.blue}${r.reason ? ' · ' + r.reason.replace(/^(Britain|France) win: /, '').replace(/, round \d+.*$/, '') : ''}</div>` : '';
+    return `<li class="${i === p.step ? 'now' : ''}"><span>${i + 1}. ${name}${recap}</span><span>${mark}</span></li>`;
   }).join('');
   const done = campaignFinished(p);
   const head = done
@@ -817,6 +820,7 @@ export function startAmbientLayer(){
   const host = document.getElementById('boardWrap');
   if(!host) return;
   AmbientLayer.init(host, { boardEl: document.getElementById('board') }).start();
+  syncAmbientClip();   // clouds over the board only (render-board.js)
 }
 
 function rollOrientationOrder(){

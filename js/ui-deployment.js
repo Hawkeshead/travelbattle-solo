@@ -20,7 +20,10 @@ import { maybeShowArmyPicker } from './ui-menus.js';
 export const FULL_ARMY_POOL = BRIGADE_COMPOSITIONS.flat(); // 3 Brigadier, 2 Guard, 6 Infantry, 2 Heavy Cav, 2 Light Cav, 2 Artillery
 export const FULL_ARMY_POOL_GRAND = TB_DATA.unitTypes.brigadeCompositionsGrand.flat(); // Grand Strategy: 3 Brigadier, 4 Guard, 12 Infantry, 4 Heavy Cav, 4 Light Cav, 4 Artillery
 
+/* (Also marks the title screen as left: a match reached by an invite link
+   never taps a title button.) */
 export function initDeployment(forcedFirstPlacement){
+  document.documentElement.classList.add('title-away');
   deployGeneration += 1; // invalidates any AI deploy step still in flight from a previous deployment
   resetHistoricalIdentities();
   state.captureHoldCounter = { red:0, blue:0 };

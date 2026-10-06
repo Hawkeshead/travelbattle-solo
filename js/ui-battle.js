@@ -101,6 +101,7 @@ export const VOLLEY_COMMAND = {
    MAIN GAME FLOW
 ========================================================= */
 export function startBattle(){
+  document.documentElement.classList.add('title-away');   // a battle is under way: the title screen is gone, the dials are shown
   document.getElementById('overlay').classList.remove('show');
   state.matchLog = [];
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));

@@ -89,7 +89,13 @@ export function recordResult(winner){
   if(!run) return null;
   const p = loadCampaign();
   if(!p || p.id !== run.id || p.step !== run.step) return null;
-  p.results[p.step] = { stepId: run.stepId, cardId: run.cardId, winner, at: new Date().toISOString() };
+  /* A short recap for the campaign page (5 Oct 2026): how long it took and
+     what each side lost (units that marched off are not losses). */
+  const lost = side => (state.units || []).filter(u => u.side === side && u.removed && !u.escaped && u.type !== 'BRIGADIER').length;
+  const rounds = state.scenarioResult ? state.scenarioResult.round : Math.ceil((state.turnNumber || 0) / 2);
+  p.results[p.step] = { stepId: run.stepId, cardId: run.cardId, winner, at: new Date().toISOString(),
+    rounds, lost: { [SIDES.RED]: lost(SIDES.RED), [SIDES.BLUE]: lost(SIDES.BLUE) },
+    reason: state.scenarioResult ? state.scenarioResult.reason : null };
   p.step += 1;
   saveCampaign(p);
   return p;
