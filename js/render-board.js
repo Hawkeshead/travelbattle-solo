@@ -1121,6 +1121,7 @@ export function sizeCanvas(){
   // function has already returned, so clearing it here would not prevent the
   // re-entry it exists to stop.
   requestAnimationFrame(()=>{ resizingBoard = false; });
+  try { syncAmbientClip(); } catch { /* clouds not created yet */ }
 }
 
 /* =========================================================
@@ -1338,7 +1339,27 @@ export function applyMapTransform(){
   clampMapPan();
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
   syncFctLayer();   // the label layer rides the same transform or it drifts off the board
+  syncAmbientClip();   // clouds stay over the board, not the empty margins beside it
   scheduleBackingUpdate();   // sharpen to the new zoom once it settles
+}
+
+/* CLOUDS ONLY OVER THE BOARD (5 Oct 2026). The cloud and cloud-shadow canvases
+   (ambient-layer.js) cover the whole board area; on a single 10 x 10 board the
+   board is narrower than that, and clouds drifted over the dark margins beside
+   it. They are clipped to the board's visible rectangle with clip-path, set
+   from here whenever the board is sized, panned or zoomed, so ambient-layer.js
+   itself is untouched. */
+export function syncAmbientClip(){
+  const host = canvas.parentElement;
+  if(!host) return;
+  const hr = host.getBoundingClientRect(), br = canvas.getBoundingClientRect();
+  const top = Math.max(0, br.top - hr.top), left = Math.max(0, br.left - hr.left);
+  const right = Math.max(0, hr.right - br.right), bottom = Math.max(0, hr.bottom - br.bottom);
+  const clip = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+  for(const id of ['ambientLayer', 'ambientShadows']){
+    const el = document.getElementById(id);
+    if(el && el.style.clipPath !== clip) el.style.clipPath = clip;
+  }
 }
 
 /* A drag that starts on something the board itself should not pan for (a

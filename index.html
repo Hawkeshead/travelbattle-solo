@@ -1238,6 +1238,9 @@
      inline style beats any stylesheet rule without it. That is why the row
      stayed over Campaigns and the battle (4 Oct 2026) while the title, which
      has no inline style, went. */
+  /* The battle's corner dials (undo, view reset, log) do nothing on the title
+     screen or its menus: shown only once a battle is under way (title-away). */
+  html:not(.title-away) #hudIcons{ display:none !important; }
   html.title-hidden #titleMenu, html.title-hidden #titleMark,
   html.title-away #titleMenu, html.title-away #titleMark{ display:none !important; }
   @media (max-width: 600px){ #titleMenu{ flex-wrap:wrap; row-gap:8px; } .title-item{ width:22vw; } .title-item .ti-art{ width:15vw; height:15vw; } }
@@ -1269,6 +1272,7 @@
   .camp-steps li{ display:flex; justify-content:space-between; gap:12px; padding:3px 6px; border-bottom:1px solid rgba(110,80,40,.25); font-size:14px; }
   .camp-steps li.now{ background:rgba(184,145,63,.18); }
   .camp-steps b.red{ color:#8e1f1f; } .camp-steps b.blue{ color:#1f3a7a; }
+  .camp-recap{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:#6b5636; margin-top:1px; }
   .camp-result{ font-family:'Cinzel',serif; font-size:16px; text-align:center; margin:4px 0 8px; }
 
   /* OPERATIONS: the menu list, the pre-battle brief and the objective panel. */
