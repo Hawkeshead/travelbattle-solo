@@ -1,5 +1,5 @@
 import { AudioManager } from './audio-manager.js';
-import { state } from './data-core.js';
+import { humanOwns } from './data-core.js';
 import { DICE_FACES, DICE_NATION, DICE_TUMBLE_FRAMES, diceArtPaths, diceFacePath, diceTumblePath } from './dice-art.js';
 
 export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
@@ -208,7 +208,11 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
     return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
   }).join('');
 
-  const isHuman = !(state.mode==='ai' && triggerSide===state.aiSide);
+  /* humanOwns, not "is it the AI's side": in Spectate state.aiSide follows
+     whichever side is acting, so a roll that belongs to the other side (the
+     defender's, a rally) read as a person's and waited for a Roll tap that
+     nobody was there to give. humanOwns answers no for every side in Spectate. */
+  const isHuman = humanOwns(triggerSide);
   if(FAST_DICE_MODE){ onTrigger(); return; }
   if(isHuman){
     rollBtn.textContent = 'Roll'; // reset from any previous fight's re-roll offer — see showDiceRerollButton, which never resets this itself, only its own caller should decide what a *fresh* prompt says
