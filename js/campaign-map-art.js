@@ -61,6 +61,9 @@ export function renderMapSVG(map, c, view = {}){
   parts.push(`<path d="M0,0 L700,0 C640,10 600,8 560,16 C470,30 380,8 300,18 C250,26 230,60 190,92 C140,128 80,130 0,128 Z" fill="url(#cmSea)" opacity="0.55"/>`);
   parts.push(`<text x="70" y="50" font-family="IM Fell English, Cormorant Garamond, serif" font-style="italic" font-size="26" fill="#4d5c58" opacity="0.8">North Sea</text>`);
 
+  // Winter quarters: a cold wash over the parchment.
+  if(view.winter) parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#dfe8ee" opacity="0.38"/><text x="${W - 30}" y="${H - 30}" text-anchor="end" font-family="IM Fell English, Cormorant Garamond, serif" font-style="italic" font-size="30" fill="#4d5c68" opacity="0.85">Winter quarters</text>`);
+
   // Roads: inked, a selected army's legal marches picked out in brass.
   for(const [a, b] of map.roads){
     const p = town(a), q = town(b);

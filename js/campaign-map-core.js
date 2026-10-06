@@ -69,6 +69,26 @@ export function withdrawalRules(map){
   };
 }
 
+/* SEASONS (kept light). December to February are winter quarters: armies
+   march only through towns their own side holds and with no enemy army in
+   them (so no attacks and no captures), and town income is halved. Spring,
+   summer and autumn change nothing; they are named on the map for flavour.
+   From the map's "seasons" block. */
+export function seasonRules(map){
+  const s = (map && map.seasons) || {};
+  return { winterMonths: s.winterMonths || [12, 1, 2], winterIncomeFactor: s.winterIncomeFactor ?? 0.5 };
+}
+function monthOfTurn(map, turn){
+  const [y, m, d] = map.startDate.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + (turn - 1) * (map.daysPerTurn || 14))).getUTCMonth() + 1;
+}
+export const isWinter = (map, turn) => seasonRules(map).winterMonths.includes(monthOfTurn(map, turn));
+export function seasonOf(map, turn){
+  if(isWinter(map, turn)) return 'Winter';
+  const m = monthOfTurn(map, turn);
+  return m >= 3 && m <= 5 ? 'Spring' : m >= 6 && m <= 8 ? 'Summer' : m >= 9 && m <= 11 ? 'Autumn' : 'Winter';
+}
+
 /* The date of a turn: fortnightly from the map's start date. */
 export function dateForTurn(map, turn){
   const [y, m, d] = map.startDate.split('-').map(Number);
@@ -177,7 +197,12 @@ export function logEntry(c, map, side, kind, text, data){
 export function validMoves(c, map, army){
   if(!army || c.phase !== army.side || army.hasMoved || c.pendingBattle || c.result) return [];
   if(isResting(c, army)) return [];
-  return townById(map, army.townId).links.slice();
+  const links = townById(map, army.townId).links.slice();
+  if(isWinter(map, c.turn)){
+    const enemy = otherSideCM(army.side);
+    return links.filter(t => c.towns[t] && c.towns[t].owner === army.side && armiesAt(c, t, enemy).length === 0);
+  }
+  return links;
 }
 
 /* Moves an army one town. Returns { kind:'moved' } or { kind:'battle',
@@ -458,7 +483,8 @@ export function economyRules(map){
 }
 export const townsHeldBy = (c, side) => Object.keys(c.towns).filter(id => c.towns[id].owner === side);
 export function incomeOf(c, map, side){
-  const towns = townsHeldBy(c, side).reduce((n, id) => n + ((townById(map, id) || {}).income || 0), 0);
+  const raw = townsHeldBy(c, side).reduce((n, id) => n + ((townById(map, id) || {}).income || 0), 0);
+  const towns = isWinter(map, c.turn) ? Math.floor(raw * seasonRules(map).winterIncomeFactor) : raw;
   const subsidy = economyRules(map).subsidy[side] || 0;
   const upkeep = armiesOf(c, side).reduce((n, a) => n + a.brigades.reduce((m, b) => m + fightingUnits(b).length, 0), 0) * economyRules(map).upkeepPerUnit;
   return { towns, subsidy, upkeep, net: towns + subsidy - upkeep };
@@ -653,7 +679,10 @@ export function endAiPhase(c, map){
   c.turn += 1;
   c.phase = c.playerSide;
   for(const a of armiesOf(c, c.playerSide)) a.hasMoved = false;
-  logEntry(c, map, null, 'turn', `Turn ${c.turn} of ${c.totalTurns}: ${dateForTurn(map, c.turn)}.`);
+  const winterNow = isWinter(map, c.turn), winterBefore = isWinter(map, c.turn - 1);
+  logEntry(c, map, null, 'turn', `Turn ${c.turn} of ${c.totalTurns}: ${dateForTurn(map, c.turn)}.` +
+    (winterNow && !winterBefore ? ' Winter: the armies go into winter quarters (march only through your own towns, town income halved).' : '') +
+    (!winterNow && winterBefore ? ' Spring: the campaigning season opens again.' : ''));
   collectIncome(c, map, c.playerSide);
 }
 
@@ -761,9 +790,14 @@ export function checkVictory(c, map){
 }
 /* The final turn has been played: whoever destroyed more enemy unit value wins. */
 export function finalReckoning(c, map){
+  /* More enemy value destroyed wins. Level on that, more towns held breaks
+     the tie (Matthew's call: a side that holds the country should not be
+     denied by an even exchange). Level on both, a draw. */
   const b = c.destroyedValue.british, f = c.destroyedValue.french;
-  const winner = b > f ? 'british' : f > b ? 'french' : 'draw';
-  c.result = { winner, reason: `Final turn reached. Enemy value destroyed: British ${b}, French ${f}`, turn: c.turn };
+  const tb = townsHeldBy(c, 'british').length, tf = townsHeldBy(c, 'french').length;
+  let winner = b > f ? 'british' : f > b ? 'french' : 'draw', how = '';
+  if(winner === 'draw' && tb !== tf){ winner = tb > tf ? 'british' : 'french'; how = `. Level on that, so towns held decide: British ${tb}, French ${tf}`; }
+  c.result = { winner, reason: `Final turn reached. Enemy value destroyed: British ${b}, French ${f}${how}`, turn: c.turn, towns: { british: tb, french: tf } };
   c.phase = 'over';
   logEntry(c, map, null, 'end', `Campaign over at the final turn: ${winner === 'draw' ? 'a draw' : cap(winner) + ' victory'}. ${c.result.reason}.`);
   return c.result;

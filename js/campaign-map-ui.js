@@ -157,10 +157,11 @@ function render(){
   root.querySelector('.cmap-title').textContent = map.name;
   const phase = C.result ? 'Campaign over' : C.phase === C.playerSide ? 'Your move' : 'The French march';
   const purse = cm.incomeOf(C, map, C.playerSide);
-  root.querySelector('.cmap-date').textContent = `Turn ${C.turn} of ${C.totalTurns} · ${cm.dateForTurn(map, C.turn)} · ${phase}`;
+  const season = cm.isWinter(map, C.turn) ? 'Winter quarters' : cm.seasonOf(map, C.turn);
+  root.querySelector('.cmap-date').textContent = `Turn ${C.turn} of ${C.totalTurns} · ${cm.dateForTurn(map, C.turn)} · ${season} · ${phase}`;
   root.querySelector('.cmap-gold').textContent = `Gold ${C.gold[C.playerSide]} (${purse.net >= 0 ? '+' : ''}${purse.net} a turn)`;
   const last = C.battles[C.battles.length - 1];
-  root.querySelector('.cmap-canvas').innerHTML = renderMapSVG(map, C, { selectedArmyId: view.selectedArmyId, moves, lastBattleTownId: last && last.turn === C.turn ? last.townId : null });
+  root.querySelector('.cmap-canvas').innerHTML = renderMapSVG(map, C, { winter: cm.isWinter(map, C.turn), selectedArmyId: view.selectedArmyId, moves, lastBattleTownId: last && last.turn === C.turn ? last.townId : null });
   root.querySelector('.cmap-panel').innerHTML = panelHTML(map, sel, moves);
   fitMap(map);
   renderModal(map);
@@ -211,7 +212,8 @@ function panelHTML(map, sel, moves){
     }
     out.push(armyCard(map, sel));
     if(sel.side === C.playerSide && mine){
-      if(moves.length) out.push(`<p class="cmap-hint">Tap a highlighted town to march there. Red means an enemy army holds it: marching in is an attack.</p>`);
+      if(moves.length) out.push(`<p class="cmap-hint">Tap a highlighted town to march there.${cm.isWinter(map, C.turn) ? ' Winter quarters: only through your own towns.' : ' Red means an enemy army holds it: marching in is an attack.'}</p>`);
+      else if(cm.isWinter(map, C.turn) && !sel.hasMoved && !cm.isResting(C, sel)) out.push(`<p class="cmap-hint">Winter quarters: no road from here leads to a town of yours, so this army stays put.</p>`);
       else if(cm.isResting(C, sel)) out.push(`<p class="cmap-hint">This army withdrew from a fight and must rest this turn.</p>`);
       else if(sel.hasMoved) out.push(`<p class="cmap-hint">This army has marched this turn.</p>`);
       const others = cm.armiesAt(C, sel.townId, sel.side).filter(a => a.id !== sel.id);
@@ -224,7 +226,9 @@ function panelHTML(map, sel, moves){
   } else if(mine && view.mode === 'recruit'){
     return recruitHTML(map);
   } else if(mine){
-    out.push(`<p class="cmap-hint">Tap one of your armies (red flags) to command it. Each army may march one town along a road each turn.</p>`);
+    out.push(cm.isWinter(map, C.turn)
+      ? `<p class="cmap-hint">Winter quarters until March: armies march only through your own towns, and towns pay half. A good time to recruit and regroup.</p>`
+      : `<p class="cmap-hint">Tap one of your armies (red flags) to command it. Each army may march one town along a road each turn.</p>`);
   } else if(view.aiRunning){
     out.push(`<p class="cmap-hint">The French are on the march…</p>`);
   }
@@ -253,7 +257,8 @@ function renderModal(map){
       <table class="cmap-tally"><tr><th></th><th>Britain</th><th>France</th></tr>
       <tr><td>Enemy value destroyed</td><td>${C.destroyedValue.british}</td><td>${C.destroyedValue.french}</td></tr>
       <tr><td>Units lost</td><td>${C.unitsLost.british}</td><td>${C.unitsLost.french}</td></tr>
-      <tr><td>Armies in the field</td><td>${cm.armiesOf(C, 'british').length}</td><td>${cm.armiesOf(C, 'french').length}</td></tr></table>
+      <tr><td>Armies in the field</td><td>${cm.armiesOf(C, 'british').length}</td><td>${cm.armiesOf(C, 'french').length}</td></tr>
+      <tr><td>Towns held</td><td>${cm.townsHeldBy(C, 'british').length}</td><td>${cm.townsHeldBy(C, 'french').length}</td></tr></table>
       <p class="cmap-small">${C.battles.length} battle${C.battles.length === 1 ? '' : 's'} fought · ended on turn ${r.turn}, ${esc(cm.dateForTurn(map, r.turn))}</p>
       <div class="cmap-actions"><button data-act="log">Campaign Log</button><button data-act="new" class="primary">New Campaign</button><button data-act="menu" class="ghost">Main Menu</button></div>`;
   } else if(C.pendingBattle && !view.aiRunning){

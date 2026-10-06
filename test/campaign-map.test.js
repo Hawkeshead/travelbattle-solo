@@ -164,9 +164,18 @@ test('at the final turn the side that destroyed more value wins', () => {
   cm.aiStep(c, MAP);
   cm.endAiPhase(c, MAP);
   assert.strictEqual(c.result.winner, 'french');
+  // Level on value: towns held break the tie (France starts with 12 to 9).
   const d = fresh(); d.turn = d.totalTurns; d.destroyedValue = { british: 5, french: 5 };
   cm.endPlayerPhase(d, MAP); cm.aiStep(d, MAP); cm.endAiPhase(d, MAP);
-  assert.strictEqual(d.result.winner, 'draw');
+  assert.strictEqual(d.result.winner, 'french');
+  assert.match(d.result.reason, /towns held decide/);
+  // Level on both: a draw.
+  const e = fresh(); e.turn = e.totalTurns; e.destroyedValue = { british: 5, french: 5 };
+  for(const id of Object.keys(e.towns).slice(0, 21)) e.towns[id].owner = null;
+  e.towns.ostend.owner = 'british'; e.towns.lille.owner = 'french';
+  e.armies.find(a => a.side === 'french').townId = 'lille';
+  cm.endPlayerPhase(e, MAP); e.armies.forEach(a => { a.hasMoved = true; }); cm.endAiPhase(e, MAP);
+  assert.strictEqual(e.result.winner, 'draw');
 });
 
 test('a single-brigade fight uses the 10 x 10 board', () => {
@@ -495,4 +504,23 @@ test('the AI never spends its way into losing money each turn', () => {
   ai.strategicAiRecruit(c, MAP, ARCHIVE);
   assert.ok(cm.incomeOf(c, MAP, 'french').net >= 0, `net ${cm.incomeOf(c, MAP, 'french').net}`);
   assert.ok(c.gold.french < 200, 'but it did spend');
+});
+
+/* ---------- SEASONS: winter quarters ---------- */
+test('winter quarters: own towns only, no attacks, half income', () => {
+  const c = fresh();
+  c.turn = 15;   // 5 December 1793
+  assert.ok(cm.isWinter(MAP, 15) && !cm.isWinter(MAP, 14) && !cm.isWinter(MAP, 22));
+  assert.strictEqual(cm.seasonOf(MAP, 1), 'Spring');
+  assert.strictEqual(cm.seasonOf(MAP, 5), 'Summer');
+  const [b] = cm.armiesOf(c, 'british'), [f] = cm.armiesOf(c, 'french');
+  b.townId = 'ypres'; f.townId = 'menin';
+  // Ypres's roads: Nieuport and Menin (British) and Hondschoote (French). Menin holds France.
+  assert.deepStrictEqual(cm.validMoves(c, MAP, b).sort(), ['nieuport']);
+  assert.strictEqual(cm.incomeOf(c, MAP, 'british').towns, 6, 'half of 13, rounded down');
+  // The French AI keeps to its quarters too.
+  cm.endPlayerPhase(c, MAP);
+  ai.strategicAiStep(c, MAP);
+  assert.strictEqual(c.pendingBattle, null);
+  assert.strictEqual(c.towns.ypres.owner, 'british');
 });

@@ -712,5 +712,14 @@
   },
   "newBrigadeCost": 20,
   "maxFightingUnitsPerBrigade": 5
+ },
+ "seasons": {
+  "note": "Kept light. In the winter months armies are in winter quarters: they march only through towns their own side holds with no enemy army in them (no attacks, no captures), and town income is multiplied by winterIncomeFactor. Other seasons change nothing.",
+  "winterMonths": [
+   12,
+   1,
+   2
+  ],
+  "winterIncomeFactor": 0.5
  }
 }
