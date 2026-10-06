@@ -276,6 +276,10 @@ export const RETREAT_SCORE_MAX = 2.00;   // was effectively 4.50, uncapped
    do) and held-back Guard are suppressed by Reserve Doctrine until a crisis
    exists. The latter is R2/R4's problem, not R1's. */
 export const ADVANCE_PULL_WEIGHT = 0.35;  // was 0.12
+/* 5 Oct 2026, from five matches against Matthew (see the terms where used). */
+export const STALL_STEP = 0.4;             // per turn held, out of contact, on an attacking or supporting mission
+export const COVER_RELEVANT_RANGE = 4;     // cover only counts this close to an enemy, outside defensive postures
+export const SQUARE_TRAP_BONUS = 1.2;      // a square next to enemy cavalry, set up to volley and fight it
 
 // Reserve release. Any one of these commits a reserve Brigade to SUPPORT.
 // A reserve that is never spent is just an absent third of the army.
@@ -819,6 +823,9 @@ export const AMBUSH_STANDDOWN_TURNS = 3;
 // lay another ambush. Without it, standing down and immediately re-hiding on the
 // same square is a stable loop a unit can sit in for a whole match.
 export const AMBUSH_COOLDOWN_TURNS = 6;
+/* The longest an AI ambush waits, in its own turns, before standing down
+   whatever is nearby (5 Oct 2026; see the stand-down in aiMoveUnit). */
+export const AMBUSH_MAX_WAIT = 3;
 
 export function brigadeIdsForSide(side){
   const ids = new Set(state.units.filter(u=>u.side===side && u.brigadeId!=null).map(u=>u.brigadeId));
@@ -2168,8 +2175,14 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       // Reward staying in contact with the target Brigade without overextending past it.
       return nearestTargetDist!=null ? Math.max(0, 3-Math.abs(nearestTargetDist-1))*0.15 : 0;
     case 'SUPPORT':
+      /* 5 Oct 2026: was 0.7 of APPROACH_PULL (0.11 a square), which nothing
+         noticed against keeping formation (up to 2.1) and staying in cover
+         (0.5). Units on SUPPORT held 57% of the time across five matches, and
+         a whole Brigade sat behind a wood while the Brigade it supported was
+         destroyed. Now the same strength as an attack's approach, so a
+         supporting Brigade follows the fight in. */
       return nearestTargetDist!=null
-        ? -nearestTargetDist*APPROACH_PULL*0.7 + Math.max(0, 5-nearestTargetDist)*0.1 : 0;
+        ? -nearestTargetDist*APPROACH_PULL*1.5 + Math.max(0, 5-nearestTargetDist)*0.15 : 0;
     case 'RESERVE': {
       /* R2: A RESERVE THAT DOES SOMETHING.
 
@@ -3259,6 +3272,20 @@ function chooseErrandGroup(brig, groups){
   return still[Math.floor(seededRandom() * still.length)] || still[0];
 }
 
+/* Is square c a good place for infantry u to set the square trap: next to an
+   enemy cavalry unit it could then volley and fight as a square? (See the
+   squareTrap term.) */
+export function squareTrapAt(u, side, c){
+  const k = terrainAt(c.x, c.y).key;
+  if(k === 'WOODS' || k === 'BUILDING') return false;                       // no square here
+  if(state.units.some(o => !o.removed && o.side === side && o.id !== u.id && o.x === c.x && o.y === c.y)) return false;
+  const enemies = state.units.filter(o => !o.removed && o.side !== side);
+  if(enemies.some(o => (UNIT_TYPES[o.type].key === 'INFANTRY' || UNIT_TYPES[o.type].key === 'GUARD') && isAdjacent(o, c))) return false;
+  return enemies.some(o => UNIT_TYPES[o.type].isCavalry && isAdjacent(o, c) &&
+    !['WOODS', 'BUILDING'].includes(terrainAt(o.x, o.y).key) &&
+    !state.units.some(f => !f.removed && f.side === side && f.id !== u.id && UNIT_TYPES[f.type].isCavalry && isAdjacent(f, o)));
+}
+
 export function brigadeErrand(side, bId){
   const book = state._aiErrands && state._aiErrands[side];
   return book ? (book[bId] || null) : null;
@@ -3303,7 +3330,19 @@ export function updateRecoveryErrands(side, missions){
     });
     const hasBrigadier = state.units.some(o => !o.removed && o.side===side &&
       o.brigadeId===bId && o.type==='BRIGADIER');
-    if(!live.length || !hasBrigadier || state.turnNumber - e.startedTurn >= ERRAND_MAX_TURNS){
+    /* ERRAND_MAX_TURNS was compared with turnNumber, which counts BOTH sides'
+       turns, so an errand lasted two of his own turns, not four: barely long
+       enough to reach anyone, after which the next errand often picked the
+       other group and he turned round (Murat, 3 Oct, ten turns between two
+       groups). Now it is his own turns, and an errand that is still closing
+       on its group is not cut off. */
+    const ownTurns = Math.floor((state.turnNumber - e.startedTurn) / 2);
+    const brigNow = state.units.find(o => !o.removed && o.side===side && o.brigadeId===bId && o.type==='BRIGADIER');
+    const rally = live.length ? errandRallyPoint({ ids: live }) : null;
+    const distNow = brigNow && rally ? chebyshev(brigNow, rally) : null;
+    const closing = distNow != null && e.lastDist != null && distNow < e.lastDist;
+    if(distNow != null) e.lastDist = distNow;
+    if(!live.length || !hasBrigadier || (ownTurns >= ERRAND_MAX_TURNS && !closing) || ownTurns >= ERRAND_MAX_TURNS * 2){
       delete book[key];
       continue;
     }
@@ -3454,6 +3493,8 @@ export function aiDecideAndExecuteMove(u){
      there is nothing to break down. */
   let decisionForLog = null;
   function recordMove(action, to){
+    // The stall breaker reads how many turns in a row this unit has held.
+    u._aiHoldStreak = /^Hold/.test(action) ? (u._aiHoldStreak || 0) + 1 : 0;
     state._aiMoveHistory[side].push({
       turn: state.turnNumber, unit: unitLabel(u), type: u.type, brigadeId: u.brigadeId,
       mission: missionFor(u), action, from: {x:startX, y:startY}, to: to || null,
@@ -3526,9 +3567,19 @@ export function aiDecideAndExecuteMove(u){
   if(u.hidden){
     const nearNow = nearestEnemyDist(u, side);
     u.ambushWaited = (nearNow <= AMBUSH_STANDDOWN_RANGE) ? 0 : (u.ambushWaited || 0) + 1;
-    if(u.ambushWaited >= AMBUSH_STANDDOWN_TURNS){
+    /* AN AMBUSH HAS A SHELF LIFE (5 Oct 2026). The counter above resets every
+       turn an enemy is within range, so an ambush in a wood the enemy simply
+       walks past never stands down: in Matthew's Famars match three French
+       infantry hid on turn 13 and two were still hiding when the battle ended
+       23 turns later; in another match one waited 27 turns. Across five
+       matches no AI ambush was ever sprung. Now it stands down after
+       AMBUSH_MAX_WAIT of its own turns whatever is nearby: if the enemy was
+       going to walk in, it would have by then. */
+    u.ambushAge = (u.ambushAge || 0) + 1;
+    if(u.ambushWaited >= AMBUSH_STANDDOWN_TURNS || u.ambushAge > AMBUSH_MAX_WAIT){
       u.hidden = false;
       u.ambushWaited = 0;
+      u.ambushAge = 0;
       /* COOLDOWN, and this is the whole bug. Standing down only cleared the
          hidden flag, so the very next time the unit was scored it met the same
          board, judged an ambush worthwhile again, and hid on the same square.
@@ -3555,7 +3606,11 @@ export function aiDecideAndExecuteMove(u){
   // Tick the cooldown down once per AI turn for this unit.
   if(u.ambushCooldown > 0) u.ambushCooldown -= 1;
 
-  if(state.aiDifficulty==='hard' && !u.ambushCooldown && canLayAmbush(u)){
+  /* Only a Brigade that is meant to wait lays ambushes: one attacking
+     (MAIN_ATTACK) or supporting an attack (SUPPORT) has somewhere to be. The
+     Famars Brigade that hid for 23 turns was on SUPPORT. */
+  const ambushMission = missionFor(u);
+  if(state.aiDifficulty==='hard' && !u.ambushCooldown && canLayAmbush(u) && ambushMission !== 'MAIN_ATTACK' && ambushMission !== 'SUPPORT'){
     const near = nearestEnemyDist(u, side);
     /* F3: SET AND STAND-DOWN NOW SHARE ONE RADIUS.
 
@@ -3571,6 +3626,7 @@ export function aiDecideAndExecuteMove(u){
     if(near>=2 && near<=AMBUSH_STANDDOWN_RANGE){
       u.hidden = true;
       u.ambushWaited = 0;
+      u.ambushAge = 0;
       logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'set', by:'ai' });
       state.moved.add(u.id);
       log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
@@ -4441,10 +4497,40 @@ export function aiDecideAndExecuteMove(u){
          it in the ordinary case where it is already the right size. Capping the
          term leaves normal play alone and only trims the defensive peak.
          Defaults to Infinity, so with no override nothing moves. */
-      s += addScore(parts, 'terrainSeek',
+      /* Cover is worth having where the enemy can reach you. Far behind the
+         fight, a wood is only a reason not to move (5 Oct 2026: the Famars
+         Brigade's woods scored 0.5 to 0.75 every turn it held there). Outside
+         defensive postures, cover counts only within COVER_RELEVANT_RANGE of
+         an enemy. */
+      const coverMatters = defensivePosture || nearestEnemyDist(c, side) <= COVER_RELEVANT_RANGE;
+      if(coverMatters) s += addScore(parts, 'terrainSeek',
         Math.min(tune(side, 'TERRAIN_SEEK_MAX', TERRAIN_SEEK_MAX),
                  terrainSeekBonus(t.key, c.x, c.y) * (defensivePosture ? 2.4 : 1))
         * tempoMultiplier(side, 'terrainSeek'));
+
+      /* STALL BREAKER (5 Oct 2026). A unit on an attacking or supporting
+         mission that has held turn after turn, out of contact, gets a growing
+         reason to close: STALL_STEP for each turn held (up to four), on any
+         square nearer the enemy than where it stands. Across five matches the
+         AI started 35 fights to Matthew's 88 and fired 14 volleys to his 55,
+         because its infantry so rarely ended a move next to anyone. */
+      const stalled = u._aiHoldStreak || 0;
+      if(stalled > 0 && t.key !== 'BRIGADIER' && !t.isArtillery && (mission === 'MAIN_ATTACK' || mission === 'SUPPORT') &&
+         !state.units.some(o => !o.removed && o.side !== side && isAdjacent(o, u))){
+        const closer = nearestEnemyDist(u, side) - nearestEnemyDist(c, side);
+        if(closer > 0) s += addScore(parts, 'stallBreak', Math.min(stalled, 4) * STALL_STEP);
+      }
+
+      /* THE SQUARE TRAP (Matthew's tactic, 5 Oct 2026). Infantry that ends
+         its move next to enemy cavalry and forms square fires a two-dice
+         volley at it (turning it round, often), then fights it on level dice
+         with the +1 for a turned defender: the best odds infantry ever gets
+         against horse. Worth moving in for, when: the cavalry is not in
+         woods or a building (no square there, and the volley is spoiled), no
+         enemy infantry is next to the square to punish it, the square can
+         be formed there, and none of our own cavalry is already next to that
+         horseman (then let our cavalry deal with it). */
+      if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
 
       /* SHAPE, not distance. Every other term here is "how far am I from X", so
          two squares equidistant from everything score identically: a logged match
@@ -4749,6 +4835,17 @@ export function aiDecideAndExecuteMove(u){
       to: best?`(${best.x},${best.y})`:null, score: bestScore.toFixed(2), decision });
   }
   recordMove((best && !best.stay) ? (u.charged?'Charge':'Advance') : 'Hold', best && !best.stay ? {x:best.x, y:best.y} : null);
+  /* THE SQUARE TRAP, second half: having moved next to enemy cavalry where
+     the trap holds, form square now (the rules allow it after a move), so the
+     volley in the Fire phase rolls two dice and the fight is on level terms. */
+  if(best && !best.stay && (t.key==='INFANTRY' || t.key==='GUARD') && u.formation !== 'square' && !u.turnOnly &&
+     state.aiDifficulty === 'hard' && squareTrapAt(u, side, { x: u.x, y: u.y })){
+    u.formation = 'square';
+    u.squareNoCavTurns = 0;
+    logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
+    log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square beside the enemy horse.`, side);
+    recordMove('Form Square');
+  }
 }
 
 /* How long an AI unit stands after answering its call before it moves. Long
