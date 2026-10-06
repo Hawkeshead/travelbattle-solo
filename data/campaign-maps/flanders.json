@@ -62,7 +62,7 @@
    "isDepot": true,
    "depotSide": "british",
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -87,7 +87,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -111,7 +111,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -135,7 +135,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -160,7 +160,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -186,7 +186,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -210,7 +210,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -235,7 +235,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -260,7 +260,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -286,7 +286,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -311,7 +311,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -336,7 +336,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -361,7 +361,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -386,7 +386,7 @@
    "isDepot": true,
    "depotSide": "french",
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -411,7 +411,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -437,7 +437,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -462,7 +462,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -486,7 +486,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -510,7 +510,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 2,
    "hostility": 0
   },
   {
@@ -535,7 +535,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   },
   {
@@ -560,7 +560,7 @@
    "isDepot": false,
    "depotSide": null,
    "supplyValue": 0,
-   "income": 0,
+   "income": 1,
    "hostility": 0
   }
  ],
@@ -691,5 +691,26 @@
   "aiWithdrawRatio": 1.5,
   "pursuitInfantryDicePenalty": 1,
   "rearguardTurns": 8
+ },
+ "economy": {
+  "note": "Gold only, kept light. Each town pays its income every turn to whoever holds it; Britain also draws the subsidy. Every fighting unit costs upkeepPerUnit a turn (Brigadiers free); gold never goes below 0. Recruiting only at a side's home depot (Ostend, Lille): unitCost tops up a brigade (up to maxFightingUnitsPerBrigade), newBrigadeCost raises a Brigadier and two infantry.",
+  "startGold": {
+   "british": 20,
+   "french": 20
+  },
+  "subsidy": {
+   "british": 4,
+   "french": 0
+  },
+  "upkeepPerUnit": 1,
+  "unitCost": {
+   "INFANTRY": 8,
+   "GUARD": 12,
+   "LIGHT_CAV": 10,
+   "HEAVY_CAV": 12,
+   "ARTILLERY": 12
+  },
+  "newBrigadeCost": 20,
+  "maxFightingUnitsPerBrigade": 5
  }
 }

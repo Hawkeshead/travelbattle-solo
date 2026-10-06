@@ -368,3 +368,78 @@ test('a Phase 1 (version 1) save loads and plays on', () => {
   p1.pendingBattle = { id: 'battle1', townId: 'menin', attackerSide: 'british', participants: { british: [], french: [] } };
   assert.strictEqual(cm.restoreCampaign(JSON.stringify(p1)).pendingBattle.stage, 'battle');
 });
+
+/* ---------- THE ECONOMY: gold, upkeep, towns, recruiting ---------- */
+test('income: towns plus the subsidy, less upkeep, paid at the start of each phase', () => {
+  const c = fresh();
+  assert.deepStrictEqual(c.gold, { british: 20, french: 20 });
+  const b = cm.incomeOf(c, MAP, 'british');
+  assert.deepStrictEqual(b, { towns: 13, subsidy: 4, upkeep: 14, net: 3 });
+  const f = cm.incomeOf(c, MAP, 'french');
+  assert.deepStrictEqual(f, { towns: 16, subsidy: 0, upkeep: 14, net: 2 });
+  cm.endPlayerPhase(c, MAP);
+  assert.strictEqual(c.gold.french, 22, 'France paid as its phase begins');
+  while(cm.aiStep(c, MAP).kind !== 'done'){ /* march */ }
+  cm.endAiPhase(c, MAP);
+  assert.strictEqual(c.gold.british, 23, 'Britain paid as turn 2 begins');
+  // Gold never goes below zero.
+  c.gold.british = 0;
+  const big = cm.armiesOf(c, 'british')[0];
+  for(const br of big.brigades) br.units.push(...unitsOf(['INFANTRY', 'INFANTRY', 'INFANTRY', 'INFANTRY', 'INFANTRY', 'INFANTRY']));
+  cm.collectIncome(c, MAP, 'british');
+  assert.strictEqual(c.gold.british, 0);
+});
+
+test('marching into an undefended town takes it, and its income', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british');
+  b.townId = 'nieuport';
+  assert.strictEqual(c.towns.dunkirk.owner, 'french');
+  const before = cm.incomeOf(c, MAP, 'british').towns;
+  cm.moveArmy(c, MAP, b.id, 'dunkirk');
+  assert.strictEqual(c.towns.dunkirk.owner, 'british');
+  assert.strictEqual(cm.incomeOf(c, MAP, 'british').towns, before + 2);
+  assert.ok(c.log.some(e => e.kind === 'capture'));
+});
+
+test('recruiting only at the home depot, in your own phase, within your gold', () => {
+  const c = fresh();
+  const [b] = cm.armiesOf(c, 'british');
+  const br = b.brigades[1];   // four fighting units: room for one
+  const u = cm.recruitUnit(c, MAP, ARCHIVE, b.id, br.id, 'INFANTRY');
+  assert.ok(u.name && u.id);
+  assert.strictEqual(c.gold.british, 12);
+  assert.throws(() => cm.recruitUnit(c, MAP, ARCHIVE, b.id, br.id, 'INFANTRY'), /full strength/);
+  assert.throws(() => cm.recruitUnit(c, MAP, ARCHIVE, b.id, b.brigades[0].id, 'GUARD'), /full strength/);
+  c.gold.british = 5;
+  br.units = br.units.filter(x => x.id !== u.id);
+  assert.throws(() => cm.recruitUnit(c, MAP, ARCHIVE, b.id, br.id, 'INFANTRY'), /not enough gold/);
+  c.gold.british = 50;
+  cm.moveArmy(c, MAP, b.id, 'bruges');
+  assert.throws(() => cm.recruitUnit(c, MAP, ARCHIVE, b.id, br.id, 'INFANTRY'), /home depot/);
+  // A new brigade at the depot with no army there becomes a new army.
+  const { army, brigade } = cm.raiseBrigade(c, MAP, ARCHIVE, 'british');
+  assert.strictEqual(army.townId, 'ostend');
+  assert.deepStrictEqual(brigade.units.map(x => x.type), ['BRIGADIER', 'INFANTRY', 'INFANTRY']);
+  assert.strictEqual(c.gold.british, 30);
+  // France cannot recruit in Britain's phase.
+  assert.throws(() => cm.raiseBrigade(c, MAP, ARCHIVE, 'french'), /own phase/);
+});
+
+test('the French AI spends its gold at Lille', () => {
+  const c = fresh();
+  cm.endPlayerPhase(c, MAP);
+  cm.aiRecruit(c, MAP, ARCHIVE);
+  assert.ok(c.gold.french < 20, 'spent');
+  assert.strictEqual(cm.armiesOf(c, 'french').length, 2, 'a new brigade raised as a second army at Lille');
+});
+
+test('a version 2 save gains a purse and plays on', () => {
+  const v2 = JSON.parse(cm.serialiseCampaign(fresh()));
+  v2.version = 2; delete v2.gold;
+  const back = cm.restoreCampaign(JSON.stringify(v2));
+  assert.strictEqual(back.version, cm.CAMPAIGN_VERSION);
+  assert.deepStrictEqual(back.gold, { british: 20, french: 20 });
+  cm.endPlayerPhase(back, MAP);
+  assert.strictEqual(back.gold.french, 22);
+});

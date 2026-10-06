@@ -124,7 +124,7 @@ function ensureScreen(){
   const el = document.createElement('div');
   el.id = 'cmap';
   el.innerHTML = `
-    <header class="cmap-head"><div class="cmap-title"></div><div class="cmap-date"></div></header>
+    <header class="cmap-head"><div class="cmap-title"></div><div class="cmap-date"></div><div class="cmap-gold"></div></header>
     <div class="cmap-view"><div class="cmap-canvas"></div></div>
     <section class="cmap-panel"></section>
     <div class="cmap-modal hidden"><div class="cmap-card"></div></div>`;
@@ -155,7 +155,9 @@ function render(){
   const moves = sel && sel.side === C.playerSide ? cm.validMoves(C, map, sel) : [];
   root.querySelector('.cmap-title').textContent = map.name;
   const phase = C.result ? 'Campaign over' : C.phase === C.playerSide ? 'Your move' : 'The French march';
+  const purse = cm.incomeOf(C, map, C.playerSide);
   root.querySelector('.cmap-date').textContent = `Turn ${C.turn} of ${C.totalTurns} · ${cm.dateForTurn(map, C.turn)} · ${phase}`;
+  root.querySelector('.cmap-gold').textContent = `Gold ${C.gold[C.playerSide]} (${purse.net >= 0 ? '+' : ''}${purse.net} a turn)`;
   const last = C.battles[C.battles.length - 1];
   root.querySelector('.cmap-canvas').innerHTML = renderMapSVG(map, C, { selectedArmyId: view.selectedArmyId, moves, lastBattleTownId: last && last.turn === C.turn ? last.townId : null });
   root.querySelector('.cmap-panel').innerHTML = panelHTML(map, sel, moves);
@@ -198,6 +200,7 @@ function panelHTML(map, sel, moves){
       out.push(`<div class="cmap-actions"><button data-act="split-go">Detach</button><button data-act="cancel" class="ghost">Cancel</button></div>`);
       return out.join('');
     }
+    if(view.mode === 'recruit') return recruitHTML(map);
     if(view.mode === 'merge'){
       const others = cm.armiesAt(C, sel.townId, sel.side).filter(a => a.id !== sel.id);
       out.push(`<p class="cmap-hint">Fold another army in ${esc(cm.townName(map, sel.townId))} into ${esc(sel.name)} (three brigades at most).</p>`);
@@ -212,19 +215,24 @@ function panelHTML(map, sel, moves){
       else if(sel.hasMoved) out.push(`<p class="cmap-hint">This army has marched this turn.</p>`);
       const others = cm.armiesAt(C, sel.townId, sel.side).filter(a => a.id !== sel.id);
       out.push(`<div class="cmap-actions">` +
+        (cm.canRecruitAt(C, map, sel.side, sel.townId) ? `<button data-act="recruit">Recruit</button>` : '') +
         (cm.canSplit(C, sel) ? `<button data-act="split">Split</button>` : '') +
         (others.length ? `<button data-act="merge">Merge</button>` : '') +
         `<button data-act="deselect" class="ghost">Close</button></div>`);
     }
+  } else if(mine && view.mode === 'recruit'){
+    return recruitHTML(map);
   } else if(mine){
     out.push(`<p class="cmap-hint">Tap one of your armies (red flags) to command it. Each army may march one town along a road each turn.</p>`);
   } else if(view.aiRunning){
     out.push(`<p class="cmap-hint">The French are on the march…</p>`);
   }
-  const score = `<div class="cmap-score">Enemy value destroyed: Britain ${C.destroyedValue.british} · France ${C.destroyedValue.french}</div>`;
+  const purse = cm.incomeOf(C, map, C.playerSide);
+  const score = `<div class="cmap-score">Gold ${C.gold[C.playerSide]} · towns ${purse.towns}${purse.subsidy ? ` + subsidy ${purse.subsidy}` : ''} − upkeep ${purse.upkeep} = ${purse.net >= 0 ? '+' : ''}${purse.net} a turn<br>Enemy value destroyed: Britain ${C.destroyedValue.british} · France ${C.destroyedValue.french}</div>`;
   out.push(score);
   out.push(`<div class="cmap-actions bottom">` +
     (mine ? `<button data-act="end-turn" class="primary">End Turn</button>` : '') +
+    (mine && !sel && cm.canRecruitAt(C, map, C.playerSide, (cm.homeDepot(map, C.playerSide) || {}).id) ? `<button data-act="recruit">Recruit at ${esc(cm.homeDepot(map, C.playerSide).name)}</button>` : '') +
     (C.pendingBattle && !view.aiRunning && (C.pendingBattle.stage === 'battle' || C.pendingBattle.stage === 'rearguard') ? `<button data-act="to-battle" class="primary">To Battle</button>` : '') +
     `<button data-act="log" class="ghost">Campaign Log</button><button data-act="menu" class="ghost">Main Menu</button></div>`);
   return out.join('');
@@ -264,6 +272,27 @@ function renderModal(map){
   }
   card.innerHTML = html;
   modal.classList.toggle('hidden', !html);
+}
+
+/* ---------- recruiting at the home depot ---------- */
+const RECRUIT_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY'];
+function recruitHTML(map){
+  const side = C.playerSide, depot = cm.homeDepot(map, side), rules = cm.economyRules(map), gold = C.gold[side];
+  const here = cm.armiesAt(C, depot.id, side);
+  const out = [`<p class="cmap-hint"><b>Recruit at ${esc(depot.name)}</b> · gold ${gold}. New men join at once. Every fighting unit costs ${rules.upkeepPerUnit} gold a turn in upkeep.</p>`];
+  for(const a of here){
+    out.push(`<div class="cmap-army-card side-${a.side}"><div class="a-name">${esc(a.name)}</div>`);
+    for(const b of a.brigades){
+      const n = cm.fightingUnits(b).length, full = n >= rules.maxFightingUnitsPerBrigade;
+      out.push(`<div class="cmap-brigade"><div class="b-name">${esc(b.name)} <span class="a-where">${n} of ${rules.maxFightingUnitsPerBrigade}${full ? ', full strength' : ''}</span></div>` +
+        (full ? '' : `<div class="cmap-recruit">${RECRUIT_TYPES.map(t => `<button data-act="recruit-unit" data-army="${a.id}" data-brigade="${b.id}" data-type="${t}" ${gold < rules.unitCost[t] ? 'disabled' : ''}>+ ${TYPE_NAME[t]} ${rules.unitCost[t]}</button>`).join('')}</div>`) + `</div>`);
+    }
+    out.push(`</div>`);
+  }
+  if(!here.length) out.push(`<p class="cmap-hint">No army stands at ${esc(depot.name)}: a new brigade will form a new army here.</p>`);
+  out.push(`<div class="cmap-actions"><button data-act="raise" class="primary" ${gold < rules.newBrigadeCost ? 'disabled' : ''}>Raise a new brigade (${rules.newBrigadeCost})</button><button data-act="cancel" class="ghost">Done</button></div>`);
+  out.push(`<p class="cmap-small">A new brigade is a Brigadier and two infantry; top it up as gold allows.</p>`);
+  return out.join('');
 }
 
 /* ---------- an engagement in progress (Phase 2 stages) ---------- */
@@ -385,6 +414,17 @@ function onPanelClick(e){
     if(act === 'deselect'){ view.selectedArmyId = null; view.mode = null; }
     else if(act === 'cancel'){ view.mode = null; }
     else if(act === 'split') view.mode = 'split';
+    else if(act === 'recruit'){ view.mode = 'recruit'; view.selectedArmyId = null; }
+    else if(act === 'recruit-unit'){
+      const u = cm.recruitUnit(C, map, TB_DATA.unitArchive, b.getAttribute('data-army'), b.getAttribute('data-brigade'), b.getAttribute('data-type'));
+      saveCampaignMap(C);
+      view.message = `${u.name} recruited.`;
+    }
+    else if(act === 'raise'){
+      const r = cm.raiseBrigade(C, map, TB_DATA.unitArchive, C.playerSide);
+      saveCampaignMap(C);
+      view.message = `${r.brigade.name} raised; it joins ${r.army.name}.`;
+    }
     else if(act === 'merge') view.mode = 'merge';
     else if(act === 'split-go'){
       const ids = [...document.querySelectorAll('#cmap [data-split-brigade]:checked')].map(x => x.getAttribute('data-split-brigade'));
@@ -435,6 +475,7 @@ function download(name, text){
 /* ---------- the turn ---------- */
 function endTurn(){
   cm.endPlayerPhase(C, mapFor(C));
+  cm.aiRecruit(C, mapFor(C), TB_DATA.unitArchive);   // France pays and spends at Lille as its phase begins
   view.selectedArmyId = null; view.mode = null; view.message = '';
   saveCampaignMap(C);
   runAi();
@@ -492,6 +533,9 @@ const CSS = `
 #cmap .cmap-head{flex:0 0 auto;text-align:center;padding:10px 12px 6px;}
 #cmap .cmap-title{${PLAQUE}font-size:15px;padding:8px 20px 7px;}
 #cmap .cmap-title::after{content:"";position:absolute;inset:4px;border:1px solid rgba(62,47,17,.5);border-radius:1px;pointer-events:none;}
+#cmap .cmap-gold{font-family:'Cinzel',serif;font-weight:700;font-size:13px;letter-spacing:.08em;color:#e2c47a;margin-top:2px;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+#cmap .cmap-recruit{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 2px;}
+#cmap .cmap-recruit button{min-height:36px;padding:6px 8px;font-size:11px;letter-spacing:.04em;}
 #cmap .cmap-date{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:15px;color:#e9d9b0;margin-top:6px;text-shadow:0 1px 2px rgba(0,0,0,.6);}
 #cmap .cmap-view{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin:2px 8px 6px;${FRAME}background:#e3d4ae;box-shadow:0 10px 24px rgba(0,0,0,.6);}
 #cmap .cmap-canvas{width:max-content;min-width:100%;min-height:100%;display:flex;align-items:center;}

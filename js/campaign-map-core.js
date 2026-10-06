@@ -32,8 +32,9 @@
 ========================================================= */
 
 /* 1: Phase 1. 2: Phase 2 (withdrawal and pursuit): armies gain restTurn,
-   a pending battle gains a stage. restoreCampaign upgrades older saves. */
-export const CAMPAIGN_VERSION = 2;
+   a pending battle gains a stage. 3: gold (the economy). restoreCampaign
+   upgrades older saves. */
+export const CAMPAIGN_VERSION = 3;
 export const SIDES_CM = ['british', 'french'];
 export const otherSideCM = s => (s === 'british' ? 'french' : 'british');
 const ARCHIVE_SIDE = { british: 'red', french: 'blue' };
@@ -129,6 +130,7 @@ export function createCampaign(map, compositions, archive, opts = {}){
     nextIds: {},
     nameCounters: {},
     destroyedValue: { british: 0, french: 0 },   // enemy unit value each side has destroyed
+    gold: Object.assign({ british: 0, french: 0 }, economyRules(map).startGold),
     unitsLost: { british: 0, french: 0 },
     pendingBattle: null,
     battles: [],
@@ -190,6 +192,7 @@ export function moveArmy(c, map, armyId, townId){
   const enemies = armiesAt(c, townId, otherSideCM(army.side));
   if(!enemies.length){
     logEntry(c, map, army.side, 'move', `${army.name} marches from ${townName(map, from)} to ${townName(map, townId)}.`, { armyId, from, to: townId });
+    updateOwnership(c, map);
     return { kind: 'moved' };
   }
   c.pendingBattle = makeBattle(c, map, army, from, enemies);
@@ -301,6 +304,7 @@ export function chooseWithdraw(c, map, toTownId){
   // Its next own phase: later this turn if it moves second, otherwise next turn.
   const restTurn = side === c.playerSide ? c.turn + 1 : c.turn;
   for(const a of armies){ a.townId = toTownId; a.restTurn = restTurn; }
+  updateOwnership(c, map);
   const rg = weakestBrigade(map, armies);
   b.stage = 'pursuit';
   b.withdrawal = { side, to: toTownId, armyIds: armies.map(a => a.id), rearguard: rg ? { armyId: rg.army.id, brigadeId: rg.brigade.id } : null, restTurn };
@@ -411,6 +415,7 @@ export function applyRearguardResult(c, map, result){
   const lost = new Set(result.lost || []);
   const summary = { battleId: b.id, townId: b.townId, winner: result.winner, rearguard: true, lostUnits: { british: [], french: [] }, brokenBrigades: { british: [], french: [] }, removedArmies: [], retreat: null, destroyedArmies: [] };
   removeLosses(c, map, lost, summary);
+  updateOwnership(c, map);
   const record = Object.assign({}, b, { winner: result.winner, matchUid: result.matchUid || null, summary, foughtAt: new Date().toISOString() });
   c.battles.push(record);
   c.pendingBattle = null;
@@ -422,6 +427,124 @@ export function applyRearguardResult(c, map, result){
     (summary.removedArmies.length ? ` Destroyed: ${summary.removedArmies.map(a => a.name).join(', ')}.` : ''), { battle: record });
   checkVictory(c, map);
   return summary;
+}
+
+/* ---------- THE ECONOMY (kept deliberately light) ----------
+
+   Gold is the only resource. No bread, depots to stock, attrition, foraging
+   or hostility: a war of manoeuvre with one purse.
+   - INCOME: every town a side holds pays its "income" each turn, and Britain
+     also draws a fixed subsidy. Marching into a town nobody is defending
+     takes it, so income follows the map.
+   - UPKEEP: every fighting unit costs a little each turn (Brigadiers are
+     free). A big army drains the purse, which is what slows recruiting as
+     money runs low; there is no hard cut-off, and gold never goes below 0
+     (an army is never disbanded for want of pay).
+   - RECRUITING happens only at a side's home depot (Ostend, Lille), during
+     its own phase, and the units join at once: top up a brigade that has
+     lost units, or raise a new brigade (a Brigadier and two infantry).
+   Paid at the start of each side's own phase. All the numbers are in the
+   map file's "economy" block. */
+export function economyRules(map){
+  const e = (map && map.economy) || {};
+  return {
+    startGold: e.startGold || { british: 20, french: 20 },
+    subsidy: e.subsidy || { british: 4, french: 0 },
+    upkeepPerUnit: e.upkeepPerUnit ?? 1,
+    unitCost: e.unitCost || { INFANTRY: 8, GUARD: 12, LIGHT_CAV: 10, HEAVY_CAV: 12, ARTILLERY: 12 },
+    newBrigadeCost: e.newBrigadeCost ?? 20,
+    maxFightingUnitsPerBrigade: e.maxFightingUnitsPerBrigade ?? 5,
+  };
+}
+export const townsHeldBy = (c, side) => Object.keys(c.towns).filter(id => c.towns[id].owner === side);
+export function incomeOf(c, map, side){
+  const towns = townsHeldBy(c, side).reduce((n, id) => n + ((townById(map, id) || {}).income || 0), 0);
+  const subsidy = economyRules(map).subsidy[side] || 0;
+  const upkeep = armiesOf(c, side).reduce((n, a) => n + a.brigades.reduce((m, b) => m + fightingUnits(b).length, 0), 0) * economyRules(map).upkeepPerUnit;
+  return { towns, subsidy, upkeep, net: towns + subsidy - upkeep };
+}
+/* Pays a side its income and takes its upkeep, at the start of its phase. */
+export function collectIncome(c, map, side){
+  const inc = incomeOf(c, map, side);
+  const before = c.gold[side];
+  c.gold[side] = Math.max(0, before + inc.net);
+  logEntry(c, map, side, 'income', `${cap(side)} treasury: ${townsHeldBy(c, side).length} towns pay ${inc.towns}${inc.subsidy ? ` and the subsidy ${inc.subsidy}` : ''}, upkeep ${inc.upkeep}; gold ${before} to ${c.gold[side]}.`, inc);
+  return inc;
+}
+
+/* A town changes hands when one side's armies stand in it and the other's
+   do not. Called after every move, withdrawal and battle. */
+export function updateOwnership(c, map){
+  for(const t of map.towns){
+    const here = new Set(armiesAt(c, t.id).map(a => a.side));
+    if(here.size !== 1) continue;
+    const side = [...here][0];
+    if(c.towns[t.id] && c.towns[t.id].owner !== side){
+      const was = c.towns[t.id].owner;
+      c.towns[t.id].owner = side;
+      logEntry(c, map, side, 'capture', `${cap(side)} take${was ? ` ${t.name} from the ${cap(was)}` : ` ${t.name}`} (it paid ${t.income || 0} a turn).`, { townId: t.id, from: was });
+    }
+  }
+}
+
+/* Recruiting: only at the side's own home depot, in its own phase. */
+export const homeDepot = (map, side) => map.towns.find(t => t.isDepot && t.depotSide === side) || null;
+export function canRecruitAt(c, map, side, townId){
+  const d = homeDepot(map, side);
+  // Only while the side still holds its depot: an occupied depot recruits nobody.
+  return !!d && d.id === townId && c.towns[d.id] && c.towns[d.id].owner === side && c.phase === side && !c.pendingBattle && !c.result;
+}
+/* Adds one unit to a brigade of an army standing at its depot. */
+export function recruitUnit(c, map, archive, armyId, brigadeId, type){
+  const army = armyById(c, armyId);
+  if(!army || !canRecruitAt(c, map, army.side, army.townId)) throw new Error('recruiting only at your home depot, in your own phase');
+  const rules = economyRules(map);
+  const cost = rules.unitCost[type];
+  if(!cost) throw new Error('cannot recruit ' + type);
+  const b = army.brigades.find(x => x.id === brigadeId);
+  if(!b) throw new Error('no such brigade');
+  if(fightingUnits(b).length >= rules.maxFightingUnitsPerBrigade) throw new Error(`${b.name} is at full strength`);
+  if(c.gold[army.side] < cost) throw new Error(`not enough gold (${cost} needed)`);
+  c.gold[army.side] -= cost;
+  const u = makeUnit(c, archive, army.side, type);
+  b.units.push(u);
+  logEntry(c, map, army.side, 'recruit', `${u.name} (${type}) joins ${b.name} of ${army.name} at ${townName(map, army.townId)} for ${cost} gold; ${c.gold[army.side]} left.`, { armyId, brigadeId, unitId: u.id, cost });
+  return u;
+}
+/* Raises a new brigade (a Brigadier and two infantry) at the depot: into an
+   army there with room for it, else as a new army if the side has fewer
+   than three. */
+export function raiseBrigade(c, map, archive, side){
+  const d = homeDepot(map, side);
+  if(!d || !canRecruitAt(c, map, side, d.id)) throw new Error('recruiting only at your home depot, in your own phase');
+  const rules = economyRules(map);
+  if(c.gold[side] < rules.newBrigadeCost) throw new Error(`not enough gold (${rules.newBrigadeCost} needed)`);
+  let army = armiesAt(c, d.id, side).find(a => a.brigades.length < (c.maxBrigades || 3));
+  if(!army && armiesOf(c, side).length >= (c.maxArmies || 3)) throw new Error('no army at the depot with room, and three armies already in the field');
+  if(!army){
+    army = { id: nextId(c, 'army'), side, name: nextArmyName(c, side), townId: d.id, brigades: [], hasMoved: false, restTurn: null };
+    c.armies.push(army);
+  }
+  c.gold[side] -= rules.newBrigadeCost;
+  const used = new Set(c.armies.filter(a => a.side === side).flatMap(a => a.brigades.map(b => b.name)));
+  const name = ORDINAL.map(o => `${o} Brigade`).find(n => !used.has(n)) || `Brigade ${c.nextIds.brigade + 1}`;
+  const brigade = { id: nextId(c, 'brigade'), name, units: ['BRIGADIER', 'INFANTRY', 'INFANTRY'].map(t => makeUnit(c, archive, side, t)) };
+  army.brigades.push(brigade);
+  logEntry(c, map, side, 'recruit', `${brigade.name} raised at ${d.name} for ${rules.newBrigadeCost} gold and joins ${army.name}: ${brigade.units.map(u => `${u.name} (${u.type})`).join(', ')}; ${c.gold[side]} left.`, { armyId: army.id, brigadeId: brigade.id, cost: rules.newBrigadeCost });
+  return { army, brigade };
+}
+/* The French AI's spending (placeholder until Phase 5's strategic AI): raise
+   a brigade at Lille whenever it can afford one, then top up brigades of any
+   army standing there with infantry, keeping nothing back. */
+export function aiRecruit(c, map, archive){
+  const side = c.aiSide, rules = economyRules(map), d = homeDepot(map, side);
+  if(!d) return;
+  for(let guard = 0; guard < 10; guard++){
+    try { if(c.gold[side] >= rules.newBrigadeCost){ raiseBrigade(c, map, archive, side); continue; } } catch { /* no room: fall through to topping up */ }
+    const b = armiesAt(c, d.id, side).flatMap(a => a.brigades.map(br => ({ a, br }))).find(x => fightingUnits(x.br).length < rules.maxFightingUnitsPerBrigade);
+    if(!b || c.gold[side] < rules.unitCost.INFANTRY) return;
+    recruitUnit(c, map, archive, b.a.id, b.br.id, 'INFANTRY');
+  }
 }
 
 /* ---------- splitting and merging ---------- */
@@ -472,6 +595,7 @@ export function endPlayerPhase(c, map){
   endRests(c, c.playerSide);
   c.phase = c.aiSide;
   for(const a of armiesOf(c, c.aiSide)) a.hasMoved = false;
+  collectIncome(c, map, c.aiSide);
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -527,6 +651,7 @@ export function endAiPhase(c, map){
   c.phase = c.playerSide;
   for(const a of armiesOf(c, c.playerSide)) a.hasMoved = false;
   logEntry(c, map, null, 'turn', `Turn ${c.turn} of ${c.totalTurns}: ${dateForTurn(map, c.turn)}.`);
+  collectIncome(c, map, c.playerSide);
 }
 
 /* ---------- after a battle ---------- */
@@ -559,6 +684,7 @@ export function applyBattleResult(c, map, result){
     }
   }
 
+  updateOwnership(c, map);
   const record = Object.assign({}, battle, { winner, matchUid: result.matchUid || null, summary, foughtAt: new Date().toISOString() });
   c.battles.push(record);
   c.pendingBattle = null;
@@ -666,6 +792,11 @@ export function upgradeCampaign(c){
     }
     for(const b of c.battles) b.kind = b.kind || 'battle';
     c.version = 2;
+  }
+  if(c.version < 3){
+    // Before the economy: each side starts with the map's opening purse.
+    c.gold = c.gold || { british: 20, french: 20 };
+    c.version = 3;
   }
   return c;
 }
