@@ -130,22 +130,30 @@ const COST = { OPEN: 1, PLOUGHED_FIELD: 1.6, HILL: 3.2, WOODS: 3.6, BUILDING: 1 
    network rather than running alongside it. `blocked` squares cannot be used
    (the other network, to keep two networks apart). */
 function route(cost, a, goal, road, blocked){
-  const key = (x, y) => y * BOARD + x;
-  const dist = new Map([[key(a.x, a.y), 0]]), prev = new Map();
-  const open = [[0, a.x, a.y]];
+  /* Direction-aware: the search state is (square, heading, squares run
+     straight), so a road that keeps going straight pays STRAIGHT_STEP for each
+     square past STRAIGHT_FREE. Country roads wander (Matthew, 6 Oct 2026: no
+     long straight stretches, as on the classic boards). */
+  const key = (x, y, d, r) => ((y * BOARD + x) * 5 + d) * 8 + r;
+  const start = key(a.x, a.y, 4, 0);
+  const dist = new Map([[start, 0]]), prev = new Map(), at = new Map([[start, [a.x, a.y]]]);
+  const open = [[0, a.x, a.y, 4, 0]];
   while(open.length){
     open.sort((p, q) => p[0] - q[0]);
-    const [d, x, y] = open.shift();
-    if(d > (dist.get(key(x, y)) ?? Infinity)) continue;
-    if(goal(x, y)){
+    const [d, x, y, dir, run] = open.shift();
+    const k0 = key(x, y, dir, run);
+    if(d > (dist.get(k0) ?? Infinity)) continue;
+    if(goal(x, y) && !(x === a.x && y === a.y)){
       const path = [[x, y]];
-      let k = key(x, y);
-      while(prev.has(k)){ k = prev.get(k); path.push([k % BOARD, Math.floor(k / BOARD)]); }
+      let k = k0;
+      while(prev.has(k)){ k = prev.get(k); path.push(at.get(k)); }
       return path.reverse();
     }
-    for(const [dx, dy] of N4){
+    N4.forEach(([dx, dy], nd) => {
       const nx = x + dx, ny = y + dy;
-      if(!inB(nx, ny) || (blocked && blocked[ny][nx])) continue;
+      if(!inB(nx, ny) || (blocked && blocked[ny][nx])) return;
+      if(dir !== 4 && dx === -N4[dir][0] && dy === -N4[dir][1]) return;   // no doubling back
+      const nrun = nd === dir ? Math.min(run + 1, 7) : 1;
       /* Off the road, two things cost extra so the network reads as roads
          rather than paving: running alongside an existing road (a square
          with road beside it that is not the one we came from, which makes
@@ -158,13 +166,18 @@ function route(cost, a, goal, road, blocked){
         if(besideRoad) step += 2.5;
         const ring = nx === 0 || ny === 0 || nx === BOARD - 1 || ny === BOARD - 1;
         if(ring && !Object.values(EXITS).some(e => e.x === nx && e.y === ny)) step += 4;
+        if(nrun > STRAIGHT_FREE) step += STRAIGHT_STEP * (nrun - STRAIGHT_FREE);
       }
-      const nd = d + step;
-      if(nd < (dist.get(key(nx, ny)) ?? Infinity)){ dist.set(key(nx, ny), nd); prev.set(key(nx, ny), key(x, y)); open.push([nd, nx, ny]); }
-    }
+      const k = key(nx, ny, nd, nrun), ndist = d + step;
+      if(ndist < (dist.get(k) ?? Infinity)){ dist.set(k, ndist); prev.set(k, k0); at.set(k, [nx, ny]); open.push([ndist, nx, ny, nd, nrun]); }
+    });
   }
   return null;
 }
+const STRAIGHT_FREE = 2;     // squares a road may run straight before it starts to cost
+const STRAIGHT_STEP = 1.1;   // extra cost for each straight square beyond that
+export const MAX_STRAIGHT = 5;   // the longest straight run validateBoard accepts
+
 function lay(road, path){ for(const [x, y] of path) road[y][x] = true; }
 
 /* Joins a list of exits into one network: the first two through a random
@@ -250,7 +263,7 @@ function makeVillages(t, road, rng){
       const cand = [];
       for(const [cx, cy] of cells) for(const [dx, dy] of N4){
         const x = cx + dx, y = cy + dy;
-        if(!inB(x, y) || y < 2 || y > BOARD - 3 || t[y][x] === 'BUILDING') continue;
+        if(!inB(x, y) || y < 2 || y > BOARD - 3 || x === 0 || x === BOARD - 1 || t[y][x] === 'BUILDING') continue;   // never on the edge squares
         // Villages stay separate: never grow into touching another one.
         if(N4.some(([ex, ey]) => inB(x + ex, y + ey) && t[y + ey][x + ex] === 'BUILDING' && !cells.some(([qx, qy]) => qx === x + ex && qy === y + ey))) continue;
         // Along the road first, then beside it.
@@ -311,6 +324,11 @@ export function validateBoard(board){
     if(road[y][x] && !isExit(x, y) && roadDegree(road, x, y) <= 1) errors.push(`dead end at (${x},${y})`);
   for(let y = 0; y < BOARD - 1; y++) for(let x = 0; x < BOARD - 1; x++)
     if(road[y][x] && road[y][x + 1] && road[y + 1][x] && road[y + 1][x + 1]) errors.push(`road block at (${x},${y})`);
+  // No long straight stretches: count runs along rows and columns.
+  for(let y = 0; y < BOARD; y++){ let r = 0; for(let x = 0; x < BOARD; x++){ r = road[y][x] && (x === 0 || road[y][x - 1]) ? r + 1 : (road[y][x] ? 1 : 0);
+    if(r > MAX_STRAIGHT){ errors.push(`straight road along row ${y}`); break; } } }
+  for(let x = 0; x < BOARD; x++){ let r = 0; for(let y = 0; y < BOARD; y++){ r = road[y][x] && (y === 0 || road[y - 1][x]) ? r + 1 : (road[y][x] ? 1 : 0);
+    if(r > MAX_STRAIGHT){ errors.push(`straight road along column ${x}`); break; } } }
   const villages = villagesOf(t);
   if(!villages.length) errors.push('no village');
   villages.forEach((v, i) => {
