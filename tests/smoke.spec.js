@@ -86,7 +86,7 @@ test('a match starts and reaches deployment', async ({ page }) => {
   // underneath, see beginBoardSetup() — just not offered here for now), so
   // this exercises the same "does board setup reach deployment" path via the
   // vs-AI entry point instead.
-  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Quick Battle' }).click();
   await faction(page, 'Britain').click();
   await rank(page, 'easy');
 
@@ -187,7 +187,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   // vs AI -> Britain despatch -> Lieutenant record. This is the path that pulls in
   // ai-deployment.js and ai-strategy.js, the most interconnected files in the
   // codebase and the ones the other tests never touch.
-  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Quick Battle' }).click();
   await faction(page, 'Britain').click();
   await rank(page, 'easy');
 
@@ -283,7 +283,7 @@ test('an old-format saved campaign does not auto-resume', async ({ page }) => {
   // exist": the original assertion here was `labels.length >= 2`, which the
   // mode-select screen also satisfies, so with the resume path closed this test
   // would have kept passing while testing nothing at all.
-  expect(labels).toContain('vs AI Opponent');
+  expect(labels).toContain('Quick Battle');
   expect(labels).toContain('Operations');      // Operations are back (step 2): the ready Scenario Cards
   expect(labels).toContain('Campaigns');       // Campaigns are back (4 Oct 2026), entered from the menu only
 
@@ -320,7 +320,7 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   test.setTimeout(90_000); // board-orientation dice sequence plus polling for the Picker can genuinely take a while, more so on a loaded CI runner than locally
   const errors = watchForErrors(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Quick Battle' }).click();
   await faction(page, 'Britain').click();
   await rank(page, 'hard');
 
@@ -368,7 +368,7 @@ test('the Army Picker previews the formation and browses without errors', async 
   test.setTimeout(90_000);
   const errors = watchForErrors(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'vs AI Opponent' }).click();
+  await page.getByRole('button', { name: 'Quick Battle' }).click();
   await faction(page, 'Britain').click();
   await rank(page, 'hard');
 

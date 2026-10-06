@@ -235,7 +235,7 @@ export function showModeSelect(isSplash){
   // (The old panel's splash fade is gone: the title screen has its own arrival, CSS .arriving.)
   const aiBtn = document.createElement('button');
   aiBtn.className = 'primary';
-  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.textContent = 'Quick Battle';
   aiBtn.onclick = ()=>{ state.scenario=null; state.campaign=null; state.spectate=false; extra.style.display='none'; showSideSelect(); };
   /* SPECTATE. Sets mode 'ai' like a normal match, plus state.spectate, which is
      the only thing that distinguishes it: everywhere the game asks "is the side
@@ -266,18 +266,13 @@ export function showModeSelect(isSplash){
   // and everything it needs is untouched, so this is just the one entry point
   // no longer being offered, easy to re-add later.
   extra.appendChild(menuItem(aiBtn, 'ai'));
-  /* ONLINE. Loaded on demand, so the Supabase client is only ever downloaded
-     by someone who chooses to play online. */
+  /* ONLINE: one entry for every online game (it used to be two, Play Online
+     and Online Group). It asks how many players, then opens that lobby. */
   const onlineBtn = document.createElement('button');
   onlineBtn.className = 'primary';
-  onlineBtn.textContent = 'Play Online';
-  onlineBtn.onclick = ()=>{ import('./online.js').then(m => m.openLobby()); };
+  onlineBtn.textContent = 'Online';
+  onlineBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showOnlinePlayerCount(); };
   extra.appendChild(menuItem(onlineBtn, 'online'));
-  /* ONLINE GROUP: the four-army 2v2 mode. Loaded on demand like Play Online. */
-  const groupBtn = document.createElement('button');
-  groupBtn.textContent = 'Online Group';
-  groupBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; import('./ui-group.js').then(m => m.showGroupMenu()); };
-  extra.appendChild(menuItem(groupBtn, 'group'));
   extra.appendChild(menuItem(spectateBtn, 'spectate'));
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
@@ -422,6 +417,24 @@ export function showCampaignsList(){
   campBtn(extra, 'Campaign Map', 'Flanders 1793 · march town to town, fight every battle', ()=> showCampaignMapMenu());
   campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
 }
+/* ONLINE: how many players? Two is the one-against-one lobby (online.js);
+   three or four is the two-against-two lobby on the four-board map
+   (online-group.js, three players: one commands both armies of a side).
+   Both are loaded on demand, so the Supabase client is only downloaded by
+   someone who chooses to play online. */
+export function showOnlinePlayerCount(){
+  const extra = campaignBox('Online', 'Play against friends, a phone each. How many players?');
+  campBtn(extra, '2 players', 'One against one', ()=>{
+    document.getElementById('overlay').classList.remove('show');
+    import('./online.js').then(m => m.openLobby());
+  });
+  campBtn(extra, '3 or 4 players', 'Two against two on the four-board map', ()=>{
+    document.getElementById('overlay').classList.remove('show');
+    import('./online-group.js').then(m => m.openGroupLobby());
+  });
+  campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
+}
+
 /* New or Continue for the campaign map. Britain is the player, France the AI. */
 function showCampaignMapMenu(){
   import('./campaign-map-ui.js').then(m => {
@@ -610,7 +623,7 @@ export function showOperationModeSelect(scenario){
   hotseatBtn.textContent = 'Hotseat (2 players)';
   hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; document.getElementById('overlay').classList.remove('show'); beginBoardSetup(); };
   const aiBtn = document.createElement('button');
-  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.textContent = 'Quick Battle';
   aiBtn.onclick = ()=>{ extra.style.display='none'; showSideSelect(); };
   extra.appendChild(hotseatBtn);
   extra.appendChild(aiBtn);
