@@ -66,6 +66,15 @@ for (const src of sources) {
   }
 }
 
+/* Painted bird sheets (js/ambient-layer.js BIRD_SHEETS): a webp and its json each. */
+for (const name of ['partridge', 'goose', 'buzzard']) {
+  for (const ext of ['webp', 'json']) {
+    const path = `assets/ambient/birds/${name}.${ext}`;
+    seen.add(`birds::${path}`);
+    try { await access(join(root, path)); } catch { missing.push({ src: 'js/ambient-layer.js (painted birds)', path }); }
+  }
+}
+
 /* Unit figure sheets (js/render-figures.js) are named by pattern from each
    unit type's sidecar JSON: every anim x facing it lists must exist, for both
    nations. */

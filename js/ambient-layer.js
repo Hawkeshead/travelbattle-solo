@@ -335,7 +335,54 @@ function pathBeak(ctx){
   ctx.closePath();
 }
 
-function drawBird(ctx, x, y, wingspan, heading, wingsOut, sp, alpha){
+/* ---------------------------------------------------------
+   PAINTED BIRDS (5 Oct 2026)
+   Each species can be drawn from a painted four-frame sheet instead of the
+   vector shapes (friends took those for aeroplanes). Sheets are
+   assets/ambient/birds/<name>.webp with a <name>.json beside them, made by
+   tools/birds/make-bird-sheets.py from Matthew's art: four equal cells, the
+   bird head-up, its body at the same point (bodyX, bodyY) in every cell.
+   Cell 0 is wings spread (the glide), 1 raised, 2 down, 3 halfway; a flap
+   plays 0, 2, 3, 1 through the same flap timing as before. Until a sheet has
+   loaded, and wherever it cannot load (the standalone lab run from a file),
+   the vector bird is drawn, so nothing ever goes blank.
+--------------------------------------------------------- */
+const BIRD_SHEETS = { PAIR: 'partridge', GEESE: 'goose', RAPTOR: 'buzzard' };
+const birdArt = {};   // species key -> { img, meta } once both have loaded
+function loadBirdArt(){
+  if(typeof fetch !== 'function' || typeof Image === 'undefined') return;
+  for(const [key, name] of Object.entries(BIRD_SHEETS)){
+    if(birdArt[key] !== undefined) continue;
+    birdArt[key] = null;
+    const base = `assets/ambient/birds/${name}`;
+    fetch(`${base}.json`).then(r => (r.ok ? r.json() : Promise.reject())).then(meta => {
+      const img = new Image();
+      img.onload = () => { birdArt[key] = { img, meta }; };
+      img.src = `${base}.webp`;
+    }).catch(() => { /* no art: the vector bird stays */ });
+  }
+}
+/* Which cell a flap state shows: the spread wings while gliding (or before the
+   first flap), otherwise a quarter of the flap cycle each, in flap order. */
+function birdCell(f, meta){
+  if(!f || f.mode === 'gliding') return 0;
+  const order = meta.flap || [0, 2, 3, 1];
+  return order[Math.min(order.length - 1, Math.floor((f.cyclePhase || 0) * order.length))];
+}
+function drawBirdArt(ctx, art, x, y, wingspan, heading, flap, alpha){
+  const m = art.meta, cell = birdCell(flap, m);
+  const k = wingspan / m.spreadSpan;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(heading + Math.PI / 2);   // the art faces up the image; heading is along +X
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(art.img, cell * m.cellW, 0, m.cellW, m.cellH, -m.bodyX * k, -m.bodyY * k, m.cellW * k, m.cellH * k);
+  ctx.restore();
+}
+
+function drawBird(ctx, x, y, wingspan, heading, wingsOut, sp, alpha, flap){
+  const art = birdArt[sp.key];
+  if(art){ drawBirdArt(ctx, art, x, y, wingspan, heading, flap, alpha); return; }
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(heading);
@@ -630,7 +677,7 @@ export const AmbientLayer = (() => {
 
       // Deliberately NOT snapped to integer pixels: at this size rounding
       // produces visible jitter. Subpixel plus anti-aliasing is smoother.
-      drawBird(ctx, px, py, W * altitude * depthScale, heading, wingsOut, sp, alpha);
+      drawBird(ctx, px, py, W * altitude * depthScale, heading, wingsOut, sp, alpha, b.flap);
     }
   }
 
@@ -779,6 +826,7 @@ export const AmbientLayer = (() => {
       ctx = cv.getContext('2d');
 
       bakeCloudTextures();
+      loadBirdArt();
 
       resize();
       if(window.ResizeObserver){

@@ -1,0 +1,20 @@
+{
+ "frames": 4,
+ "cellW": 160,
+ "cellH": 141,
+ "spreadSpan": 160.0,
+ "bodyX": 80.0,
+ "bodyY": 64.8,
+ "order": [
+  "spread",
+  "raised",
+  "down",
+  "halfway"
+ ],
+ "flap": [
+  0,
+  2,
+  3,
+  1
+ ]
+}
