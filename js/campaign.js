@@ -82,7 +82,7 @@ export function showCampaignModeSelect(camp){
   hotseatBtn.textContent = 'Hotseat (2 players)';
   hotseatBtn.onclick = ()=>{ state.mode='hotseat'; extra.style.display='none'; startCampaign(camp); };
   const aiBtn = document.createElement('button');
-  aiBtn.textContent = 'vs AI Opponent';
+  aiBtn.textContent = 'Quick Battle';
   aiBtn.onclick = ()=>{
     extra.style.display='none';
     document.getElementById('overlayTitle').textContent = 'Choose Your Side';

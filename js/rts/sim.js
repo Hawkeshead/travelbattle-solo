@@ -691,7 +691,8 @@ function pushBackUnit(b, loser, winner, key){
   if(!inBounds(b, bx, by) || occupant(bx, by)) return;
   // Shove the friendly unit back a square, then fall back into its place.
   send(o, bx, by);
-  o.turnedUntil = Math.max(o.turnedUntil, b.tick + TURNED_AROUND_TICKS);
+  // A Brigadier is shoved but never turned around (turn-based: setTurnedAround).
+  if(o.type !== 'BRIGADIER') o.turnedUntil = Math.max(o.turnedUntil, b.tick + TURNED_AROUND_TICKS);
   loser.path = [{ x: tx, y: ty }]; loser.pushed = true;
   note(b, 'push', o, 'Shoved back by the retreat');
 }

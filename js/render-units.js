@@ -2,7 +2,7 @@ import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './dat
 import { FIGURES, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
-import { isConcealedFromEnemy } from './engine-rules.js';
+import { isConcealedFromEnemy, isTurnedAround } from './engine-rules.js';
 import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
 export const UNIT_IMAGE_DATA = {
@@ -223,7 +223,7 @@ const FACE_INSET = 32 / 1024;              // the tile face's side inset (terrai
 export function statusBadgesFor(units){
   const list = [];
   if(units.some(u => u.type === 'GUARD' || u.type === 'HEAVY_CAV')) list.push('elite');
-  if(units.some(u => u.turnOnly)) list.push('turned');
+  if(units.some(u => isTurnedAround(u))) list.push('turned');
   if(units.some(u => (u.type === 'LIGHT_CAV' || u.type === 'HEAVY_CAV') && u.charged)) list.push('charged');
   return list;
 }

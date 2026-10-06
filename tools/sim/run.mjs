@@ -158,6 +158,9 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     destroyedBy: (state.matchLog || []).filter(e => e.type === 'status' && e.newStatus === 'Destroyed')
       .reduce((m, e) => (m[e.reason] = (m[e.reason] || 0) + 1, m), {}),
     reach: reach.result(),
+    /* Every time the current-build AI ended a move on an enemy Brigadier's
+       square: its side and how many of his units the shove cut off. */
+    brigDisplacements: state.brigDisplacements || [],
   };
 }
 

@@ -14,7 +14,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinish
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
-import { playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
+import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
@@ -140,6 +140,9 @@ export function startBattle(){
     playerSide: state.mode==='ai' ? (state.aiSide===SIDES.RED ? SIDES.BLUE : SIDES.RED) : null,
     aiSide: state.mode==='ai' ? state.aiSide : null,
     boardMode: state.boardMode || 'standard',
+    // A campaign map battle (campaign-map-battle.js): which campaign, turn and town.
+    campaignMap: state.mapBattle ? { kind: state.mapBattle.kind || 'battle', campaignId: state.mapBattle.campaignId, battleId: state.mapBattle.battleId,
+      turn: state.mapBattle.turn, date: state.mapBattle.date, townId: state.mapBattle.townId, town: state.mapBattle.townName } : null,
     deployment: state.units.map(u => ({
       id:u.id, name:u.historicalName || u.type, type:u.type, side:u.side,
       brigadeId:u.brigadeId, x:u.x, y:u.y, formation:u.formation || 'line',
@@ -206,7 +209,7 @@ export function brigadeBrokenStatus(side){
   const out = [];
   // Group: two armies per side, brigades 0-2 and 3-5. Operations: the Brigades
   // the card gives the side (one pip each; usually just one).
-  const count = state.group ? 6 : (state.scenario && state.scenario.forces && state.scenario.forces.british ? brigadeIdsFor(side).length : 3);
+  const count = state.group ? 6 : state.mapBattle ? (state.mapBattle.brigadeCount[side] || 0) : (state.scenario && state.scenario.forces && state.scenario.forces.british ? brigadeIdsFor(side).length : 3);
   for(let bId=0; bId<count; bId++){
     const group = state.units.filter(u=>u.side===side && u.brigadeId===bId);
     const combatUnits = group.filter(u=>u.type!=='BRIGADIER');
@@ -574,6 +577,9 @@ export function clearPendingTurnaroundFlagsIfDue(){
   // units flagged turnOnly get exactly one phase of "turn around only", then are free again
   for(const u of state.units){
     if(!isActing(u)) continue;
+    // A Brigadier never holds the status (setTurnedAround); clears it from a
+    // save made before that guard existed.
+    if(u.type==='BRIGADIER' && u.turnOnly){ u.turnOnly = false; u._turnOnlyConsumed = false; }
     if(u._turnOnlyConsumed){
       u.turnOnly = false;
       u._turnOnlyConsumed = false;
@@ -1598,7 +1604,7 @@ export function resolveVolley(shooter, target, onComplete){
         }
         pushBack(target, shooter);
       } else if(outcome === 'disrupt'){
-        target.turnOnly = true;
+        setTurnedAround(target);
       }
       selectUnit(null);
       onComplete();
@@ -1664,7 +1670,7 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     log(`${unitLabel(u)} carries on regardless.`, 'combat'); logNarration('artillery_no_effect');
     onComplete();
   } else if(roll===4){
-    u.turnOnly=true;
+    setTurnedAround(u);
     log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
     onComplete();
   } else if(roll===5){

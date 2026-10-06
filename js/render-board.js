@@ -3,7 +3,7 @@ import { FIGURES, drawFigureBodies, figuresAnimating, hasFigures } from './rende
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
-import { clearAmbushIfOutOfWoods, inBounds, isRoadLike, movableUnitsForSide, neighbors8, terrainAt, unitsAt } from './engine-rules.js';
+import { brigadierDisplacementCell, clearAmbushIfOutOfWoods, inBounds, isVip, removeUnit, isRoadLike, movableUnitsForSide, neighbors8, terrainAt } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -498,28 +498,28 @@ export function getUnitVisualPos(u){
 // A Brigadier is never blocked from having an enemy move into his square —
 // he's simply shoved 1-2 squares clear. Called right before completing a
 // move onto a square a lone enemy Brigadier currently occupies.
+//
+// An Operation VIP is the exception: his card's captureRule says a unit ending
+// its move in his square takes him, so he is captured instead of displaced.
 export function displaceBrigadierIfPresent(x, y, fromX, fromY){
-  const occupant = state.units.find(o=>!o.removed && o.x===x && o.y===y && o.type==='BRIGADIER');
+  const occupant = state.units.find(o=>!o.removed && o.x===x && o.y===y && (o.type==='BRIGADIER' || isVip(o)));
   if(!occupant) return;
-  const dx = Math.sign(x-fromX) || 0, dy = Math.sign(y-fromY) || 0;
-  const candidates = [
-    {x:x+dx*2, y:y+dy*2}, {x:x+dx, y:y+dy},
-    {x:x+dx, y:y}, {x:x, y:y+dy},
-    ...neighbors8(x,y)
-  ];
-  for(const c of candidates){
-    if(inBounds(c.x,c.y) && unitsAt(c.x,c.y).length===0){
-      occupant.x = c.x; occupant.y = c.y;
-      /* This writes the position DIRECTLY rather than going through
-         animateUnitTo, so none of the per-move bookkeeping runs. The ambush
-         clear is the part that matters: a Brigadier shoved out of woods would
-         otherwise keep a hidden flag with no cover behind it until the next
-         turn's sweep caught it. Called explicitly for the same reason the move
-         path calls it, and named distinctly so the export shows which happened. */
-      clearAmbushIfOutOfWoods(occupant, 'shoved clear of an occupied square');
-      log(`${SIDE_LABEL[occupant.side]}'s Brigadier is shoved clear.`, 'system');
-      return;
-    }
+  if(isVip(occupant)){
+    log(`${occupant.historicalName || SIDE_LABEL[occupant.side]+"'s VIP"} is captured!`, 'combat');
+    removeUnit(occupant, 'captured');
+    return;
+  }
+  const c = brigadierDisplacementCell(x, y, fromX, fromY);
+  if(c){
+    occupant.x = c.x; occupant.y = c.y;
+    /* This writes the position DIRECTLY rather than going through
+       animateUnitTo, so none of the per-move bookkeeping runs. The ambush
+       clear is the part that matters: a Brigadier shoved out of woods would
+       otherwise keep a hidden flag with no cover behind it until the next
+       turn's sweep caught it. Called explicitly for the same reason the move
+       path calls it, and named distinctly so the export shows which happened. */
+    clearAmbushIfOutOfWoods(occupant, 'shoved clear of an occupied square');
+    log(`${SIDE_LABEL[occupant.side]}'s Brigadier is shoved clear.`, 'system');
   }
 }
 

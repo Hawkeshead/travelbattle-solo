@@ -1,0 +1,725 @@
+{
+ "id": "flanders",
+ "name": "Flanders, 1793",
+ "version": 1,
+ "notes": "Phase 1 campaign map. Positions follow real geography approximately (west on the coast, east inland), projected onto a 1000 x 700 parchment, with the tight Lille cluster spread a little so every town can be tapped on a phone. Roads are plausible period routes; Antwerp to Maubeuge stands for the long road by Brussels and Mons. supplyValue, income and hostility are placeholders for Phases 3 to 6 and do nothing yet. isDepot/depotSide mark the home depots (Ostend British, Lille French) for Phases 3 and 4.",
+ "width": 1000,
+ "height": 700,
+ "startDate": "1793-05-23",
+ "daysPerTurn": 14,
+ "totalTurns": 48,
+ "maxArmiesPerSide": 3,
+ "maxBrigadesPerArmy": 3,
+ "playerSide": "british",
+ "aiSide": "french",
+ "startingForces": {
+  "british": [
+   {
+    "name": "Army of Flanders",
+    "townId": "ostend",
+    "composition": "balanced"
+   }
+  ],
+  "french": [
+   {
+    "name": "Armée du Nord",
+    "townId": "lille",
+    "composition": "balanced"
+   }
+  ]
+ },
+ "unitValues": {
+  "source": "table",
+  "note": "The Real-Time clock-victory points (js/rts/constants.js POINT_VALUE): Guard, cavalry and guns worth more than line infantry, Brigadiers 0. Copied here because game code outside js/rts may not import from it; test/campaign-map.test.js fails if the two ever differ.",
+  "table": {
+   "INFANTRY": 4,
+   "GUARD": 5,
+   "LIGHT_CAV": 5,
+   "HEAVY_CAV": 5,
+   "ARTILLERY": 6,
+   "BRIGADIER": 0
+  }
+ },
+ "towns": [
+  {
+   "id": "ostend",
+   "name": "Ostend",
+   "x": 317,
+   "y": 50,
+   "links": [
+    "nieuport",
+    "bruges"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 20,
+    "woods": 5,
+    "hills": 0,
+    "buildings": 30
+   },
+   "historicalSiteId": null,
+   "isDepot": true,
+   "depotSide": "british",
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "nieuport",
+   "name": "Nieuport",
+   "x": 242,
+   "y": 106,
+   "links": [
+    "ostend",
+    "dunkirk",
+    "ypres"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 55,
+    "farm": 20,
+    "woods": 10,
+    "hills": 0,
+    "buildings": 15
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "dunkirk",
+   "name": "Dunkirk",
+   "x": 79,
+   "y": 162,
+   "links": [
+    "nieuport",
+    "hondschoote"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 20,
+    "woods": 5,
+    "hills": 0,
+    "buildings": 30
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "hondschoote",
+   "name": "Hondschoote",
+   "x": 167,
+   "y": 190,
+   "links": [
+    "dunkirk",
+    "ypres"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 25,
+    "woods": 15,
+    "hills": 0,
+    "buildings": 15
+   },
+   "historicalSiteId": "battle-hondschoote",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "bruges",
+   "name": "Bruges",
+   "x": 449,
+   "y": 62,
+   "links": [
+    "ostend",
+    "ghent",
+    "courtrai"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 25,
+    "woods": 5,
+    "hills": 0,
+    "buildings": 25
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "ghent",
+   "name": "Ghent",
+   "x": 669,
+   "y": 151,
+   "links": [
+    "bruges",
+    "antwerp",
+    "courtrai",
+    "tournai"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 25,
+    "woods": 5,
+    "hills": 0,
+    "buildings": 25
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "antwerp",
+   "name": "Antwerp",
+   "x": 968,
+   "y": 56,
+   "links": [
+    "ghent",
+    "maubeuge"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 40,
+    "farm": 25,
+    "woods": 5,
+    "hills": 0,
+    "buildings": 30
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "ypres",
+   "name": "Ypres",
+   "x": 299,
+   "y": 263,
+   "links": [
+    "nieuport",
+    "hondschoote",
+    "menin"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 50,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 15
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "menin",
+   "name": "Menin",
+   "x": 392,
+   "y": 268,
+   "links": [
+    "ypres",
+    "courtrai",
+    "lincelles"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 50,
+    "farm": 25,
+    "woods": 10,
+    "hills": 0,
+    "buildings": 15
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "courtrai",
+   "name": "Courtrai",
+   "x": 466,
+   "y": 274,
+   "links": [
+    "bruges",
+    "ghent",
+    "menin",
+    "tourcoing"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 25,
+    "woods": 10,
+    "hills": 0,
+    "buildings": 20
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "lincelles",
+   "name": "Lincelles",
+   "x": 365,
+   "y": 328,
+   "links": [
+    "menin",
+    "tourcoing",
+    "lille"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 50,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 15
+   },
+   "historicalSiteId": "op-lincelles",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "tourcoing",
+   "name": "Tourcoing",
+   "x": 440,
+   "y": 322,
+   "links": [
+    "courtrai",
+    "lincelles",
+    "willems"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 20
+   },
+   "historicalSiteId": "battle-tourcoing",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "willems",
+   "name": "Willems",
+   "x": 468,
+   "y": 398,
+   "links": [
+    "tourcoing",
+    "lille",
+    "tournai"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 50,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 15
+   },
+   "historicalSiteId": "op-willems",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "lille",
+   "name": "Lille",
+   "x": 360,
+   "y": 402,
+   "links": [
+    "lincelles",
+    "willems",
+    "valenciennes"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 40,
+    "farm": 20,
+    "woods": 5,
+    "hills": 5,
+    "buildings": 30
+   },
+   "historicalSiteId": null,
+   "isDepot": true,
+   "depotSide": "french",
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "tournai",
+   "name": "Tournai",
+   "x": 540,
+   "y": 410,
+   "links": [
+    "ghent",
+    "willems",
+    "valenciennes"
+   ],
+   "owner": "british",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 20
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "valenciennes",
+   "name": "Valenciennes",
+   "x": 572,
+   "y": 522,
+   "links": [
+    "lille",
+    "tournai",
+    "famars",
+    "maubeuge"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 40,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 25
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "famars",
+   "name": "Famars",
+   "x": 600,
+   "y": 590,
+   "links": [
+    "valenciennes",
+    "caesars-camp",
+    "beaumont"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 25,
+    "woods": 10,
+    "hills": 10,
+    "buildings": 10
+   },
+   "historicalSiteId": "battle-famars",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "caesars-camp",
+   "name": "Caesar's Camp",
+   "x": 488,
+   "y": 585,
+   "links": [
+    "famars",
+    "cambrai"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 15,
+    "woods": 15,
+    "hills": 15,
+    "buildings": 10
+   },
+   "historicalSiteId": "op-caesars-camp",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "cambrai",
+   "name": "Cambrai",
+   "x": 420,
+   "y": 648,
+   "links": [
+    "caesars-camp",
+    "beaumont"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 20,
+    "woods": 10,
+    "hills": 5,
+    "buildings": 20
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 2,
+   "hostility": 0
+  },
+  {
+   "id": "beaumont",
+   "name": "Beaumont",
+   "x": 560,
+   "y": 668,
+   "links": [
+    "famars",
+    "cambrai",
+    "maubeuge"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 50,
+    "farm": 20,
+    "woods": 15,
+    "hills": 10,
+    "buildings": 5
+   },
+   "historicalSiteId": "op-beaumont",
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  },
+  {
+   "id": "maubeuge",
+   "name": "Maubeuge",
+   "x": 779,
+   "y": 582,
+   "links": [
+    "antwerp",
+    "valenciennes",
+    "beaumont"
+   ],
+   "owner": "french",
+   "terrainProfile": {
+    "grass": 45,
+    "farm": 15,
+    "woods": 15,
+    "hills": 10,
+    "buildings": 15
+   },
+   "historicalSiteId": null,
+   "isDepot": false,
+   "depotSide": null,
+   "supplyValue": 0,
+   "income": 1,
+   "hostility": 0
+  }
+ ],
+ "roads": [
+  [
+   "ostend",
+   "nieuport"
+  ],
+  [
+   "ostend",
+   "bruges"
+  ],
+  [
+   "nieuport",
+   "dunkirk"
+  ],
+  [
+   "nieuport",
+   "ypres"
+  ],
+  [
+   "dunkirk",
+   "hondschoote"
+  ],
+  [
+   "hondschoote",
+   "ypres"
+  ],
+  [
+   "bruges",
+   "ghent"
+  ],
+  [
+   "bruges",
+   "courtrai"
+  ],
+  [
+   "ghent",
+   "antwerp"
+  ],
+  [
+   "ghent",
+   "courtrai"
+  ],
+  [
+   "ghent",
+   "tournai"
+  ],
+  [
+   "antwerp",
+   "maubeuge"
+  ],
+  [
+   "ypres",
+   "menin"
+  ],
+  [
+   "menin",
+   "courtrai"
+  ],
+  [
+   "menin",
+   "lincelles"
+  ],
+  [
+   "courtrai",
+   "tourcoing"
+  ],
+  [
+   "lincelles",
+   "tourcoing"
+  ],
+  [
+   "lincelles",
+   "lille"
+  ],
+  [
+   "tourcoing",
+   "willems"
+  ],
+  [
+   "willems",
+   "lille"
+  ],
+  [
+   "willems",
+   "tournai"
+  ],
+  [
+   "lille",
+   "valenciennes"
+  ],
+  [
+   "tournai",
+   "valenciennes"
+  ],
+  [
+   "valenciennes",
+   "famars"
+  ],
+  [
+   "valenciennes",
+   "maubeuge"
+  ],
+  [
+   "famars",
+   "caesars-camp"
+  ],
+  [
+   "famars",
+   "beaumont"
+  ],
+  [
+   "caesars-camp",
+   "cambrai"
+  ],
+  [
+   "cambrai",
+   "beaumont"
+  ],
+  [
+   "beaumont",
+   "maubeuge"
+  ]
+ ],
+ "withdrawal": {
+  "note": "Phase 2. aiWithdrawRatio: the French AI withdraws (and pursues on foot) when the other side's unit value is more than this many times its own. pursuitInfantryDicePenalty: dice a pursuit with no cavalry attacks short, never below one. rearguardTurns: rounds a rearguard must survive.",
+  "aiWithdrawRatio": 1.5,
+  "pursuitInfantryDicePenalty": 1,
+  "rearguardTurns": 8
+ },
+ "economy": {
+  "note": "Gold only, kept light. Each town pays its income every turn to whoever holds it; Britain also draws the subsidy. Every fighting unit costs upkeepPerUnit a turn (Brigadiers free); gold never goes below 0. Recruiting only at a side's home depot (Ostend, Lille): unitCost tops up a brigade (up to maxFightingUnitsPerBrigade), newBrigadeCost raises a Brigadier and two infantry.",
+  "startGold": {
+   "british": 20,
+   "french": 20
+  },
+  "subsidy": {
+   "british": 4,
+   "french": 0
+  },
+  "upkeepPerUnit": 1,
+  "unitCost": {
+   "INFANTRY": 8,
+   "GUARD": 12,
+   "LIGHT_CAV": 10,
+   "HEAVY_CAV": 12,
+   "ARTILLERY": 12
+  },
+  "newBrigadeCost": 20,
+  "maxFightingUnitsPerBrigade": 5
+ },
+ "seasons": {
+  "note": "Kept light. In the winter months armies are in winter quarters: they march only through towns their own side holds with no enemy army in them (no attacks, no captures), and town income is multiplied by winterIncomeFactor. Other seasons change nothing.",
+  "winterMonths": [
+   12,
+   1,
+   2
+  ],
+  "winterIncomeFactor": 0.5
+ }
+}

@@ -182,7 +182,7 @@ export function openGroupLobby({ joinCode } = {}){
   const name = localStorage.getItem('fc-name') || '';
   const last = localStorage.getItem('fc-last-group') || '';
   const el = shell(`
-    <div style="font-family:'Petit Formal Script',cursive;font-size:26px;margin-bottom:6px">Online Group</div>
+    <div style="font-family:'Petit Formal Script',cursive;font-size:26px;margin-bottom:6px">Online: 3 or 4 players</div>
     <p style="margin:0 0 8px;font-size:14px">Two against two, a phone each. Up to four players; with three, one commands both armies of a side.</p>
     ${last && !joinCode ? `<div style="margin:0 0 10px">${btn(`Rejoin game ${esc(last)}`, 'id="ogRejoin"', '#5b6b3a')}</div>` : ''}
     <label style="display:block;margin:4px 0">Your name</label>
@@ -262,7 +262,7 @@ function waitingRoom(){
   const redOk = match.seats.red1 || match.seats.red2, blueOk = match.seats.blue1 || match.seats.blue2;
   const el = shell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(match.code)}</div>
-    <p style="margin:2px 0 8px;font-size:14px">Friends enter this code under <b>Online Group</b>, or tap your invite. Tap an army to command it; tap it again to stand up.</p>
+    <p style="margin:2px 0 8px;font-size:14px">Friends enter this code under <b>Online</b> (3 or 4 players), or tap your invite. Tap an army to command it; tap it again to stand up.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${['red1','blue1','red2','blue2'].map(seatBtn).join('')}</div>
     <p style="margin:10px 0 4px;font-size:14px">${(match.members || []).map(u =>
       `<span style="white-space:nowrap;margin-right:10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:${online(u) ? '#5fae6a' : '#999'}"></span>${esc(u === me ? 'You' : nameOf(u))}</span>`).join('')}</p>
@@ -283,7 +283,7 @@ function waitingRoom(){
     catch(e){ el.querySelector('#ogWho').textContent = friendly(e); refreshLobby(); }
   });
   el.querySelector('#ogShare').onclick = async () => {
-    const text = `Join my Field Command group battle. Code: ${match.code}\n\nIn the Field Command app, tap Online Group, then Online, and enter the code. Or open this link:`;
+    const text = `Join my Field Command group battle. Code: ${match.code}\n\nIn the Field Command app, tap Online, choose 3 or 4 players and enter the code. Or open this link:`;
     if(navigator.share){ try { await navigator.share({ title: 'Field Command', text, url }); return; } catch { /* dismissed */ } }
     try { await navigator.clipboard.writeText(`${text} ${url}`); el.querySelector('#ogWho').textContent = 'Invite copied.'; } catch { /* no clipboard */ }
   };

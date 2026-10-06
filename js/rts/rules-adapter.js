@@ -18,7 +18,7 @@ function syncShared(b){
     u.removed = su.removed;
     u.x = su.step ? su.step.toX : su.x;
     u.y = su.step ? su.step.toY : su.y;
-    u.turnOnly = b.tick < su.turnedUntil;     // turned around: the turn-based name for it
+    u.turnOnly = u.type !== 'BRIGADIER' && b.tick < su.turnedUntil;     // turned around: the turn-based name for it (never a Brigadier)
     u.formation = su.formation === 'square' ? 'square' : 'line';
     u.hidden = !!su.hidden;
     u.charged = false;

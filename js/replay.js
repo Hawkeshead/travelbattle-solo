@@ -2,7 +2,7 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js
 import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
-import { removeUnit } from './engine-rules.js';
+import { removeUnit, setTurnedAround } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 
@@ -95,7 +95,7 @@ export function applyReplayEvent(ev){
     showReplayHitRing(ev.x, ev.y);
     if(ev.hit === false) return;   // shot fell wide: nothing landed to replay
     const u = state.units.find(x=>x.id===ev.targetId);
-    if(u && ev.effect==='disrupt') u.turnOnly = true;
+    if(u && ev.effect==='disrupt') setTurnedAround(u);
     return;
   }
   if(ev.type==='status'){
@@ -214,6 +214,19 @@ function sectionMetadata(){
       ? `Map             : authored for this Operation, ${m.terrain[0].length} x ${m.terrain.length}${m.terrain[0].length === 10 ? ' (single board)' : ''}`
       : `Map             : Britain board ${m.boards && m.boards.red} rotation ${m.rotation && m.rotation.red}, France board ${m.boards && m.boards.blue} rotation ${m.rotation && m.rotation.blue}; ${(m.overrides || []).length} overrides`);
     out.push(`Round limit     : ${sc.turnLimit}`);
+  }
+  /* CAMPAIGN MAP battles (campaign-map-battle.js): the campaign, the map turn
+     and the town, so a battle's export can be matched to the campaign log. */
+  if(m.campaignMap){
+    const cm = m.campaignMap;
+    out.push(`Campaign map    : campaign ${cm.campaignId}, battle ${cm.battleId}${cm.kind === 'rearguard' ? ' (rearguard action)' : ''}`);
+    if(cm.kind === 'rearguard' && state.mapBattle && state.mapBattle.pursuit){
+      const p = state.mapBattle.pursuit;
+      out.push(`Rearguard       : covering the retreat to ${state.mapBattle.retreatTownName}; pursuit ${p.onFoot ? 'on foot, ' + p.dicePenalty + ' die fewer' : 'with cavalry'}`);
+    }
+    out.push(`Campaign turn   : ${cm.turn} (${cm.date})`);
+    out.push(`Town            : ${cm.town} (${cm.townId})`);
+    if(state.mapBattle && state.mapBattle.ground) out.push(`Ground          : ${state.mapBattle.ground}`);
   }
   out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
   return out;

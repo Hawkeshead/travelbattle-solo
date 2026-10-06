@@ -103,7 +103,18 @@ export function start(){
      start screen's Resume Battle, like any other. */
   const savedCampaignProgress = null;
   void CAMPAIGNS_ENABLED; void loadCampaignProgress;
-  if(savedCampaignProgress){
+  /* THE CAMPAIGN MAP opens every battle, and returns from it, on a fresh page
+     (as New Battle always has), so no state from one fight leaks into the
+     next. It leaves a one-shot note in sessionStorage saying where to land:
+     'battle' (start the pending battle) or 'map'. No title intro then. */
+  let campaignMapLanding = null;
+  try { campaignMapLanding = sessionStorage.getItem('fc_cmap_launch'); sessionStorage.removeItem('fc_cmap_launch'); } catch { /* no storage: the title screen as usual */ }
+  if(campaignMapLanding){
+    document.documentElement.classList.add('title-away');
+    prepareTitleBoard();
+    sizeCanvas();
+    import('./campaign-map-ui.js').then(m => m.landAfterReload(campaignMapLanding));
+  } else if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
   } else {
     /* THE TITLE SCREEN (4 Oct 2026): a battlefield falls into place, the

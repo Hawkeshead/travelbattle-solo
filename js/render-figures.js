@@ -104,7 +104,10 @@ export const standing = u => { const s = squad(u); return s ? s.alive.filter(Boo
    ('toward') depending on which way the board is turned. Turned around or
    fleeing, it flips. */
 function facingOf(u, fleeing){
-  const fwd = u.side === SIDES.RED ? -1 : 1;
+  // Toward the enemy: up the board from the bottom edge, down it from the top
+  // (a campaign rearguard action can put either side at either edge).
+  const hr = state.mapBattle && state.mapBattle.homeRow && state.mapBattle.homeRow[u.side];
+  const fwd = hr ? (hr === 'top' ? 1 : -1) : (u.side === SIDES.RED ? -1 : 1);
   const sy = toScreen(0, 5 + fwd).y - toScreen(0, 5).y;
   let away = sy < 0;
   if(u.turnOnly || fleeing) away = !away;

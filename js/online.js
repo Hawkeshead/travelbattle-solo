@@ -525,7 +525,7 @@ export function openLobby({ joinCode } = {}){
   const last = localStorage.getItem('fc-last-code') || '';
   const appHint = joinCode && inBrowserOnPhone()
     ? `<div style="background:#f6efd9;border-left:4px solid #5b6b3a;padding:8px 10px;margin:0 0 12px;font-size:15px">
-         Playing from the Field Command app on your home screen? Open it, tap <b>Play Online</b> and enter
+         Playing from the Field Command app on your home screen? Open it, tap <b>Online</b>, choose <b>2 players</b> and enter
          <b style="letter-spacing:.06em">${esc(joinCode.toUpperCase())}</b>. Or carry on here in the browser.</div>` : '';
   const el = lobbyShell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px;margin-bottom:6px">Play online</div>
@@ -612,7 +612,7 @@ function waitingRoom(){
   const url = `${location.origin}${location.pathname}?join=${s.code}`;
   const el = lobbyShell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(s.code)}</div>
-    <p style="margin:2px 0 6px;font-size:14px">Your opponent enters this code under <b>Play Online</b>, or taps your invite.</p>
+    <p style="margin:2px 0 6px;font-size:14px">Your opponent enters this code under <b>Online</b> (2 players), or taps your invite.</p>
     <p style="margin:6px 0">You are <b>${SIDE_LABEL[s.mySide]}</b>.</p>
     <p id="olWho" style="margin:6px 0;font-style:italic"></p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -623,7 +623,7 @@ function waitingRoom(){
       ? 'You set up the battle. You each choose your own army when your turn to deploy comes; your opponent chooses on their phone.'
       : 'Your opponent is setting up the battle. When it is your turn to deploy, the armies appear here for you to choose from.'}</p>`);
   el.querySelector('#olShare').onclick = async () => {
-    const text = `Join my Field Command battle. Code: ${s.code}\n\nIn the Field Command app, tap Play Online and enter the code. Or open this link:`;
+    const text = `Join my Field Command battle. Code: ${s.code}\n\nIn the Field Command app, tap Online, choose 2 players and enter the code. Or open this link:`;
     if(navigator.share){ try { await navigator.share({ title: 'Field Command', text, url }); return; } catch {} }
     try { await navigator.clipboard.writeText(`${text} ${url}`); el.querySelector('#olWho').textContent = 'Invite copied.'; } catch {}
   };
