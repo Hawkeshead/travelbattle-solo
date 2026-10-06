@@ -6,7 +6,7 @@ import { operationBriefHTML, redrawOperation, setupOperation } from './operation
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline } from './online-session.js';
-import { SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
+import { humanOwns, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
@@ -1104,7 +1104,11 @@ export function maybeShowArmyPicker(){
   if(state._suppressArmyPicker) return false;
   if(state.scenario || state.boardMode==='grand') return false;
   const side = state.deployTurn;
-  const isHumanControlled = !FAST_DICE_MODE && !(state.mode==='ai' && side===state.aiSide);
+  /* humanOwns: in Spectate nobody commands either army. The old test compared
+     with state.aiSide, which Spectate points at the side deploying, and it is
+     only moved on to the second side AFTER this runs, so the second army's
+     deployment stopped on the Army Picker waiting for a person. */
+  const isHumanControlled = !FAST_DICE_MODE && humanOwns(side);
   if(!isHumanControlled) return false;
   if(!(state.deployBrigadeIndex[side]===0 && state.currentBrigadeCount[side]===0 && !state.currentBrigadeHasBrigadier[side])) return false;
   if(!state._armyPickerShown) state._armyPickerShown = { red:false, blue:false };
