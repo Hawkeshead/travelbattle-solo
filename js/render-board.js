@@ -1,5 +1,5 @@
 import { AudioManager } from './audio-manager.js';
-import { FIGURES, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
+import { figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
@@ -799,7 +799,7 @@ export function ensureAnimationLoopRunning(){
     // without this, it only re-renders (and so only appears to animate)
     // when some unrelated move/fight/death animation happens to be running,
     // freezing on whatever frame was current the rest of the time.
-    const spriteAnimActive = FIGURES ? (state.units.some(u => !u.removed && hasFigures(u)) || figuresAnimating())
+    const spriteAnimActive = figuresOn() ? (state.units.some(u => !u.removed && hasFigures(u)) || figuresAnimating())
       : state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
     if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive() || promptGlowIds){
       animFrameHandle = requestAnimationFrame(tick);
@@ -2547,7 +2547,7 @@ export function draw(){
   drawOperationAreas();   // Operations: the named areas, under the units
   // Unit figures: the fallen, above terrain and roads, below units and smoke.
   // A body in woods is hidden by the same rule as a concealed enemy unit.
-  if(FIGURES) drawFigureBodies(ctx, canvas.width, canvas.height, viewEdge(), b => {
+  if(figuresOn()) drawFigureBodies(ctx, canvas.width, canvas.height, viewEdge(), b => {
     const k = state.terrain && state.terrain[Math.round(b.by)] && state.terrain[Math.round(b.by)][Math.round(b.bx)];
     return k === 'WOODS' && state.mode === 'ai' && b.side === state.aiSide;
   });

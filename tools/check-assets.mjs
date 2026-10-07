@@ -94,6 +94,25 @@ for (const name of ['partridge', 'goose', 'buzzard']) {
   }
 }
 
+/* Pixel unit sheets (js/render-figures.js, the Animated unit models): named
+   {anim}_{facing}_v{variant}.webp, every anim x facing x variant the sidecar
+   lists, for both nations. */
+{
+  const { readFile: rf } = await import('node:fs/promises');
+  const types = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV'];
+  for (const nation of ['british', 'french']) for (const t of types) {
+    const metaPath = `assets/units-pixel/${nation}/${t}/${t}.json`;
+    let meta = null;
+    try { meta = JSON.parse(await rf(join(root, metaPath), 'utf8')); } catch { missing.push({ src: 'js/render-figures.js (pixel sidecar)', path: metaPath }); continue; }
+    seen.add(`pixel::${metaPath}`);
+    for (const anim of Object.keys(meta.anims || {})) for (const facing of (meta.facings || [])) for (let v = 0; v < (meta.variants || 1); v++) {
+      const path = `assets/units-pixel/${nation}/${t}/${anim}_${facing}_v${v}.webp`;
+      seen.add(`pixel::${path}`);
+      try { await access(join(root, path)); } catch { missing.push({ src: 'js/render-figures.js (pixel units)', path }); }
+    }
+  }
+}
+
 /* The gunfire and smoke frames are named by pattern too (js/render-gunfire.js
    builds the list; it imports nothing that needs a browser at load time). */
 {

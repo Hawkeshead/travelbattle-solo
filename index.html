@@ -551,6 +551,7 @@
   .menuSliderRow input[type="range"]{ accent-color:#C9A85A; }
   .menuToggleRow,.menuSliderRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:12.5px;}
   .menuSliderRow input[type="range"]{flex:1;max-width:150px;accent-color:var(--brass);}
+  .menuSelect{font:inherit;font-size:12.5px;padding:4px 6px;border-radius:3px;background:rgba(240,228,198,.9);color:#2e2010;border:1px solid #9a7a36;}
   #backToMenuBtn{width:100%;}
   #backToMenuConfirm{margin-top:10px;background:var(--paper-2);border:1px solid var(--line);border-radius:4px;padding:10px;}
   #backToMenuConfirm p{margin:0 0 8px;font-size:11.5px;color:var(--ink-dim);}
@@ -1500,6 +1501,13 @@
             <label class="menuToggleRow">
               <span>Battle Camera</span>
               <input type="checkbox" id="cameraToggle">
+            </label>
+            <label class="menuToggleRow">
+              <span>Unit models</span>
+              <select id="unitModelsSelect" class="menuSelect">
+                <option value="animated">Animated</option>
+                <option value="classic">Classic</option>
+              </select>
             </label>
           </div>
           <div class="menuSection">

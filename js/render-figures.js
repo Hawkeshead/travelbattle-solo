@@ -1,79 +1,132 @@
 /* =========================================================
-   UNIT FIGURES (Unit Figures brief, placeholder art)
+   UNIT FIGURES
 
    Each unit is drawn as a squad of separately animated men instead of one icon:
    10 infantry, 3 riders, or a cannon with 2 crew, laid out in their formation,
    and men fall as the unit takes combat results. Visual only: nothing here
    touches rules, the AI, the dice or the simulator.
 
-   UNIT_STYLE ('figures', or 'v1': the old icons and sprite exactly, which is
-   the default until the real art arrives; ?units=figures or ?units=v1 for one
-   visit) mirrors TERRAIN_STYLE. The figures are off
-   when the game runs headless (the simulator), where nothing is drawn and
-   nothing here is ticked.
+   Drawn when Unit models is 'Animated' (see unitModels below); 'Classic' is
+   the old icons and sprite, untouched. Off when the game runs headless (the
+   simulator), where nothing is drawn and nothing here is ticked.
 
    WHAT IS KEPT, AND WHERE
    - state.figures[unitId] = { n, alive: [bool], slots: [slot per man],
-     layout, ev }: which men are standing and where, and how many casualty
-     events the unit has had (seeds the next choice). On state, so undo, the
-     online sync and the match record carry it, and a reloaded field matches.
-   - state.figureBodies = [{ id, bx, by, nation, type, facing, wreck }]: every
-     man who fell, in BOARD coordinates, for the whole battle.
+     v: [variant per man], layout, ev }: which men are standing, where, which
+     face (and horse) each has, and how many casualty events the unit has had
+     (seeds the next choice). On state, so undo, the online sync and the match
+     record carry it, and a reloaded field matches.
+   - state.figureBodies = [{ id, bx, by, nation, type, facing, uf, v, wreck }]:
+     every man who fell, in BOARD coordinates, for the whole battle.
    - Runtime only (never saved): which man is mid-fall, a unit's fire or melee
      animation, and a walk between formations.
 
-   RANDOMNESS. Casualty choice, position jitter and start frames use their own
-   generator seeded from the match seed + unit id + event count. Never the dice
-   generator: battle outcomes and simulator results cannot change, and both
-   phones online (and a replay) choose the same men.
+   RANDOMNESS. Casualty choice, variants, position jitter and start frames use
+   their own generator seeded from the match seed + unit id (+ event count).
+   Never the dice generator: battle outcomes and simulator results cannot
+   change, and both phones online (and a replay) choose the same men.
 
-   ART. assets/units/{nation}/{unitType}/{anim}_{facing}.webp, a horizontal
-   strip of equal frames, feet at bottom centre, drawn at 2x; one sidecar
-   {unitType}.json per type (frameWidth, frameHeight, anchorX, anchorY,
-   displayScale, and per anim frameCount, fps, loop). The cannon has its own
-   sheets under the type ARTILLERY_GUN (idle, fire, wreck); ARTILLERY is its
-   crew. The placeholder sheets come from tools/units/make-placeholders.py.
+   ART (Animated). assets/units-pixel/{nation}/{UNIT_TYPE}/{anim}_{facing}_v{n}.webp,
+   one horizontal strip of equal frames per file, with a sidecar
+   {UNIT_TYPE}.json (frameWidth, frameHeight, displayScale, anchors, variants,
+   facings, anims with frameCount/fps/loop); see tools/units/pixel/README.md.
+   Types: INFANTRY, GUARD, GUARD_BEARER (one per Guard unit, flag baked in),
+   ARTILLERY (the gunners), ARTILLERY_GUN (idle, fire, wreck), LIGHT_CAV,
+   HEAVY_CAV. Actions: idle, march, charge (cavalry gallop), fire, serve
+   (gunners), melee, fall (held as the body), flee.
 ========================================================= */
 import { CELL, SIDES, UNIT_TYPES, state } from './data-core.js';
 import { toScreen, unitMoveKind } from './render-board.js';
 
-export const UNIT_STYLE = (() => {
-  try { const q = new URLSearchParams(globalThis.location ? location.search : '').get('units'); if(q === 'v1' || q === 'figures') return q; }
-  catch { /* no address: the default stands */ }
-  /* 'v1' by default for now (Matthew, 3 Oct 2026): the old unit icons until
-     the real figure art arrives. The figures system stays in and is one
-     address away (?units=figures); switch this back to 'figures' when the
-     real sheets drop in. */
-  return 'v1';
+/* UNIT MODELS: 'animated' (the pixel troops, assets/units-pixel, the default)
+   or 'classic' (the old icons and sprite, exactly as before). Chosen in the
+   battle Menu (Display > Unit models), kept per device in localStorage, and
+   switched live: nothing is reloaded. ?units=animated or ?units=classic
+   overrides it for one page load without touching the saved choice (?units=v1,
+   the old name for the icons, still means classic).
+
+   The placeholder 'figures' art (assets/units, tools/units/make-placeholders.py)
+   is no longer offered; its code path below is kept (PIXEL() false) and the
+   tag units-before-pixel holds the last state that used it. */
+const MODELS_KEY = 'fc_unit_models';
+const URL_MODELS = (() => {
+  try {
+    const q = new URLSearchParams(globalThis.location ? location.search : '').get('units');
+    if(q === 'animated' || q === 'classic') return q;
+    if(q === 'v1') return 'classic';
+  } catch { /* no address */ }
+  return null;
 })();
+function savedModels(){
+  try { return localStorage.getItem(MODELS_KEY) === 'classic' ? 'classic' : 'animated'; }
+  catch { return 'animated'; }
+}
+let style = URL_MODELS || savedModels();
+export const unitModels = () => style;
+export function setUnitModels(m){
+  style = m === 'classic' ? 'classic' : 'animated';
+  try { localStorage.setItem(MODELS_KEY, style); } catch { /* private mode: this visit only */ }
+  bake = null;
+}
+const PIXEL = () => style !== 'figures';
 const HEADLESS = typeof navigator === 'undefined' || /jsdom/i.test(navigator.userAgent || '');
-export const FIGURES = UNIT_STYLE === 'figures' && !HEADLESS;
+/* Drawing figures (Animated). The bookkeeping underneath (who has fallen,
+   where the bodies lie, each man's variant) runs whatever the setting, so
+   switching mid-battle shows the true state, and two phones online keep the
+   same state.figures whichever way each player has set his own screen. */
+export const figuresOn = () => !HEADLESS && style !== 'classic';
+const TRACK = !HEADLESS;
 
 const NATION = { [SIDES.RED]: 'british', [SIDES.BLUE]: 'french' };
-const SHEET_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY', 'ARTILLERY_GUN'];
+const OLD_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY', 'ARTILLERY_GUN'];
+const PIX_TYPES = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV'];
 const MEN = { INFANTRY: 10, GUARD: 10, LIGHT_CAV: 3, HEAVY_CAV: 3, ARTILLERY: 2 };
 const FLOOR = { INFANTRY: 3, GUARD: 3, LIGHT_CAV: 1, HEAVY_CAV: 1, ARTILLERY: 1 };
+/* Faces, and horses, per man: the pixel sheets' "variants" (5 for every man
+   and rider; the gun has 1). A constant rather than read from the JSON so a
+   unit's men are the same whether or not the art has loaded yet. */
+const VARIANTS = 5;
 const WALK_MS = 600;
 const MELEE_MS = 2600;
 
 /* ---------- the art ---------- */
-const META = {};              // type -> sidecar JSON (same for both nations)
+const META_PIX = {};          // type -> sidecar JSON (same for both nations)
+const META_OLD = {};
+const META = () => (PIXEL() ? META_PIX : META_OLD);
 const IMG = {};               // url -> Image
 let ready = false;
 export function initFigures(){
-  if(!FIGURES) return;
-  Promise.all(SHEET_TYPES.map(t => fetch(`assets/units/british/${t}/${t}.json`).then(r => r.json()).then(j => { META[t] = j; })))
+  if(HEADLESS) return;
+  const load = (dir, types, into) => Promise.all(types.map(t => fetch(`${dir}/british/${t}/${t}.json`).then(r => r.json()).then(j => { into[t] = j; })));
+  (PIXEL() ? load('assets/units-pixel', PIX_TYPES, META_PIX) : load('assets/units', OLD_TYPES, META_OLD))
     .then(() => { ready = true; }, () => { ready = false; });
 }
-export const figuresReady = () => FIGURES && ready;
-function sheet(nation, type, anim, facing){
-  const m = META[type];
+export const figuresReady = () => figuresOn() && ready;
+/* The sheet for one man. A facing his type was not drawn in (a side-on view
+   for cavalry, gunners, the bearer or the gun) uses his unit's own facing,
+   toward or away (uf). An anim his type lacks (the bearer's fire or melee,
+   gunners in a melee) is idle. */
+function sheet(nation, type, anim, facing, v, uf){
+  const m = META()[type];
   if(!m) return null;
-  const f = m.facings.includes(facing) ? facing : (facing === 'left' || facing === 'right' ? 'toward' : m.facings[0]);
-  const url = `assets/units/${nation}/${type}/${anim}_${f}.webp`;
+  if(!m.anims[anim]) anim = 'idle';
+  let f = facing, url;
+  if(PIXEL()){
+    if(!m.facings.includes(f)) f = m.facings.includes(uf) ? uf : m.facings[0];
+    const vv = Math.min(Math.max(0, v | 0), (m.variants || 1) - 1);
+    url = `assets/units-pixel/${nation}/${type}/${anim}_${f}_v${vv}.webp`;
+  } else {
+    if(!m.facings.includes(f)) f = f === 'left' || f === 'right' ? 'toward' : m.facings[0];
+    url = `assets/units/${nation}/${type}/${anim}_${f}.webp`;
+  }
   let img = IMG[url];
   if(!img){ img = IMG[url] = new Image(); img.src = url; }
-  return img.complete && img.naturalWidth ? { img, meta: m, a: m.anims[anim] || m.anims.idle } : null;
+  return img.complete && img.naturalWidth ? { img, meta: m, a: m.anims[anim], f } : null;
+}
+/* How long a one-shot anim runs, in ms (fallback when its art is missing). */
+function animMs(type, anim, fallback){
+  const a = META()[type] && META()[type].anims[anim];
+  return a ? (a.frameCount / (a.fps || 12)) * 1000 : fallback;
 }
 
 /* ---------- seeded randomness (never the dice) ---------- */
@@ -95,14 +148,28 @@ function squad(u){
   if(!s){
     s = state.figures[u.id] = { n: MEN[k], alive: Array(MEN[k]).fill(true), slots: Array.from({ length: MEN[k] }, (_, i) => i), layout: null, ev: 0 };
   }
+  /* Each man's variant (face, and horse for a rider), dealt once from the
+     figure generator (never the dice) and kept all battle: through formation
+     changes, columns and splits, and on his body when he falls. On
+     state.figures, so a saved match and the other phone online have it too.
+     Filled in here as well for a squad saved before variants existed. */
+  if(!s.v){
+    const R = rng(matchSeed() + '|' + u.id + '|variants');
+    s.v = s.alive.map(() => Math.floor(R() * VARIANTS));
+  }
   return s;
 }
 export const standing = u => { const s = squad(u); return s ? s.alive.filter(Boolean).length : 0; };
+/* The Guard's colour bearer: always the unit's last man, so the others fill
+   their formation's ordinary places in order around him. -1 for every other
+   type (and for the old placeholder art, which has no bearer). */
+const bearerOf = (u, s) => (PIXEL() && kind(u) === 'GUARD' ? s.n - 1 : -1);
 
 /* ---------- facing ---------- */
 /* The unit faces the enemy's edge; on screen that is up ('away') or down
-   ('toward') depending on which way the board is turned. Turned around or
-   fleeing, it flips. */
+   ('toward') depending on which way the board is turned. Turned around, it
+   flips. The pixel flee sheets already show the man turned to run, so a
+   routing unit keeps its facing; the old placeholders flipped. */
 function facingOf(u, fleeing){
   // Toward the enemy: up the board from the bottom edge, down it from the top
   // (a campaign rearguard action can put either side at either edge).
@@ -110,7 +177,7 @@ function facingOf(u, fleeing){
   const fwd = hr ? (hr === 'top' ? 1 : -1) : (u.side === SIDES.RED ? -1 : 1);
   const sy = toScreen(0, 5 + fwd).y - toScreen(0, 5).y;
   let away = sy < 0;
-  if(u.turnOnly || fleeing) away = !away;
+  if(u.turnOnly || (fleeing && !PIXEL())) away = !away;
   return away ? 'away' : 'toward';
 }
 
@@ -142,19 +209,35 @@ function layoutFor(u, facing, partner){
     }
     return u.side === SIDES.RED ? ranks([5, 5], facing) : ranks([4, 3, 3], facing);
   }
-  if(k === 'LIGHT_CAV' || k === 'HEAVY_CAV') return [{ x: -0.27, y: 0.32, f: facing }, { x: 0, y: 0.22, f: facing }, { x: 0.27, y: 0.32, f: facing }];
+  if(k === 'LIGHT_CAV' || k === 'HEAVY_CAV') return [{ x: -0.27, y: 0.32, f: facing }, { x: 0, y: 0.21, f: facing }, { x: 0.27, y: 0.32, f: facing }];
   if(k === 'ARTILLERY'){
-    const back = facing === 'away' ? 0.36 : 0.06;   // crew behind the gun
+    // Crew behind the gun (the pixel gun is deep, so they stand well back).
+    const back = facing === 'away' ? 0.36 : (PIXEL() ? 0.04 : 0.06);
     return [{ x: -0.30, y: back, f: facing }, { x: 0.30, y: back, f: facing }];
   }
   return [];
 }
+/* The places a unit's men take: { rest, bearer }. rest is the ordinary slots
+   the men fill in order; bearer is where the Guard's colour bearer stands, or
+   null. Line: the middle of the British rear rank, the French middle rank.
+   Column (par = this unit's half of the interleaved block): the centre of the
+   block. Square: the middle of the square, facing the unit's way. */
+function placesFor(u, slots, facing, par){
+  if(kind(u) !== 'GUARD' || !PIXEL()) return { rest: slots, bearer: null };
+  if(par == null && u.formation === 'square') return { rest: slots, bearer: { x: 0, y: 0.16, f: facing } };
+  // Column block indices 10 (unit 1's evens) and 9 (unit 2's odds) are its
+  // centre: own-list positions 5 and 4. Line: see ranks() for the order.
+  const bi = par != null ? (par === 0 ? 5 : 4) : (u.side === SIDES.RED ? 7 : 5);
+  return { rest: slots.filter((_, i) => i !== bi), bearer: slots[bi] || null };
+}
+const placeOf = (places, s, m, B) => (m === B ? places.bearer : places.rest[s.slots[m]]);
 const layoutKey = (u, partnerId) => `${u.formation || 'line'}|${partnerId || ''}`;
 
 /* ---------- runtime animation state (never saved) ---------- */
 const FX = {};        // unitId -> { anim: 'fire'|'melee', start, until }
 const WALK = {};      // unitId -> { start, from: Map(man -> {x,y}) }
 const FALLING = {};   // bodyId -> start
+const WALK_PREV = {}; // unitId -> the places it was last drawn in
 let bodyCounter = 0;
 const now = () => Date.now();
 
@@ -165,23 +248,28 @@ export function drawUnitFigures(c, u, cx, cy, alpha = 1){
   const s = squad(u); if(!s) return false;
   const anim = unitAnim(u);
   const facing = facingOf(u, anim === 'flee');
-  const slots = layoutFor(u, facing, null);
+  const places = placesFor(u, layoutFor(u, facing, null), facing, null);
   const key = layoutKey(u, null);
-  if(s.layout !== key) reassign(u, s, key, WALK_PREV[u.id]);
-  WALK_PREV[u.id] = slots;
-  drawSquad(c, u, s, slots, cx, cy, anim, alpha);
+  if(s.layout !== key) reassign(u, s, key);
+  WALK_PREV[u.id] = places;
+  const men = [];
+  collectMen(men, u, s, places, anim, facing);
+  paintMen(c, men, cx, cy, alpha);
   return true;
 }
-const WALK_PREV = {};
-function reassign(u, s, key, prevSlots){
+/* A new formation: the men walk from where they stood to their new places,
+   the living refilling the ordinary slots in order (the bearer keeps his own). */
+function reassign(u, s, key){
   const first = s.layout == null;
   s.layout = key;
-  if(first) return;
-  const from = new Map();
-  s.alive.forEach((a, m) => { if(a && prevSlots && prevSlots[s.slots[m]]) from.set(m, prevSlots[s.slots[m]]); });
+  const B = bearerOf(u, s);
+  if(!first){
+    const prev = WALK_PREV[u.id], from = new Map();
+    s.alive.forEach((a, m) => { const p = a && prev && placeOf(prev, s, m, B); if(p) from.set(m, p); });
+    WALK[u.id] = { start: now(), from };
+  }
   let k = 0;
-  s.alive.forEach((a, m) => { if(a) s.slots[m] = k++; });
-  WALK[u.id] = { start: now(), from };
+  s.alive.forEach((a, m) => { if(a && m !== B) s.slots[m] = k++; });
 }
 
 /* Two units stacked in one square: their men share the 20-slot column block,
@@ -191,34 +279,17 @@ export function drawColumnFigures(c, u1, u2, cx, cy){
   if(!figuresReady()) return false;
   const s1 = squad(u1), s2 = squad(u2);
   if(!s1 || !s2) return false;
-  const anim1 = unitAnim(u1), anim2 = unitAnim(u2);
   const facing = facingOf(u1, false);
   const block = layoutFor(u1, facing, u2);
-  const key1 = layoutKey(u1, u2.id), key2 = layoutKey(u2, u1.id);
-  for(const [u, s, key, par] of [[u1, s1, key1, 0], [u2, s2, key2, 1]]){
-    if(s.layout !== key){
-      const prev = WALK_PREV[u.id];
-      const first = s.layout == null;
-      s.layout = key;
-      if(!first){
-        const from = new Map();
-        s.alive.forEach((a, m) => { if(a && prev && prev[s.slots[m]]) from.set(m, prev[s.slots[m]]); });
-        WALK[u.id] = { start: now(), from };
-      }
-      let k = 0;
-      s.alive.forEach((a, m) => { if(a) s.slots[m] = k++; });
-      s._par = par;
-    }
-    // This unit's view of the block: its own men on every other slot.
-    const own = block.filter((_, i) => i % 2 === par);
-    WALK_PREV[u.id] = own;
-  }
-  // Draw both, rear rank first, as one sorted list of men.
   const men = [];
-  for(const [u, s, anim, par] of [[u1, s1, anim1, 0], [u2, s2, anim2, 1]]){
-    const own = block.filter((_, i) => i % 2 === par);
-    collectMen(men, u, s, own, anim);
+  for(const [u, s, partner, par] of [[u1, s1, u2, 0], [u2, s2, u1, 1]]){
+    const places = placesFor(u, block.filter((_, i) => i % 2 === par), facing, par);
+    const key = layoutKey(u, partner.id);
+    if(s.layout !== key) reassign(u, s, key);
+    WALK_PREV[u.id] = places;
+    collectMen(men, u, s, places, unitAnim(u), facing);
   }
+  // Both units' men as one list, painted rear rank first.
   paintMen(c, men, cx, cy, 1);
   return true;
 }
@@ -228,58 +299,86 @@ function unitAnim(u){
   const t = now();
   const moving = unitMoveKind(u.id);
   if(moving === 'rout') return 'flee';
+  // The gallop is cavalry's charge; infantry charging with the bayonet march.
+  if(moving === 'charge' && (kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV') && PIXEL()) return 'charge';
   if(moving) return 'march';
   if(WALK[u.id] && t - WALK[u.id].start < WALK_MS) return 'march';
   if(fx && t < fx.until) return fx.anim;
   return 'idle';
 }
 
-function collectMen(men, u, s, slots, anim){
+function collectMen(men, u, s, places, anim, facing){
   const nation = NATION[u.side];
   const k = kind(u);
+  const B = bearerOf(u, s);
+  // Position jitter and each man's place in the idle loop (0..1), from the
+  // figure generator, so no two men sway or glance in step.
   const R = rng(matchSeed() + '|' + u.id + '|layout');
-  const jit = s.alive.map(() => [(R() - 0.5) * 0.05, (R() - 0.5) * 0.04, Math.floor(R() * 12)]);
+  const jit = s.alive.map(() => [(R() - 0.5) * 0.05, (R() - 0.5) * 0.04, R()]);
   const walk = WALK[u.id];
   const w = walk ? Math.min(1, (now() - walk.start) / WALK_MS) : 1;
   if(walk && w >= 1) delete WALK[u.id];
+  const fx = FX[u.id];
+  const start = (fx && fx.start) || 0;
+  // A battery's fire: the gun fires, the crew serve it, from the same moment.
+  const manAnim = k === 'ARTILLERY' && anim === 'fire' && PIXEL() ? 'serve' : anim;
   s.alive.forEach((a, m) => {
     if(!a) return;
-    const slot = slots[s.slots[m]] || slots[m % Math.max(1, slots.length)];
+    const slot = placeOf(places, s, m, B) || places.rest[m % Math.max(1, places.rest.length)];
     if(!slot) return;
     let x = slot.x + jit[m][0], y = slot.y + jit[m][1];
     if(walk && walk.from.has(m) && w < 1){ const f = walk.from.get(m); x = f.x + (x - f.x) * w; y = f.y + (y - f.y) * w; }
-    men.push({ x, y, nation, type: k, facing: slot.f, anim, phase: jit[m][2], start: (FX[u.id] && FX[u.id].start) || 0 });
+    men.push({ x, y, nation, type: m === B ? 'GUARD_BEARER' : k, facing: slot.f, uf: facing, v: s.v[m], anim: manAnim, phase: jit[m][2], start });
   });
   if(k === 'ARTILLERY'){
-    // The gun itself, centred in front of its crew.
-    const facing = slots[0] ? slots[0].f : 'toward';
-    men.push({ x: 0, y: facing === 'away' ? 0.18 : 0.30, nation, type: 'ARTILLERY_GUN', facing, anim: anim === 'fire' ? 'fire' : 'idle', phase: 0, start: (FX[u.id] && FX[u.id].start) || 0 });
+    // The gun, centred in front of its crew. Its flash and recoil run once,
+    // then it stands at idle while the crew finish serving it.
+    const fire = anim === 'fire' && now() - start < animMs('ARTILLERY_GUN', 'fire', 700);
+    men.push({ x: 0, y: facing === 'away' ? (PIXEL() ? 0.20 : 0.18) : 0.30, nation, type: 'ARTILLERY_GUN', facing, uf: facing, v: 0, anim: fire ? 'fire' : 'idle', phase: 0, start, gun: true });
   }
 }
-function drawSquad(c, u, s, slots, cx, cy, anim, alpha){
-  const men = [];
-  collectMen(men, u, s, slots, anim);
-  paintMen(c, men, cx, cy, alpha);
+
+/* ---------- putting a sprite on the canvas ---------- */
+/* Feet at (fx, fy) in canvas units. Pixel art is drawn nearest-neighbour, at
+   a position and size rounded to whole device pixels so every sprite pixel
+   stays a crisp block (the board's transform is a plain scale: zoom times
+   device pixel ratio). */
+function blit(c, sh, frame, fx, fy){
+  const { img, meta, f } = sh;
+  const ay = meta.anchorYByFacing && meta.anchorYByFacing[f] != null ? meta.anchorYByFacing[f] : meta.anchorY;
+  const h = CELL * meta.displayScale, w = h * meta.frameWidth / meta.frameHeight;
+  const x = fx - w * meta.anchorX, y = fy - h * ay;
+  const sx = frame * meta.frameWidth;
+  if(meta.pixelArt){
+    const t = c.getTransform();
+    if(!t.b && !t.c){
+      const dx = Math.round(t.a * x + t.e), dy = Math.round(t.d * y + t.f);
+      const dw = Math.round(t.a * (x + w) + t.e) - dx, dh = Math.round(t.d * (y + h) + t.f) - dy;
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.imageSmoothingEnabled = false;
+      c.drawImage(img, sx, 0, meta.frameWidth, meta.frameHeight, dx, dy, dw, dh);
+      c.restore();
+      return;
+    }
+  }
+  c.drawImage(img, sx, 0, meta.frameWidth, meta.frameHeight, x, y, w, h);
 }
 
-/* Paints men rear first (smaller y first), each from its sheet at the
-   animation frame for now. One-shot animations hold their last frame. */
+/* Paints men rear first (smaller y first), each from his sheet at the
+   animation frame for now. Loops start each man at his own frame; one-shot
+   animations (fire, serve) run from their start and hold the last frame. */
 function paintMen(c, men, cx, cy, alpha){
   men.sort((a, b) => a.y - b.y);
   const t = now();
   c.save();
   if(alpha !== 1) c.globalAlpha = alpha;
   for(const m of men){
-    const sh = sheet(m.nation, m.type, m.anim, m.facing) || sheet(m.nation, m.type, 'idle', m.facing);
+    const sh = sheet(m.nation, m.type, m.anim, m.facing, m.v, m.uf) || sheet(m.nation, m.type, 'idle', m.facing, m.v, m.uf);
     if(!sh) continue;
-    const { img, meta, a } = sh;
-    const fps = a.fps || 12, n = a.frameCount || 1;
-    // Loops start each man on his own frame (phase), so no two move in step;
-    // one-shot animations (fire) run from their start and hold the last frame.
-    const frame = a.loop ? Math.floor((t + m.phase * 83) / (1000 / fps)) % n : Math.min(n - 1, Math.floor((t - m.start) / (1000 / fps)));
-    const h = CELL * meta.displayScale, w = h * meta.frameWidth / meta.frameHeight;
-    const px = cx + m.x * CELL - w * meta.anchorX, py = cy + m.y * CELL - h * meta.anchorY;
-    c.drawImage(img, frame * meta.frameWidth, 0, meta.frameWidth, meta.frameHeight, px, py, w, h);
+    const a = sh.a, fps = a.fps || 12, n = a.frameCount || 1;
+    const frame = a.loop ? (Math.floor(t / (1000 / fps)) + Math.floor(m.phase * n)) % n : Math.min(n - 1, Math.max(0, Math.floor((t - m.start) / (1000 / fps))));
+    blit(c, sh, frame, cx + m.x * CELL, cy + m.y * CELL);
   }
   c.restore();
 }
@@ -300,13 +399,17 @@ function strike(u, count){
     left = up();
   }
 }
+/* A man falls where he stood. His body keeps his variant (and, for the
+   bearer, the colours) for the rest of the battle. */
 function fell(u, s, man){
   s.alive[man] = false;
-  const slots = WALK_PREV[u.id] || layoutFor(u, facingOf(u, false), null);
-  const slot = slots[s.slots[man]] || { x: 0, y: 0.2, f: 'toward' };
+  const B = bearerOf(u, s);
+  const facing = facingOf(u, false);
+  const places = WALK_PREV[u.id] || placesFor(u, layoutFor(u, facing, null), facing, null);
+  const slot = placeOf(places, s, man, B) || { x: 0, y: 0.2, f: facing };
   const p = boardOffset(slot.x, slot.y);
   const id = 'b' + (++bodyCounter) + '_' + u.id + '_' + man;
-  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: kind(u), facing: slot.f, side: u.side });
+  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: man === B ? 'GUARD_BEARER' : kind(u), facing: slot.f, uf: facing, v: s.v ? s.v[man] : 0, side: u.side });
   FALLING[id] = now();
 }
 /* A screen-space offset as board coordinates, so bodies stay put whichever
@@ -316,31 +419,38 @@ function boardOffset(dx, dy){
   const ax = ex.x - o.x, ay = ey.y - o.y;   // +1 or -1 when the board is turned
   return { x: dx * ax, y: dy * ay };
 }
+/* A destroyed battery leaves its gun on the field as a wreck, like a body. */
 function wreck(u){
-  const slots = layoutFor(u, facingOf(u, false), null);
-  const facing = slots[0] ? slots[0].f : 'toward';
-  const p = boardOffset(0, facing === 'away' ? 0.18 : 0.30);
+  const facing = facingOf(u, false);
+  const p = boardOffset(0, facing === 'away' ? (PIXEL() ? 0.20 : 0.18) : 0.30);
   const id = 'w' + (++bodyCounter) + '_' + u.id;
-  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: 'ARTILLERY_GUN', facing, side: u.side, wreck: true });
+  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: 'ARTILLERY_GUN', facing, uf: facing, v: 0, side: u.side, wreck: true });
 }
 const unitById = id => (state.units || []).find(u => u.id === id);
+/* A unit's fire or melee, for as long as its longest sheet runs (a battery:
+   the crew's serve, which outlasts the gun's flash). */
+function act(u, anim, fallback){
+  const k = kind(u);
+  const ms = anim === 'melee' ? MELEE_MS : PIXEL() && k === 'ARTILLERY' ? Math.max(animMs('ARTILLERY', 'serve', fallback), animMs('ARTILLERY_GUN', 'fire', fallback)) : animMs(k, anim, fallback);
+  FX[u.id] = { anim, start: now(), until: now() + Math.max(fallback, ms) };
+}
 
 export function figuresOnEvent(ev){
-  if(!FIGURES || !ev) return;
+  if(!TRACK || !ev) return;
   try {
     if(ev.type === 'fire'){
       if(ev.volley){
-        const sh = unitById(ev.shooterId); if(sh) FX[sh.id] = { anim: 'fire', start: now(), until: now() + 600 };
+        const sh = unitById(ev.shooterId); if(sh) act(sh, 'fire', 600);
         const tg = unitById(ev.targetId);
         if(tg) strike(tg, ev.effect === 'none' ? (inf(tg) ? 1 : 0) : (inf(tg) ? 2 : 1));
       } else {
-        const g = unitById(ev.gunId); if(g) FX[g.id] = { anim: 'fire', start: now(), until: now() + 700 };
+        const g = unitById(ev.gunId); if(g) act(g, 'fire', 700);
         const tg = unitById(ev.targetId);
         if(tg && ev.hit) strike(tg, inf(tg) ? 1 : 0);
       }
     } else if(ev.type === 'fight'){
       const a = unitById(ev.attackerId), d = unitById(ev.defenderId);
-      for(const u of [a, d]) if(u) FX[u.id] = { anim: 'melee', start: now(), until: now() + MELEE_MS };
+      for(const u of [a, d]) if(u) act(u, 'melee', MELEE_MS);
       if(a && d && ev.result && ev.result !== 'stalemate' && ev.aRoll !== ev.dRoll){
         const loser = ev.aRoll > ev.dRoll ? d : a;
         if(ev.result !== 'destroy') strike(loser, inf(loser) ? 2 : 1);
@@ -371,7 +481,7 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
     if(hiddenAt && hiddenAt(b)) continue;
     const st = FALLING[b.id];
     if(st != null){
-      const meta = META[b.type], a = meta && meta.anims.fall;
+      const meta = META()[b.type], a = meta && meta.anims.fall;
       const dur = a ? (a.frameCount / a.fps) * 1000 : 400;
       if(t - st < dur){ falling.push({ b, st }); continue; }
       delete FALLING[b.id];
@@ -394,15 +504,12 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
 }
 function paintBody(c, b, fallStart){
   const anim = b.wreck ? 'wreck' : 'fall';
-  const sh = sheet(b.nation, b.type, anim, b.facing);
-  if(!sh) return false;
-  const { img, meta, a } = sh;
-  const n = a.frameCount || 1;
-  const frame = fallStart == null ? n - 1 : Math.min(n - 1, Math.floor((now() - fallStart) / (1000 / (a.fps || 12))));
+  const sh = sheet(b.nation, b.type, anim, b.facing, b.v, b.uf || b.facing);
+  if(!sh || sh.a !== (META()[b.type] || { anims: {} }).anims[anim]) return false;   // not loaded yet: try again next frame
+  const n = sh.a.frameCount || 1;
+  const frame = fallStart == null ? n - 1 : Math.min(n - 1, Math.floor((now() - fallStart) / (1000 / (sh.a.fps || 12))));
   const p = toScreen(b.bx, b.by);
-  const cx = (p.x + 0.5) * CELL, cy = (p.y + 0.5) * CELL;
-  const h = CELL * meta.displayScale, w = h * meta.frameWidth / meta.frameHeight;
-  c.drawImage(img, frame * meta.frameWidth, 0, meta.frameWidth, meta.frameHeight, cx - w * meta.anchorX, cy - h * meta.anchorY, w, h);
+  blit(c, sh, frame, (p.x + 0.5) * CELL, (p.y + 0.5) * CELL);
   return true;
 }
-export const figuresAnimating = () => FIGURES && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0);
+export const figuresAnimating = () => figuresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0);
