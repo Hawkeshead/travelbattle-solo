@@ -46,6 +46,7 @@ export const AudioManager = (function(){
     musicSequenceNext: 0,         // which track the NEXT sequence opens on, so battles do not all start alike
     musicEl: null,
     ambienceEl: null,
+    ambienceSrc: null,            // what the ambience element is playing, so the same bed is not restarted
     activeEffects: new Map(), // key -> count of currently-playing copies
     lastVariant: new Map(),   // key -> index last played, so we don't immediately repeat
     duckTimer: null,
@@ -457,7 +458,14 @@ export const AudioManager = (function(){
   function playAmbience(src, opts){
     opts = opts || {};
     try {
+      // The same bed already running (title screen, then menus, then the
+      // campaign map): leave it, rather than restarting it from the top.
+      if(state.ambienceEl && state.ambienceSrc === src){
+        if(state.unlocked && state.ambienceEl.paused) state.ambienceEl.play().catch(()=>{});
+        return;
+      }
       if(state.ambienceEl){ state.ambienceEl.pause(); state.ambienceEl = null; }
+      state.ambienceSrc = src;
       const audio = new Audio(src);
       audio.loop = true;
       audio.volume = effectiveVolume('ambience');
@@ -465,7 +473,7 @@ export const AudioManager = (function(){
       if(state.unlocked) audio.play().catch(()=>{});
     } catch(_e) { /* silent failure */ }
   }
-  function stopAmbience(){ if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(_e){} state.ambienceEl = null; } }
+  function stopAmbience(){ state.ambienceSrc = null; if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(_e){} state.ambienceEl = null; } }
 
   function setMuted(m){ state.muted = m; applyVolumes(); savePrefs(); }
   function setVolume(category, v){ state.volumes[category] = Math.max(0, Math.min(1, v)); applyVolumes(); savePrefs(); }

@@ -24,7 +24,7 @@ import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
    (standard and grand) must use the same score; two literals drifted apart is
    exactly how the menu ends up playing something the battle does not. */
 /* NO BATTLE SCORE. Battles are played without music, by request. Starting a
-   battle stops the menu tune rather than replacing it. The tracks are still on
+   battle stops any music rather than starting a score. The tracks are still on
    disk (field-of-austerlitz.mp3, battle-score-1/2.m4a): to bring a score back,
    replace stopMusic() at both battle starts below with
    playMusicSequence([...files]). */
@@ -196,16 +196,14 @@ export const CAMPAIGNS_ENABLED = true;   // Campaigns: Flanders playable end to 
 export const GRAND_STRATEGY_ENABLED = false;
 
 export function showModeSelect(isSplash){
-  /* The menu theme, every time the mode select is shown. That covers the first
-     load AND returning here after a battle, when the field score would
-     otherwise still be playing over the menus. Putting it on the screen itself
-     rather than on each of the routes into it means a new route cannot forget.
-  
-     Harmless when it is already playing: playMusic only replaces the element if
-     the source has changed, so moving between the mode, side and difficulty
-     screens never interrupts the track. */
+  /* NO MENU MUSIC (removed by request): the menus play only the countryside
+     ambience, birdsong and a soft wind. Set here, on the screen itself, so
+     every route back to the menus (after a battle, from the campaign map) gets
+     it. stopMusic is belt and braces against any score left running.
+     playAmbience leaves the same track alone if it is already playing. */
   AudioManager.fadeOutEffects('turn-theme-', 800);   // leaving a battle mid-theme
-  AudioManager.playMusic('audio/music/menu-musket-tango.mp3');
+  AudioManager.stopMusic();
+  AudioManager.playAmbience('audio/ambience/countryside.mp3');
   const box = document.querySelector('#overlay .box');
   // The folio backing is start-screen only. Every other overlay reuses this
   // same .box, so the class has to be removed by whoever leaves — done in
