@@ -42,16 +42,9 @@ export function start(){
   // unlocking — see AudioManager.playEffect's buffer cache.
   document.addEventListener('pointerdown', ()=>{
     AudioManager.unlock();
-    /* The menu theme starts on the SAME first gesture that unlocks audio, and
-       not before. A browser blocks playback until the player has touched
-       something, so showModeSelect below cannot start it on the very first load:
-       the call would fail silently and leave the menus quiet all session. This is
-       the first-load half; showModeSelect covers every return after that.
-    
-       Calling it in both places is safe: playMusic replaces the element only when
-       the source changes, so the second call re-levels the same track rather than
-       restarting or layering it. */
-    AudioManager.playMusic('audio/music/menu-musket-tango.mp3');
+    /* No menu music (removed by request). The countryside ambience is queued
+       before the title intro below; unlock() starts it on this first touch,
+       since a browser will not play sound before one. */
     /* EVERY effect, not just two. Only the click and the march were preloaded,
        so each of the other eight paid a one-time fetch and decode the first time
        it was needed. That is why a unit had to be selected two or three times
@@ -113,6 +106,8 @@ export function start(){
     document.documentElement.classList.add('title-away');
     prepareTitleBoard();
     sizeCanvas();
+    // Back on the campaign map: the same countryside bed as the title screen.
+    if(campaignMapLanding !== 'battle') AudioManager.playAmbience('audio/ambience/countryside.mp3');
     import('./campaign-map-ui.js').then(m => m.landAfterReload(campaignMapLanding));
   } else if(savedCampaignProgress){
     resumeCampaignFromStorage(savedCampaignProgress);
@@ -121,6 +116,9 @@ export function start(){
        clouds come in, then the menu appears along the bottom. */
     prepareTitleBoard();
     sizeCanvas();
+    // Birdsong and wind under the title: queued as the battlefield falls into
+    // place, heard from the player's first touch.
+    AudioManager.playAmbience('audio/ambience/countryside.mp3');
     playBoardIntroAnimation(()=>{ startAmbientLayer(); showModeSelect(true); });
   }
 
