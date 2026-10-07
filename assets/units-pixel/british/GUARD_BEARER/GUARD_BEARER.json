@@ -1,0 +1,35 @@
+{
+ "frameWidth": 64,
+ "frameHeight": 80,
+ "displayScale": 0.8,
+ "anchorX": 0.5,
+ "anchorY": 1,
+ "pixelArt": true,
+ "variants": 5,
+ "facings": [
+  "toward",
+  "away"
+ ],
+ "anims": {
+  "idle": {
+   "frameCount": 22,
+   "fps": 4,
+   "loop": true
+  },
+  "march": {
+   "frameCount": 12,
+   "fps": 6,
+   "loop": true
+  },
+  "fall": {
+   "frameCount": 3,
+   "fps": 5,
+   "loop": false
+  },
+  "flee": {
+   "frameCount": 6,
+   "fps": 8,
+   "loop": true
+  }
+ }
+}

@@ -16,7 +16,8 @@ import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
 import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
-import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
+import { setUnitModels, unitModels } from './render-figures.js';
+import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
 import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
@@ -1858,6 +1859,14 @@ export function initBattleControls(){
       setFloatingTextEnabled(e.target.checked);
       try { localStorage.setItem(FCT_PREF_KEY, e.target.checked ? 'on' : 'off'); } catch { /* nothing we can do */ }
     };
+  }
+  /* Unit models: Animated (the pixel troops) or Classic (the old icons).
+     render-figures keeps the choice per device and applies it at once; the
+     redraw and the animation loop pick it up from the next frame. */
+  const unitModelsEl = document.getElementById('unitModelsSelect');
+  if(unitModelsEl){
+    unitModelsEl.value = unitModels();
+    unitModelsEl.onchange = (e)=>{ setUnitModels(e.target.value); draw(); ensureAnimationLoopRunning(); };
   }
   const cameraToggleEl = document.getElementById('cameraToggle');
   if(cameraToggleEl) cameraToggleEl.onchange = (e)=>{ CameraPref.enabled = e.target.checked; };

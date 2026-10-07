@@ -1,0 +1,34 @@
+{
+ "frameWidth": 112,
+ "frameHeight": 96,
+ "displayScale": 0.96,
+ "anchorX": 0.5,
+ "anchorY": 0.8958,
+ "pixelArt": true,
+ "variants": 1,
+ "facings": [
+  "toward",
+  "away"
+ ],
+ "anims": {
+  "idle": {
+   "frameCount": 1,
+   "fps": 1,
+   "loop": true
+  },
+  "fire": {
+   "frameCount": 8,
+   "fps": 7,
+   "loop": false
+  },
+  "wreck": {
+   "frameCount": 1,
+   "fps": 1,
+   "loop": false
+  }
+ },
+ "anchorYByFacing": {
+  "toward": 0.8958,
+  "away": 0.8333
+ }
+}
