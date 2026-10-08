@@ -131,10 +131,32 @@ export function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
    the board visually and know when to pause. See REPLAY section near
    the bottom of the file for playback.
 ========================================================= */
+/* AI MEMORY (7 Oct 2026). Two things the AI kept forgetting, noted as the
+   match log is written, so it lives in the state (saved, undone and replayed
+   with everything else):
+   - shelled[unitId] = { last, run }: the turn a unit was last fired on by
+     enemy guns and how many of the firing side's turns running it has been
+     (a unit left under fire answers it: ai-strategy answerGuns);
+   - ambushes: squares where an ambush was sprung, with the turn, so a unit
+     does not ride back into the same wood (ai-strategy ambushMemory). */
+function noteForAi(ev){
+  if(!state._aiMemory) state._aiMemory = { shelled: {}, ambushes: [] };
+  const mem = state._aiMemory;
+  if(ev.type === 'fire' && !ev.volley && ev.targetId){
+    const prev = mem.shelled[ev.targetId];
+    // Several shots in one turn count once; the firing side's next turn (two
+    // turns on) continues the run; anything later starts it again.
+    const run = !prev ? 1 : ev.turn === prev.last ? prev.run : ev.turn - prev.last === 2 ? prev.run + 1 : 1;
+    mem.shelled[ev.targetId] = { last: ev.turn, run };
+  }
+  if(ev.type === 'ambush' && ev.phase === 'sprung') mem.ambushes.push({ x: ev.x, y: ev.y, turn: ev.turn, side: ev.side });
+}
+
 export function logReplay(type, data){
   if(!state.matchLog || state.replaying) return;
   const ev = Object.assign({ type, turn: state.turnNumber, phase: state.phase }, data);
   state.matchLog.push(ev);
+  noteForAi(ev);              // what the AI remembers between turns (below)
   recFromReplay(ev);          // match telemetry (js/telemetry/recorder.js): reads, never changes
   figuresOnEvent(ev);         // unit figures (js/render-figures.js): men fall; visual only, own random numbers
   emitLabelFor(ev);

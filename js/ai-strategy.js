@@ -74,6 +74,11 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
    can be overcome by a genuinely good opportunity rather than vetoing outright.
    Deliberately a discouragement now, not a prohibition. */
 export const SOLO_ATTACK_PENALTY = 1.2;
+/* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
+export const LONE_CHARGE_COST = 1.2;      // heavy cavalry charging an untouched target alone
+export const ANSWER_GUNS_STRIKE = 1.6;    // under fire two turns running: a square from which to attack the gun
+export const AMBUSH_MEMORY_COST = 1.4;    // ending beside a square where an ambush was sprung on us
+export const AMBUSH_MEMORY_TURNS = 10;    // remembered for this many turns (both sides' turns)
 
 /* F1: THE CAP, AND THE INVARIANT IT EXISTS TO PROTECT.
 
@@ -2292,7 +2297,14 @@ export function missionMoveBonus(u, side, pos, mission, plan){
       const dest = preserveDestination(side, u.brigadeId);
       if(!dest) return 0;
       const d = chebyshev(pos, dest);
-      if(d <= 1) return 0.6;
+      /* REGROUP, DON'T SHUFFLE (7 Oct 2026). Every square within one of the
+         destination scored the same 0.6, so a remnant that had arrived chose
+         among them by the jitter term and walked in small circles (Soult: ten
+         turns between three squares in Matthew's match). Now the square it
+         stands on is worth a little more, so it stays with the host Brigade
+         and moves only when the destination does, which is when the host
+         Brigade moves. */
+      if(d <= 1) return 0.6 + (pos.x === u.x && pos.y === u.y ? 0.4 : 0);
       return -(d - chebyshev(u, dest)) * PRESERVE_PULL;
     }
     case 'SCREEN':
@@ -4355,6 +4367,16 @@ export function aiDecideAndExecuteMove(u){
     if(seekTactics && t.isCavalry && !c.stay && isChargeMoveRule(u, ox, oy, c)){
       isChargeMove = true;
       s += addScore(parts, 'chargeBonus', 2.2);
+      /* NO LONE HEAVY CHARGES (7 Oct 2026). The 5e Cuirassiers fought eleven
+         times in Matthew's match and won three, nearly all charges with no one
+         to follow them in, at targets that were neither turned nor shaken.
+         Heavy cavalry pays LONE_CHARGE_COST for such a charge; a turned or
+         disrupted target, or a friend beside it who can join, lifts it. */
+      if(t.key === 'HEAVY_CAV'){
+        const tgt = state.units.find(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && isAdjacent(o, c));
+        if(tgt && !tgt.turnOnly && !tgt.rallying && supportCountFor(tgt, side, u.id) === 0)
+          s -= subScore(parts, 'loneCharge', LONE_CHARGE_COST);
+      }
     }
     /* Ending a move on an enemy Brigadier's square: never an attack, but either
        a shove that may sever his chain (valued per unit it would freeze) or, for
@@ -4585,6 +4607,38 @@ export function aiDecideAndExecuteMove(u){
          be formed there, and none of our own cavalry is already next to that
          horseman (then let our cavalry deal with it). */
       if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
+
+      /* ANSWER THE GUNS (7 Oct 2026). In Matthew's match the 2e Grenadiers were
+         shelled eight times from the same battery and never moved. A unit fired
+         on by enemy artillery on two of the enemy's turns running now wants to
+         reach a square next to the gun, from which it can attack it. */
+      const mem = state._aiMemory;
+      const sh = mem && mem.shelled[u.id];
+      if(sh && sh.run >= 2 && state.turnNumber - sh.last <= 2 && t.key !== 'BRIGADIER' && !t.isArtillery){
+        const guns = state.units.filter(o => !o.removed && o.side !== side && UNIT_TYPES[o.type].isArtillery);
+        if(guns.length){
+          /* Only a gun this unit could actually attack from there: horse
+             cannot go into a wood or a village after it, and a square from
+             which nothing can be attacked is just standing in canister range. */
+          const canHit = g => isFootInfantry(u) || !['WOODS', 'BUILDING'].includes(terrainAt(g.x, g.y).key);
+          if(guns.some(g => isAdjacent(g, c) && canHit(g))) s += addScore(parts, 'answerGuns', ANSWER_GUNS_STRIKE);
+          /* (No reward for backing out of the guns' reach: tried, and in the
+             simulator it let one side stand off the other's guns until the
+             game stalled at 400 turns. A unit under fire answers by going for
+             the gun, or not at all.) */
+        }
+      }
+      /* REMEMBER SPRUNG AMBUSHES (7 Oct 2026). The 5e Cuirassiers rode into the
+         same wood's ambush twice, six turns apart. A square next to where an
+         enemy ambush was sprung within AMBUSH_MEMORY_TURNS costs
+         AMBUSH_MEMORY_COST, unless the enemy can be seen standing there now
+         (then it is just a fight, scored as one). */
+      if(mem && mem.ambushes.length && !c.stay){
+        const recent = mem.ambushes.filter(a => a.side !== side && state.turnNumber - a.turn <= AMBUSH_MEMORY_TURNS);
+        if(recent.some(a => Math.max(Math.abs(a.x - c.x), Math.abs(a.y - c.y)) === 1 &&
+            !state.units.some(o => !o.removed && o.side !== side && !o.hidden && o.x === a.x && o.y === a.y)))
+          s -= subScore(parts, 'ambushMemory', AMBUSH_MEMORY_COST);
+      }
 
       /* SHAPE, not distance. Every other term here is "how far am I from X", so
          two squares equidistant from everything score identically: a logged match
