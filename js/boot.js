@@ -59,6 +59,7 @@ export function start(){
       'audio/effects/artillery-select.wav', 'audio/effects/artillery-move.wav',
       'audio/effects/artillery-fire.wav', 'audio/effects/artillery-impact.wav',
       'audio/effects/battle-resolve.wav',   // the fight's bed under the dice: decoded early so the first fight is not silent
+      'audio/effects/dice-roll-1.mp3', 'audio/effects/dice-roll-2.mp3', 'audio/effects/dice-roll-3.mp3', 'audio/effects/dice-roll-4.mp3',   // the roll sounds
       'audio/effects/unit-destroyed.wav',
       /* The volley takes are four seconds each and much the largest effects in
          the set, so they are the ones that would most obviously arrive late if

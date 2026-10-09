@@ -1072,7 +1072,11 @@
   .die.die-art.pending{ border-style:solid; }
   .die.die-art.pending img{ opacity:0.45; filter:saturate(0.6); }
   .die.die-art.kept{ box-shadow:none; }
-  .die.die-art.kept img{ filter:drop-shadow(0 0 2px var(--brass-bright)) drop-shadow(0 0 4px var(--brass-bright)); }
+  /* The kept die stands out clearly (9 Oct 2026): a bright gold glow and a
+     little larger; the others are dimmed and drained of colour. */
+  .die.die-art.kept img{ filter:drop-shadow(0 0 2px #ffe08a) drop-shadow(0 0 6px #e8b83c) drop-shadow(0 0 10px rgba(232,184,60,.7)); transform:translate(-50%,-50%) scale(1.12); }
+  .die.die-art.discard{ opacity:0.38; }
+  .die.die-art.discard img{ filter:grayscale(0.7) brightness(0.85); }
   .die.die-art.settle img{ animation:dieSettle 120ms ease-out; }
   @keyframes dieSettle{ from{ transform:translate(-50%,-50%) scale(1.08); } to{ transform:translate(-50%,-50%) scale(1); } }
   @media (prefers-reduced-motion:reduce){ .die.die-art.settle img{ animation:none; } }

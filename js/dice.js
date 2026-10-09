@@ -27,8 +27,12 @@ function artReady(nation){
 /* value: the face (null before the roll: face 1, dimmed); side: who rolled. */
 export function dieFaceHTML(value, extraClass, side){
   const nation = nationOf(side);
-  if(nation && artReady(nation)){
-    return `<div class="die die-art ${extraClass||''}"><img src="${diceFacePath(nation, value || 1)}" alt="${value || ''}" draggable="false"></div>`;
+  /* The painted dice whenever the side is known, loaded or not (9 Oct 2026):
+     the pip fallback below has no image to tumble, which was the other way
+     a roll snapped straight to its result. An image still loading shows for
+     a frame or two and then appears. */
+  if(nation){
+    return `<div class="die die-art ${extraClass||''}" data-nation="${nation}"><img src="${diceFacePath(nation, value || 1)}" alt="${value || ''}" draggable="false"></div>`;
   }
   const active = PIP_LAYOUT[value] || [];
   let cells = '';
@@ -263,6 +267,23 @@ function diceValueParts(g){
   return { bestRaw, counts, adjusted: bestRaw !== null && counts !== bestRaw };
 }
 
+/* WHICH DIE IS SHOWN AS KEPT (9 Oct 2026). Exactly one: the highest thrown
+   (every roll in the game keeps the best die, re-rolls included), the first
+   of equals. Every other die is shown as discarded, so with a re-roll the eye
+   goes straight to the one the unit fights on. Before, every die equal to the
+   kept value was lit and the art's highlight was faint, so it was often
+   unclear which die counted. */
+function keptIndex(g){
+  const r = g.rolls || [];
+  if(!r.length) return -1;
+  const best = Math.max(...r);
+  return r.indexOf(best);
+}
+function dieClass(g, idx){
+  if((g.rolls || []).length <= 1) return idx === 0 ? 'kept' : '';
+  return idx === keptIndex(g) ? 'kept' : 'discard';
+}
+
 function adjustmentHTML(g){
   const { bestRaw, counts, adjusted } = diceValueParts(g);
   if(!adjusted) return '';
@@ -315,9 +336,10 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
     let k = 0;
     groupsEl.innerHTML = groups.map((g,i)=>{
       const { bestRaw } = diceValueParts(g);
-      const diceHTML = g.rolls.map(v=>{
+      void bestRaw;
+      const diceHTML = g.rolls.map((v, idx)=>{
         const shown = final ? v : (1+Math.floor(Math.random()*6));
-        const cls = final ? (v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '')) : 'rolling';
+        const cls = final ? dieClass(g, idx) : 'rolling';
         const settle = final && settling && settling.has(k) ? ' settle' : '';
         k++;
         return dieFaceHTML(shown, cls + settle, g.side);
@@ -360,15 +382,16 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
     resultEl.className = 'dice-result ' + (resultCls||'');
     if(!holdOpen) finishDice(onSettled);
   };
-  if(groups.every(g => artReady(nationOf(g.side)))){ tumble(settleNow); return; }
-  // Without the art: the old flicker of random faces.
-  renderFrame(false);
-  let ticks = 0;
-  showDice._rollT = setInterval(()=>{
-    ticks++;
-    if(ticks>=4) settleNow(null);
-    else renderFrame(false);
-  }, 180);
+  /* ALWAYS TUMBLE (9 Oct 2026). The tumble used to run only once every face
+     and tumble frame of both nations had loaded; until then (the first rolls
+     of a session, or a slow connection) the fallback swapped faces whose
+     images were not there yet, so the dice seemed to snap straight to the
+     result. The art is asked for at start-up; the tumble now always runs,
+     and a frame still loading just shows the previous one. */
+  playDiceSound();
+  void artReady;
+  tumble(settleNow);
+  return;
 
   /* THE TUMBLE. Each die cycles its own nation's tumble frames (never the same
      frame twice running) every TUMBLE_FRAME_MS, each frame turned up to 25
@@ -438,11 +461,17 @@ export function refreshDiceFrame(groups, resultText, resultCls){
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
+  // How many dice each side showed before, so a re-rolled die can be told apart.
+  const prevCounts = [...groupsEl.querySelectorAll('.dice-group .dice-set')].map(set => set.querySelectorAll('.die').length);
+  if(FAST_DICE_MODE) prevCounts.length = 0;
   groupsEl.innerHTML = groups.map((g,i)=>{
-    const { bestRaw } = diceValueParts(g);
-    const diceHTML = g.rolls.map(v=>{
-      const cls = v===bestRaw ? 'kept' : (g.rolls.length>1 ? 'discard' : '');
-      return dieFaceHTML(v, cls, g.side);
+    const diceHTML = g.rolls.map((v, idx)=>{
+      // A die not on screen before (a re-roll) tumbles in rather than appearing.
+      const fresh = idx >= (prevCounts[i] || 0) && prevCounts.length;
+      // While a side's re-roll is still tumbling, its earlier dice show no
+      // verdict yet: the kept mark moves only once the new die has landed.
+      const rolling = prevCounts.length && g.rolls.length > (prevCounts[i] || 0);
+      return dieFaceHTML(v, fresh ? 'rolling fresh' : rolling ? '' : dieClass(g, idx), g.side);
     }).join('');
     const adjustHTML = adjustmentHTML(g);
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
@@ -454,6 +483,50 @@ export function refreshDiceFrame(groups, resultText, resultCls){
   }).join('');
   resultEl.textContent = resultText || '';
   resultEl.className = 'dice-result ' + (resultCls||'');
+  /* A RE-ROLL TUMBLES (9 Oct 2026). The new die used to appear already
+     landed. Now it tumbles through its nation's frames for most of a roll,
+     with a roll sound, lands with the settle, and only then do the kept and
+     discarded marks go on, so the change of kept die is visible as it
+     happens. */
+  const freshEls = [...groupsEl.querySelectorAll('.die.fresh')];
+  if(!freshEls.length) return;
+  playDiceSound();
+  const sets = [...groupsEl.querySelectorAll('.dice-group .dice-set')];
+  const t0 = performance.now();
+  clearInterval(refreshDiceFrame._t);
+  refreshDiceFrame._t = setInterval(() => {
+    const done = performance.now() - t0 >= REROLL_TUMBLE_MS;
+    freshEls.forEach(d => {
+      const img = d.querySelector('img');
+      if(!img) return;
+      if(done){ img.style.transform = ''; return; }
+      const nation = d.dataset.nation;
+      img.src = diceTumblePath(nation, 1 + Math.floor(Math.random() * DICE_TUMBLE_FRAMES));
+      img.style.transform = `translate(-50%,-50%) rotate(${((Math.random() * 2 - 1) * TUMBLE_MAX_TURN_DEG).toFixed(1)}deg)`;
+    });
+    if(!done) return;
+    clearInterval(refreshDiceFrame._t);
+    groups.forEach((g, i) => {
+      const dice = sets[i] ? [...sets[i].querySelectorAll('.die')] : [];
+      dice.forEach((d, idx) => {
+        const img = d.querySelector('img');
+        if(img && d.classList.contains('fresh')) img.src = diceFacePath(d.dataset.nation, g.rolls[idx]);
+        d.classList.remove('rolling', 'fresh', 'kept', 'discard');
+        const cls = dieClass(g, idx);
+        if(cls) d.classList.add(cls);
+        if(img && d.classList.contains('die-art')) d.classList.add('settle');
+      });
+    });
+  }, TUMBLE_FRAME_MS);
+}
+const REROLL_TUMBLE_MS = 600;
+
+/* THE ROLL SOUND (9 Oct 2026): one of Matthew's four dice recordings, at
+   random, every time dice are thrown (a roll, and a re-roll). */
+const DICE_SOUNDS = [1, 2, 3, 4].map(n => `audio/effects/dice-roll-${n}.mp3`);
+export function playDiceSound(){
+  if(FAST_DICE_MODE) return;
+  try { AudioManager.playEffect('dice-roll', DICE_SOUNDS[Math.floor(Math.random() * DICE_SOUNDS.length)], 'ui'); } catch { /* no sound: the dice still roll */ }
 }
 
 // A button under the dice, not a separate modal — used for the re-roll offer.
