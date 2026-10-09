@@ -332,6 +332,13 @@
   }
   #unitPortrait .u-art{ width:100%;height:100%;object-fit:cover;object-position:50% 14%;display:block; }
   #unitPortrait .u-art.u-gun{ object-fit:contain;padding:6px; }
+  /* NO PICTURE FOR NOW (Matthew, 9 Oct 2026): the card shows name, details,
+     tags and orders only, to keep it slim. The picture code is kept; remove
+     the no-portrait class from #unitOverlayPanel to bring it back. The side's
+     colour moves to a thin bar on the card's edge so it still reads at a glance. */
+  #unitOverlayPanel.no-portrait{ grid-template-columns:minmax(0,1fr); grid-template-areas:"info" "act"; width:250px;
+    border-left:4px solid var(--side, var(--brass-dim)); }
+  #unitOverlayPanel.no-portrait #unitPortrait{ display:none; }
   #unitInfo{ grid-area:info;padding:7px 10px 6px 12px;min-width:0;font-size:12px;line-height:1.3; }
   #unitInfo .empty{ color:var(--ink-dim);font-style:italic; }
   #unitInfo .u-name{ font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;line-height:1.1;
@@ -1443,7 +1450,7 @@
     </div>
 
     <div id="unitOverlay" class="hidden">
-      <div id="unitOverlayPanel">
+      <div id="unitOverlayPanel" class="no-portrait">
         <div id="unitPortrait"></div>
         <div id="unitInfo"><span class="empty">No unit selected</span></div>
         <div id="actionRow">
