@@ -1368,7 +1368,7 @@ export function fireArtillery(gun, target, onComplete){
   const canister = dist <= 2;
   if(canister) hitNotes.push('Canister Shot: extra die');
 
-  presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes:hitNotes}], gun.side, ()=>{
+  presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes:hitNotes, at:{x:gun.x,y:gun.y}}], gun.side, ()=>{
     const hitRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
     const roll = Math.max(...hitRolls);
     const hit = roll >= needed;
@@ -1382,7 +1382,7 @@ export function fireArtillery(gun, target, onComplete){
        target, for the same reason. */
     AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
       { pan: AudioManager.panForBoardX(gun.x) });
-    showDice([{label:'To Hit', side:gun.side, rolls:hitRolls, keptValue:roll, notes:hitNotes}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
+    showDice([{label:'To Hit', side:gun.side, rolls:hitRolls, keptValue:roll, notes:hitNotes, at:{x:gun.x,y:gun.y}}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
       log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
       if(!hit){
         /* A MISS IS A SHOT. It used to return here without ever reaching
@@ -1436,7 +1436,7 @@ export function fireArtillery(gun, target, onComplete){
       if(canister) effNotes.push('Canister Shot: extra die');
       if(crackShotBonus) effNotes.push('+1 effect: Crack Shot (kept a 6 to hit)');
 
-      presentRollTrigger([{label:'Effect', side:gun.side, diceCount: canister ? 2 : 1, notes:effNotes}], gun.side, ()=>{
+      presentRollTrigger([{label:'Effect', side:gun.side, diceCount: canister ? 2 : 1, notes:effNotes, at:{x:target.x,y:target.y}}], gun.side, ()=>{
         const effRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
         const rawRoll = Math.max(...effRolls);
         /* CAP LAST, AFTER THE COVER PENALTY.
@@ -1468,7 +1468,7 @@ export function fireArtillery(gun, target, onComplete){
            The melee panel has always split these (keptValue is the die that
            counts, finalValue absorbs bonuses and re-rolls). Artillery now does
            the same, so the arithmetic on screen adds up. */
-        showDice([{label:'Effect', side:gun.side, rolls:effRolls, keptValue:rawRoll, finalValue:effRoll, notes:effNotes}], effLabel, effCls, ()=>{
+        showDice([{label:'Effect', side:gun.side, rolls:effRolls, keptValue:rawRoll, finalValue:effRoll, notes:effNotes, at:{x:target.x,y:target.y}}], effLabel, effCls, ()=>{
           // Stacked units (doubled infantry in open terrain) suffer the same effect roll together —
           // each may need its own async Rally/Leadership sequence, so process them one at a time.
           if(stack.length>1) log(`${stack.length} units in that square share the effect.`, 'combat');
@@ -1525,7 +1525,7 @@ export function resolveVolley(shooter, target, onComplete){
   showActionLine(shooter, target, '#e8c46a', 3800, true);
   recordGunfire('musket', shooter, target);   // three muzzle flashes along the front, then smoke (render-gunfire.js)
 
-  presentRollTrigger([{label:'Volley', side:shooter.side, diceCount:dice, notes}], shooter.side, ()=>{
+  presentRollTrigger([{label:'Volley', side:shooter.side, diceCount:dice, notes, at:{x:shooter.x,y:shooter.y}}], shooter.side, ()=>{
     const rolls = dice === 2 ? [rollD6(), rollD6()] : [rollD6()];
     const rawRoll = Math.max(...rolls);
     /* Capped at 6 and floored at 1. "A natural 6 with +1 does nothing beyond
@@ -1584,7 +1584,7 @@ export function resolveVolley(shooter, target, onComplete){
        into a knock back. */
     const outcome = effRoll >= 6 ? 'knockback' : effRoll >= 4 ? 'disrupt' : 'none';
     const label = outcome==='knockback' ? 'Knocked back' : outcome==='disrupt' ? 'Turned around' : 'No effect';
-    showDice([{label:'Volley', side:shooter.side, rolls, keptValue:rawRoll, notes}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
+    showDice([{label:'Volley', side:shooter.side, rolls, keptValue:rawRoll, notes, at:{x:shooter.x,y:shooter.y}}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
       log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''} (${label.toLowerCase()}).`, 'combat');
       state.volleyed.add(shooter.id);
       logReplay('fire', {

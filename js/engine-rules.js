@@ -939,9 +939,9 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   function currentGroups(){
     return [
       {label:aLabel, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
-       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
+       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
       {label:dLabel, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
-       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
+       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
     ];
   }
   function leadText(){
@@ -1095,9 +1095,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   armBattleBed();
   presentRollTrigger([
     {label:aName, side:attacker.side, diceCount:aDice, notes:aReasons,
-     portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+     at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
     {label:dName, side:defender.side, diceCount:dDice, notes:dReasons,
-     portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+     at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
   ], attacker.side, ()=>{
     const aRoll = rollBest(aDice);
     const dRoll = rollBest(dDice);
@@ -1147,9 +1147,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
       {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
-       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
-       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
        rerollPending ? 'draw' : interim.resultCls, null, true);
 
@@ -1178,10 +1178,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     refreshDiceFrame([
       // finalValue from the frozen pair, so the headline, the highlighted die and
       {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:finalA, notes:aReasons,
-       portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       // the adjustment beneath it all describe the same fight.
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:finalD, notes:dReasons,
-       portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
 
     /* Exactly what the PANEL was built from. fightOutcome below is computed
@@ -1519,7 +1519,7 @@ export function retreatAndRally(loser, onComplete){
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
-  presentRollTrigger([{label:'Rally', side:loser.side, diceCount:1, notes:rallyNote}], loser.side, ()=>{
+  presentRollTrigger([{label:'Rally', side:loser.side, diceCount:1, notes:rallyNote, at:{x:loser.x,y:loser.y}}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
     /* The rally in full: the roll, the threshold and its reason, whether a
@@ -1534,7 +1534,7 @@ export function retreatAndRally(loser, onComplete){
       leadershipAvailable: !!(brig && !brig.leadershipUsed),
       note: rallyNote[0] || null,
     });
-    showDice([{label:'Rally', side:loser.side, rolls:[r], keptValue:r, notes:rallyNote}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
+    showDice([{label:'Rally', side:loser.side, rolls:[r], keptValue:r, notes:rallyNote, at:{x:loser.x,y:loser.y}}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
         logNarration('rally_success');
         /* Played on the SUCCESS branch, before the outcome splits, so it covers

@@ -1060,6 +1060,47 @@
   .dice-legend{ font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:var(--ink-dim); text-align:center; margin-top:6px; padding-top:5px; border-top:1px solid var(--line); line-height:1.4; }
   .dice-set{ display:flex; gap:4px; }
   .dice-vs{ font-family:'Cinzel',serif; font-size:11px; color:var(--ink-dim); align-self:center; padding-top:12px; }
+  /* DICE ON THE BOARD (dice.js, 9 Oct 2026). The overlay covers the board
+     and is transparent; each side's group sits beside its unit (placed by
+     positionBoardDice); dice twice the panel size; the labels and then the
+     strength number appear under them; the result floats above the fight.
+     Prompts (.prompting) and rolls with no unit keep the panel. */
+  #diceOverlay.on-board{ inset:0; left:0; top:0; transform:none; z-index:40; }
+  #diceOverlay.on-board.show{ transform:none; }
+  #diceOverlay.on-board .dice-panel:not(.prompting){ position:absolute; inset:0; width:auto !important; min-width:0 !important; min-height:0 !important;
+    height:auto; border:0 !important; border-image:none !important; background:none !important; box-shadow:none !important; padding:0 !important; pointer-events:none; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-groups{ display:block; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-group{ position:absolute; transform:translate(-50%,-50%); gap:4px; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-face,
+  #diceOverlay.on-board .dice-panel:not(.prompting) .glabel,
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-who,
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-vs,
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-adjust{ display:none; }
+  #diceOverlay.on-board .dice-set{ gap:7px; filter:drop-shadow(0 3px 4px rgba(0,0,0,.55)); }
+  #diceOverlay.on-board .die{ width:43px; height:43px; }
+  #diceOverlay.on-board .dice-notes{ max-width:none; align-items:center; gap:3px; margin-top:2px; }
+  #diceOverlay.on-board .dice-notes span{ font:600 10.5px/1.15 'Inter',sans-serif; color:#fff; background:rgba(25,20,12,.66);
+    border:1px solid rgba(255,235,190,.35); padding:2px 8px; border-radius:9px; white-space:nowrap; text-shadow:0 1px 1px rgba(0,0,0,.6);
+    opacity:0; animation:boardNoteIn .25s ease-out forwards; }
+  #diceOverlay.on-board .dice-notes span:nth-child(2){ animation-delay:.12s; } #diceOverlay.on-board .dice-notes span:nth-child(3){ animation-delay:.24s; }
+  #diceOverlay.on-board .dice-notes span:nth-child(n+4){ animation-delay:.36s; }
+  #diceOverlay.on-board .dice-num{ font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-weight:700; font-size:48px; line-height:.9;
+    color:#fff; text-shadow:0 0 2px rgba(0,0,0,.95), 0 2px 6px rgba(0,0,0,.8), 0 0 14px rgba(0,0,0,.5);
+    opacity:0; animation:boardNumIn .3s ease-out .4s forwards; }
+  #diceOverlay.on-board .dice-num.lose{ font-size:38px; color:#efe4cd; }
+  #diceOverlay.on-board .dice-num.tie{ font-size:42px; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-result{ position:absolute; transform:translate(-50%,-50%); margin:0; min-height:0;
+    font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-weight:700; font-size:22px; color:#fff !important; white-space:nowrap;
+    text-shadow:0 0 2px #000, 0 2px 8px rgba(0,0,0,.85); }
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-result:empty{ display:none; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) #diceRollBtn,
+  #diceOverlay.on-board .dice-panel:not(.prompting) .dice-reroll{ position:absolute; left:50%; bottom:calc(14px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+    margin:0 !important; pointer-events:auto; }
+  #diceOverlay.on-board .dice-panel:not(.prompting) #diceLegend{ position:absolute; left:50%; top:10px; transform:translateX(-50%);
+    font:600 11px 'Inter',sans-serif; color:#fff; background:rgba(25,20,12,.66); padding:3px 10px; border-radius:10px; }
+  @keyframes boardNoteIn{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  @keyframes boardNumIn{ from{ opacity:0; transform:scale(.7); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion:reduce){ #diceOverlay.on-board .dice-notes span, #diceOverlay.on-board .dice-num{ animation:none; opacity:1; } }
   .die{
     width:32px;height:32px; background:#fdf6e3; border:2px solid var(--ink); border-radius:6px;
     display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);

@@ -1340,6 +1340,8 @@ export function applyMapTransform(){
   canvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
   syncFctLayer();   // the label layer rides the same transform or it drifts off the board
   syncAmbientClip();   // clouds stay over the board, not the empty margins beside it
+  // Anything pinned to squares (the dice on the board, dice.js) follows the board.
+  try { window.dispatchEvent(new Event('fc-board-transform')); } catch { /* no window in Node */ }
   scheduleBackingUpdate();   // sharpen to the new zoom once it settles
 }
 

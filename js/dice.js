@@ -151,6 +151,93 @@ function ensureBattleBedObserver(){
    callbacks do nothing, because the rules only run on the rolling phone.
    `replaying` stops a mirrored call being reported straight back.
 ========================================================= */
+/* =========================================================
+   DICE ON THE BOARD (Matthew, 9 Oct 2026)
+
+   No panel over the fight. Each side's dice tumble beside its own unit, on
+   the side away from the enemy, above the board and the clouds; once they
+   land, the bonuses and penalties appear under them as small labels, then
+   the strength each side fights on as a large white number (the winner's
+   larger), and the result in the same lettering just above the fight. After
+   the usual pause it all fades, leaving the board clear.
+
+   Every roll that belongs to a unit carries `at` (the unit's square), set by
+   its caller: fights (attacker and defender), rallies, artillery to-hit (the
+   gun) and effect (the target), volleys (the shooter). A roll without one
+   (the opening orientation roll) and every prompt (Leadership, Ambush) still
+   use the panel. The same dice code runs either way; only where the groups
+   are put and how they are styled changes (#diceOverlay.on-board).
+========================================================= */
+export const DICE_ON_BOARD = true;
+let screenPoint = null;     // (x, y) square -> { x, y, cell } in #diceOverlay's frame; set by boot
+let boardGroups = null;     // the groups on screen now, for re-placing when the board moves
+export function setDiceScreenPoint(fn){ screenPoint = fn; }
+const onBoardFor = groups => DICE_ON_BOARD && !!screenPoint && groups.length > 0 && groups.every(g => g && g.at);
+function setBoardMode(groups){
+  const overlay = document.getElementById('diceOverlay');
+  const on = onBoardFor(groups);
+  overlay.classList.toggle('on-board', on);
+  boardGroups = on ? groups : null;
+  return on;
+}
+/* Puts each side's dice beside its unit, away from the other unit, and the
+   result above the fight; kept inside the view, flipped to the other side of
+   the unit if it would run off. Called after every render and whenever the
+   board is panned, zoomed or resized. */
+export function positionBoardDice(){
+  const overlay = document.getElementById('diceOverlay');
+  if(!overlay || !overlay.classList.contains('on-board') || !boardGroups || !screenPoint) return;
+  const els = [...overlay.querySelectorAll('.dice-groups > .dice-group')];
+  const pts = boardGroups.map(g => screenPoint(g.at.x, g.at.y));
+  const W = overlay.clientWidth, H = overlay.clientHeight;
+  const place = (el, x, y, alt) => {
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if(alt && (x - w / 2 < 4 || x + w / 2 > W - 4)){ x = alt; el.style.left = x + 'px'; }
+    el.style.left = Math.max(w / 2 + 4, Math.min(W - w / 2 - 4, x)) + 'px';
+    el.style.top = Math.max(h / 2 + 4, Math.min(H - h / 2 - 4, y)) + 'px';
+  };
+  if(pts.length === 2){
+    const [a, b] = pts, c = a.cell, off = c * 1.6;
+    const dx = a.x - b.x, dy = a.y - b.y;
+    if(Math.abs(dx) >= Math.abs(dy)){        // side by side: each outward along the line between them
+      const sa = Math.sign(dx) || -1;
+      place(els[0], a.x + sa * off, a.y, a.x - sa * off);
+      place(els[1], b.x - sa * off, b.y, b.x + sa * off);
+    } else {                                  // one above the other: one to each side
+      place(els[0], a.x - off, a.y, a.x + off);
+      place(els[1], b.x + off, b.y, b.x - off);
+    }
+  } else {
+    pts.forEach((p, i) => els[i] && place(els[i], p.x + p.cell * 1.6, p.y, p.x - p.cell * 1.6));
+  }
+  const res = overlay.querySelector('.dice-result');
+  if(res){
+    const mx = pts.reduce((n, p) => n + p.x, 0) / pts.length;
+    const top = Math.min(...pts.map(p => p.y)), bottom = Math.max(...pts.map(p => p.y));
+    const c = pts[0].cell;
+    let y = top - c * 1.3;
+    if(y < 18) y = bottom + c * 1.3;
+    res.style.left = Math.max(80, Math.min(W - 80, mx)) + 'px';
+    res.style.top = y + 'px';
+  }
+}
+if(typeof window !== 'undefined'){
+  window.addEventListener('fc-board-transform', () => positionBoardDice());
+  window.addEventListener('resize', () => positionBoardDice());
+}
+/* The strength a side fights on, as the big number under its dice. */
+function strengthHTML(groups, i){
+  const { counts } = diceValueParts(groups[i]);
+  if(counts == null) return '';
+  let cls = '';
+  if(groups.length === 2){
+    const other = diceValueParts(groups[1 - i]).counts;
+    cls = counts > other ? 'win' : counts < other ? 'lose' : 'tie';
+  }
+  return `<div class="dice-num ${cls}">${counts}</div>`;
+}
+
 let mirrorOut = null, replaying = false;
 export function setDiceMirror(fn){ mirrorOut = fn; }
 function emit(kind, args){ if(mirrorOut && !replaying) mirrorOut(kind, args); }
@@ -194,6 +281,7 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   if(battleBedArmed){
     AudioManager.startLoop('battle-resolve', 'audio/effects/battle-resolve.wav', 'effects');
   }
+  const board = setBoardMode(groups);
   overlay.classList.add('show');
   resultEl.textContent = '';
   resultEl.className = 'dice-result';
@@ -206,11 +294,13 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
     const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
     const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending', g.side)).join('');
-    const notesHTML = (g.notes && g.notes.length) ?
+    // On the board the labels wait for the roll (they appear under the landed dice).
+    const notesHTML = (!board && g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
     return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${notesHTML}</div>${sep}`;
   }).join('');
+  positionBoardDice();
 
   /* humanOwns, not "is it the AI's side": in Spectate state.aiSide follows
      whichever side is acting, so a roll that belongs to the other side (the
@@ -331,6 +421,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   clearTimeout(showDice._fadeT);
   flushPendingSettle();
   clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
+  const boardOn = setBoardMode(groups);
 
   function renderFrame(final, settling){
     let k = 0;
@@ -344,7 +435,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
         k++;
         return dieFaceHTML(shown, cls + settle, g.side);
       }).join('');
-      const adjustHTML = final ? adjustmentHTML(g) : '';
+      const adjustHTML = final ? (boardOn ? '' : adjustmentHTML(g)) : '';
       // Portrait and regiment name, so a fight reads as "who against whom"
       // rather than just "Britain vs France". Absent for rally and artillery
       // rolls, which are not unit-against-unit.
@@ -353,8 +444,10 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
       const notesHTML = (final && g.notes && g.notes.length) ?
         `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
       const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-      return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
+      const numHTML = final && boardOn ? strengthHTML(groups, i) : '';
+      return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}${numHTML}</div>${sep}`;
     }).join('');
+    positionBoardDice();
   }
 
   overlay.classList.add('show');
@@ -473,14 +566,20 @@ export function refreshDiceFrame(groups, resultText, resultCls){
       const rolling = prevCounts.length && g.rolls.length > (prevCounts[i] || 0);
       return dieFaceHTML(v, fresh ? 'rolling fresh' : rolling ? '' : dieClass(g, idx), g.side);
     }).join('');
-    const adjustHTML = adjustmentHTML(g);
+    const boardOn = onBoardFor(groups);
+    const adjustHTML = boardOn ? '' : adjustmentHTML(g);
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
     const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
     const notesHTML = (g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
     const sep = i<groups.length-1 ? '<div class="dice-vs">vs</div>' : '';
-    return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}</div>${sep}`;
+    // A side still re-rolling shows its number only when the new die lands.
+    const stillRolling = prevCounts.length && g.rolls.length > (prevCounts[i] || 0);
+    const numHTML = boardOn && !stillRolling ? strengthHTML(groups, i) : '';
+    return `<div class="dice-group">${faceHTML}<div class="glabel">${g.label}</div>${whoHTML}<div class="dice-set">${diceHTML}</div>${adjustHTML}${notesHTML}${numHTML}</div>${sep}`;
   }).join('');
+  setBoardMode(groups);
+  positionBoardDice();
   resultEl.textContent = resultText || '';
   resultEl.className = 'dice-result ' + (resultCls||'');
   /* A RE-ROLL TUMBLES (9 Oct 2026). The new die used to appear already
@@ -516,7 +615,20 @@ export function refreshDiceFrame(groups, resultText, resultCls){
         if(cls) d.classList.add(cls);
         if(img && d.classList.contains('die-art')) d.classList.add('settle');
       });
+      // On the board, the strengths are redrawn now the new die has landed.
+      const groupEl = sets[i] && sets[i].closest('.dice-group');
+      if(groupEl && onBoardFor(groups)){
+        groupEl.querySelectorAll('.dice-num').forEach(e => e.remove());
+        groupEl.insertAdjacentHTML('beforeend', strengthHTML(groups, i));
+      }
     });
+    // The other side's number may have changed from winning to losing.
+    if(onBoardFor(groups)) [...groupsEl.querySelectorAll('.dice-group')].forEach((el, i) => {
+      const n = el.querySelector('.dice-num'); if(!n) return;
+      const tmp = document.createElement('div'); tmp.innerHTML = strengthHTML(groups, i);
+      if(tmp.firstChild) n.className = tmp.firstChild.className;
+    });
+    positionBoardDice();
   }, TUMBLE_FRAME_MS);
 }
 const REROLL_TUMBLE_MS = 600;

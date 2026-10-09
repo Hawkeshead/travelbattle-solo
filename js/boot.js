@@ -6,7 +6,9 @@ import { initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { fctSquareToPixel, playBoardIntroAnimation, sizeCanvas } from './render-board.js';
+import { canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
+import { setDiceScreenPoint } from './dice.js';
+import { COLS } from './data-core.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { CAMPAIGNS_ENABLED, prepareTitleBoard, showModeSelect, startAmbientLayer } from './ui-menus.js';
@@ -155,6 +157,14 @@ document.addEventListener('visibilitychange', () => recVisibility(document.hidde
 initTelemetrySender();
 // Unit figures: load the sprite-sheet sidecars (render-figures.js).
 initFigures();
+/* Dice on the board (dice.js): a square's centre in #diceOverlay's frame, which
+   is #boardWrap's, and one square's size on screen, at the current pan and zoom. */
+setDiceScreenPoint((x, y) => {
+  const wrap = document.getElementById('boardWrap');
+  const wr = wrap.getBoundingClientRect(), r = boardCanvas.getBoundingClientRect();
+  const cell = r.width / COLS, s = toScreen(x, y);
+  return { x: r.left - wr.left + (s.x + 0.5) * cell, y: r.top - wr.top + (s.y + 0.5) * cell, cell };
+});
 // Rearranging a complete deployment by drag or tap (deploy-rearrange.js).
 initDeployRearrange();
 // Match save: it may only save when no unit is mid-animation (match-save.js).
