@@ -80,8 +80,16 @@ export function isVip(u){ return !!(u && u.captureRule); }
    for him either. Guarded here, where the status is applied, so no source
    (a pushback shove, a displacement, a gun's 4, a replay) can give him the badge.
    Returns whether the status took. */
+/* STACKING (Matthew, 10 Oct 2026). Turned around again while already turned
+   around, the status no longer just stays as it was (and so wears off on the
+   unit's next turn as if nothing had happened): it stacks, and carries one
+   more of the unit's own turns per extra application. The count is
+   u._turnedExtra; clearPendingTurnaroundFlagsIfDue spends it. Capped so a
+   unit cannot be pinned for the rest of the battle. */
+export const TURNED_STACK_MAX = 3;
 export function setTurnedAround(u){
   if(!u || u.type==='BRIGADIER' || isVip(u)) return false;
+  if(u.turnOnly) u._turnedExtra = Math.min(TURNED_STACK_MAX - 1, (u._turnedExtra || 0) + 1);
   u.turnOnly = true;
   return true;
 }
