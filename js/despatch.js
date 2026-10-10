@@ -48,7 +48,8 @@ const RISE = 290, FLY = 400;               // the despatch rises this far above 
 const PARCH_REST = HINGE + 12;             // closed: the despatch sits down inside the body
 const TOP = 14, EDGE = 20, BOARD_INSET = 10;
 const PHASES = { endMoveBtn: { phase: 'move', next: 'to Fire phase' }, endFireBtn: { phase: 'fire', next: 'to Fight phase' },
-  endFightBtn: { phase: 'fight', next: 'to end the turn' } };
+  endFightBtn: { phase: 'fight', next: 'to end the turn' },
+  beginBattleBtn: { phase: 'deploy', next: 'to the field' } };
 
 let root = null, stage = null, flapOut = null, flapIn = null, parch = null, label = null, shield = null;
 let ready = false, isOpen = false, busy = false, closing = false, openAfterClose = false, countdown = null, outsideCloseHook = null;
@@ -171,10 +172,13 @@ const BUTTON_FOR_PHASE = { move: 'endMoveBtn', fire: 'endFireBtn', fight: 'endFi
 function sync(){
   if(!ready) return;
   const dock = document.getElementById('phaseDock');
-  // The case is for the battle's three phases only; setup (orientation's
-  // Confirm, Begin Battle) keeps its own buttons.
+  /* The battle's three phases, and Begin Battle once both armies are down
+     (10 Oct 2026: it still showed the old seal). Orientation's Confirm keeps
+     its own button. */
   const id = BUTTON_FOR_PHASE[state.phase];
-  const btn = id ? document.getElementById(id) : null;
+  const begin = document.getElementById('beginBattleBtn');
+  const offered = !id && begin && begin.style.display !== 'none' && dock && dock.style.display !== 'none';
+  const btn = id ? document.getElementById(id) : offered ? begin : null;
   /* The old end buttons stay hidden for the whole battle, including the moment
      it ends: the case itself goes when the match is over, but dropping
      'despatch-on' with it uncovered the old End Fight seal on the last turn
