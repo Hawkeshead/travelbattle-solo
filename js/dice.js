@@ -178,8 +178,26 @@ function setBoardMode(groups){
   const on = onBoardFor(groups);
   overlay.classList.toggle('on-board', on);
   boardGroups = on ? groups : null;
+  if(on) frameFight(groups);
   return on;
 }
+/* THE CAMERA CLOSES IN ON THE FIGHT (Matthew, 10 Oct 2026). When dice go on
+   the board, the camera frames both units (for artillery, the gun and its
+   target: `also`) with room either side for their dice, as close as that
+   allows. Once per roll: the pre-roll, the result and a re-roll of the same
+   fight share one framing, so the board does not keep moving. */
+let frameFn = null, lastFrameKey = '';
+export function setDiceFrame(fn){ frameFn = fn; }
+function frameFight(groups){
+  if(!frameFn || FAST_DICE_MODE) return;
+  const pts = [];
+  for(const g of groups){ pts.push(g.at); if(g.also) pts.push(g.also); }
+  const key = pts.map(p => p.x + ',' + p.y).sort().join('|');
+  if(key === lastFrameKey && performance.now() - frameFight._t < 8000) return;
+  lastFrameKey = key; frameFight._t = performance.now();
+  try { frameFn(pts); } catch { /* the camera is a nicety */ }
+}
+frameFight._t = 0;
 /* Puts each side's dice beside its unit, away from the other unit, and the
    result above the fight; kept inside the view, flipped to the other side of
    the unit if it would run off. Called after every render and whenever the

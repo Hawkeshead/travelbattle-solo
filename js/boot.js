@@ -6,8 +6,8 @@ import { initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
-import { setDiceScreenPoint } from './dice.js';
+import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
+import { setDiceFrame, setDiceScreenPoint } from './dice.js';
 import { COLS } from './data-core.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
@@ -164,6 +164,13 @@ setDiceScreenPoint((x, y) => {
   const wr = wrap.getBoundingClientRect(), r = boardCanvas.getBoundingClientRect();
   const cell = r.width / COLS, s = toScreen(x, y);
   return { x: r.left - wr.left + (s.x + 0.5) * cell, y: r.top - wr.top + (s.y + 0.5) * cell, cell };
+});
+/* Framing a fight for its dice: the units themselves plus two squares either
+   side across the screen, where the dice groups sit, kept on the board. */
+setDiceFrame(points => {
+  const pad = [];
+  for(const p of points) for(const dx of [-2, 2]) pad.push({ x: Math.max(0, Math.min(COLS - 1, p.x + dx)), y: p.y });
+  cameraToAction([...points, ...pad], { durationMs: 420 });
 });
 // Rearranging a complete deployment by drag or tap (deploy-rearrange.js).
 initDeployRearrange();
