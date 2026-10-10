@@ -591,14 +591,26 @@ const inf = u => kind(u) === 'INFANTRY' || kind(u) === 'GUARD';
    are baked into one offscreen canvas, rebuilt only when a body is added or
    the view changes; a man still falling is drawn live until his fall ends. */
 let bake = null;
+/* THE FALLEN FADE (Matthew, 10 Oct 2026: over a battle they pile up and hide
+   the living). Each body lies for BODY_LIE_MS, then fades out over
+   BODY_FADE_MS and is no longer drawn. Timed on this screen only (FIRST_SEEN,
+   runtime, never saved): the bodies stay in state.figureBodies for the match
+   record and the other phone, and a reloaded or rejoined battle gives the
+   ones already there their own 30 seconds from when they are first shown. */
+const BODY_LIE_MS = 30000, BODY_FADE_MS = 3000;
+const FIRST_SEEN = {};
+let bodiesShown = false;
 export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
   if(!figuresReady()) return;
   const bodies = state.figureBodies || [];
   if(!bodies.length){ bake = null; return; }
   const t = now();
-  const settled = [], falling = [];
+  const settled = [], falling = [], fading = [];
   for(const b of bodies){
     if(hiddenAt && hiddenAt(b)) continue;
+    const age = t - (FIRST_SEEN[b.id] || (FIRST_SEEN[b.id] = t));
+    if(age >= BODY_LIE_MS + BODY_FADE_MS) continue;           // gone
+    if(age >= BODY_LIE_MS){ fading.push({ b, a: 1 - (age - BODY_LIE_MS) / BODY_FADE_MS }); continue; }
     const st = FALLING[b.id];
     if(st != null){
       const meta = META()[b.type], a = meta && meta.anims.fall;
@@ -608,7 +620,9 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
     }
     settled.push(b);
   }
-  const key = [viewKey, canvasW, canvasH, CELL, settled.length, settled.length && settled[settled.length - 1].id].join('|');
+  bodiesShown = fading.length > 0 || settled.length > 0 || falling.length > 0;
+  // The first id too: the bake must be redone when the oldest body starts to fade.
+  const key = [viewKey, canvasW, canvasH, CELL, settled.length, settled.length && settled[0].id, settled.length && settled[settled.length - 1].id].join('|');
   if(!bake || bake.key !== key){
     const off = bake && bake.canvas ? bake.canvas : document.createElement('canvas');
     off.width = canvasW; off.height = canvasH;
@@ -621,6 +635,7 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
   }
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(bake.canvas, 0, 0); c.restore();
   for(const f of falling) paintBody(c, f.b, f.st);
+  for(const f of fading){ c.save(); c.globalAlpha *= Math.max(0, f.a); paintBody(c, f.b, null); c.restore(); }
 }
 function paintBody(c, b, fallStart){
   const anim = b.wreck ? 'wreck' : 'fall';
@@ -632,5 +647,7 @@ function paintBody(c, b, fallStart){
   blit(c, sh, frame, (p.x + 0.5) * CELL, (p.y + 0.5) * CELL);
   return true;
 }
-export const figuresAnimating = () => figuresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0);
+/* Still moving: a man falling, a walk between formations, or bodies on the
+   field (they keep the loop alive until the last has faded). */
+export const figuresAnimating = () => figuresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0 || bodiesShown);
 
