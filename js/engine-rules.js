@@ -947,9 +947,9 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   function currentGroups(){
     return [
       {label:aLabel, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
-       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
+       at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || UNIT_TYPES[attacker.type].label},
       {label:dLabel, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
-       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
+       at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || UNIT_TYPES[defender.type].label}
     ];
   }
   function leadText(){
@@ -1103,9 +1103,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   armBattleBed();
   presentRollTrigger([
     {label:aName, side:attacker.side, diceCount:aDice, notes:aReasons,
-     at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+     at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
     {label:dName, side:defender.side, diceCount:dDice, notes:dReasons,
-     at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+     at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
   ], attacker.side, ()=>{
     const aRoll = rollBest(aDice);
     const dRoll = rollBest(dDice);
@@ -1155,9 +1155,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const interim = computeFightResult(aRoll.value, dRoll.value);
     showDice([
       {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
-       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+       at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
-       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+       at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
        rerollPending ? 'draw' : interim.resultCls, null, true);
 
@@ -1183,13 +1183,22 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     else if(attackerChargeTieWin) aReasons.push('Tie-win: Charge');
     else if(attackerColumnTieWin) aReasons.push('Tie-win: Attack Column');
 
+    /* For the clash on the board only (render-figures, via dice.js): the
+       outcome and who lost, from the same frozen pair and the same formula as
+       fightOutcome below, so the units act out exactly what the rules do. */
+    const shownOutcome = genuineDraw ? 'stalemate'
+      : (defenderHillTieWin || attackerChargeTieWin || attackerColumnTieWin) ? 'pushback'
+      : (Math.abs(finalA-finalD)>=3 ? 'destroy' : Math.abs(finalA-finalD)===2 ? 'rout' : 'pushback');
+    const shownLoser = genuineDraw ? null : defenderHillTieWin ? attacker.id
+      : (attackerChargeTieWin || attackerColumnTieWin) ? defender.id : (finalA > finalD ? defender.id : attacker.id);
     refreshDiceFrame([
       // finalValue from the frozen pair, so the headline, the highlighted die and
       {label:aName, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:finalA, notes:aReasons,
-       at:{x:attacker.x,y:attacker.y}, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
+       at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label,
+       clash:{ result: shownOutcome, loser: shownLoser }},
       // the adjustment beneath it all describe the same fight.
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:finalD, notes:dReasons,
-       at:{x:defender.x,y:defender.y}, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
+       at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
     ], resultText, resultCls);
 
     /* Exactly what the PANEL was built from. fightOutcome below is computed
