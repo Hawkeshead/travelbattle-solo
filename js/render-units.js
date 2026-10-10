@@ -1,5 +1,5 @@
 import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './data-core.js';
-import { figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
+import { clashOffset, figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
 import { isConcealedFromEnemy, isTurnedAround } from './engine-rules.js';
@@ -528,11 +528,15 @@ function drawUnitInner(u, off){
   // Gait added here rather than inside getUnitVisualPos, because that value also
   // feeds the depth sort and a bobbing sort key would flicker against terrain.
   const sp = toScreen(vp.x, vp.y);
-  const cx = sp.x*CELL+CELL/2 + off.dx*CELL,
-        cy = (sp.y + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
+  let cx = sp.x*CELL+CELL/2 + off.dx*CELL,
+      cy = (sp.y + unitGaitOffset(u))*CELL + CELL/2 + off.dy*CELL;
   // Sampled here, at the exact coordinates the unit is about to be drawn at, so
   // the probe records what the renderer saw rather than what it was told.
   routProbeSample(u, vp, cx, cy);
+  // In a fight, drawn stepped towards the enemy (render-figures clashOffset);
+  // zero, and free, whenever no fight's dice are up.
+  const co = clashOffset(u);
+  if(co){ cx += co.x*CELL; cy += co.y*CELL; }
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
   const col = (state.group && armyOf(u)) ? armyOf(u).color : SIDE_COLOR[u.side];
@@ -569,7 +573,7 @@ function drawUnitInner(u, off){
      when the figures style is on and the art has loaded. Drawn at the cell
      centre without the march bob (the men's own march animation is the gait).
      Brigadiers keep their portrait. Badges as before. */
-  if(figuresOn() && hasFigures(u) && drawUnitFigures(ctx, u, cx, sp.y*CELL + CELL/2 + off.dy*CELL, concealed ? 0.75 : 1)){
+  if(figuresOn() && hasFigures(u) && drawUnitFigures(ctx, u, cx, sp.y*CELL + CELL/2 + off.dy*CELL + (co ? co.y*CELL : 0), concealed ? 0.75 : 1)){
     if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, sp.y*CELL + off.dy*CELL + CELL*0.04, CELL*0.92, CELL*0.92); ctx.restore(); }
     drawStatusColumn(statusBadgesFor([u]), cx - off.dx*CELL - CELL/2, cy - off.dy*CELL - CELL/2);
     return;
@@ -650,7 +654,9 @@ export function drawColumnUnitPair(u1, u2){
 function drawColumnUnitPairInner(u1, u2){
   const vp = getUnitVisualPos(u1);
   const sp = toScreen(vp.x, vp.y);
-  const cx = sp.x*CELL+CELL/2, cy = sp.y*CELL+CELL/2;
+  // A column in a fight moves as one block, whichever of its two units is fighting.
+  const co = clashOffset(u1) || clashOffset(u2) || { x: 0, y: 0 };
+  const cx = sp.x*CELL+CELL/2 + co.x*CELL, cy = sp.y*CELL+CELL/2 + co.y*CELL;
   const isSel = state.selectedUnitId===u1.id || state.selectedUnitId===u2.id;
   const side = u1.side;
   const size = CELL*0.62;

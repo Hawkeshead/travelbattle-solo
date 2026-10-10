@@ -256,6 +256,23 @@ function strengthHTML(groups, i){
   return `<div class="dice-num ${cls}">${counts}</div>`;
 }
 
+/* THE CLASH (render-figures clashStart / clashResult, wired in boot). A fight's
+   groups carry each side's unitId; the final settle carries `clash` (the
+   outcome and the loser), set by the rules from the same frozen values as the
+   headline. The units step together when the dice appear, hold while they
+   tumble, and play their ending once the dice have landed and the strengths
+   are up. The same calls run on the online opponent's phone, which replays
+   these functions with the same groups. Never in fast-dice (headless) runs. */
+let clashHooks = null, landAt = 0;
+export function setDiceClash(h){ clashHooks = h; }
+const fightPair = groups => (groups && groups.length === 2 && groups[0] && groups[1] && groups[0].unitId && groups[1].unitId
+  && !groups[0].also && !groups[1].also) ? [groups[0].unitId, groups[1].unitId] : null;
+const CLASH_AFTER_LANDING_MS = 450;   // the strengths appear before anyone steps back
+function clashCall(name, ...args){
+  if(!clashHooks || FAST_DICE_MODE || !clashHooks[name]) return;
+  try { clashHooks[name](...args); } catch { /* the clash is decoration: never into the rules */ }
+}
+
 let mirrorOut = null, replaying = false;
 export function setDiceMirror(fn){ mirrorOut = fn; }
 function emit(kind, args){ if(mirrorOut && !replaying) mirrorOut(kind, args); }
@@ -271,6 +288,7 @@ export function replayDice(kind, a, onFinished){
 
 export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
   emit('trigger', { groups, legendText });
+  { const pair = fightPair(groups); if(pair) clashCall('start', pair[0], pair[1]); }
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -440,6 +458,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
   flushPendingSettle();
   clearInterval(showDice._rollT); clearTimeout(showDice._rollEndT);
   const boardOn = setBoardMode(groups);
+  { const pair = fightPair(groups); if(pair){ clashCall('start', pair[0], pair[1]); landAt = performance.now() + (FAST_DICE_MODE ? 0 : ROLL_MS); } }
 
   function renderFrame(final, settling){
     let k = 0;
@@ -569,6 +588,8 @@ const TUMBLE_MAX_NUDGE_PX = 3;
 // flicker-in only ever plays once, on the very first reveal.
 export function refreshDiceFrame(groups, resultText, resultCls){
   emit('refresh', { groups, resultText, resultCls });
+  { const pair = fightPair(groups), c = groups && groups[0] && groups[0].clash;
+    if(pair && c) clashCall('result', pair[0], pair[1], c.result, c.loser || null, Math.max(0, landAt - performance.now()) + CLASH_AFTER_LANDING_MS); }
   const overlay = document.getElementById('diceOverlay');
   const groupsEl = overlay.querySelector('.dice-groups');
   const resultEl = overlay.querySelector('.dice-result');
@@ -607,6 +628,7 @@ export function refreshDiceFrame(groups, resultText, resultCls){
      happens. */
   const freshEls = [...groupsEl.querySelectorAll('.die.fresh')];
   if(!freshEls.length) return;
+  landAt = performance.now() + REROLL_TUMBLE_MS;   // a fight's clash holds until this die lands
   playDiceSound();
   const sets = [...groupsEl.querySelectorAll('.dice-group .dice-set')];
   const t0 = performance.now();

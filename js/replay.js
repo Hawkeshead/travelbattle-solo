@@ -2,9 +2,10 @@ import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js
 import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
-import { removeUnit, setTurnedAround } from './engine-rules.js';
+import { removeUnit, setTurnedAround, terrainAt } from './engine-rules.js';
 import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
+import { clashReplay } from './render-figures.js';
 
 /* =========================================================
    BATTLE REPLAY — playback
@@ -89,6 +90,15 @@ export function applyReplayEvent(ev){
   }
   if(ev.type==='fight'){
     showReplayHitRing(ev.x, ev.y);
+    /* The two units close and act out the result (render-figures). Who lost
+       is read from the logged numbers; a tie that was not a draw went to the
+       defender on higher ground, otherwise to the attacker (Charge, Column),
+       exactly as the rules decide it. Nothing is added to the log. */
+    const tieToDefender = ev.ax != null && terrainAt(ev.x, ev.y).elevation > terrainAt(ev.ax, ev.ay).elevation;
+    const loser = ev.result === 'stalemate' ? null
+      : ev.aRoll === ev.dRoll ? (tieToDefender ? ev.attackerId : ev.defenderId)
+      : ev.aRoll > ev.dRoll ? ev.defenderId : ev.attackerId;
+    clashReplay(ev, loser);
     return;
   }
   if(ev.type==='fire'){

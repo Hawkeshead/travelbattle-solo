@@ -1,5 +1,5 @@
 import { AudioManager } from './audio-manager.js';
-import { figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
+import { clashActive, figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
@@ -801,7 +801,7 @@ export function ensureAnimationLoopRunning(){
     // freezing on whatever frame was current the rest of the time.
     const spriteAnimActive = figuresOn() ? (state.units.some(u => !u.removed && hasFigures(u)) || figuresAnimating())
       : state.units.some(u => !u.removed && (UNIT_TYPES[u.type].key==='INFANTRY' || UNIT_TYPES[u.type].key==='GUARD'));
-    if(stillAnimating || lineActive || deathActive || spriteAnimActive || gunfireActive() || promptGlowIds){
+    if(stillAnimating || lineActive || deathActive || spriteAnimActive || clashActive() || gunfireActive() || promptGlowIds){
       animFrameHandle = requestAnimationFrame(tick);
     } else {
       animFrameHandle = null;

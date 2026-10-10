@@ -36,7 +36,7 @@
    (gunners), melee, fall (held as the body), flee.
 ========================================================= */
 import { CELL, SIDES, UNIT_TYPES, state } from './data-core.js';
-import { toScreen, unitMoveKind } from './render-board.js';
+import { ensureAnimationLoopRunning, toScreen, unitMoveKind } from './render-board.js';
 
 /* UNIT MODELS: 'animated' (the pixel troops, assets/units-pixel, the default)
    or 'classic' (the old icons and sprite, exactly as before). Chosen in the
@@ -287,7 +287,9 @@ export function drawColumnFigures(c, u1, u2, cx, cy){
     const key = layoutKey(u, partner.id);
     if(s.layout !== key) reassign(u, s, key);
     WALK_PREV[u.id] = places;
-    collectMen(men, u, s, places, unitAnim(u), facing);
+    // A column fights as one block: the unit not in the fight acts with the one that is.
+    const shared = clashAnim(u1) || clashAnim(u2);
+    collectMen(men, u, s, places, shared && !unitMoveKind(u.id) ? shared : unitAnim(u), facing);
   }
   // Both units' men as one list, painted rear rank first.
   paintMen(c, men, cx, cy, 1);
@@ -299,6 +301,10 @@ function unitAnim(u){
   const t = now();
   const moving = unitMoveKind(u.id);
   if(moving === 'rout') return 'flee';
+  // The loser of a fight recoils to its new square at a run, not a walk.
+  if(moving === 'pushback' && FLEE_UNTIL[u.id] > t) return 'flee';
+  const ca = !moving && clashAnim(u);
+  if(ca) return ca;
   // The gallop is cavalry's charge; infantry charging with the bayonet march.
   if(moving === 'charge' && (kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV') && PIXEL()) return 'charge';
   if(moving) return 'march';
@@ -319,7 +325,9 @@ function collectMen(men, u, s, places, anim, facing){
   const w = walk ? Math.min(1, (now() - walk.start) / WALK_MS) : 1;
   if(walk && w >= 1) delete WALK[u.id];
   const fx = FX[u.id];
-  const start = (fx && fx.start) || 0;
+  const cl = CLASH[u.id];
+  // A clash's fall runs from the moment the verdict is shown; anything else from its own start.
+  const start = anim === 'fall' && cl && cl.tEnd != null ? cl.tEnd : (fx && fx.start) || 0;
   // A battery's fire: the gun fires, the crew serve it, from the same moment.
   const manAnim = k === 'ARTILLERY' && anim === 'fire' && PIXEL() ? 'serve' : anim;
   s.alive.forEach((a, m) => {
@@ -383,6 +391,111 @@ function paintMen(c, men, cx, cy, alpha){
   c.restore();
 }
 
+/* ---------- the clash: two units close while their fight's dice are up ----------
+   Visual only. Nothing here moves a unit's real square or touches the dice,
+   the timing of resolution or the match log; a unit is only DRAWN off its
+   square, by an offset that is zero whenever no fight is on the board.
+
+   Driven by the fight's dice (js/dice.js, setDiceClash, wired in boot), which
+   run on the rolling phone and, mirrored, on the online opponent's, and by
+   the 'fight' event in Watch Replay (clashReplay):
+   - start (the dice appear): both step towards each other, the attacker most
+     of the way to the shared edge, the defender a little. Cavalry gallop
+     (charge frames) and close faster. A unit in Square, and a gun, hold
+     their ground; only the other side closes.
+   - they hold at the edge playing melee while the dice tumble and the
+     strengths appear (and for as long as a re-roll is pending).
+   - result (the verdict is on screen): the winner steps back to its square;
+     the loser recoils (pushback) or turns and runs (rout) back to it with
+     its flee frames, or, destroyed, stays where they met so its men fall
+     there; a stalemate sends both back. All of it over before the dice fade.
+   The rules then move units exactly as before; a pushed-back loser makes
+   that move with its flee frames too (FLEE_UNTIL).
+
+   Offsets are in screen squares along the line between the two units, so a
+   diagonal fight closes diagonally. The furthest a figure goes is just past
+   the middle of the shared edge. Old icon style: the same, scaled down to a
+   nudge. Headless (no figures, fast dice): never started, so no cost. */
+const CLASH = {};       // unitId -> { other, from:{x,y}, to:{x,y}, dist, gallop, t0, adv, tEnd, end, endMs }
+const SHOWN = {};       // 'attackerId|defenderId' -> when its clash ran, so the fight event does not replay a melee
+const FLEE_UNTIL = {};  // unitId -> until when its pushback move runs with flee frames
+const CLASH_ATTACK = 0.34, CLASH_ATTACK_CAV = 0.40, CLASH_DEFEND = 0.12;   // squares travelled
+const CLASH_ADV_MS = 650, CLASH_ADV_CAV_MS = 420, CLASH_END_MS = 650;
+const CLASH_NUDGE = 0.3;   // the old icons only lean in
+const isCav = u => kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV';
+const holdsGround = u => u.formation === 'square' || kind(u) === 'ARTILLERY';
+const ease = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+
+/* The dice for a fight have appeared (or, without a Roll tap, been thrown). */
+export function clashStart(attackerId, defenderId, opts = {}){
+  if(!TRACK) return;
+  const a = unitById(attackerId), d = unitById(defenderId);
+  if(!a || !d) return;
+  if(CLASH[a.id] && CLASH[a.id].other === d.id) return;   // the same fight, already on
+  const t = now();
+  const fast = opts.fast || 1;
+  for(const [u, o, attacking] of [[a, d, true], [d, a, false]]){
+    const gallop = isCav(u) && attacking;
+    let dist = holdsGround(u) ? 0 : attacking ? (isCav(u) ? CLASH_ATTACK_CAV : CLASH_ATTACK) : CLASH_DEFEND;
+    if(attacking && o.formation === 'square') dist = Math.min(dist, 0.30);   // up to the square's face, not into it
+    CLASH[u.id] = { other: o.id, from: { x: u.x, y: u.y }, to: { x: o.x, y: o.y }, dist, gallop,
+      t0: t, adv: (isCav(u) ? CLASH_ADV_CAV_MS : CLASH_ADV_MS) * fast, tEnd: null, end: null, endMs: CLASH_END_MS * fast };
+  }
+  SHOWN[a.id + '|' + d.id] = t;
+  ensureAnimationLoopRunning();
+}
+/* The verdict is on screen: each side starts its ending after delayMs (the
+   dice landing and the strengths showing first). loserId null: stalemate. */
+export function clashResult(attackerId, defenderId, result, loserId, delayMs = 0){
+  if(!TRACK) return;
+  const t = now() + Math.max(0, delayMs);
+  for(const id of [attackerId, defenderId]){
+    const c = CLASH[id]; if(!c) continue;
+    c.tEnd = t;
+    c.end = id !== loserId || !loserId ? 'back' : result === 'destroy' ? 'hold' : 'flee';
+    if(id === loserId && (result === 'pushback' || result === 'rout')) FLEE_UNTIL[id] = t + 9000;
+  }
+  ensureAnimationLoopRunning();
+}
+/* How far a unit is drawn off its square now, in screen squares, or null.
+   full: the figures' own distance even in the old icon style (for bodies). */
+export function clashOffset(u, full){
+  const c = CLASH[u.id];
+  if(!c) return null;
+  const t = now();
+  if(t - c.t0 > 20000 || (c.tEnd != null && c.end !== 'hold' && t > c.tEnd + c.endMs)){ delete CLASH[u.id]; return null; }
+  if(!c.dist) return null;
+  let k = ease((t - c.t0) / c.adv);
+  if(c.tEnd != null && t > c.tEnd && c.end !== 'hold') k *= 1 - ease((t - c.tEnd) / c.endMs);
+  const p = toScreen(c.from.x, c.from.y), q = toScreen(c.to.x, c.to.y);
+  const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+  const m = c.dist * k * (full || (figuresOn() && hasFigures(u)) ? 1 : CLASH_NUDGE);
+  return { x: dx / len * m, y: dy / len * m };
+}
+/* Which frames a unit in a clash plays, or null when it is not in one. */
+function clashAnim(u){
+  const c = CLASH[u.id];
+  if(!c) return null;
+  const t = now();
+  if(c.tEnd != null && t >= c.tEnd){
+    if(t > c.tEnd + c.endMs && c.end !== 'hold') return null;
+    if(c.end === 'hold') return 'fall';   // destroyed: they fall where they met, and lie there
+    if(!c.dist) return c.end === 'flee' ? null : 'idle';   // standing its ground: no running on the spot
+    return c.end === 'flee' ? 'flee' : 'march';
+  }
+  if(t - c.t0 < c.adv) return !c.dist ? 'idle' : c.gallop && PIXEL() ? 'charge' : 'march';
+  return 'melee';
+}
+export const clashActive = () => Object.keys(CLASH).length > 0;
+
+/* Watch Replay: no dice there, so the 'fight' event plays the whole clash in
+   the time the replay gives a fight (1.5 s). loserId as clashResult. */
+export function clashReplay(ev, loserId){
+  if(!TRACK || !ev) return;
+  clashStart(ev.attackerId, ev.defenderId, { fast: 0.55 });
+  clashResult(ev.attackerId, ev.defenderId, ev.result, loserId, 650);
+}
+
 /* ---------- events: what happened to a unit (engine-state logReplay) ---------- */
 function strike(u, count){
   const s = squad(u); if(!s || count <= 0) return;
@@ -407,10 +520,13 @@ function fell(u, s, man){
   const facing = facingOf(u, false);
   const places = WALK_PREV[u.id] || placesFor(u, layoutFor(u, facing, null), facing, null);
   const slot = placeOf(places, s, man, B) || { x: 0, y: 0.2, f: facing };
-  const p = boardOffset(slot.x, slot.y);
+  // Where he actually stood: a unit destroyed in a fight dies where it met the enemy.
+  const co = clashOffset(u, true) || { x: 0, y: 0 };
+  const p = boardOffset(slot.x + co.x, slot.y + co.y);
   const id = 'b' + (++bodyCounter) + '_' + u.id + '_' + man;
   (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: man === B ? 'GUARD_BEARER' : kind(u), facing: slot.f, uf: facing, v: s.v ? s.v[man] : 0, side: u.side });
-  FALLING[id] = now();
+  // A man who already fell in the clash lies still; anyone else falls now.
+  if(!(CLASH[u.id] && CLASH[u.id].end === 'hold')) FALLING[id] = now();
 }
 /* A screen-space offset as board coordinates, so bodies stay put whichever
    way the board is later turned. */
@@ -450,7 +566,10 @@ export function figuresOnEvent(ev){
       }
     } else if(ev.type === 'fight'){
       const a = unitById(ev.attackerId), d = unitById(ev.defenderId);
-      for(const u of [a, d]) if(u) act(u, 'melee', MELEE_MS);
+      // The clash already showed this fight on the board while the dice were
+      // up; only a fight that had none (no dice drawn) gets the melee now.
+      const shown = a && d && SHOWN[a.id + '|' + d.id] > now() - 15000;
+      if(!shown) for(const u of [a, d]) if(u) act(u, 'melee', MELEE_MS);
       if(a && d && ev.result && ev.result !== 'stalemate' && ev.aRoll !== ev.dRoll){
         const loser = ev.aRoll > ev.dRoll ? d : a;
         if(ev.result !== 'destroy') strike(loser, inf(loser) ? 2 : 1);
@@ -461,6 +580,7 @@ export function figuresOnEvent(ev){
         strike(u, Infinity);
         if(kind(u) === 'ARTILLERY') wreck(u);
       }
+      if(u) delete CLASH[u.id];   // a loser held where it fell can go now its men lie there
     }
   } catch { /* drawing aid only: never into the game */ }
 }
@@ -513,3 +633,4 @@ function paintBody(c, b, fallStart){
   return true;
 }
 export const figuresAnimating = () => figuresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0);
+

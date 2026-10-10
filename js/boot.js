@@ -2,12 +2,12 @@ import { clearFloatingText, initFloatingText } from './floating-text.js';
 import { initDeployRearrange } from './deploy-rearrange.js';
 import { setAnimatingProbe } from './match-save.js';
 import { unitAnimations } from './render-board.js';
-import { initFigures } from './render-figures.js';
+import { clashResult, clashStart, initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
-import { setDiceFrame, setDiceScreenPoint } from './dice.js';
+import { setDiceClash, setDiceFrame, setDiceScreenPoint } from './dice.js';
 import { COLS } from './data-core.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
@@ -172,6 +172,8 @@ setDiceFrame(points => {
   for(const p of points) for(const dx of [-2, 2]) pad.push({ x: Math.max(0, Math.min(COLS - 1, p.x + dx)), y: p.y });
   cameraToAction([...points, ...pad], { durationMs: 420 });
 });
+// The two units in a fight step together while its dice are up (render-figures).
+setDiceClash({ start: clashStart, result: clashResult });
 // Rearranging a complete deployment by drag or tap (deploy-rearrange.js).
 initDeployRearrange();
 // Match save: it may only save when no unit is mid-animation (match-save.js).
