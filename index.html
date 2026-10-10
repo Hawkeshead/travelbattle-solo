@@ -383,6 +383,12 @@
   }
   #unitOverlayPanel #actionRow button:hover:not(:disabled){ background:linear-gradient(180deg,#dcb35d,var(--brass-bright)); }
   #unitOverlayPanel #actionRow button:disabled{ background:rgba(60,40,15,.06);box-shadow:none;border-color:var(--line);color:var(--ink-dim);opacity:.7; }
+  /* COMPACT ORDERS (Matthew, 10 Oct 2026): the brass bars filled the whole
+     card width. Now small brass pills sized to their words, side by side
+     under the tags, still a comfortable tap (30 px tall). */
+  #unitOverlayPanel #actionRow{ justify-content:flex-start; flex-wrap:wrap; gap:6px; padding:0 12px 10px; }
+  #unitOverlayPanel #actionRow button{ flex:0 0 auto; min-height:30px; padding:3px 14px; border-radius:15px;
+    font-size:14px; line-height:1; }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
   /* THE ARMY PICKER. text-size-adjust is load-bearing: iOS enlarges text in
