@@ -5334,7 +5334,9 @@ export function simulateFightAftermathScore(attacker, defender, side){
   const margin = (EV_BY_DICE[Math.min(aD,2)]||3.5) - (EV_BY_DICE[Math.min(dD,2)]||3.5);
 
   const snap = { aRemoved:attacker.removed, aX:attacker.x, aY:attacker.y, aTurnOnly:attacker.turnOnly,
-                 dRemoved:defender.removed, dX:defender.x, dY:defender.y, dTurnOnly:defender.turnOnly };
+                 dRemoved:defender.removed, dX:defender.x, dY:defender.y, dTurnOnly:defender.turnOnly,
+                 // setTurnedAround stacks (_turnedExtra) since 10 Oct 2026: put that back too.
+                 aExtra:attacker._turnedExtra, dExtra:defender._turnedExtra };
 
   if(margin >= 3){ defender.removed = true; }
   else if(margin >= 1){ setTurnedAround(defender); }
@@ -5352,6 +5354,7 @@ export function simulateFightAftermathScore(attacker, defender, side){
 
   attacker.removed=snap.aRemoved; attacker.x=snap.aX; attacker.y=snap.aY; attacker.turnOnly=snap.aTurnOnly;
   defender.removed=snap.dRemoved; defender.x=snap.dX; defender.y=snap.dY; defender.turnOnly=snap.dTurnOnly;
+  attacker._turnedExtra=snap.aExtra; defender._turnedExtra=snap.dExtra;
 
   return score;
 }

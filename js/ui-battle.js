@@ -582,8 +582,13 @@ export function clearPendingTurnaroundFlagsIfDue(){
     // save made before that guard existed.
     if(u.type==='BRIGADIER' && u.turnOnly){ u.turnOnly = false; u._turnOnlyConsumed = false; }
     if(u._turnOnlyConsumed){
-      u.turnOnly = false;
-      u._turnOnlyConsumed = false;
+      if(u._turnedExtra > 0){
+        // Stacked: another of its own turns turning around (setTurnedAround).
+        u._turnedExtra -= 1;
+      } else {
+        u.turnOnly = false;
+        u._turnOnlyConsumed = false;
+      }
     } else if(u.turnOnly){
       u._turnOnlyConsumed = true;
     }
@@ -1092,7 +1097,7 @@ export function renderUnitInfo(u){
       <span class="tag">${ground}</span>
       ${t.reroll?'<span class="tag">Re-roll</span>':''}
       ${u.formation==='square'?'<span class="tag st-square">In square</span>':''}
-      ${u.turnOnly?'<span class="tag st-pushed">Turning around</span>':''}
+      ${u.turnOnly?`<span class="tag st-pushed">Turning around${u._turnedExtra > 0 ? ` (+${u._turnedExtra} turn${u._turnedExtra > 1 ? 's' : ''})` : ''}</span>`:''}
       ${u.rallying?'<span class="tag st-pushed">Rallying</span>':''}
       ${u.hidden?'<span class="tag st-square">In ambush</span>':(isConcealedFromEnemy(u)?'<span class="tag">In cover</span>':'')}
       ${u.charged?'<span class="tag st-active">Charged</span>':''}
