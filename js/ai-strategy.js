@@ -75,7 +75,10 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
    Deliberately a discouragement now, not a prohibition. */
 export const SOLO_ATTACK_PENALTY = 1.2;
 /* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
-export const LONE_CHARGE_COST = 1.2;      // heavy cavalry charging an untouched target alone
+export const LONE_CHARGE_COST = 1.2;
+export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
+export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
+export const ENEMY_GUN_ARC_COST = 0.8;      // per gun, for a unit that stays in enemy gun range a second turn (10 Oct)      // heavy cavalry charging an untouched target alone
 export const ANSWER_GUNS_STRIKE = 1.6;    // under fire two turns running: a square from which to attack the gun
 export const AMBUSH_MEMORY_COST = 1.4;    // ending beside a square where an ambush was sprung on us
 export const AMBUSH_MEMORY_TURNS = 10;    // remembered for this many turns (both sides' turns)
@@ -3326,6 +3329,20 @@ function chooseErrandGroup(brig, groups){
 /* Is square c a good place for infantry u to set the square trap: next to an
    enemy cavalry unit it could then volley and fight as a square? (See the
    squareTrap term.) */
+/* ENEMY GUNS COVERING A SQUARE (10 Oct 2026): enemy batteries that could fire
+   on (x, y) at `reach` or nearer next turn, line of fire included. A gun that
+   is turned around (it can only turn next turn) or already in a fight does
+   not count. Shared by the column guard and the gun-arc term. */
+export function gunsCovering(c, side, reach = 4){
+  let n = 0;
+  for(const g of state.units){
+    if(g.removed || g.side === side || !UNIT_TYPES[g.type].isArtillery || g.turnOnly) continue;
+    if(chebyshev(g, c) > reach || chebyshev(g, c) < 1) continue;
+    if(hasLOS(g, c)) n++;
+  }
+  return n;
+}
+
 export function squareTrapAt(u, side, c){
   const k = terrainAt(c.x, c.y).key;
   if(k === 'WOODS' || k === 'BUILDING') return false;                       // no square here
@@ -3501,8 +3518,21 @@ function cavalrySchwerpunkt(side){
   const enemy = otherSide(side);
   const foes = state.units.filter(o=>!o.removed && o.side===enemy &&
     o.type!=='BRIGADIER' && UNIT_TYPES[o.type].canFight && !isConcealedFromEnemy(o));
+  /* (10 Oct 2026) The point is still the enemy's weakest unit, as before. A
+     version that also weighed how many of our squadrons could reach each
+     candidate was tried and lost ground against Alexander in the simulator
+     (8 of 23 against 12 of 24 without it, same seeds), so it is not used. What
+     stayed: targets the horse should not charge (a Square, woods, a village)
+     are skipped while there is anything else, and cavalryMass now counts
+     friendly horse that can reach the point this turn, not only those already
+     beside it. */
   let target = null, bestWeakness = -Infinity;
-  for(const f of foes){
+  // Targets the horse should not charge are skipped, unless they are all
+  // that is left (then the old choice stands: with no point at all the horse
+  // went idle, which stalled a simulator game, seed 20108).
+  const chargeable = foes.filter(f => f.formation !== 'square' && !['WOODS', 'BUILDING'].includes(terrainAt(f.x, f.y).key));
+  const pool = chargeable.length ? chargeable : foes;
+  for(const f of pool){
     const support = state.units.filter(o=>!o.removed && o.side===enemy && o.id!==f.id &&
       o.type!=='BRIGADIER' && chebyshev(o,f)<=2).length;
     const brig = state.units.find(o=>!o.removed && o.side===enemy &&
@@ -3544,6 +3574,12 @@ export function aiDecideAndExecuteMove(u){
      there is nothing to break down. */
   let decisionForLog = null;
   function recordMove(action, to){
+    // The killing-ground term reads how many turns running this unit has ended in enemy gun range.
+    if(u._inGunArcTurn !== state.turnNumber){
+      u._inGunArcTurn = state.turnNumber;   // once per turn (a move and a Form Square both record)
+      const p = to || { x: u.x, y: u.y };
+      u._inGunArcTurns = gunsCovering(p, side, 4) > 0 ? (u._inGunArcTurns || 0) + 1 : 0;
+    }
     // The stall breaker reads how many turns in a row this unit has held.
     u._aiHoldStreak = /^Hold/.test(action) ? (u._aiHoldStreak || 0) + 1 : 0;
     state._aiMoveHistory[side].push({
@@ -4307,8 +4343,9 @@ export function aiDecideAndExecuteMove(u){
              cured. Arriving ADJACENT is arriving. */
           const gap = Math.max(0, chebyshev(c, point) - 1);
           if(gap > 0) s -= subScore(parts, 'cavalryConcentration', gap * CAVALRY_CONCENTRATION_PULL);
+          // Friendly horse that are beside the point, or can reach it this turn (10 Oct 2026: was only "beside").
           const massed = state.units.filter(o=>!o.removed && o.side===side && o.id!==u.id &&
-            UNIT_TYPES[o.type].isCavalry && chebyshev(o, point) <= 2).length;
+            UNIT_TYPES[o.type].isCavalry && chebyshev(o, point) <= Math.max(2, unitBaseMove(o) + 1)).length;
           if(massed >= 1) s += addScore(parts, 'cavalryMass', Math.min(2, massed) * 0.6);
         }
         else s += addScore(parts, 'vulnerablePull', vulnerableTargetPullBonus(c, side, getVulnerableEnemyUnits(side)));
@@ -4558,7 +4595,37 @@ export function aiDecideAndExecuteMove(u){
     // instead of doubling up only as an accidental byproduct of two units picking the same square.
     if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD') && !c.stay){
       const occ = unitsAt(c.x,c.y).filter(o=>!o.removed && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
-      if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3) s += addScore(parts, 'formColumn', 1.4);
+      /* NO COLUMNS UNDER GUNS (10 Oct 2026). Seed 3089168468, turn 64: the 2e
+         Grenadiers and the 105e stacked at (17,1), one British shot destroyed
+         both and broke the Brigade: the fourth French column lost that way.
+         Two units on one square under enemy guns lose both to one roll
+         (Square/Column +1, and a broken column takes its partner with it). */
+      const underGuns = occ.length===1 && gunsCovering(c, side, COLUMN_GUN_REACH) > 0;
+      if(occ.length===1 && terrainAt(c.x,c.y).allowDouble && nearestEnemyDist(c, side)<=3 && !underGuns) s += addScore(parts, 'formColumn', 1.4);
+    }
+    // ... and any move that would stack two of ours under enemy guns, column or not.
+    if(!c.stay && !t.isArtillery && t.key !== 'BRIGADIER'){
+      const sharing = unitsAt(c.x,c.y).some(o=>!o.removed && o.side===side && o.id!==u.id && o.type!=='BRIGADIER');
+      if(sharing){ const g = gunsCovering(c, side, COLUMN_GUN_REACH); if(g) s -= subScore(parts, 'stackUnderGuns', STACK_UNDER_GUNS_COST * g); }
+    }
+    /* KILLING GROUND (10 Oct 2026). 7 of France's 13 losses in seed 3089168468
+       were to British guns, several to units that stood inside a battery's
+       reach turn after turn. A unit that ended last turn inside enemy gun
+       range pays ENEMY_GUN_ARC_COST per gun covering a square it would end on
+       now (halved in woods or a village, which take -1 on the effect roll).
+       Passing through, or a first turn in range, is free: this is about
+       loitering, not about approaching, so an attack is not put off. A square
+       next to a gun (to attack it) is exempt for attacking and supporting
+       units. (A reward for backing out of range was tried on 7 Oct and
+       stalled a simulator game: this only charges for staying.) */
+    if((u._inGunArcTurns || 0) >= 1 && t.key !== 'BRIGADIER'){
+      const g = gunsCovering(c, side, 4);
+      const strikingGun = (mission === 'MAIN_ATTACK' || mission === 'SUPPORT') &&
+        state.units.some(o=>!o.removed && o.side!==side && UNIT_TYPES[o.type].isArtillery && isAdjacent(o, c));
+      if(g && !strikingGun){
+        const cover = ['WOODS', 'BUILDING'].includes(terrainAt(c.x, c.y).key) ? 0.5 : 1;
+        s -= subScore(parts, 'enemyGunArc', ENEMY_GUN_ARC_COST * g * cover);
+      }
     }
     // Core Tactic #5, Ground Worth Bleeding For: value good terrain when otherwise similar —
     // weighted much more heavily when the unit isn't actively closing for an attack (holding,
