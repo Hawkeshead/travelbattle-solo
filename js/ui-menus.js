@@ -727,16 +727,33 @@ let battleMode = 'turn';
    boards), remembered on this phone. Offered on the side select. */
 const MAP_STYLE_KEY = 'fc_map_style';
 export function mapStyle(){ try { return localStorage.getItem(MAP_STYLE_KEY) === 'classic' ? 'classic' : 'random'; } catch { return 'random'; } }
+/* VICTORY: how many enemy Brigades must break to win a Quick Battle (Matthew,
+   11 Oct 2026: "1" makes playtesting faster). 2 is the rule and the default;
+   remembered on this phone; offered on the same screen as the map. Only the
+   standard battle against the AI reads it (state.winBrigades, set in
+   beginBoardSetup); online, Operations, campaigns and the four-army 2v2 keep
+   their own rules. The AI is not retuned for it. */
+const WIN_KEY = 'fc_win_brigades';
+export function winBrigadesPref(){ try { return localStorage.getItem(WIN_KEY) === '1' ? 1 : 2; } catch { return 2; } }
 function mapToggleHtml(){
   const cur = mapStyle();
   const b = (v, l) => `<button type="button" class="mode-btn${cur === v ? ' on' : ''}" data-map="${v}">${l}</button>`;
-  return `<span id="mapStyleToggle" class="mode-toggle"><span class="mode-label">Map</span>${b('random', 'Random')}${b('classic', 'Classic')}</span>`;
+  const w = winBrigadesPref();
+  const v = (n, l) => `<button type="button" class="mode-btn${w === n ? ' on' : ''}" data-win="${n}">${l}</button>`;
+  return `<span id="mapStyleToggle" class="mode-toggle"><span class="mode-label">Map</span>${b('random', 'Random')}${b('classic', 'Classic')}`
+    + `<span class="mode-label" style="margin-left:10px">Victory</span>${v(1, '1 Brigade')}${v(2, '2 Brigades')}</span>`;
 }
 function wireMapToggle(){
+  const redraw = () => { document.getElementById('mapStyleToggle').outerHTML = mapToggleHtml(); wireMapToggle(); };
   document.querySelectorAll('#mapStyleToggle [data-map]').forEach(btn => {
     btn.onclick = (e)=>{ e.stopPropagation();
       try { localStorage.setItem(MAP_STYLE_KEY, btn.dataset.map); } catch { /* not remembered */ }
-      document.getElementById('mapStyleToggle').outerHTML = mapToggleHtml(); wireMapToggle(); };
+      redraw(); };
+  });
+  document.querySelectorAll('#mapStyleToggle [data-win]').forEach(btn => {
+    btn.onclick = (e)=>{ e.stopPropagation();
+      try { localStorage.setItem(WIN_KEY, btn.dataset.win); } catch { /* not remembered */ }
+      redraw(); };
   });
 }
 function modeToggleHtml(){
@@ -823,6 +840,8 @@ export function beginBoardSetup(){
      exits only line up unrotated, so there is no orientation step). Classic:
      the two original boards, rotated and oriented as before. Online and Group
      matches stay Classic for now (the other phone would need the seeds). */
+  // Quick Battle against the AI: the Victory toggle (2 unless set to 1).
+  state.winBrigades = (state.mode === 'ai' && !isOnline() && !state.group && !state.scenario && !state.campaign && !state.mapBattle) ? winBrigadesPref() : 2;
   if(mapStyle() === 'random' && !isOnline() && !state.group){
     const seeds = [Math.floor(seededRandom() * 2 ** 31), Math.floor(seededRandom() * 2 ** 31)];
     const left = generateBoard(seeds[0]), right = generateBoard(seeds[1]);

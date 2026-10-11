@@ -212,6 +212,7 @@ function sectionMetadata(){
   out.push(`Started         : ${m.startedAt}   (about ${mins} min ago)`);
   out.push(`Mode            : ${m.mode}${m.difficulty!=='n/a' ? ', difficulty ' + m.difficulty : ''}`);
   out.push(`Board           : ${m.boardMode}, ${COLS}x${ROWS}`);
+  if(state.winBrigades === 1) out.push('Victory         : 1 Brigade broken (Quick Battle playtest setting; the rule is 2)');
   if(m.aiSide!=null) out.push(`Sides           : player ${SIDE_LABEL[m.playerSide]}, AI ${SIDE_LABEL[m.aiSide]}`);
   out.push(`Turns played    : ${state.turnNumber}`);
   /* OPERATIONS (Operations and Campaigns brief, 2.9). Field names are stable:

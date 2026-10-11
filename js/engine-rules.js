@@ -1748,7 +1748,8 @@ export function checkWinCondition(){
       const remaining = group.filter(u=>!u.removed && u.type!=='BRIGADIER');
       if(remaining.length===0) brokenCount++;
     }
-    if(brokenCount>=2){
+    // 2 by the rules; a Quick Battle can be set to 1 for faster playtesting (ui-menus Victory toggle).
+    if(brokenCount >= (state.winBrigades === 1 ? 1 : 2)){
       const winner = side===SIDES.RED ? SIDES.BLUE : SIDES.RED;
       endGame(winner);
       return;
