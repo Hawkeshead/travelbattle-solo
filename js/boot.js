@@ -1,4 +1,6 @@
 import { clearFloatingText, initFloatingText } from './floating-text.js';
+import { startAssetLoading } from './asset-loader.js';
+import { BUILD } from './build-info.js';
 import { initDeployRearrange } from './deploy-rearrange.js';
 import { setAnimatingProbe } from './match-save.js';
 import { unitAnimations } from './render-board.js';
@@ -157,6 +159,15 @@ document.addEventListener('visibilitychange', () => recVisibility(document.hidde
 initTelemetrySender();
 // Unit figures: load the sprite-sheet sidecars (render-figures.js).
 initFigures();
+/* EVERYTHING READY BEFORE IT IS NEEDED (asset-loader.js, sw.js). The art and
+   sounds a battle needs load and decode during the title screen, and the
+   service worker keeps the game on the phone: from the second visit it opens
+   from there. The worker's address carries the build, so each deploy installs
+   a fresh one and clears the old build's files. */
+startAssetLoading();
+if(typeof navigator !== 'undefined' && navigator.serviceWorker && /^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('sw.js?v=' + encodeURIComponent(BUILD.commit || 'dev'), { scope: './' }).catch(() => { /* no worker: the game runs as before */ });
+}
 /* Dice on the board (dice.js): a square's centre in #diceOverlay's frame, which
    is #boardWrap's, and one square's size on screen, at the current pan and zoom. */
 setDiceScreenPoint((x, y) => {

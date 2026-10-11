@@ -56,6 +56,18 @@ export default [
     },
   },
 
+  // The service worker (sw.js): a classic script in the worker's own scope.
+  {
+    files: ['sw.js'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: { ...globals.serviceworker } },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-undef': 'error',
+      'no-unused-vars': ['warn', { args: 'none', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+
   // The remaining two audio files are still classic scripts — unplugged from
   // the game and not converted to modules (audio-manager.js has been, see the
   // general js/**/*.js rule above). Lint these as scripts so `no-undef`

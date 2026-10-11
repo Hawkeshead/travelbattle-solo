@@ -37,6 +37,7 @@
 ========================================================= */
 import { CELL, SIDES, UNIT_TYPES, state } from './data-core.js';
 import { ensureAnimationLoopRunning, toScreen, unitMoveKind } from './render-board.js';
+import { imageFor } from './asset-loader.js';
 
 /* UNIT MODELS: 'animated' (the pixel troops, assets/units-pixel, the default)
    or 'classic' (the old icons and sprite, exactly as before). Chosen in the
@@ -120,8 +121,10 @@ function sheet(nation, type, anim, facing, v, uf){
     url = `assets/units/${nation}/${type}/${anim}_${f}.webp`;
   }
   let img = IMG[url];
+  // Already downloaded and decoded during the title screen (asset-loader), or asked for now.
+  if(!img || !(img.complete && img.naturalWidth)){ const pre = imageFor(url); if(pre) img = IMG[url] = pre; }
   if(!img){ img = IMG[url] = new Image(); img.src = url; }
-  return img.complete && img.naturalWidth ? { img, meta: m, a: m.anims[anim], f } : null;
+  return img.complete && img.naturalWidth ? { img, meta: m, a: m.anims[anim], f, url } : null;
 }
 /* How long a one-shot anim runs, in ms (fallback when its art is missing). */
 function animMs(type, anim, fallback){
@@ -254,8 +257,7 @@ export function drawUnitFigures(c, u, cx, cy, alpha = 1){
   WALK_PREV[u.id] = places;
   const men = [];
   collectMen(men, u, s, places, anim, facing);
-  paintMen(c, men, cx, cy, alpha);
-  return true;
+  return paintMen(c, men, cx, cy, alpha) > 0 || !men.length;
 }
 /* A new formation: the men walk from where they stood to their new places,
    the living refilling the ordinary slots in order (the bearer keeps his own). */
@@ -292,8 +294,7 @@ export function drawColumnFigures(c, u1, u2, cx, cy){
     collectMen(men, u, s, places, shared && !unitMoveKind(u.id) ? shared : unitAnim(u), facing);
   }
   // Both units' men as one list, painted rear rank first.
-  paintMen(c, men, cx, cy, 1);
-  return true;
+  return paintMen(c, men, cx, cy, 1) > 0 || !men.length;
 }
 
 function unitAnim(u){
@@ -376,19 +377,40 @@ function blit(c, sh, frame, fx, fy){
 /* Paints men rear first (smaller y first), each from his sheet at the
    animation frame for now. Loops start each man at his own frame; one-shot
    animations (fire, serve) run from their start and hold the last frame. */
+/* THE SAFETY NET (asset-loader). A one-shot animation (fire, serve, a fall, a
+   clash's melee) whose frames are not decoded yet waits for them, up to
+   LATE_MAX_MS, showing the man's idle meanwhile; it then runs from when its
+   frames arrived, so it is seen whole rather than finishing unseen. A loop
+   simply starts when ready. Purely the drawing: no game timing changes. */
+const LATE_MAX_MS = 300;
+const LATE = new Map();   // 'type|anim|start' -> the start it actually runs from
+function lateStart(m, ready){
+  if(!m.start) return m.start;
+  const k = m.type + '|' + m.anim + '|' + m.start;
+  if(!ready){ LATE.set(k, Math.min(now(), m.start + LATE_MAX_MS)); if(LATE.size > 400) LATE.delete(LATE.keys().next().value); return null; }
+  return LATE.has(k) ? LATE.get(k) : m.start;
+}
+/* Returns how many men it drew: none means no frames at all yet, and the
+   caller draws the unit's classic icon instead, so a unit is never blank. */
 function paintMen(c, men, cx, cy, alpha){
   men.sort((a, b) => a.y - b.y);
   const t = now();
+  let drawn = 0;
   c.save();
   if(alpha !== 1) c.globalAlpha = alpha;
   for(const m of men){
-    const sh = sheet(m.nation, m.type, m.anim, m.facing, m.v, m.uf) || sheet(m.nation, m.type, 'idle', m.facing, m.v, m.uf);
+    const want = sheet(m.nation, m.type, m.anim, m.facing, m.v, m.uf);
+    const oneShot = m.anim !== 'idle' && META()[m.type] && META()[m.type].anims[m.anim] && !META()[m.type].anims[m.anim].loop;
+    const st = oneShot ? lateStart(m, !!(want && want.a === META()[m.type].anims[m.anim])) : m.start;
+    const sh = (st !== null && want) || sheet(m.nation, m.type, 'idle', m.facing, m.v, m.uf);
     if(!sh) continue;
     const a = sh.a, fps = a.fps || 12, n = a.frameCount || 1;
-    const frame = a.loop ? (Math.floor(t / (1000 / fps)) + Math.floor(m.phase * n)) % n : Math.min(n - 1, Math.max(0, Math.floor((t - m.start) / (1000 / fps))));
+    const frame = a.loop ? (Math.floor(t / (1000 / fps)) + Math.floor(m.phase * n)) % n : Math.min(n - 1, Math.max(0, Math.floor((t - (st || 0)) / (1000 / fps))));
     blit(c, sh, frame, cx + m.x * CELL, cy + m.y * CELL);
+    drawn++;
   }
   c.restore();
+  return drawn;
 }
 
 /* ---------- the clash: two units close while their fight's dice are up ----------

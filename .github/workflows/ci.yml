@@ -148,6 +148,17 @@ jobs:
           sed -i "s/commit: 'dev', builtAt: null/commit: '${GITHUB_SHA}', builtAt: '$(date -u +%Y-%m-%dT%H:%M:%SZ)'/" js/build-info.js
           grep -q "${GITHUB_SHA}" js/build-info.js
           rm -rf data/matches
+      # The asset manifest (assets-manifest.json) is written fresh for this
+      # build, so the title-screen loader and the service worker (sw.js) always
+      # see exactly what is deployed. The unused music (audio/music: no screen
+      # plays a score now) stays out of the published site.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Write the asset manifest
+        run: |
+          rm -rf audio/music
+          node tools/check-assets.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
