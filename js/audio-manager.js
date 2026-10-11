@@ -533,6 +533,8 @@ export const AudioManager = (function(){
   return {
     unlock, playEffect, fadeOutEffects, playMusic, playMusicSequence, stopMusic, playAmbience, stopAmbience,
     setMuted, setVolume, getPrefs, resumeAudio, panForBoardX, preloadEffects,
+    // One effect fetched and decoded, as a promise (the title-screen loader waits on it).
+    loadEffect: url => loadBuffer(url),
     startLoop, stopLoop,
     /* Read-only handles for audio-lab.html. The lab compares what the mixer
        THINKS a stream's volume should be against what the element is really

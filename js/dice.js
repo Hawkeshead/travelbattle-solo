@@ -1,3 +1,4 @@
+import { sharedImage } from './image-store.js';
 import { AudioManager } from './audio-manager.js';
 import { humanOwns } from './data-core.js';
 import { DICE_FACES, DICE_NATION, DICE_TUMBLE_FRAMES, diceArtPaths, diceFacePath, diceTumblePath } from './dice-art.js';
@@ -12,7 +13,7 @@ export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[
 ========================================================= */
 const DICE_IMG = {};
 if(typeof Image !== 'undefined'){
-  for(const path of diceArtPaths()){ const img = new Image(); img.src = path; DICE_IMG[path] = img; }
+  for(const path of diceArtPaths()) DICE_IMG[path] = sharedImage(path);
 }
 const imgReady = path => { const i = DICE_IMG[path]; return !!(i && i.complete && i.naturalWidth > 0); };
 const nationOf = side => (side && DICE_NATION[side]) || null;

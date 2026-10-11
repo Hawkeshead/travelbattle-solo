@@ -1,3 +1,4 @@
+import { sharedImage } from './image-store.js';
 import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './data-core.js';
 import { clashOffset, figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
@@ -105,9 +106,7 @@ if(TERRAIN_STYLE === 'v2'){
 }
 for(const key in UNIT_IMAGE_DATA){
   if(TERRAIN_STYLE === 'v2' && V1_TERRAIN_KEY.test(key)) continue;
-  const img = new Image();
-  img.src = UNIT_IMAGE_DATA[key];
-  UNIT_IMAGES[key] = img;
+  UNIT_IMAGES[key] = sharedImage(UNIT_IMAGE_DATA[key]);
 }
 
 // Regiment portraits imported from the TravelBattle Hub Archive (Infantry/Guard/Cavalry).
@@ -138,9 +137,7 @@ export const REGIMENT_IMAGE_DATA = {
   'f-lcav-11e': 'assets/portraits/f-lcav-11e.jpg'
 };
 for(const key in REGIMENT_IMAGE_DATA){
-  const img = new Image();
-  img.src = REGIMENT_IMAGE_DATA[key];
-  UNIT_IMAGES[key] = img;
+  UNIT_IMAGES[key] = sharedImage(REGIMENT_IMAGE_DATA[key]);
 }
 // Maps a unit's historicalName straight to its Hub Archive portrait id.
 export const REGIMENT_PORTRAIT_KEY = {

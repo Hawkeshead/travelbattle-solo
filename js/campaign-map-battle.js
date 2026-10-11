@@ -40,6 +40,7 @@
    north (France), measured at about 61/39. That is not corrected here; it is
    flagged to Matthew as a design question.
 ========================================================= */
+import { gateBattle } from './asset-loader.js';
 import { SIDES, TB_DATA, assignBuildingStyles, assignGrassStyles, setBoardMode, state } from './data-core.js';
 import { log, newUnit, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
 import { authoredTerrain, redrawOperation } from './operations.js';
@@ -299,6 +300,7 @@ function bioFor(side, unit){
 /* Starts the pending battle on screen: board drawn, armies in place, Begin
    Battle offered. startAmbient is passed in (it lives in ui-menus). */
 export function launchMapBattle(c, map, startAmbient){
+  if(!gateBattle(() => launchMapBattle(c, map, startAmbient))) return;   // the battle's art first (asset-loader)
   setupMapBattle(c, map);
   document.documentElement.classList.add('title-away');
   document.getElementById('overlay').classList.remove('show');

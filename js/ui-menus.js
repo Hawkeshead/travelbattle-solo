@@ -1,4 +1,5 @@
 import { offerBeginBattle } from './ui-deployment.js';
+import { gateBattle } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
 import { getCard, readyCards } from './scenario-cards.js';
@@ -595,6 +596,7 @@ export function showOperationBrief(card){
 /* Sets the Operation up (locked map, both armies placed) and starts it: no
    orientation roll, no falling-tile intro, no deployment screen. */
 export function beginOperation(card, playerSide){
+  if(!isOnline() && !state.group && !gateBattle(() => beginOperation(card, playerSide))) return;
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   if(isOnline() || state.group || state.rts) return;   // Online, Group and Real-Time never take a card
   AudioManager.stopMusic();
@@ -804,6 +806,9 @@ export function showDifficultySelect(){
    map to cycle it, rather than a separate small preview modal.
 ========================================================= */
 export function beginBoardSetup(){
+  // Not until the battle's art is loaded (asset-loader): at once when it is.
+  // Online and Group matches start in step with the other phones, so never wait.
+  if(!isOnline() && !state.group && !gateBattle(() => beginBoardSetup())) return;
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   state.campaignRun = null;   // a standard match is not a campaign step
   state.mapBattle = null;     // nor a campaign map battle
@@ -1069,6 +1074,7 @@ export function showGrandSideSelect(){
 }
 
 export function beginGrandBoardSetup(){
+  if(!isOnline() && !state.group && !gateBattle(() => beginGrandBoardSetup())) return;
   state.scenario = null;
   state.campaign = null;
   setBoardMode('grand');

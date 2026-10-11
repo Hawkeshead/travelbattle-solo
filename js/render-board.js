@@ -1,3 +1,4 @@
+import { sharedImage } from './image-store.js';
 import { AudioManager } from './audio-manager.js';
 import { clashActive, figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
@@ -1556,8 +1557,7 @@ function hiKeysOnBoard(){
   return [...keys];
 }
 async function makeHiCopy(src){
-  const img = new Image();
-  img.src = src;
+  const img = sharedImage(src);
   await (img.decode ? img.decode() : new Promise((ok, no) => { img.onload = ok; img.onerror = no; }));
   const scale = Math.min(1, V2_HI_PX / img.naturalWidth);
   const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
