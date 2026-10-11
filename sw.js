@@ -82,6 +82,16 @@ self.addEventListener('activate', event => {
   })());
 });
 
+/* The page, code and data are handed over marked "check every time": the
+   server says they are fresh for ten minutes (GitHub Pages), and the browser
+   would otherwise reuse them from its own cache without asking this worker,
+   so an update could take that long to arrive. */
+function revalidate(res){
+  if(res.type === 'opaque' || res.status !== 200) return res;
+  const h = new Headers(res.headers);
+  h.set('Cache-Control', 'no-cache');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+}
 const NETWORK_FIRST = p => p === '' || p === 'index.html' || p === 'assets-manifest.json' || /^(js|data)\//.test(p) || p.endsWith('.html');
 
 self.addEventListener('fetch', event => {
@@ -95,11 +105,13 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
       try {
-        const res = await fetch(req, { cache: 'no-cache' });
-        if(res.ok) cache.put(p === '' ? new Request(new URL('./', base)) : req, res.clone()).catch(() => {});
-        return res;
+        // By URL: a navigation's own Request cannot be re-sent with options.
+        const res = await fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+        if(res.ok) cache.put(new Request(new URL(p === '' ? './' : p, base)), res.clone()).catch(() => {});
+        return revalidate(res);
       } catch {
-        return (await cache.match(req, { ignoreSearch: true })) || (await cache.match(new URL(p === '' ? './' : p, base))) || Response.error();
+        const hit = (await cache.match(req, { ignoreSearch: true })) || (await cache.match(new URL(p === '' ? './' : p, base)));
+        return hit ? revalidate(hit) : Response.error();
       }
     })());
     return;

@@ -35,6 +35,7 @@
    HEAVY_CAV. Actions: idle, march, charge (cavalry gallop), fire, serve
    (gunners), melee, fall (held as the body), flee.
 ========================================================= */
+import { sharedImage } from './image-store.js';
 import { CELL, SIDES, UNIT_TYPES, state } from './data-core.js';
 import { ensureAnimationLoopRunning, toScreen, unitMoveKind } from './render-board.js';
 import { imageFor } from './asset-loader.js';
@@ -123,7 +124,7 @@ function sheet(nation, type, anim, facing, v, uf){
   let img = IMG[url];
   // Already downloaded and decoded during the title screen (asset-loader), or asked for now.
   if(!img || !(img.complete && img.naturalWidth)){ const pre = imageFor(url); if(pre) img = IMG[url] = pre; }
-  if(!img){ img = IMG[url] = new Image(); img.src = url; }
+  if(!img) img = IMG[url] = sharedImage(url);
   return img.complete && img.naturalWidth ? { img, meta: m, a: m.anims[anim], f, url } : null;
 }
 /* How long a one-shot anim runs, in ms (fallback when its art is missing). */

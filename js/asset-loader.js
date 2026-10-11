@@ -25,10 +25,11 @@
      (render-figures): has this decoded yet, and wait for these up to ms.
      imageFor(url): the decoded Image itself, for drawing.
 ========================================================= */
+import { sharedImage } from './image-store.js';
 import { BUILD } from './build-info.js';
 import { AudioManager } from './audio-manager.js';
 
-const CONCURRENCY = 4;
+const CONCURRENCY = 6;   // on a slow phone line each request waits half a second before a byte arrives
 const IMG = /\.(webp|png|jpe?g|gif|svg)$/i, EFFECT = /^audio\/(effects|ui)\/.*\.(wav|mp3|m4a|ogg)$/i;
 const decoded = new Map();     // url -> Image (decoded) or true (other files)
 const waiters = new Map();     // url -> [resolve]
@@ -65,27 +66,34 @@ function mark(url, value){
    then fetches that file on demand, as it always did. */
 const controlled = () => typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller;
 async function keep(url, res){
-  if(!cache || controlled()) return;
-  try {
-    if(await cache.match(url)) return;
-    const r = res || await fetch(url);
-    if(r.ok && r.status === 200) await cache.put(url, r);
-  } catch { cache = null; }   // out of room: stop caching, keep loading
+  if(!cache || controlled() || !res) return;
+  try { if(res.ok && res.status === 200 && !(await cache.match(url))) await cache.put(url, res); }
+  catch { cache = null; }   // out of room: stop caching, keep loading
+}
+/* After the first visit's loading: anything not yet in this build's cache (it
+   was loaded before the service worker took charge) is copied in, from the
+   browser's own cache where it still is, so the next visit has it all. */
+async function backfill(files){
+  if(!cache) return;
+  for(const f of files){
+    try {
+      if(await cache.match(f.path)) continue;
+      const r = await fetch(f.path, { cache: 'force-cache' });
+      if(r.ok && r.status === 200) await cache.put(f.path, r);
+    } catch { return; }   // out of room or offline: stop, keep what is there
+  }
 }
 async function loadOne(f){
   const url = f.path;
   try {
     if(IMG.test(url)){
-      const img = new Image();
-      img.src = url;
+      const img = sharedImage(url);   // the same Image the game draws with: one download
       await img.decode();
       mark(url, img);
-      await keep(url);
     } else if(EFFECT.test(url) && AudioManager.loadEffect){
       // Fetched and decoded into a Web Audio buffer, ready to play at once.
       await AudioManager.loadEffect(url).catch(() => {});
       mark(url, true);
-      await keep(url);
     } else {
       const res = await fetch(url);
       if(!res.ok) throw new Error(res.status);
@@ -128,6 +136,7 @@ export async function startAssetLoading(){
   loaderStats.allMs = Math.round(performance.now() - t0);
   status = 'done';
   progress();
+  await backfill([...t1, ...t2]);
 }
 export const loaderStats = { tier1Ms: null, allMs: null, get done(){ return doneCount; }, get total(){ return total; } };
 

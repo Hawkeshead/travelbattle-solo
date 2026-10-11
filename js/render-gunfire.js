@@ -24,6 +24,7 @@
    with the board); the push and the wind are worked out on screen, since the
    wind is a screen direction.
 ========================================================= */
+import { sharedImage } from './image-store.js';
 import { AmbientLayer, CLOUD_CFG } from './ambient-layer.js';
 
 const DIR = 'assets/terrain/v2/effects/smoke/';
@@ -36,7 +37,7 @@ export const SMOKE_FILES = {
 export const smokeFileList = () => Object.values(SMOKE_FILES).flat();
 
 const IMG = {};
-if(typeof Image !== 'undefined') for(const p of smokeFileList()){ const i = new Image(); i.src = p; IMG[p] = i; }
+if(typeof Image !== 'undefined') for(const p of smokeFileList()) IMG[p] = sharedImage(p);
 const ready = p => { const i = IMG[p]; return !!(i && i.complete && i.naturalWidth > 0); };
 
 export const SMOKE_MAX_CLOUDS = 40;
