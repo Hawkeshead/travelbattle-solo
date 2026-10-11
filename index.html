@@ -389,6 +389,8 @@
   #unitOverlayPanel #actionRow{ justify-content:flex-start; flex-wrap:wrap; gap:6px; padding:0 12px 10px; }
   #unitOverlayPanel #actionRow button{ flex:0 0 auto; min-height:30px; padding:3px 14px; border-radius:15px;
     font-size:14px; line-height:1; }
+  /* Spot Men switched on: the pill stays lit (spot-men.js). */
+  #unitOverlayPanel #actionRow button#spotMenBtn.on{ background:linear-gradient(180deg,#fff0b8,#e0b84e); box-shadow:0 0 0 2px rgba(255,236,170,.85), 0 0 12px rgba(255,214,110,.75); }
 
   /* Field Report — its own icon-triggered overlay now, not a collapsible panel section */
   /* THE ARMY PICKER. text-size-adjust is load-bearing: iOS enlarges text in
@@ -1505,6 +1507,7 @@
           <button id="ambushBtn" style="display:none;" disabled>Lay Ambush</button>
           <button id="chargeBtn" style="display:none;" disabled>Charge</button>
           <button id="marchOffBtn" style="display:none;" disabled>March Off</button>
+          <button id="spotMenBtn" style="display:none;" title="Show this Brigadier's command chain">Spot Men</button>
         </div>
       </div>
     </div>

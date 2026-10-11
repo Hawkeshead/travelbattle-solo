@@ -1,4 +1,5 @@
 import { setFloatingTextEnabled } from './floating-text.js';
+import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
 import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
 import { saveAtPhaseStart } from './match-save.js';
 import { brigadeIdsFor, operationFirstMover, canMarchOff, marchOff } from './operations.js';
@@ -982,6 +983,7 @@ export function endFightPhase(){
       state.turn = state.turn===SIDES.RED ? SIDES.BLUE : SIDES.RED;
     }
     state.turnNumber++;
+    clearSpotMen();   // Spot Men lasts the turn it was switched on in
     /* Simulator only: a turn boundary it can observe on EVERY turn, where polling
        misses some. Undefined in the browser, so this is a no-op in play. Lives
        on globalThis rather than state so undo snapshots never carry a function. */
@@ -1123,6 +1125,13 @@ export function renderUnitInfo(u){
      clutter competing with the unit's own details for space. Matches how the
      ambush button already behaves. */
   sqBtn.style.display = t.canFormSquare ? 'inline-block' : 'none';
+  // Spot Men: on every Brigadier's card, either side (spot-men.js).
+  const spotBtn = document.getElementById('spotMenBtn');
+  if(spotBtn){
+    spotBtn.style.display = t.key === 'BRIGADIER' ? 'inline-block' : 'none';
+    spotBtn.classList.toggle('on', spotMenFor() === u.id);
+    spotBtn.onclick = (e) => { e.stopPropagation(); const on = toggleSpotMen(u.id, draw); spotBtn.classList.toggle('on', on === u.id); };
+  }
   sqBtn.textContent = u.formation==='square' ? 'Leave Square' : 'Form Square';
   /* HOUSE RULE: SQUARE MAY BE FORMED AFTER MOVING, LEAVING IT STILL CANNOT BE.
 

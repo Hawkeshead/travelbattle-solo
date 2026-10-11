@@ -1,4 +1,5 @@
 import { sharedImage } from './image-store.js';
+import { drawSpotMen, drawSpotMenOverlay } from './spot-men.js';
 import { AudioManager } from './audio-manager.js';
 import { clashActive, figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
@@ -2547,6 +2548,9 @@ export function draw(){
 
      Stacked squares (doubled infantry) are offset so both are visible. */
   drawOperationAreas();   // Operations: the named areas, under the units
+  // Spot Men (spot-men.js): a Brigadier's command chain, on the ground under the troops.
+  drawSpotMen(ctx, CELL, (x, y) => ({ x: SX(x, y)*CELL + CELL/2, y: SY(x, y)*CELL + CELL/2 }), highlightCells,
+    state.selectedUnitId ? state.units.find(u => u.id === state.selectedUnitId) : null);
   // Unit figures: the fallen, above terrain and roads, below units and smoke.
   // A body in woods is hidden by the same rule as a concealed enemy unit.
   if(figuresOn()) drawFigureBodies(ctx, canvas.width, canvas.height, viewEdge(), b => {
@@ -2579,6 +2583,7 @@ export function draw(){
     else { list.forEach((u,i)=>{ routProbeGrouping(u, 'stacked'); drawUnit(u, STACK_OFFSETS[i % STACK_OFFSETS.length]); }); }
   }
   for(const u of moving) drawUnit(u);
+  drawSpotMenOverlay(ctx);   // Spot Men's words and chain marks, above the troops
 
   // death markers: skull holds for a beat, then fades into drifting smoke
   const now = Date.now();
