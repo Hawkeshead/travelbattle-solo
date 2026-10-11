@@ -18,8 +18,19 @@ const CAV = (() => {
     // French light: chasseurs a cheval. Green coat, red facings, shako with a tall red plume.
     fr_light: { coat: '#1f5a32', coatDk: '#143c21', fac: '#d0202a', breech: '#1f5a32', breechDk: '#143c21', cloth: '#1f5a32', clothDk: '#143c21', lace: '#f6f3ea', helm: 'shako', plume: ['#d0202a', '#d0202a'], curved: true, horses: [0, 3, 2, 0, 3] },
     // French heavy: cuirassiers. Steel cuirass and helmet with a brass comb, black mane and red plume.
-    fr_heavy: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#f6f3ea', crest: '#151210', helm: 'cuirassier', cuirass: true, horses: [1, 0, 1, 3, 1] }
+    fr_heavy: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#f6f3ea', crest: '#151210', helm: 'cuirassier', cuirass: true, horses: [1, 0, 1, 3, 1] },
+    /* BRIGADIERS (10 Oct 2026). A general officer on a fine horse: bicorne worn
+       athwart with a plume, gold epaulettes and lace, a sash instead of the
+       trooper's crossbelt, a gold-laced shabraque. British: scarlet coat, dark
+       blue facings, white-over-red plume, crimson sash, bay or grey charger.
+       French: dark blue coat with gold embroidery, red facings, white plume
+       with a tricolour edge, tricolour sash, the grey (Napoleon's Marengo, Ney's
+       chestnut among the others). */
+    gb_general: { coat: '#c8191e', coatDk: '#8f1014', fac: '#1c2a5a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#c8191e'], general: true, sash: ['#9a1a2e', '#6e1020'], horses: [0, 5, 2, 0, 3] },
+    fr_general: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#d0202a'], general: true, sash: ['#203a8a', '#f6f3ea', '#d0202a'], horses: [5, 2, 5, 3, 0] }
   };
+  // The generals' grey charger, a coat of its own (index 5; the troopers' coats are untouched).
+  HORSE[5] = ['#b8b2a8', '#d6d0c6', '#8e887e', '#e8e4dc'];
   let R = SPECS.gb_heavy;
 
   function make(draw, dy = 0) {
@@ -98,6 +109,13 @@ const CAV = (() => {
       p(4, -3, C.B, 4, 4); p(5, -4, C.b, 2, 1);
       if (!back) { p(0, 5, '#b08a3c', 12, 1); p(1, 6, C.D, 10, 1); p(-1, 2, '#d0202a', 2, 6); p(7, -2, R.crest, 2, 3); }
       else { p(4, 0, R.crest, 4, 10); p(3, 2, R.crest, 6, 6); p(11, 2, '#d0202a', 2, 6); }
+    } else if (R.helm === 'bicorne') {
+      // a general's bicorne worn athwart: wide black wings, gold edge and
+      // loop, a national cockade, and a plume standing from the top
+      p(-3, 2, '#151210', 18, 4); p(-2, 1, '#151210', 16, 1); p(0, 0, '#151210', 12, 1); p(2, -1, '#1f1a16', 8, 1);
+      p(-3, 5, R.lace, 18, 1);                                              // gold edging along the brim
+      if (!back) { p(5, 1, R.lace, 2, 4); p(5, 2, R.plume[1], 2, 2); }     // gold loop over the cockade
+      p(4, -6, R.plume[0], 4, 5); p(5, -8, R.plume[0], 2, 2); p(4, -2, R.plume[1], 4, 1);   // the plume
     } else {
       // bell-topped shako with a plume
       p(1, 1, '#1f1f1f', 10, 5); p(0, 0, '#1f1f1f', 12, 1); p(9, 1, '#3c3c3c', 2, 5);
@@ -121,7 +139,15 @@ const CAV = (() => {
     o.px(lx, 31, R.breech, 4, 6); o.px(lx + 3, 31, R.breechDk, 1, 6); o.px(lx - 1, 37, C.D, 5, 9); o.px(lx - 1, 37, C.d, 1, 9); o.px(lx - 1, 45, C.D, 6, 2);
     // body
     p(0, 14, R.coat, 12, 10); p(10, 14, R.coatDk, 2, 10); p(-2, 14, R.coat, 3, 2); p(11, 14, R.coatDk, 3, 2);
-    if (!back) {
+    if (R.general) {
+      // general officer: facing-coloured collar laced gold, gold epaulettes,
+      // gold lace down the front, a sash at the waist, no crossbelt
+      p(3, 14, R.fac, 6, 1); p(3, 13, R.lace, 6, 1);
+      p(-2, 13, R.lace, 4, 2); p(10, 13, R.lace, 4, 2); p(-2, 15, '#b08a2c', 4, 1); p(10, 15, '#b08a2c', 4, 1);   // epaulettes with fringe
+      if (!back) { for (let i = 0; i < 4; i++) p(5, 15 + i * 2, R.lace, 2, 1); p(3, 15, R.lace, 1, 7); p(8, 15, R.lace, 1, 7); }
+      const sh = R.sash; p(0, 21, sh[0], 12, 1); p(0, 22, sh[1] || sh[0], 12, 1); p(0, 23, sh[2] || sh[1] || sh[0], 12, 1);
+      if (back) { p(2, 24, R.coat, 3, 3); p(7, 24, R.coatDk, 3, 3); p(1, 22, sh[0], 2, 5); }   // coat skirts, sash ends
+    } else if (!back) {
       p(3, 14, R.fac, 6, 1); p(4, 13, C.D, 4, 1);                          // collar, stock
       for (let i = 0; i < 9; i++) p(1 + i, 15 + i, C.W, 2, 1);            // crossbelt over the left shoulder
       p(0, 22, C.W, 12, 2); p(5, 22, C.B, 2, 2);                           // waist belt and buckle
@@ -156,6 +182,11 @@ const CAV = (() => {
       // charge: sabre held out at the point, arm extended
       p(RA, 15, R.coat, 3, 4); p(RA + (back ? -1 : 1), 19, s, 2, 2);
       if (!back) sab(14, 20, 24, 30); else sab(-3, 19, -12, 6);
+      p(LA, 16, R.coat, 2, 6); p(LA, 22, s, 2, 2);
+    } else if (R.general && pose.startsWith('stand')) {
+      // the general at rest: sword arm pointing the way forward (stand2: lowered)
+      if (pose === 'stand') { p(RA, 14, R.coat, 4, 3); p(RA + (back ? -3 : 3), 13, s, 2, 2); if (!back) o.line(bx + 15, by + 13, bx + 22, by + 8, C.I, 1); else o.line(bx - 3, by + 13, bx - 10, by + 8, C.I, 1); }
+      else { p(RA, 16, R.coat, 2, 6); p(RA, 22, s, 2, 2); sab(RA + 1, 22, RA + (back ? -2 : 4), 30); }
       p(LA, 16, R.coat, 2, 6); p(LA, 22, s, 2, 2);
     } else if (pose === 'slash1') {
       p(RA, 8, R.coat, 3, 7); p(RA, 6, s, 2, 2); sab(RA + 1, 6, RA + (back ? -6 : 8), -6);
@@ -194,7 +225,7 @@ const CAV = (() => {
       o.line(20, 57, 14, 62, dark, 3); o.line(26, 58, 24, 63, dark, 3); o.line(36, 58, 40, 63, dark, 3); o.line(40, 57, 46, 62, dark, 3);
       o.px(22, 47, R.cloth, 12, 3); o.px(22, 49, R.lace, 12, 1);
       // the rider thrown clear in front
-      o.px(30, 58, R.coat, 12, 5); o.px(42, 59, s, 4, 4); o.px(40, 56, R.helm === 'dragoon' ? C.B : R.helm === 'cuirassier' ? '#c9ced6' : '#1f1f1f', 5, 3); o.px(24, 58, R.breech, 6, 4); o.px(19, 59, C.D, 5, 3);
+      o.px(30, 58, R.coat, 12, 5); o.px(42, 59, s, 4, 4); o.px(40, 56, R.helm === 'dragoon' ? C.B : R.helm === 'cuirassier' ? '#c9ced6' : R.helm === 'bicorne' ? '#151210' : '#1f1f1f', R.helm === 'bicorne' ? 8 : 5, 3); o.px(24, 58, R.breech, 6, 4); o.px(19, 59, C.D, 5, 3);
       o.line(44, 62, 56, 60, C.I, 1);
       o.g.globalAlpha = .6; o.px(32, 63, '#6e1a14', 6, 1);
     });

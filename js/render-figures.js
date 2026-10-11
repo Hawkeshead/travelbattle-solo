@@ -81,9 +81,12 @@ const TRACK = !HEADLESS;
 
 const NATION = { [SIDES.RED]: 'british', [SIDES.BLUE]: 'french' };
 const OLD_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY', 'ARTILLERY_GUN'];
-const PIX_TYPES = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV'];
-const MEN = { INFANTRY: 10, GUARD: 10, LIGHT_CAV: 3, HEAVY_CAV: 3, ARTILLERY: 2 };
-const FLOOR = { INFANTRY: 3, GUARD: 3, LIGHT_CAV: 1, HEAVY_CAV: 1, ARTILLERY: 1 };
+const PIX_TYPES = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV', 'BRIGADIER'];
+/* BRIGADIER (10 Oct 2026): one mounted general officer (tools/units/pixel/
+   cavalry.js 'general', export-brigadier.mjs), with the riders' animations.
+   Animated style only; the Classic and placeholder styles keep the portrait. */
+const MEN = { INFANTRY: 10, GUARD: 10, LIGHT_CAV: 3, HEAVY_CAV: 3, ARTILLERY: 2, BRIGADIER: 1 };
+const FLOOR = { INFANTRY: 3, GUARD: 3, LIGHT_CAV: 1, HEAVY_CAV: 1, ARTILLERY: 1, BRIGADIER: 1 };
 /* Faces, and horses, per man: the pixel sheets' "variants" (5 for every man
    and rider; the gun has 1). A constant rather than read from the JSON so a
    unit's men are the same whether or not the art has loaded yet. */
@@ -143,7 +146,7 @@ const matchSeed = () => String((state._matchMeta && state._matchMeta.seed) || 'x
 
 /* ---------- the squad ---------- */
 const kind = u => (UNIT_TYPES[u.type] || {}).key;
-export function hasFigures(u){ return !!MEN[kind(u)]; }
+export function hasFigures(u){ const k = kind(u); return k === 'BRIGADIER' ? PIXEL() : !!MEN[k]; }
 function squad(u){
   const k = kind(u);
   if(!MEN[k]) return null;
@@ -214,6 +217,7 @@ function layoutFor(u, facing, partner){
     return u.side === SIDES.RED ? ranks([5, 5], facing) : ranks([4, 3, 3], facing);
   }
   if(k === 'LIGHT_CAV' || k === 'HEAVY_CAV') return [{ x: -0.27, y: 0.32, f: facing }, { x: 0, y: 0.21, f: facing }, { x: 0.27, y: 0.32, f: facing }];
+  if(k === 'BRIGADIER') return [{ x: 0.04, y: 0.30, f: facing }];   // the general, alone, a little right of centre (his portrait sits top left)
   if(k === 'ARTILLERY'){
     // Crew behind the gun (the pixel gun is deep, so they stand well back).
     const back = facing === 'away' ? 0.36 : (PIXEL() ? 0.04 : 0.06);
@@ -308,7 +312,7 @@ function unitAnim(u){
   const ca = !moving && clashAnim(u);
   if(ca) return ca;
   // The gallop is cavalry's charge; infantry charging with the bayonet march.
-  if(moving === 'charge' && (kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV') && PIXEL()) return 'charge';
+  if(moving === 'charge' && (kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV' || kind(u) === 'BRIGADIER') && PIXEL()) return 'charge';
   if(moving) return 'march';
   if(WALK[u.id] && t - WALK[u.id].start < WALK_MS) return 'march';
   if(fx && t < fx.until) return fx.anim;
@@ -445,7 +449,7 @@ const FLEE_UNTIL = {};  // unitId -> until when its pushback move runs with flee
 const CLASH_ATTACK = 0.34, CLASH_ATTACK_CAV = 0.40, CLASH_DEFEND = 0.12;   // squares travelled
 const CLASH_ADV_MS = 650, CLASH_ADV_CAV_MS = 420, CLASH_END_MS = 650;
 const CLASH_NUDGE = 0.3;   // the old icons only lean in
-const isCav = u => kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV';
+const isCav = u => kind(u) === 'LIGHT_CAV' || kind(u) === 'HEAVY_CAV' || kind(u) === 'BRIGADIER';
 const holdsGround = u => u.formation === 'square' || kind(u) === 'ARTILLERY';
 const ease = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 

@@ -571,6 +571,14 @@ function drawUnitInner(u, off){
      centre without the march bob (the men's own march animation is the gait).
      Brigadiers keep their portrait. Badges as before. */
   if(figuresOn() && hasFigures(u) && drawUnitFigures(ctx, u, cx, sp.y*CELL + CELL/2 + off.dy*CELL + (co ? co.y*CELL : 0), concealed ? 0.75 : 1)){
+    /* A Brigadier on horseback keeps a small portrait medallion in the top
+       left of his square, so Wellington is still told from Uxbridge at a
+       glance (10 Oct 2026). */
+    if(t.key === 'BRIGADIER'){
+      ctx.save(); ctx.translate(cx - CELL*0.27, sp.y*CELL + off.dy*CELL + CELL*0.24);
+      drawBrigadierPortrait(CELL*0.30, u, false);
+      ctx.restore();
+    }
     if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, sp.y*CELL + off.dy*CELL + CELL*0.04, CELL*0.92, CELL*0.92); ctx.restore(); }
     drawStatusColumn(statusBadgesFor([u]), cx - off.dx*CELL - CELL/2, cy - off.dy*CELL - CELL/2);
     return;

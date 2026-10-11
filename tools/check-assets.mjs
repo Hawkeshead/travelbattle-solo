@@ -100,7 +100,7 @@ for (const name of ['partridge', 'goose', 'buzzard']) {
    lists, for both nations. */
 {
   const { readFile: rf } = await import('node:fs/promises');
-  const types = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV'];
+  const types = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV', 'BRIGADIER'];
   for (const nation of ['british', 'french']) for (const t of types) {
     const metaPath = `assets/units-pixel/${nation}/${t}/${t}.json`;
     let meta = null;

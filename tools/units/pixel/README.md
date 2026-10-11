@@ -10,4 +10,4 @@ Sheets live in assets/units-pixel/{nation}/{UNIT_TYPE}/{anim}_{facing}_v{variant
 - variants: number of faces/horses per unit type (guns have 1)
 - facings, anims {frameCount, fps, loop}
 
-Unit types: INFANTRY, GUARD, GUARD_BEARER (Guard colour bearer, flag wave baked in), ARTILLERY (gunners), ARTILLERY_GUN, LIGHT_CAV, HEAVY_CAV.
+Unit types: INFANTRY, GUARD, GUARD_BEARER (Guard colour bearer, flag wave baked in), ARTILLERY (gunners), ARTILLERY_GUN, LIGHT_CAV, HEAVY_CAV, BRIGADIER (a mounted general officer: cavalry.js 'general' specs, bicorne, epaulettes, sash; exported by `node tools/units/pixel/export-brigadier.mjs`, then converted to lossless webp).
