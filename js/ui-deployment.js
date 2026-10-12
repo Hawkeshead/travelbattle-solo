@@ -157,7 +157,7 @@ export function restartDeployment(){
   state._aiArmyChoice = null;
   state._aiCompositionChoice = null;
   state._aiPlanUsed = null;
-  log('Deployment restarted — both armies withdrawn from the field.', 'system');
+  log('Deployment restarted: both armies withdrawn from the field.', 'system');
   initDeployment(firstPlacement);
   draw();
 }

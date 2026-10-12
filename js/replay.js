@@ -48,7 +48,7 @@ export function replayEventDelay(ev){
 
 export function replayEventCaption(ev){
   if(ev.type==='fight'){
-    const labels = {stalemate:'Held — drawn', pushback:'Pushed back', rout:'Routed', destroy:'Destroyed'};
+    const labels = {stalemate:'Held, drawn', pushback:'Pushed back', rout:'Routed', destroy:'Destroyed'};
     return `Fighting at the line: ${labels[ev.result]||ev.result}`;
   }
   if(ev.type==='fire'){
@@ -80,7 +80,7 @@ export function applyReplayEvent(ev){
   if(ev.type==='turnStart'){
     state.turn = ev.side;
     state.turnNumber = ev.turn;
-    document.getElementById('replayTurnLabel').textContent = `Turn ${ev.turn} — ${SIDE_LABEL[ev.side]}`;
+    document.getElementById('replayTurnLabel').textContent = `Turn ${ev.turn}: ${SIDE_LABEL[ev.side]}`;
     return;
   }
   if(ev.type==='move'){
@@ -276,7 +276,7 @@ function sectionDeployment(){
     for(const side of [SIDES.RED, SIDES.BLUE]){
       const list = m.deployment.filter(u=>u.side===side);
       if(!list.length) continue;
-      out.push(`${SIDE_LABEL[side]} — ${list.length} units`);
+      out.push(`${SIDE_LABEL[side]}: ${list.length} units`);
       const byBrigade = {};
       for(const u of list) (byBrigade[u.brigadeId] = byBrigade[u.brigadeId] || []).push(u);
       for(const b of Object.keys(byBrigade).sort()){
@@ -385,19 +385,19 @@ function sectionSummary(log, label){
       }
     }
   } else {
-    out.push(`Combat: ${fights.length} fights, ${gunFires.length} artillery shots (hits only — this export predates miss logging)`);
+    out.push(`Combat: ${fights.length} fights, ${gunFires.length} artillery shots (hits only, as this export predates miss logging)`);
   }
   const saves = log.filter(e=>e.type==='leadership');
   if(saves.length){
     const bySide = {};
     for(const e of saves) bySide[SIDE_LABEL[e.side]] = (bySide[SIDE_LABEL[e.side]]||0)+1;
-    out.push(`  leadership rolls spent: ${saves.length} — ` +
+    out.push(`  leadership rolls spent: ${saves.length}, ` +
       Object.entries(bySide).map(([k,v])=>`${k} ${v}`).join(', '));
   }
   if(volleys.length){
     const byEffect = {};
     for(const v of volleys) byEffect[v.effect] = (byEffect[v.effect]||0)+1;
-    out.push(`  volleys: ${volleys.length} fired — ` +
+    out.push(`  volleys: ${volleys.length} fired, ` +
       (Object.entries(byEffect).map(([k,v])=>`${k} ${v}`).join(', ') || 'none'));
   }
   const byResult = {};
@@ -567,7 +567,7 @@ function sectionFlags(log, label){
 }
 
 export function exportFullMatchLog(){
-  if(!state.matchLog || state.matchLog.length===0) return 'No match log recorded — matchLog is only captured once a battle has actually started.';
+  if(!state.matchLog || state.matchLog.length===0) return 'No match log recorded: matchLog is only captured once a battle has actually started.';
   const label = id => {
     const u = state.units.find(o=>o.id===id);
     return u ? ((u.historicalName) || u.type) : id;
@@ -649,12 +649,12 @@ export function exportFullMatchLog(){
       const atTarget = s.length > 0 && s.every(p => !bad(p.vx) && Math.abs(p.vx-ev.to.x) < 0.01 && Math.abs(p.vy-ev.to.y) < 0.01);
       const covered = s.length > 0 && s.every(p => p.overlayUp);
       let verdict;
-      if(ev.drawCalls === 0 && ev.framesInWindow === 0) verdict = 'NOT DRAWN, AND NO FRAMES RAN — the animation loop was not running';
-      else if(ev.drawCalls === 0) verdict = `NOT DRAWN across ${ev.framesInWindow} frames — culled in draw(), grouped as "${ev.grouped}"`;
+      if(ev.drawCalls === 0 && ev.framesInWindow === 0) verdict = 'NOT DRAWN, AND NO FRAMES RAN: the animation loop was not running';
+      else if(ev.drawCalls === 0) verdict = `NOT DRAWN across ${ev.framesInWindow} frames: culled in draw(), grouped as "${ev.grouped}"`;
       else if(offBoard) verdict = 'DRAWN OFF-BOARD or at a non-finite position';
-      else if(atTarget) verdict = 'DRAWN AT THE DESTINATION THROUGHOUT — interpolation collapsed';
-      else if(covered) verdict = 'DRAWN CORRECTLY BUT AN OVERLAY WAS UP THE WHOLE TIME — this is a compositing fault, not an animation one';
-      else verdict = 'drawn correctly and uncovered — animation itself looks healthy';
+      else if(atTarget) verdict = 'DRAWN AT THE DESTINATION THROUGHOUT: interpolation collapsed';
+      else if(covered) verdict = 'DRAWN CORRECTLY BUT AN OVERLAY WAS UP THE WHOLE TIME: this is a compositing fault, not an animation one';
+      else verdict = 'drawn correctly and uncovered: animation itself looks healthy';
       lines.push(`ROUT PROBE: ${ev.label} (${ev.from.x},${ev.from.y}) -> (${ev.to.x},${ev.to.y})  ` +
         `${ev.duration}ms, ${ev.pathPoints} path points, ${ev.framesInWindow} frames, ` +
         `${ev.drawCalls} draw calls, grouped as "${ev.grouped}"`);
@@ -675,10 +675,10 @@ export function exportFullMatchLog(){
       lines.push(`    ${who}${lead}${ev.note ? '  (' + ev.note + ')' : ''}`);
     } else if(ev.type==='ambush'){
       const extra = ev.phase==='sprung' ? ` on ${label(ev.targetId)} (${ev.mode})`
-        : ev.reason ? ` — ${ev.reason}` : '';
+        : ev.reason ? `: ${ev.reason}` : '';
       lines.push(`AMBUSH ${ev.phase}: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y})${extra}`);
     } else if(ev.type==='fight'){
-      lines.push(`FIGHT at (${ev.x},${ev.y}): ${label(ev.attackerId)} (${SIDE_LABEL[ev.attackerSide]}) vs ${label(ev.defenderId)} (${SIDE_LABEL[ev.defenderSide]}) — rolls ${ev.aRoll} v ${ev.dRoll} — ${ev.result}`);
+      lines.push(`FIGHT at (${ev.x},${ev.y}): ${label(ev.attackerId)} (${SIDE_LABEL[ev.attackerSide]}) vs ${label(ev.defenderId)} (${SIDE_LABEL[ev.defenderSide]}): rolls ${ev.aRoll} v ${ev.dRoll}: ${ev.result}`);
       // Diagnostic line: what the PANEL was built from, beside what the engine
       // resolved on. Only emitted when the two could disagree (a re-roll, a
       // second die, a value bonus or a tie-break), so ordinary fights stay
@@ -713,7 +713,7 @@ export function exportFullMatchLog(){
         }
         if(d.build && (!d.build.keptDie || !d.build.sources)){
           lines.push(`    *** STALE BUILD: running code is missing ` +
-            `${!d.build.keptDie?'keptDie ':''}${!d.build.sources?'bonus-sources ':''}— hard-refresh needed ***`);
+            `${!d.build.keptDie?'keptDie ':''}${!d.build.sources?'bonus-sources ':''}- hard-refresh needed ***`);
         }
       }
     } else if(ev.type==='fire'){
@@ -739,7 +739,7 @@ export function exportFullMatchLog(){
         lines.push(`${who} on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): MISS`);
         lines.push(`    hit    dice[${(ev.hitRolls||[]).join(',')}] x${(ev.hitRolls||[]).length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${ev.canister ? '  [canister: 2 dice]' : ''}`);
       } else if(ev.rawRoll === undefined){
-        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll} — ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
+        lines.push(`ARTILLERY on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): effect ${ev.roll}: ${ev.effect}  (pre-breakdown export: raw die not recorded)`);
       } else {
         const mods = [];
         if(ev.turnedBonus) mods.push('+1 target turned around');
@@ -759,7 +759,7 @@ export function exportFullMatchLog(){
         lines.push(`    effect dice[${eRolls.join(',')}] x${eRolls.length} kept ${ev.rawRoll}${sum} ${ev.roll}`);
       }
     } else if(ev.type==='status'){
-      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?' — '+ev.reason:''}`);
+      lines.push(`${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): ${ev.newStatus}${ev.reason?': '+ev.reason:''}`);
     }
   }
   lines.push('');

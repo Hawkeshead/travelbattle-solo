@@ -162,16 +162,16 @@ export function showCampaignBranchChoice(step){
     return;
   }
   document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[chooser]} Chooses`;
-  document.getElementById('overlayText').innerHTML = 'You won the last engagement — pick which Operation comes next.';
+  document.getElementById('overlayText').innerHTML = 'You won the last engagement: pick which Operation comes next.';
   let extra = ensureModeChoices();
   extra.innerHTML = ''; extra.style.display = 'flex'; extra.style.flexDirection = 'column'; extra.style.gap = '6px';
   for(const opt of step.options){
     const b = document.createElement('button');
     if(opt.locked){
-      b.textContent = `${opt.name} (coming soon — needs VIP mission mechanics)`;
+      b.textContent = `${opt.name} (coming soon: needs VIP mission mechanics)`;
       b.disabled = true;
     } else {
-      b.textContent = `${opt.name}${opt.missionArchetype ? ' — '+opt.missionArchetype : ''}`;
+      b.textContent = `${opt.name}${opt.missionArchetype ? ': '+opt.missionArchetype : ''}`;
       b.onclick = ()=>{ extra.style.display='none'; beginChosenOperation(opt); };
     }
     extra.appendChild(b);
@@ -181,7 +181,7 @@ export function showCampaignBranchChoice(step){
 
 export function beginChosenOperation(opt){
   const scenario = SCENARIOS.find(s=>s.id===opt.operationId);
-  if(!scenario){ log(`Could not find Operation data for ${opt.name} — skipping.`, 'system'); advanceCampaignStep(); return; }
+  if(!scenario){ log(`Could not find Operation data for ${opt.name}: skipping.`, 'system'); advanceCampaignStep(); return; }
   state.scenario = scenario;
   document.getElementById('overlay').classList.remove('show');
   beginBoardSetup();

@@ -616,7 +616,7 @@ export function beginOperation(card, playerSide){
 export function showOperationModeSelect(scenario){
   document.getElementById('overlayTitle').textContent = 'How will you play this Operation?';
   document.getElementById('overlayText').innerHTML =
-    'Note: the AI plays Operations with the same tactics as a standard battle — it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
+    'Note: the AI plays Operations with the same tactics as a standard battle: it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.style.display = 'flex';
@@ -934,7 +934,7 @@ function orientationGroups(redRoll, blueRoll){
 function rollOrientationOrder(){
   const redRoll = rollD6(), blueRoll = rollD6();
   const firstSide = redRoll===blueRoll ? null : (redRoll>blueRoll ? SIDES.RED : SIDES.BLUE);
-  const resultText = firstSide===null ? 'Tied \u2014 rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
+  const resultText = firstSide===null ? 'Tied, rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
   showDice(orientationGroups(redRoll, blueRoll), resultText, firstSide===null?'draw':'win', ()=>{
     if(firstSide===null){ rollOrientationOrder(); return; }
     log(`${SIDE_LABEL[firstSide]} rolls higher and goes first for table orientation.`, 'system');
@@ -948,7 +948,7 @@ function rollRotationEligibility(firstSide){
   const resultText = redEligible && blueEligible ? 'Both may rotate their board'
     : redEligible ? 'Only Britain may rotate their board'
     : blueEligible ? 'Only France may rotate their board'
-    : 'Neither rolled high enough \u2014 both boards stay as they are';
+    : 'Neither rolled high enough: both boards stay as they are';
   showDice(orientationGroups(redRoll, blueRoll), resultText, 'draw', ()=>{
     log(`Britain rolls ${redRoll}, France rolls ${blueRoll} for the right to rotate their board.`, 'system');
     const order = firstSide===SIDES.BLUE ? [SIDES.BLUE, SIDES.RED] : [SIDES.RED, SIDES.BLUE];
@@ -1060,7 +1060,7 @@ export function handleOrientationClick(x){
 export function showGrandMatchTypeSelect(){
   document.getElementById('overlayTitle').textContent = 'Grand Strategy';
   document.getElementById('overlayText').innerHTML =
-    'Four boards combined into a 20x20 battlefield — the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
+    'Four boards combined into a 20x20 battlefield: the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.style.display = 'flex';

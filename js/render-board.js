@@ -640,7 +640,7 @@ export function animateUnitTo(u, newX, newY, kind, opts){
      warning on every rout would train the eye to ignore it. */
   if(kind !== 'rout' && squares > 1 && path.length !== squares + 1){
     console.warn(`[move] ${u.historicalName || u.type}: ${squares}-square move produced a ` +
-      `${path.length}-point path (expected ${squares + 1}) — animating on a straight line`, path);
+      `${path.length}-point path (expected ${squares + 1}): animating on a straight line`, path);
   }
   const profile = MOVE_PROFILES[kind] || MOVE_PROFILES.march;
   /* Timed on the distance ACTUALLY travelled, not the length of the path found.

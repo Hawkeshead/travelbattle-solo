@@ -1010,7 +1010,7 @@ export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   // Uncapped, matching the bonus application in resolveFight: see the note there.
   roll.value = roll.keptDie + valueBonus;
   reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}, fights on ${roll.keptDie}`);
-  log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav) — new roll: ${newVal}.`, 'combat');
+  log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav), new roll: ${newVal}.`, 'combat');
   next();
 }
 
@@ -1083,14 +1083,14 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const effectOf = m => m >= 3 ? 'destroyed' : m === 2 ? 'routed' : 'pushed back';
     
     let resultText, resultCls;
-    if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+    if(genuineDraw){ resultText = 'Drawn, continues next turn'; resultCls = 'draw'; }
     // A tie-win is always a pushback: the margin is zero by definition.
-    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground — ${aName} pushed back`; resultCls = 'win'; }
-    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie — ${dName} pushed back`; resultCls = 'win'; }
-    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie — ${dName} pushed back`; resultCls = 'win'; }
+    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground: ${aName} pushed back`; resultCls = 'win'; }
+    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie: ${dName} pushed back`; resultCls = 'win'; }
+    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie: ${dName} pushed back`; resultCls = 'win'; }
     else {
       const winner = aVal > dVal ? aName : dName, loser = aVal > dVal ? dName : aName;
-      resultText = `${winner} wins by ${margin} — ${loser} ${effectOf(margin)}`;
+      resultText = `${winner} wins by ${margin}: ${loser} ${effectOf(margin)}`;
       resultCls = 'win';
     }
     return { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin };
@@ -1158,7 +1158,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
        at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
-    ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
+    ], rerollPending ? 'Re-roll available: result pending' : interim.resultText,
        rerollPending ? 'draw' : interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
@@ -1269,7 +1269,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       });
 
       if(genuineDraw){
-        log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn — fight continues next turn.`, 'combat');
+        log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn, fight continues next turn.`, 'combat');
         logNarration('melee_stalemate');
         onComplete();
         return;
@@ -1561,7 +1561,7 @@ export function retreatAndRally(loser, onComplete){
            that did succeed, which reads worse. */
         playRallyCall(loser);
         if(nowhereToGo){
-          log(`${unitLabel(loser)} is driven against the board edge with nowhere to go — ` +
+          log(`${unitLabel(loser)} is driven against the board edge with nowhere to go: ` +
               `it holds the square, turned about, and RALLIES (rolled ${r}).`, 'combat');
           logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y,
             newStatus:'HeldAtEdge', reason:'rallied with nowhere to retreat to' });
@@ -1634,7 +1634,7 @@ export function showLeadershipRollPrompt(loser, brig, choose, opts = {}){
       { label: 'Save', caption: 'spend the roll', icon: 'icon_save', primary: true, value: true },
       { label: 'Let go', caption: 'unit is lost', icon: 'icon_letgo', primary: false, value: false },
     ],
-    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
+    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll: one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
     units: [loser, brig],
     answerMs: opts.answerMs || 0,
     afterChoose: 'close',
@@ -1660,7 +1660,7 @@ export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
       side: loser.side, unitId: loser.id, brigadierId: brig.id,
       brigadeId: loser.brigadeId, x: loser.x, y: loser.y,
     });
-    log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
+    log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it: saved! (one-time use, now spent)`, 'combat');
     logNarration('rally_success');
   } else {
     log(`${unitLabel(loser)} is removed from the field.`, 'combat');
@@ -1723,7 +1723,7 @@ export function removeUnit(u, reason){
            same reason. */
         logReplay('status', { unitId:brig.id, side:brig.side, x:brig.x, y:brig.y,
           newStatus:'Withdrawn', reason:'Brigade broken' });
-        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws — the Brigade is broken.`, 'system');
+        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws: the Brigade is broken.`, 'system');
       }
     }
   }

@@ -1009,7 +1009,7 @@ export function updateOperationalPlan(side, assessment){
     const mainEffort = assessment.liveOwnBrigades.find(b=>b.id===prev.mainEffortBrigadeId);
     const target = assessment.liveEnemyBrigades.find(b=>b.id===prev.targetBrigadeId);
     if(prev.mainEffortBrigadeId!=null && !mainEffort){ mustReassess = true; reasons.push('main effort Brigade broken/withdrawn'); }
-    else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed — exploit or pick a new one'); }
+    else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed: exploit or pick a new one'); }
     else if(prev.turnsHeld > MAX_PLAN_TURNS_UNCHANGED){ mustReassess = true; reasons.push('plan stale, no resolution in ' + prev.turnsHeld + ' turns'); }
     /* Soft trigger, so it is gated by the hysteresis floor. The two triggers
        above are HARD (the main effort Brigade broken, the target Brigade
@@ -1027,7 +1027,7 @@ export function updateOperationalPlan(side, assessment){
     else if(prev.turnsHeld >= MIN_PLAN_TURNS_BEFORE_CHANGE
       && assessment.strengthRatio < 0.7 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'
       && !localAttackStillFavourable(assessment, prev.mainEffortBrigadeId, prev.targetBrigadeId)){
-      mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge — abandon and stabilise');
+      mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge: abandon and stabilise');
     }
 
     /* --- OPPORTUNITY TRIGGERS ---
@@ -1046,14 +1046,14 @@ export function updateOperationalPlan(side, assessment){
       if(assessment.brigadesFromDefeat <= 1 && prev.type!=='WITHDRAWAL'
         && assessment.strengthRatio < WITHDRAW_ON_BRINK_RATIO){
         mustReassess = true;
-        reasons.push('one Brigade break from defeat — withdraw while there is still something to save');
+        reasons.push('one Brigade break from defeat: withdraw while there is still something to save');
       }
       // A finishing chance overrides everything, including the settling period. One
       // more Brigade break ends the battle; there is no posture worth holding
       // through that.
       else if(assessment.finishingChance && prev.type!=='FINISHING_BLOW'){
         mustReassess = true;
-        reasons.push('one Brigade break from victory and an enemy Brigade is on the brink — go and finish it');
+        reasons.push('one Brigade break from victory and an enemy Brigade is on the brink: go and finish it');
       }
       // An enemy Brigade that has come unstuck from its own army is the opening a
       // behind-but-not-beaten army needs, whatever posture it happens to be in.
@@ -1061,13 +1061,13 @@ export function updateOperationalPlan(side, assessment){
         && assessment.strengthRatio >= MIN_RATIO_FOR_OPPORTUNISM
         && prev.type!=='BRIGADE_DESTRUCTION'){
         mustReassess = true;
-        reasons.push('an enemy Brigade has become isolated — worth breaking posture to exploit');
+        reasons.push('an enemy Brigade has become isolated: worth breaking posture to exploit');
       }
       // Material recovery, with hysteresis: the exit ratios sit above the entry
       // ratios so an army sitting on a threshold doesn't flip posture repeatedly.
       else if(settled && passive && assessment.strengthRatio >= (PASSIVE_EXIT_RATIO[prev.type] || Infinity)){
         mustReassess = true;
-        reasons.push('position recovered to ratio ' + assessment.strengthRatio.toFixed(2) + ' — no longer justifies staying passive');
+        reasons.push('position recovered to ratio ' + assessment.strengthRatio.toFixed(2) + ': no longer justifies staying passive');
       }
     }
   }
@@ -5267,7 +5267,7 @@ function aiDoVolleyStep(){
       if(value < tune(u.side, 'VOLLEY_FLOOR', 1.0)){ step(); return; }
     }
     logAiDebugMove(u.side, { unit: unitLabel(u), mission: missionFor(u), action:'Volley',
-                             target: unitLabel(target), score: '—' });
+                             target: unitLabel(target), score: '-' });
     /* A volley is always at range 1, so this is close to a pure close-up: the
        fit calculation settles at CAMERA_ACTION_ZOOM for two adjacent squares. */
     cameraToAction([u, target], { durationMs: CAMERA_ACTION_PAN_MS });
@@ -5702,12 +5702,12 @@ export function formatAiDecision(entry, indent){
 
 export function exportAiMoveLog(){
   const side = state.aiSide;
-  if(!side) return 'No AI opponent in this match — nothing to export.';
+  if(!side) return 'No AI opponent in this match: nothing to export.';
   const history = state._aiMoveHistory[side] || [];
   if(history.length===0) return 'No AI moves recorded this match.';
 
   const lines = [];
-  lines.push(`=== AI MOVE LOG — ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
+  lines.push(`=== AI MOVE LOG: ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
   lines.push(`Total AI moves: ${history.length}`);
   /* TWO NUMBERS, BECAUSE ONE OF THEM HAS BEEN MISREAD THREE TIMES.
 

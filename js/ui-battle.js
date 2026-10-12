@@ -433,7 +433,7 @@ export function renderAiDebugPanel(){
     return;
   }
   if(state.aiDifficulty!=='hard'){
-    el.innerHTML = `<div class="dbg-empty">${SIDE_LABEL[state.aiSide]} is playing Easy/Medium — no operational plan to report. Switch to Hard to see one.</div>`;
+    el.innerHTML = `<div class="dbg-empty">${SIDE_LABEL[state.aiSide]} is playing Easy/Medium: no operational plan to report. Switch to Hard to see one.</div>`;
     return;
   }
   const dbg = state._aiDebugLog[state.aiSide];
@@ -454,7 +454,7 @@ export function renderAiDebugPanel(){
   html += `<div class="dbg-row"><span class="dbg-label">Type:</span> ${plan.type}</div>`;
   html += `<div class="dbg-row"><span class="dbg-label">Main effort:</span> ${plan.mainEffortBrigadeId!=null ? 'Own Brigade '+(plan.mainEffortBrigadeId+1) : 'none'}</div>`;
   html += `<div class="dbg-row"><span class="dbg-label">Target:</span> ${plan.targetBrigadeId!=null ? 'Enemy Brigade '+(plan.targetBrigadeId+1) : 'none'}</div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Held for:</span> ${plan.turnsHeld} turn${plan.turnsHeld===1?'':'s'}${plan.reasons&&plan.reasons.length?' — reassessed: '+plan.reasons.join('; '):''}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Held for:</span> ${plan.turnsHeld} turn${plan.turnsHeld===1?'':'s'}${plan.reasons&&plan.reasons.length?', reassessed: '+plan.reasons.join('; '):''}</div>`;
 
   html += `<h4>Brigade Missions</h4>`;
   for(const bId of Object.keys(missions)){
@@ -463,11 +463,11 @@ export function renderAiDebugPanel(){
 
   html += `<h4>This Turn's Decisions</h4>`;
   if(dbg.moveLog.length===0){
-    html += '<div class="dbg-empty">Move phase not complete yet — reopen this tab once it finishes.</div>';
+    html += '<div class="dbg-empty">Move phase not complete yet: reopen this tab once it finishes.</div>';
   } else {
     for(const m of dbg.moveLog){
-      html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'—'}): ${m.action}` +
-        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?' — '+m.reason:''}${m.score!=null&&m.score!=='—'?` <span style="color:var(--ink-dim);">[${m.score}]</span>`:''}</div>`;
+      html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'-'}): ${m.action}` +
+        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?': '+m.reason:''}${m.score!=null&&m.score!=='-'?` <span style="color:var(--ink-dim);">[${m.score}]</span>`:''}</div>`;
     }
   }
   el.innerHTML = html;
@@ -645,9 +645,9 @@ export function beginFightPhase(){
   if(!anyFightsAvailable(state.turn)){
     const stuck = turnedAroundInContact(state.turn);
     if(stuck.length > 0){
-      log(`${stuck.map(unitLabel).join(', ')} still turned around from being pushed back — can't fight this turn. Skipping Fight phase.`, 'system');
+      log(`${stuck.map(unitLabel).join(', ')} still turned around from being pushed back: can't fight this turn. Skipping Fight phase.`, 'system');
     } else {
-      log('No units in contact — skipping Fight phase.', 'system');
+      log('No units in contact: skipping Fight phase.', 'system');
     }
   }
   maybeStartAutoEnd();
@@ -963,7 +963,7 @@ export function endFightPhase(){
       log('Units in contact must fight before the phase can end.', 'system');
       return;
     }
-    log(`Fight gate refused ${state._fightGateRefusals} times — forcing the phase to end. Diagnostics:`, 'system');
+    log(`Fight gate refused ${state._fightGateRefusals} times: forcing the phase to end. Diagnostics:`, 'system');
     for(const line of describeBlockingContacts(state.turn, 3)) log(line, 'system');
     logReplay('gateForced', { side: state.turn, refusals: state._fightGateRefusals });
   }
@@ -1363,7 +1363,7 @@ export function fireArtillery(gun, target, onComplete){
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher — pure range, no formation modifier
   const hitNotes = [];
   const minRoll = Math.max(1, Math.min(6, needed));
-  hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range — cannot hit');
+  hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range: cannot hit');
 
   /* W6.1, CANISTER SHOT, HOUSE RULE. A gun firing at 2 squares or less rolls two
      dice for BOTH the to-hit and the effect.
@@ -1397,7 +1397,7 @@ export function fireArtillery(gun, target, onComplete){
     AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
       { pan: AudioManager.panForBoardX(gun.x) });
     showDice([{label:'To Hit', side:gun.side, rolls:hitRolls, keptValue:roll, notes:hitNotes, at:{x:gun.x,y:gun.y}, also:{x:target.x,y:target.y}}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
-      log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
+      log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ', Crack Shot' : ''}.`, 'combat');
       if(!hit){
         /* A MISS IS A SHOT. It used to return here without ever reaching
            logReplay, so no `fire` event existed for it and the export could not
@@ -1534,7 +1534,7 @@ export function resolveVolley(shooter, target, onComplete){
   if(coverPenalty) notes.push('-1 effect: target in wood/building');
   // Cancelling exactly is the intended behaviour, but a player watching two
   // modifiers appear and the number not move deserves to be told why.
-  if(turnedBonus && coverPenalty) notes.push('(these cancel — base table)');
+  if(turnedBonus && coverPenalty) notes.push('(these cancel: base table)');
 
   showActionLine(shooter, target, '#e8c46a', 3800, true);
   recordGunfire('musket', shooter, target);   // three muzzle flashes along the front, then smoke (render-gunfire.js)
@@ -1686,7 +1686,7 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     onComplete();
   } else if(roll===4){
     setTurnedAround(u);
-    log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
+    log(`${unitLabel(u)} is shaken: cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
     onComplete();
   } else if(roll===5){
     logNarration('artillery_rout');
@@ -1788,7 +1788,7 @@ export function initBattleControls(){
     }
     const out = [...keep].sort((a,b)=>a-b).map(i=>lines[i]);
     exportText.value = out.length
-      ? `[filtered: ${t} — ${out.length} lines. Copy still gives the full log]\n\n` + out.join('\n')
+      ? `[filtered: ${t}, ${out.length} lines. Copy still gives the full log]\n\n` + out.join('\n')
       : `[no lines matching ${t}]`;
     exportText.scrollTop = 0;
   }
@@ -1928,7 +1928,7 @@ export function initBattleControls(){
       u.hidden = false;
       state.moved.add(u.id);
       u.noActionThisTurn = true;
-      log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+      log(`${unitLabel(u)} stands down from ambush: no move or fight for the rest of this turn.`, u.side);
     } else if(canLayAmbush(u)){
       u.hidden = true;
       state.moved.add(u.id);
