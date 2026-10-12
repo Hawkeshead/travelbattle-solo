@@ -53,7 +53,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '
    Transport: Supabase for real play; ?onlineTransport=local runs several
    tabs of one browser as separate players, for testing without the network.
 --------------------------------------------------------- */
-async function supabaseTransport(){
+export async function supabaseTransport(){
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
   const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   let me = null, channel = null;
@@ -83,7 +83,7 @@ async function supabaseTransport(){
   };
 }
 
-function localTransport(){
+export function localTransport(){
   const tabId = sessionStorage.getItem('fc-tab') || (sessionStorage.setItem('fc-tab', crypto.randomUUID()), sessionStorage.getItem('fc-tab'));
   const read = () => JSON.parse(localStorage.getItem('fc-local-groups') || '{}');
   const write = m => localStorage.setItem('fc-local-groups', JSON.stringify(m));

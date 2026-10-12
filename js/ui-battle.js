@@ -1225,7 +1225,7 @@ export function onCellClick(x,y){
   if(state.phase==='move'){
     if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='charge')){
       // Shared armies: a partner phone sends the order to the referee instead.
-      if(interceptOrder('move', { unitId: sel.id, x, y, kind: 'charge' })) return;
+      if(interceptOrder('move', { unitId: sel.id, x, y, moveKind: 'charge' })) return;
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
@@ -1246,7 +1246,7 @@ export function onCellClick(x,y){
       return;
     }
     if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
-      if(interceptOrder('move', { unitId: sel.id, x, y, kind: 'march' })) return;
+      if(interceptOrder('move', { unitId: sel.id, x, y, moveKind: 'march' })) return;
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
