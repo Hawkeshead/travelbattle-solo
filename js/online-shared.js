@@ -52,7 +52,7 @@
 ========================================================= */
 import { recOnlineMerged } from './telemetry/recorder.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, setBoardMode, state } from './data-core.js';
-import { setOnlineSession, setRemoteAsker, setRemoteDeployHandler } from './online-session.js';
+import { setOnlineSession, setRemoteAsker, setRemoteDeployHandler, sharedArmiesEnabled } from './online-session.js';
 import { localTransport, supabaseTransport } from './online-group.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
          canvas, cellFromClient, draw, fromScreen, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas, toScreen } from './render-board.js';
@@ -69,14 +69,8 @@ import { maybeShowArmyPicker, showArmyPickerFor, startAmbientLayer } from './ui-
 import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
 import { AudioManager } from './audio-manager.js';
 
-/* ---------- the flag ---------- */
-const FLAG_KEY = 'fc-shared-armies';
-export function sharedArmiesEnabled(){
-  try {
-    if(new URLSearchParams(location.search).get('sharedArmies') === '1') sessionStorage.setItem(FLAG_KEY, '1');
-    return sessionStorage.getItem(FLAG_KEY) === '1';
-  } catch { return false; }
-}
+/* The flag lives in online-session.js, so the menu can ask without loading this. */
+export { sharedArmiesEnabled };
 
 /* ---------- modes and seats ---------- */
 export const MODES = {
@@ -201,7 +195,7 @@ function isRemote(side, unit){
 let orderSeq = 0;
 const pending = new Map();       // order id -> { unitId, fromX, fromY, x, y, at, order }
 const queue = [];                // on the referee: orders waiting their turn
-const history = {};              // on the referee: uid -> [{ unitId, before, after, dice }]
+const undoLog = {};              // on the referee: uid -> [{ unitId, before, after, dice }]
 let diceCount = 0;               // rolls seen on this phone (an undo cannot reach back past one)
 const newId = () => `${(me || 'x').slice(0, 6)}-${++orderSeq}-${Date.now() % 1000000}`;
 
@@ -289,14 +283,14 @@ function applyOrder(o){
     }
   } finally { applying = false; }
   selectUnit(prevSel && prevSel !== u.id ? prevSel : null);
-  if(ok) (history[o.from] = history[o.from] || []).push({ unitId: u.id, before, after: { x: u.x, y: u.y }, dice: dice0 });
+  if(ok) (undoLog[o.from] = undoLog[o.from] || []).push({ unitId: u.id, before, after: { x: u.x, y: u.y }, dice: dice0 });
   answer(o, ok, reason);
 }
 
 /* Undo: only the asker's own last order, and only if nothing has been rolled
    since and the unit still stands where it went. */
 function refereeUndo(o){
-  const h = history[o.from] || [];
+  const h = undoLog[o.from] || [];
   const last = h[h.length - 1];
   if(!last){ answer(o, false, 'Nothing of yours to take back'); return; }
   const u = find(last.unitId);
@@ -381,7 +375,7 @@ function normalise(){
   if(key !== lastPhaseKey){
     lastPhaseKey = key;
     state.sharedDone = [];
-    for(const k of Object.keys(history)) delete history[k];
+    for(const k of Object.keys(undoLog)) delete undoLog[k];
   }
   if(BATTLE_PHASES.has(state.phase) && state.phase !== 'move' && sideIsShared(state.turn) && !batonValid(state.turn)){
     state.baton = sidePlayers(state.turn).includes(me) ? me : refereeOf(state.turn);
@@ -561,7 +555,7 @@ function adoptSetup(incoming, incomingSeq){
   seq = Math.max(seq, incomingSeq || 0);
   lastShared = pack();
   if(!setupShown){ enterSetupView(); return; }
-  if(state.phase === 'deploy') updateHeader();
+  if(state.phase === 'deploy' && state.deployTurn) updateHeader();
   draw();
 }
 function enterSetupView(){

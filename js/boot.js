@@ -11,6 +11,7 @@ import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
 import { setDiceClash, setDiceFrame, setDiceScreenPoint } from './dice.js';
 import { COLS } from './data-core.js';
+import { sharedArmiesEnabled } from './online-session.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
 import { CAMPAIGNS_ENABLED, prepareTitleBoard, showModeSelect, startAmbientLayer } from './ui-menus.js';
@@ -148,6 +149,9 @@ start();
   if(joinCode) import('./online.js').then(m => m.openLobby({ joinCode }));
   const groupCode = new URLSearchParams(location.search).get('group');
   if(groupCode) import('./online-group.js').then(m => m.openGroupLobby({ joinCode: groupCode }));
+  // Shared armies (?shared=CODE&sharedArmies=1, behind the flag while reviewed).
+  const sharedCode = new URLSearchParams(location.search).get('shared');
+  if(sharedCode && sharedArmiesEnabled()) import('./online-shared.js').then(m => m.openSharedLobby({ joinCode: sharedCode }));
 }
 
 /* Before the board is first sized: it decides how much of the screen the board gets. */

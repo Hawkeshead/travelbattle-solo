@@ -75,3 +75,13 @@ export function asksElsewhere(unit){ return !!(session && session.shared && sess
 export function holdsAutoEnd(){ return !!(session && session.holdsAutoEnd && session.holdsAutoEnd()); }
 export function commanderNote(u){ return session && session.commanderNote ? session.commanderNote(u) : null; }
 export function partnerRing(u){ return session && session.partnerRing ? session.partnerRing(u) : null; }
+
+/* Shared armies (online-shared.js) are behind a flag while they are reviewed:
+   offered only after ?sharedArmies=1, remembered for the tab. */
+const SHARED_FLAG = 'fc-shared-armies';
+export function sharedArmiesEnabled(){
+  try {
+    if(new URLSearchParams(location.search).get('sharedArmies') === '1') sessionStorage.setItem(SHARED_FLAG, '1');
+    return sessionStorage.getItem(SHARED_FLAG) === '1';
+  } catch { return false; }
+}

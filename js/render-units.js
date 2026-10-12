@@ -3,6 +3,7 @@ import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './dat
 import { clashOffset, figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
+import { partnerRing } from './online-session.js';
 import { isConcealedFromEnemy, isTurnedAround } from './engine-rules.js';
 import { WOODS_OVERSCAN, ctx, getUnitVisualPos, routProbeSample, toScreen, unitGaitOffset, woodsStyleIndex } from './render-board.js';
 
@@ -516,8 +517,20 @@ export function drawBrigadierPortrait(size, u, isSel){
 
 const skinFor = u => (state.group && armyOf(u) && armyOf(u).skin === 2) ? 2 : 1;
 export function drawUnit(u, off){
+  // Shared armies: a partner's units sit on a ring of the partner's colour.
+  const ring = partnerRing(u);
+  if(ring) drawPartnerRing(u, off, ring);
   setUnitSkin(skinFor(u));
   try { drawUnitInner(u, off); } finally { setUnitSkin(1); }
+}
+function drawPartnerRing(u, off, color){
+  off = off || {dx:0, dy:0, scale:1};
+  const vp = getUnitVisualPos(u), sp = toScreen(vp.x, vp.y);
+  const cx = sp.x*CELL + CELL/2 + off.dx*CELL, cy = sp.y*CELL + CELL/2 + off.dy*CELL;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(2, CELL*0.06);
+  ctx.beginPath(); ctx.ellipse(cx, cy + CELL*0.28, CELL*0.42, CELL*0.16, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
 }
 function drawUnitInner(u, off){
   off = off || {dx:0, dy:0, scale:1};

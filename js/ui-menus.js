@@ -6,7 +6,7 @@ import { getCard, readyCards } from './scenario-cards.js';
 import { operationBriefHTML, redrawOperation, setupOperation } from './operations.js';
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
-import { isOnline } from './online-session.js';
+import { isOnline, sharedArmiesEnabled } from './online-session.js';
 import { humanOwns, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
@@ -432,6 +432,11 @@ export function showOnlinePlayerCount(){
   campBtn(extra, '3 or 4 players', 'Two against two on the four-board map', ()=>{
     document.getElementById('overlay').classList.remove('show');
     import('./online-group.js').then(m => m.openGroupLobby());
+  });
+  // Behind ?sharedArmies=1 while it is reviewed: two players to one army.
+  if(sharedArmiesEnabled()) campBtn(extra, 'Shared armies', 'Two players command one army: Co-op, 2 against 1, 2 against 2', ()=>{
+    document.getElementById('overlay').classList.remove('show');
+    import('./online-shared.js').then(m => m.openSharedLobby());
   });
   campBtn(extra, 'Back', null, ()=> showModeSelect(), 'op-back');
 }

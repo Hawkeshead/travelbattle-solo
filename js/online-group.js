@@ -217,6 +217,13 @@ export function openGroupLobby({ joinCode } = {}){
 }
 
 async function start(m, name){
+  // A shared-armies code is a different game on the same table: send it there.
+  const peek = await T.load(m.id);
+  if(peek && peek.state && peek.state.lobby && peek.state.lobby.kind === 'shared'){
+    const st = document.querySelector('#ogStatus');
+    if(st){ st.textContent = 'That code is for a shared-armies game.'; st.style.color = '#9b1c1c'; }
+    return;
+  }
   match = m;
   localStorage.setItem('fc-last-group', m.code);
   const local = location.search.includes('onlineTransport=local');
