@@ -920,14 +920,22 @@ export function startAmbientLayer(){
   syncAmbientClip();   // clouds over the board only (render-board.js)
 }
 
+/* The orientation rolls (12 Oct 2026): no panel, like the battle dice. Each
+   side's die lands over the middle of its own half of the map (`at`), and the
+   camera stays where it is (noFrame): there is no fight to close in on. */
+function orientationGroups(redRoll, blueRoll){
+  const half = COLS / 2, row = (ROWS - 1) / 2;
+  const redX = half / 2 - 0.5;   // Britain's board is the left half (buildTerrainMap: red at column 0)
+  return [
+    { label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll, at:{ x: redX, y: row }, noFrame:true },
+    { label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll, at:{ x: half + half / 2 - 0.5, y: row }, noFrame:true },
+  ];
+}
 function rollOrientationOrder(){
   const redRoll = rollD6(), blueRoll = rollD6();
   const firstSide = redRoll===blueRoll ? null : (redRoll>blueRoll ? SIDES.RED : SIDES.BLUE);
   const resultText = firstSide===null ? 'Tied \u2014 rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
-  showDice([
-    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
-    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
-  ], resultText, firstSide===null?'draw':'win', ()=>{
+  showDice(orientationGroups(redRoll, blueRoll), resultText, firstSide===null?'draw':'win', ()=>{
     if(firstSide===null){ rollOrientationOrder(); return; }
     log(`${SIDE_LABEL[firstSide]} rolls higher and goes first for table orientation.`, 'system');
     rollRotationEligibility(firstSide);
@@ -941,10 +949,7 @@ function rollRotationEligibility(firstSide){
     : redEligible ? 'Only Britain may rotate their board'
     : blueEligible ? 'Only France may rotate their board'
     : 'Neither rolled high enough \u2014 both boards stay as they are';
-  showDice([
-    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
-    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
-  ], resultText, 'draw', ()=>{
+  showDice(orientationGroups(redRoll, blueRoll), resultText, 'draw', ()=>{
     log(`Britain rolls ${redRoll}, France rolls ${blueRoll} for the right to rotate their board.`, 'system');
     const order = firstSide===SIDES.BLUE ? [SIDES.BLUE, SIDES.RED] : [SIDES.RED, SIDES.BLUE];
     const eligible = order.filter(s => (s===SIDES.RED ? redEligible : blueEligible));

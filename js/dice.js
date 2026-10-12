@@ -190,7 +190,7 @@ function setBoardMode(groups){
 let frameFn = null, lastFrameKey = '';
 export function setDiceFrame(fn){ frameFn = fn; }
 function frameFight(groups){
-  if(!frameFn || FAST_DICE_MODE) return;
+  if(!frameFn || FAST_DICE_MODE || groups.some(g => g.noFrame)) return;
   const pts = [];
   for(const g of groups){ pts.push(g.at); if(g.also) pts.push(g.also); }
   const key = pts.map(p => p.x + ',' + p.y).sort().join('|');
