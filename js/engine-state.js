@@ -155,6 +155,9 @@ function noteForAi(ev){
 export function logReplay(type, data){
   if(!state.matchLog || state.replaying) return;
   const ev = Object.assign({ type, turn: state.turnNumber, phase: state.phase }, data);
+  // Shared armies: a phase can be run by two phones in turn, so each event
+  // carries its time for the records to be merged in order (online-shared.js).
+  if(state.shared) ev.at = Date.now();
   state.matchLog.push(ev);
   noteForAi(ev);              // what the AI remembers between turns (below)
   recFromReplay(ev);          // match telemetry (js/telemetry/recorder.js): reads, never changes

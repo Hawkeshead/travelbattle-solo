@@ -519,12 +519,18 @@ function enterBattleView(){
   if(inBattle) return;
   inBattle = true;
   closeLobby();
+  document.documentElement.classList.add('title-away');
   if(!Array.isArray(state.matchLog)) state.matchLog = [];
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
   const uo = document.getElementById('unitOverlay'); uo.classList.remove('hidden'); uo.classList.remove('show');
   setLocal();
   sizeCanvas();
+  // The match record notes who commanded each Brigade (the host's record; the
+  // export's header lists them too, from state.shared).
+  const s = S();
+  if(s && s.host === me && !state.matchLog.some(e => e.type === 'commanders'))
+    logReplay('commanders', { mode: s.mode, commanders: Object.fromEntries(Object.entries(s.commanders).map(([k, u]) => [k, s.names[u] || 'a player'])) });
   lastTurnKey = `${state.turnNumber}|${state.turn}`;
   setTimeout(announceTurn, 0);
 }
@@ -561,6 +567,7 @@ function adoptSetup(incoming, incomingSeq){
 function enterSetupView(){
   setupShown = true;
   closeLobby();
+  document.documentElement.classList.add('title-away');   // the title screen goes, as it does on the host's phone
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('sidebar').style.display = 'none';
   setBoardMode('standard');
@@ -628,8 +635,6 @@ async function hostBegin(){
   const { beginBoardSetup } = await import('./ui-menus.js');
   beginBoardSetup();
   state.shared = state.shared || { mode: L.mode, host: me, seats, names, commanders, chooser, aiSide: mode.aiSide };
-  // The match record notes who commanded each Brigade.
-  logReplay('commanders', { mode: L.mode, commanders: Object.fromEntries(Object.entries(commanders).map(([k, u]) => [k, names[u]])) });
   setupStarted = true;
   setupShown = true;
   lastShared = pack(); seq += 1;
@@ -675,7 +680,11 @@ function onMessage(p){
   else if(p.type === 'begin'){ if(!S()) state.shared = p.shared; closeLobby(); flash('The battle is being set up'); }
   else if(p.type === 'state') applyIncoming(p.battle, p.seq);
   else if(p.type === 'dice') onDice(p);
-  else if(p.type === 'order'){ if(amWriter()) { if(p.kind === 'done' && state.phase !== 'move') markDone(p.from); else { queue.push(p); pump(); } } }
+  else if(p.type === 'order'){
+    if(!amWriter()) return;
+    if(p.kind === 'done' && p.phase && p.phase !== state.phase) return;   // a Done from a phase already over
+    if(p.kind === 'done' && state.phase !== 'move') markDone(p.from); else { queue.push(p); pump(); }
+  }
   else if(p.type === 'result') onResult(p);
   else if(p.type === 'ask') onAsk(p);
   else if(p.type === 'answer'){ const f = pendingAsks.get(p.id); if(f) f(p.value); }
@@ -976,7 +985,12 @@ async function start(m, name){
     const b = unpack(saved.state.battle);
     if(b.shared) state.shared = b.shared;
     applyIncoming(saved.state.battle, saved.state.seq || 0);
-  } else waitingRoom();
+  } else {
+    waitingRoom();
+    // A lobby message can be missed (a phone asleep, a dropped connection):
+    // the seats are read again every few seconds until the battle begins.
+    const poll = setInterval(() => { if(S()) clearInterval(poll); else refreshLobby(); }, 3000);
+  }
 }
 async function refreshLobby(){
   if(S() || !T || !match) return;
