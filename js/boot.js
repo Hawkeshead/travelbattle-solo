@@ -10,6 +10,7 @@ import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
 import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
 import { setDiceClash, setDiceFrame, setDiceScreenPoint } from './dice.js';
+import { initUnitMarkers } from './unit-markers.js';
 import { COLS } from './data-core.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
@@ -178,6 +179,7 @@ setDiceScreenPoint((x, y) => {
 });
 /* Framing a fight for its dice: the units themselves plus two squares either
    side across the screen, where the dice groups sit, kept on the board. */
+initUnitMarkers();   // the cockade over a selected or acting unit (unit-markers.js)
 setDiceFrame(points => {
   const pad = [];
   for(const p of points) for(const dx of [-2, 2]) pad.push({ x: Math.max(0, Math.min(COLS - 1, p.x + dx)), y: p.y });
