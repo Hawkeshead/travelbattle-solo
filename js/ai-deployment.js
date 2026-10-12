@@ -2,7 +2,7 @@ import { AI_UNIT_VALUE, terrainSeekBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
 import { isRoadLike, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
-import { isOnline, requestRemoteDeploy } from './online-session.js';
+import { isOnline, requestRemoteDeploy, aiAllowedOnline } from './online-session.js';
 import { newUnit } from './engine-state.js';
 import { deployZoneLocal, fromLocal } from './group.js';
 
@@ -295,7 +295,8 @@ export function aiDeployStep(){
   if(sideFullyDeployed(side)) return;
   /* Online, the "AI" side is the other player: they choose their own army on
      their own phone, and their choice comes back to be placed here. */
-  if(isOnline()){ requestRemoteDeploy(side); return; }
+  // Co-op against the AI: the host's phone deploys the AI's army itself.
+  if(isOnline() && !aiAllowedOnline(side)){ requestRemoteDeploy(side); return; }
   if(state.aiDifficulty==='hard'){ aiDeployStepHard(side); return; }
   const bIdx = state.deployBrigadeIndex[side];
   const plan = AI_DEPLOY_PLANS[bIdx];

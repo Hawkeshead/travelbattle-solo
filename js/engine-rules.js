@@ -9,7 +9,7 @@ import { GROUP_ARMIES, armyBrokenCount, armyOf, homeEdgeCells } from './group.js
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
 import { showPanelPrompt } from './prompt-panel.js';
-import { askRemote, isRemoteSide } from './online-session.js';
+import { askRemote, asksElsewhere, isRemoteSide } from './online-session.js';
 import { noteBrigadeBreaks, renderBrigadeStatus, unitLabel } from './ui-battle.js';
 
 /* =========================================================
@@ -958,7 +958,8 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   }
   function tryOne(unit, roll, reasons, valueBonus, opponentValue, next){
     if(!UNIT_TYPES[unit.type].reroll || roll.value >= opponentValue){ next(); return; }
-    const isHuman = !FAST_DICE_MODE && humanOwns(unit.side);
+    // Shared armies: a partner's unit is asked on the partner's phone.
+    const isHuman = !FAST_DICE_MODE && humanOwns(unit.side) && !asksElsewhere(unit);
     const doReroll = ()=> applyCombatReroll(unit, roll, reasons, valueBonus, ()=>{
       refreshDiceFrame(currentGroups(), leadText(), '');
       next();
@@ -967,7 +968,7 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
       /* Online, the other player decides for their own unit on their own phone,
          seeing the same dice. No answer in time takes it, as the AI would. */
       if(isRemoteSide(unit.side, unit)){
-        askRemote('reroll', { label: `Use Re-roll (${unitLabel(unit)})`, army: unit.army }, true, 9000)
+        askRemote('reroll', { label: `Use Re-roll (${unitLabel(unit)})`, army: unit.army, unitId: unit.id }, true, 9000)
           .then(yes => yes ? doReroll() : next());
         return;
       }
@@ -1604,7 +1605,7 @@ export function retreatAndRally(loser, onComplete){
 // worth asking (or, for the AI, weighing) whether THIS is the unit worth it.
 export function offerLeadershipRoll(loser, brig, onComplete){
   onComplete = onComplete || function(){};
-  const isHuman = !FAST_DICE_MODE && humanOwns(loser.side);
+  const isHuman = !FAST_DICE_MODE && humanOwns(loser.side) && !asksElsewhere(loser);
   if(!isHuman){
     const useIt = aiDecideLeadershipRoll(loser, brig);
     /* Online, the owning player spends their own Leadership Roll. The AI's

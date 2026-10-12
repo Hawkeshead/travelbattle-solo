@@ -23,7 +23,7 @@ import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
-import { askRemote, isOnline, isRemoteSide } from './online-session.js';
+import { aiAllowedOnline, askRemote, asksElsewhere, commanderNote, interceptOrder, isRemoteSide, ownsUnit } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
 import { cancelAutoEnd, maybeStartAutoEnd, registerPhaseEnders } from './phase-autoend.js';
@@ -567,7 +567,7 @@ export function beginMovePhase(){
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endMoveBtn').disabled = aiTurn;
   if(aiTurn){
-    if(isOnline()) return;   // the other player moves on their own phone; their moves arrive over the connection
+    if(!aiAllowedOnline(state.aiSide)) return;   // the other player moves on their own phone; their moves arrive over the connection (Co-op: the host's phone runs the AI)
     aiPlanTurn(state.aiSide);
     setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
@@ -616,7 +616,7 @@ export function beginFirePhase(){
   draw();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
-  if(aiTurn){ if(isOnline()) return; setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
+  if(aiTurn){ if(!aiAllowedOnline(state.aiSide)) return; setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
   maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
@@ -633,7 +633,7 @@ export function beginFightPhase(){
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFightBtn').disabled = aiTurn;
   if(aiTurn){
-    if(isOnline()) return;
+    if(!aiAllowedOnline(state.aiSide)) return;
     if(!anyFightsAvailable(state.turn)){ setTimeout(endFightPhase, 400); return; }
     setTimeout(aiDoFightPhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
@@ -883,7 +883,8 @@ export function processAmbushSpringsSequentially(springs, idx, onDone){
   if(!amb || amb.removed || !amb.hidden || !target || target.removed){
     processAmbushSpringsSequentially(springs, idx+1, onDone); return; // already resolved (e.g. shared target)
   }
-  const isHumanOwner = humanOwns(amb.side);
+  // Shared armies: a partner's ambusher is that partner's call, on their phone.
+  const isHumanOwner = humanOwns(amb.side) && !asksElsewhere(amb);
   if(isHumanOwner){
     showAmbushChoice(amb, target, (mode)=>{
       springAmbush(amb, target, mode, ()=> processAmbushSpringsSequentially(springs, idx+1, onDone));
@@ -1026,7 +1027,8 @@ export function selectUnit(id){
      loop: it is a moment, not an action of variable length. */
   if(u && selectionChanged) playSelectCue(u);
   renderUnitInfo(u);
-  if(u && isActing(u)){
+  // Shared armies: a partner's unit can be looked at but not given orders.
+  if(u && isActing(u) && ownsUnit(u)){
     if(state.phase==='move'){
       const moves = legalMoves(u);
       setHighlightCells(moves.map(m=>({x:m.x,y:m.y,kind:'move'})));
@@ -1090,7 +1092,8 @@ export function renderUnitInfo(u){
      player acts on. History is off for now, at Matthew's request. */
   const ground = { OPEN:'Open ground', FIELD:'Fields', PLOUGHED_FIELD:'Ploughed field', ROAD:'Road',
                    WOODS:'Woods', BUILDING:'Buildings', HILL:'Hill' }[terr.key] || String(terr.key);
-  const sub = [u.historicalName ? t.label : null, SIDE_LABEL[u.side]].filter(Boolean).join(' · ');
+  // Shared armies: the Brigade's commander ("Anna's Brigade", "Your Brigade").
+  const sub = [u.historicalName ? t.label : null, SIDE_LABEL[u.side], commanderNote(u)].filter(Boolean).join(' · ');
   el.innerHTML = `
     <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${heading}</div>
     <div class="u-sub">${sub}</div>
@@ -1181,6 +1184,11 @@ export function renderUnitInfo(u){
     marchBtn.style.display = can ? 'inline-block' : 'none';
     marchBtn.disabled = !can;
   }
+  // Shared armies: a partner's unit shows no orders on this phone.
+  if(!ownsUnit(u)){
+    sqBtn.disabled = true; ambBtn.style.display = 'none'; chargeBtn.style.display = 'none';
+    if(marchBtn) marchBtn.style.display = 'none';
+  }
 }
 
 // Registered from boot.js rather than at load time. `canvas` belongs to
@@ -1211,9 +1219,13 @@ export function onCellClick(x,y){
 
   const clicked = pickUnitAtCell(x,y);
   const sel = state.selectedUnitId ? state.units.find(u=>u.id===state.selectedUnitId) : null;
+  // Shared armies: with a partner's unit selected, a tap only changes what is selected.
+  if(sel && !ownsUnit(sel)){ selectUnit(clicked ? clicked.id : null); return; }
 
   if(state.phase==='move'){
     if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='charge')){
+      // Shared armies: a partner phone sends the order to the referee instead.
+      if(interceptOrder('move', { unitId: sel.id, x, y, kind: 'charge' })) return;
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
@@ -1234,6 +1246,7 @@ export function onCellClick(x,y){
       return;
     }
     if(sel && isActing(sel) && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='move')){
+      if(interceptOrder('move', { unitId: sel.id, x, y, kind: 'march' })) return;
       pushUndoSnapshot();
       const fromX=sel.x, fromY=sel.y;
       displaceBrigadierIfPresent(x, y, fromX, fromY);
@@ -1902,7 +1915,8 @@ export function initBattleControls(){
 
   document.getElementById('squareBtn').onclick = ()=>{
     const u = state.units.find(x=>x.id===state.selectedUnitId);
-    if(!u) return;
+    if(!u || !ownsUnit(u)) return;
+    if(interceptOrder('square', { unitId: u.id })) return;
     pushUndoSnapshot();
     if(u.formation==='square'){
       u.formation = 'line';
@@ -1922,7 +1936,8 @@ export function initBattleControls(){
 
   document.getElementById('ambushBtn').onclick = ()=>{
     const u = state.units.find(x=>x.id===state.selectedUnitId);
-    if(!u) return;
+    if(!u || !ownsUnit(u)) return;
+    if(interceptOrder('ambush', { unitId: u.id })) return;
     pushUndoSnapshot();
     if(u.hidden){
       u.hidden = false;
@@ -1941,7 +1956,7 @@ export function initBattleControls(){
 
   document.getElementById('chargeBtn').onclick = ()=>{
     const u = state.units.find(x=>x.id===state.selectedUnitId);
-    if(!u) return;
+    if(!u || !ownsUnit(u)) return;
     const dests = computeChargeDestinations(u);
     setHighlightCells(dests.map(m=>({x:m.x, y:m.y, kind:'charge'})));
     draw();
@@ -1949,13 +1964,17 @@ export function initBattleControls(){
 
   document.getElementById('marchOffBtn').onclick = ()=>{
     const u = state.units.find(x=>x.id===state.selectedUnitId);
-    if(!u || !marchOff(u)) return;
+    if(!u || !ownsUnit(u)) return;
+    if(interceptOrder('marchOff', { unitId: u.id })) return;
+    if(!marchOff(u)) return;
     selectUnit(null);
     maybeStartAutoEnd();
   };
-  document.getElementById('endMoveBtn').onclick = endMovePhase;
-  document.getElementById('endFireBtn').onclick = endFirePhase;
-  document.getElementById('endFightBtn').onclick = endFightPhase;
+  /* Shared armies: ending a phase is each partner's Done (online-shared.js);
+     otherwise exactly as before. */
+  document.getElementById('endMoveBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'move' })) endMovePhase(); };
+  document.getElementById('endFireBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'fire' })) endFirePhase(); };
+  document.getElementById('endFightBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'fight' })) endFightPhase(); };
   /* Handed over rather than imported, to keep phase-autoend.js out of the
      ui-battle <-> ai-strategy import cycle. See the note in that file. */
   registerPhaseEnders({ move: endMovePhase, fire: endFirePhase, fight: endFightPhase }, anyFightsAvailable);
@@ -1965,7 +1984,8 @@ export function initBattleControls(){
   const restartDeployBtn = document.getElementById('restartDeployBtn');
   if(restartDeployBtn) restartDeployBtn.onclick = restartDeployment;
   document.getElementById('undoBtn').onclick = undoLastAction;
-  document.getElementById('undoBtnBattle').onclick = undoLastAction;
+  // Shared armies: undo takes back only this player's own last move.
+  document.getElementById('undoBtnBattle').onclick = ()=>{ if(!interceptOrder('undo', {})) undoLastAction(); };
   document.getElementById('resetViewBtn').onclick = resetMapView;
 
   document.getElementById('overlayBtn').onclick = ()=>{

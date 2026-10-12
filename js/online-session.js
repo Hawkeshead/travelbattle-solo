@@ -45,3 +45,33 @@ export function askRemote(kind, data, fallback, timeoutMs){
   if(!remoteAsker) return Promise.resolve(fallback);
   return remoteAsker(kind, data, fallback, timeoutMs);
 }
+
+/* =========================================================
+   SHARED ARMIES (js/online-shared.js): two players command one army, each
+   with their own Brigades. Every hook below is inert unless the session
+   supplies it, so 1v1 (online.js) and the four-army 2v2 (online-group.js)
+   behave exactly as before.
+
+   - ownsUnit(u): may this phone give this unit orders? (its Brigade's
+     commander is this player, or an absent partner's Brigades have passed
+     to them). Looking at a unit is always allowed.
+   - interceptOrder(kind, data): a Move-phase order on a phone that is not
+     the referee is sent to the referee instead of being carried out here;
+     true means it was taken. Also catches Done and Undo.
+   - aiAllowedOnline(): only the phone that runs the AI (the host, in Co-op
+     against the AI) lets it act.
+   - asksElsewhere(unit): a question about this unit (re-roll, Leadership,
+     ambush) belongs to another phone even though this phone's side is
+     acting (a partner's Brigade).
+   - holdsAutoEnd(): the phase does not end itself while partners are still
+     giving orders; Done does it.
+   - commanderNote(u): who commands this unit, for the unit card; null when
+     there is nothing to say.
+========================================================= */
+export function ownsUnit(u){ return !session || !session.ownsUnit || !u ? true : session.ownsUnit(u); }
+export function interceptOrder(kind, data){ return !!(session && session.interceptOrder && session.interceptOrder(kind, data)); }
+export function aiAllowedOnline(side){ return !session || (!!session.runsAi && session.runsAi(side)); }
+export function asksElsewhere(unit){ return !!(session && session.shared && session.isRemote && unit && session.isRemote(unit.side, unit)); }
+export function holdsAutoEnd(){ return !!(session && session.holdsAutoEnd && session.holdsAutoEnd()); }
+export function commanderNote(u){ return session && session.commanderNote ? session.commanderNote(u) : null; }
+export function partnerRing(u){ return session && session.partnerRing ? session.partnerRing(u) : null; }
