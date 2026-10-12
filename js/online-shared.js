@@ -568,6 +568,9 @@ function enterBattleView(){
   if(s && s.host === me && !state.matchLog.some(e => e.type === 'commanders'))
     logReplay('commanders', { game: s.game, commanders: Object.fromEntries(Object.entries(s.commanders).map(([k, u]) => [k, s.names[u] || 'a player'])) });
   lastTurnKey = `${state.turnNumber}|${state.turn}`;
+  // Someone else's turn first (the AI, the other army): keep this player's
+  // view to hand back when their own turn comes, as at every later turn.
+  if(state.turn !== mySide()) cameraParkPlayerView();
   setTimeout(announceTurn, 0);
 }
 
