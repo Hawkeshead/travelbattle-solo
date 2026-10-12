@@ -1113,7 +1113,9 @@ function waitingRoom(){
     el.querySelectorAll('[data-ai]').forEach(b => b.onclick = () => saveLobby({ ai: b.dataset.ai }));
     el.querySelectorAll('[data-swap]').forEach(b => b.onclick = () => {
       const key = b.dataset.swap, side = key.split(':')[0], [a, c] = SIDE_SEATS[side];
-      const nd = { ...deal, [key]: deal[key] === a ? c : a };
+      // The deal as it is now, not as it was drawn: two quick taps both count.
+      const cur = dealBrigades(seated, match.state.lobby.deal);
+      const nd = { ...cur, [key]: cur[key] === a ? c : a };
       // Each partner keeps at least one Brigade.
       const count = s => [0, 1, 2].filter(i => nd[`${side}:${i}`] === s).length;
       if(!count(a) || !count(c)) return;
