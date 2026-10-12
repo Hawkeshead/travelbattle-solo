@@ -205,6 +205,7 @@ function interceptOrder(kind, data){
   if(state.phase !== 'move'){
     // Fire and Fight: Done is the only order; the baton holder keeps the tally.
     if(kind !== 'done') return false;
+    if(busy()){ flash('Finish this roll first'); return true; }
     if(state.baton === me) markDone(me);
     else { send({ type: 'order', id: newId(), from: me, kind: 'done', phase: state.phase }); flash('Done: over to your partner'); }
     return true;
@@ -234,7 +235,8 @@ function interceptOrder(kind, data){
 let pumping = null;
 function busy(){
   const dice = document.getElementById('diceOverlay');
-  return !!(dice && dice.classList.contains('show'));
+  const ask = document.querySelector('.panel-prompt');
+  return !!(dice && dice.classList.contains('show')) || !!(ask && ask.offsetParent);
 }
 function pump(){
   if(pumping) return;
@@ -333,6 +335,8 @@ function unDone(uid){ if(state.sharedDone && state.sharedDone.includes(uid)) sta
 
 function handOver(){
   if(state.baton !== me || !sharedNow()) return;
+  // Not in the middle of a fight or a volley: its dice finish on this phone.
+  if(busy()){ flash('Finish this roll first'); return; }
   const to = sidePlayers(state.turn).find(p => p !== me && isHere(p));
   if(!to) return;
   state.baton = to;
@@ -388,11 +392,16 @@ function sendNow(){
   if(now === lastShared) return;
   lastShared = now; seq += 1;
   send({ type: 'state', seq, battle: now });
-  if(Date.now() - lastSave > SAVE_EVERY_MS){
-    lastSave = Date.now();
-    T.save(match.id, { state: { lobby: match.state && match.state.lobby, battle: now, seq }, seq, turn_army: state.turn || null,
-                       status: state.gameOver ? 'finished' : (BATTLE_PHASES.has(state.phase) ? 'active' : 'deploy') });
-  }
+  saveSoon();
+}
+/* The saved copy (for a phone coming back, and for resuming): at most every
+   few seconds, and the last change is always saved once things go quiet. */
+let savedSeq = 0;
+function saveSoon(){
+  if(savedSeq >= seq || !lastShared || Date.now() - lastSave < SAVE_EVERY_MS) return;
+  lastSave = Date.now(); savedSeq = seq;
+  T.save(match.id, { state: { lobby: match.state && match.state.lobby, battle: lastShared, seq }, seq, turn_army: state.turn || null,
+                     status: state.gameOver ? 'finished' : (BATTLE_PHASES.has(state.phase) ? 'active' : 'deploy') });
 }
 function startSync(){
   if(sendTimer) return;
@@ -403,6 +412,7 @@ function startSync(){
     // The phone that has just stopped being the writer sends its last change
     // once (the turn or the baton passing on), then stops.
     if(mine || wasWriter) sendNow();
+    if(mine) saveSoon();
     if(state.gameOver && (mine || wasWriter)) setTimeout(sendRecord, 1500);
     wasWriter = mine;
     if(BATTLE_PHASES.has(state.phase)) enterBattleView();
