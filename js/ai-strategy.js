@@ -5038,8 +5038,34 @@ export function aiDecideAndExecuteMove(u){
    moving units gains about five seconds rather than ten. */
 export const AI_CUE_LEAD_MS = 500;
 
+/* =========================================================
+   AI PARTNER (online shared armies, js/online-shared.js)
+
+   The AI can command only SOME of a side's Brigades, alongside a person who
+   commands the rest (a new player with the AI as their partner). While it
+   does, the phase loops below act for that side, with only the units the
+   partner owns, and when they have finished hand back to the person instead
+   of ending the phase. With no partner set (every other game, and the
+   simulator) everything is exactly as before.
+========================================================= */
+let partner = null;   // { side, owns(u), done() }
+export function startAiPartner(side, phase, owns, done){
+  partner = { side, owns, done };
+  if(phase === 'move'){ aiPlanTurn(side); aiDoMovePhase(); }
+  else if(phase === 'fire') aiDoFirePhase();
+  else aiDoFightPhase();
+}
+const aiSideNow = () => partner ? partner.side : state.aiSide;
+const aiOwns = u => !partner || partner.owns(u);
+/* The end of an AI phase: the person's turn to act, or the phase ends. */
+function finishAiPhase(endPhase){
+  if(!partner){ endPhase(); return; }
+  const p = partner; partner = null;
+  p.done();
+}
+
 export function aiDoMovePhase(){
-  const order = orderAiUnitsForMove(state.aiSide);
+  const order = orderAiUnitsForMove(aiSideNow()).filter(id => aiOwns(state.units.find(x => x.id === id)));
   let i = 0;
   cameraParkPlayerView();
   /* The camera follows by BRIGADE, not by unit. orderAiUnitsForMove already
@@ -5051,11 +5077,11 @@ export function aiDoMovePhase(){
   let cameraBrigade = null;
   function step(){
     if(state.gameOver) return;
-    if(i>=order.length){ endMovePhase(); return; }
+    if(i>=order.length){ finishAiPhase(endMovePhase); return; }
     const u = state.units.find(x=>x.id===order[i]); i++;
     if(u && u.brigadeId !== cameraBrigade){
       cameraBrigade = u.brigadeId;
-      cameraToUnits(state.units.filter(o=>!o.removed && o.side===state.aiSide && o.brigadeId===cameraBrigade));
+      cameraToUnits(state.units.filter(o=>!o.removed && o.side===aiSideNow() && o.brigadeId===cameraBrigade));
     }
     const beforeX = u.x, beforeY = u.y;
     aiDecideAndExecuteMove(u);
@@ -5191,14 +5217,14 @@ export function pickVolleyTarget(candidates){
     let followUp = 0;
     for(const o of state.units){
       if(o.removed || o.side===t.side) continue;
-      if(o.side!==state.aiSide) continue;
+      if(o.side!==aiSideNow()) continue;
       if(UNIT_TYPES[o.type].isArtillery || o.type==='BRIGADIER') continue;
       if(o.turnOnly) continue;
       const horse = o.type==='HEAVY_CAV' || o.type==='LIGHT_CAV';
       const reach = horse ? unitBaseMove(o) : 1;
       if(chebyshev(o, t) <= reach) followUp = Math.max(followUp, horse ? 2.0 : 1.0);
     }
-    sc += followUp * tune(state.aiSide, 'VOLLEY_OPENING', 1.0);
+    sc += followUp * tune(aiSideNow(), 'VOLLEY_OPENING', 1.0);
     if(sc > bestScore){ bestScore = sc; best = t; }
   }
   return best;
@@ -5211,7 +5237,7 @@ export function pickVolleyTarget(candidates){
    ever available at contact. Resolving the longer weapon first means a gun is
    never wasted on a target the volley was about to remove anyway. */
 export function aiDoFirePhase(){
-  const guns = state.units.filter(u=>!u.removed && u.side===state.aiSide && UNIT_TYPES[u.type].isArtillery && !state.fired.has(u.id));
+  const guns = state.units.filter(u=>!u.removed && u.side===aiSideNow() && aiOwns(u) && UNIT_TYPES[u.type].isArtillery && !state.fired.has(u.id));
   let i=0;
   function step(){
     if(state.gameOver) return;
@@ -5232,11 +5258,11 @@ export function aiDoFirePhase(){
    correct. The only judgement is WHICH unit to shoot at, which is
    pickVolleyTarget's job. */
 function aiDoVolleyStep(){
-  const shooters = state.units.filter(u=>!u.removed && u.side===state.aiSide && isFootInfantry(u));
+  const shooters = state.units.filter(u=>!u.removed && u.side===aiSideNow() && aiOwns(u) && isFootInfantry(u));
   let i=0;
   function step(){
     if(state.gameOver) return;
-    if(i>=shooters.length){ endFirePhase(); return; }
+    if(i>=shooters.length){ finishAiPhase(endFirePhase); return; }
     const u = shooters[i]; i++;
     const targets = volleyTargets(u);
     if(!targets.length){ step(); return; }
@@ -5488,7 +5514,7 @@ export function aiDoFightPhase(){
        the move phase where nothing dies, and wrong here where every resolved
        fight can isolate a unit by removing the neighbour that was supporting
        it. Recomputed per step so it always reflects the board as it now is. */
-    const vulnerableIds = new Set(findVulnerableEnemyUnits(state.aiSide).map(v=>v.id));
+    const vulnerableIds = new Set(findVulnerableEnemyUnits(aiSideNow()).map(v=>v.id));
     /* R6: a PRESERVE Brigade defends normally if attacked but never initiates,
        so it is filtered out of the attacker pool here as well as being denied
        the engage score on movement. Suppressing only the movement term would
@@ -5503,13 +5529,13 @@ export function aiDoFightPhase(){
        owesAFight is now the only definition of "this unit owes a fight" in the
        codebase, so there is no second place for a future exclusion to be added
        to and no way for the two to drift apart again. */
-    const attackers = state.units.filter(u=>owesAFight(u, state.aiSide));
-    if(attackers.length===0){ endFightPhase(); return; }
+    const attackers = state.units.filter(u=>owesAFight(u, aiSideNow()) && aiOwns(u));
+    if(attackers.length===0){ finishAiPhase(endFightPhase); return; }
     let bestA=null, bestT=null, bestScore=-Infinity;
     for(const a of attackers){
-      const targets = state.units.filter(o=>!o.removed && o.side!==state.aiSide && isAdjacent(a,o) && canAttackTarget(a,o));
+      const targets = state.units.filter(o=>!o.removed && o.side!==aiSideNow() && isAdjacent(a,o) && canAttackTarget(a,o));
       for(const t of targets){
-        let s = aiEstimateFightValue(a, t, state.aiSide);
+        let s = aiEstimateFightValue(a, t, aiSideNow());
 
         /* FOCUS FIRE. Once this turn's fighting has started against a given
            enemy, keep going at it rather than spreading across separate
@@ -5571,7 +5597,7 @@ export function aiDoFightPhase(){
          genuine close-up. The resolve is held for the pan so the dice do not
          land while the board is still moving. */
       cameraToAction([bestA, bestT], { durationMs: CAMERA_ACTION_PAN_MS });
-      logAiDebugMove(state.aiSide, { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
+      logAiDebugMove(aiSideNow(), { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
       // Remember what we are working on, so the next attacker in this phase
       // piles onto the same unit. Cleared when the fight phase ends.
       state._aiFocusTargetId = bestT.id;
@@ -5587,7 +5613,7 @@ export function aiDoFightPhase(){
         setTimeout(step, 300);
       }), CAMERA_ACTION_PAN_MS);
     } else {
-      endFightPhase();
+      finishAiPhase(endFightPhase);
     }
   }
   step();

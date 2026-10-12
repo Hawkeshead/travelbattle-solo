@@ -71,7 +71,12 @@ export function askRemote(kind, data, fallback, timeoutMs){
 export function ownsUnit(u){ return !session || !session.ownsUnit || !u ? true : session.ownsUnit(u); }
 export function interceptOrder(kind, data){ return !!(session && session.interceptOrder && session.interceptOrder(kind, data)); }
 export function aiAllowedOnline(side){ return !session || (!!session.runsAi && session.runsAi(side)); }
-export function asksElsewhere(unit){ return !!(session && session.shared && session.isRemote && unit && session.isRemote(unit.side, unit)); }
+export function asksElsewhere(unit){
+  if(!session || !session.shared || !unit) return false;
+  // Not this phone's person to decide: a partner's unit, or one the AI partner commands.
+  if(session.asksElsewhere) return session.asksElsewhere(unit);
+  return !!(session.isRemote && session.isRemote(unit.side, unit));
+}
 export function holdsAutoEnd(){ return !!(session && session.holdsAutoEnd && session.holdsAutoEnd()); }
 export function commanderNote(u){ return session && session.commanderNote ? session.commanderNote(u) : null; }
 export function partnerRing(u){ return session && session.partnerRing ? session.partnerRing(u) : null; }

@@ -65,6 +65,8 @@ import { log, logReplay, syncPhaseButtons } from './engine-state.js';
 import { endGame, renderEndButtons } from './engine-objectives.js';
 import { deployArmyComposition } from './ai-deployment.js';
 import { aiDoMovePhase, aiPlanTurn } from './ai-router.js';
+import { startAiPartner } from './ai-strategy.js';
+import { maybeStartAutoEnd } from './phase-autoend.js';
 import { maybeShowArmyPicker, showArmyPickerFor, startAmbientLayer } from './ui-menus.js';
 import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
 import { AudioManager } from './audio-manager.js';
@@ -77,13 +79,22 @@ export const MODES = {
   coop: { label: 'Co-op against the AI', note: 'Two of you share Britain against the AI.', seats: ['red1', 'red2'], aiSide: SIDES.BLUE },
   '2v1': { label: '2 against 1', note: 'Two of you share Britain against one player as France.', seats: ['red1', 'red2', 'blue1'], aiSide: null },
   '2v2': { label: '2 against 2, shared', note: 'Two players to each army.', seats: ['red1', 'red2', 'blue1', 'blue2'], aiSide: null },
+  /* For a new player: they command one Brigade and the AI their other two,
+     against one player with a whole army. The host picks which army has the
+     AI's help (L.helped); the seats follow from it (seatsFor). */
+  assist: { label: '1 + AI against 1', note: 'A new player commands one Brigade, the AI their other two, against one player.', seats: ['red1', 'blue1'], aiSide: null, helper: true },
 };
+/* The AI partner, as a commander: its Brigades are keyed to this. */
+const AI_ID = 'ai';
+const AI_SEAT = 'ai';
+const seatsFor = (mode, L) => mode.helper ? ['red1', 'blue1'] : mode.seats;
+const helpedSide = L => (L && L.helped) || SIDES.RED;
 const SEAT_SIDE = { red1: SIDES.RED, red2: SIDES.RED, blue1: SIDES.BLUE, blue2: SIDES.BLUE };
 const SEAT_LABEL = { red1: 'Britain · 1st commander', red2: 'Britain · 2nd commander', blue1: 'France · 1st commander', blue2: 'France · 2nd commander' };
 const SIDE_SEATS = { red: ['red1', 'red2'], blue: ['blue1', 'blue2'] };
 /* Each partner's colour: the ring round their units on their teammate's
    screen, and their mark in the banner, the lobby and their pings. */
-export const SEAT_COLOR = { red1: '#e8bd4f', red2: '#5cc8db', blue1: '#e8bd4f', blue2: '#5cc8db' };
+export const SEAT_COLOR = { red1: '#e8bd4f', red2: '#5cc8db', blue1: '#e8bd4f', blue2: '#5cc8db', ai: '#c9ccd2' };
 const BRIGADE_NAME = ['1st', '2nd', '3rd'];
 const AI_LEVELS = [['hard', 'Marshal'], ['medium', 'Colonel'], ['easy', 'Captain']];
 const otherSide = s => (s === SIDES.RED ? SIDES.BLUE : SIDES.RED);
@@ -104,8 +115,21 @@ const find = id => state.units.find(u => u.id === id);
 /* The lobby's choices, kept on the match (match.state.lobby) until the start:
    { kind: 'shared', mode, deal: { 'red:0': 'red1', ... }, ai: 'hard' }.
    One partner 1 Brigade, the other 2; an empty seat's go to its partner. */
-export function dealBrigades(seats, deal){
+export function dealBrigades(seats, deal, helped){
   const out = {};
+  /* 1 + AI: on the helped army the player takes one Brigade (the centre one
+     unless the host moves it, so the AI's are on either side of it) and the
+     AI the other two; the other army is all its player's. */
+  if(helped){
+    for(const side of [SIDES.RED, SIDES.BLUE]){
+      for(let i = 0; i < 3; i++){
+        const key = `${side}:${i}`;
+        if(side !== helped){ out[key] = `${side}1`; continue; }
+        out[key] = (deal && deal[key]) || (i === 1 ? `${side}1` : AI_SEAT);
+      }
+    }
+    return out;
+  }
   for(const side of [SIDES.RED, SIDES.BLUE]){
     const [a, b] = SIDE_SEATS[side];
     for(let i = 0; i < 3; i++){
@@ -143,6 +167,7 @@ function commanderOf(u){
   const s = S(); if(!s || !u) return null;
   const owner = s.commanders[`${u.side}:${u.brigadeId}`];
   if(!owner) return null;
+  if(owner === AI_ID) return AI_ID;   // the AI partner's Brigade: never passed to anyone
   if(isHere(owner)) return owner;
   return sidePlayers(u.side).find(p => p !== owner && isHere(p)) || owner;
 }
@@ -173,26 +198,75 @@ const sharedNow = () => inBattle && BATTLE_PHASES.has(state.phase) && !sideIsAi(
 /* ---------- the hooks the game asks (online-session.js) ---------- */
 let applying = false;            // the referee is carrying out an order: let the game run it
 function ownsUnit(u){
-  if(applying || !inBattle) return true;
+  // Deployment and setup are the host's; from the first Move, Brigades are owned.
+  if(applying || !S() || !ACTING_PHASES.has(state.phase)) return true;
   if(commanderOf(u) !== me) return false;
+  // Your AI partner acts first in each phase; your units wait until it has.
+  if(u.side === state.turn && aiPartnerPending()) return false;
   if(u.side !== state.turn || state.phase === 'move' || !sharedNow()) return true;
   return state.baton === me;
 }
-const holdsAutoEnd = () => inBattle && BATTLE_PHASES.has(state.phase) && sideIsShared(state.turn);
+const holdsAutoEnd = () => inBattle && BATTLE_PHASES.has(state.phase) && (sideIsShared(state.turn) || aiPartnerPending());
 function commanderNote(u){
   const c = commanderOf(u);
   if(!c) return sideIsAi(u.side) ? 'the AI' : null;
+  if(c === AI_ID) return "the AI's Brigade";
   return c === me ? 'your Brigade' : `${nameOf(c)}'s Brigade`;
 }
 function partnerRing(u){
   if(!inBattle) return null;
   const c = commanderOf(u);
   if(!c || c === me || u.side !== mySide()) return null;
+  if(c === AI_ID) return SEAT_COLOR.ai;   // the AI partner's Brigades: silver
   return SEAT_COLOR[seatOf(c)] || null;
 }
 function isRemote(side, unit){
   const c = unit ? commanderOf(unit) : null;
+  return !!c && c !== me && c !== AI_ID;
+}
+/* Not this phone's person to decide: a partner's unit (asked on their phone)
+   or the AI partner's (it decides for itself, as the AI does). */
+function asksElsewhereHook(u){
+  const c = commanderOf(u);
   return !!c && c !== me;
+}
+
+/* =========================================================
+   THE AI PARTNER (1 + AI): at the start of each of its army's phases, on the
+   phone of the player it partners, the AI acts with its own Brigades, the
+   camera following it; then the player acts with theirs and ends the phase.
+   Its rolls roll themselves and its questions are its own (humanOwns says
+   so while state._aiPartnerActing is set; asksElsewhere says so for its
+   units). state.aiPartnerDone marks the phase it has acted in, and travels
+   with the battle, so it never acts twice in one phase.
+========================================================= */
+const hasAiPartner = side => !!S() && Object.entries(S().commanders).some(([k, u]) => u === AI_ID && k.startsWith(`${side}:`));
+const ACTING_PHASES = new Set(['move', 'fire', 'fight']);
+function aiPartnerPending(){
+  return !!S() && !state.gameOver && ACTING_PHASES.has(state.phase) && hasAiPartner(state.turn) && state.aiPartnerDone !== phaseKey();
+}
+let aiPartnerRunning = false;
+function runAiPartner(){
+  if(aiPartnerRunning || !aiPartnerPending() || !amWriter() || busy()) return;
+  if(state.phase === 'rally') return;
+  aiPartnerRunning = true;
+  const side = state.turn, phase = state.phase;
+  state._aiPartnerActing = side;
+  state.aiDifficulty = (S() && S().aiLevel) || 'hard';
+  selectUnit(null);
+  updateHeader();
+  flash({ move: 'Your AI partner is moving its Brigades', fire: 'Your AI partner is firing', fight: 'Your AI partner is fighting' }[phase], 3500);
+  startAiPartner(side, phase, u => commanderOf(u) === AI_ID, () => {
+    state._aiPartnerActing = null;
+    state.aiPartnerDone = `${state.turnNumber}|${side}|${phase}`;
+    aiPartnerRunning = false;
+    cameraRestorePlayerView();
+    updateHeader(); syncPhaseButtons(); draw();
+    if(!state.gameOver && state.phase === phase){
+      flash('Your turn: your Brigade', 3000);
+      maybeStartAutoEnd();
+    }
+  });
 }
 
 /* =========================================================
@@ -207,6 +281,8 @@ const newId = () => `${(me || 'x').slice(0, 6)}-${++orderSeq}-${Date.now() % 100
 
 function interceptOrder(kind, data){
   if(applying || !inBattle) return false;
+  // Your AI partner acts first in each phase: nothing of yours until it has.
+  if(state.turn === mySide() && aiPartnerPending()){ flash('Your AI partner acts first'); return true; }
   if(!sharedNow() || !sidePlayers(state.turn).includes(me)) return false;
   if(state.phase !== 'move'){
     // Fire and Fight: Done is the only order; the baton holder keeps the tally.
@@ -433,7 +509,7 @@ function startSync(){
     watchReferee();
     updateBanner();
     syncUndo();
-    if(mine) kickAi();   // the AI's turn arrived some other way: start it once
+    if(mine){ kickAi(); runAiPartner(); }   // an AI turn waiting to start; the AI partner's part of a phase
   }, SEND_EVERY_MS);
 }
 
@@ -653,10 +729,13 @@ async function hostBegin(){
   const L = match.state.lobby;
   const mode = MODES[L.mode];
   const seats = {};
-  for(const k of mode.seats) seats[k] = match.seats[k] || null;
-  const deal = dealBrigades(seats, L.deal);
+  for(const k of seatsFor(mode, L)) seats[k] = match.seats[k] || null;
+  const deal = dealBrigades(seats, L.deal, mode.helper ? helpedSide(L) : null);
   const commanders = {};
-  for(const [key, seat] of Object.entries(deal)) if(seat && seats[seat]) commanders[key] = seats[seat];
+  for(const [key, seat] of Object.entries(deal)){
+    if(seat === AI_SEAT) commanders[key] = AI_ID;
+    else if(seat && seats[seat]) commanders[key] = seats[seat];
+  }
   const chooser = {};
   for(const side of [SIDES.RED, SIDES.BLUE]){
     const ps = SIDE_SEATS[side].map(k => seats[k]).filter(Boolean);
@@ -664,7 +743,8 @@ async function hostBegin(){
   }
   const names = {};
   for(const u of Object.values(seats)) if(u) names[u] = (match.names || {})[u] || 'A player';
-  state.shared = { game: L.mode, host: me, seats, names, commanders, chooser, aiTeam: mode.aiSide };
+  if(mode.helper) names[AI_ID] = 'AI partner';
+  state.shared = { game: L.mode, host: me, seats, names, commanders, chooser, aiTeam: mode.aiSide, aiLevel: L.ai || 'hard' };
   await T.save(match.id, { status: 'deploy' });
   send({ type: 'begin', shared: state.shared });
   closeLobby();
@@ -776,7 +856,7 @@ function announceTurn(){
   if(!S() || !BATTLE_PHASES.has(state.phase)) return;
   const side = state.turn;
   if(sideIsAi(side)) flash(`${SIDE_LABEL[side]}: the AI's turn`);
-  else if(sidePlayers(side).includes(me)) flash(sideIsShared(side) ? 'Your army: move together, then Done' : 'Your turn');
+  else if(sidePlayers(side).includes(me)) flash(sideIsShared(side) ? 'Your army: move together, then Done' : hasAiPartner(side) ? 'Your turn: your AI partner moves first' : 'Your turn');
   else flash(`${SIDE_LABEL[side]}: ${sidePlayers(side).map(nameOf).join(' and ')}`);
 }
 function brigadesOf(uid, side){
@@ -810,7 +890,12 @@ function updateBanner(){
         `<span style="width:9px;height:9px;border-radius:50%;background:${SEAT_COLOR[seat]}"></span>` +
         `${baton ? '⚑ ' : ''}${esc(nameOf(uid))}${br.length ? ` <span style="opacity:.75">(${br.join(', ')})</span>` : ''}${done ? ' ✓' : ''}${here ? '' : ' · away'}</span>`;
     }).join('<span style="opacity:.5">|</span>');
-    html = `<b>${esc(SIDE_LABEL[side])}</b> · ${phase} · ${chips}`;
+    // The AI partner's Brigades, and whether it is acting now.
+    const aiBr = brigadesOf(AI_ID, side);
+    const aiChip = aiBr.length ? `<span style="opacity:.5">|</span><span style="display:inline-flex;align-items:center;gap:4px">` +
+      `<span style="width:9px;height:9px;border-radius:50%;background:${SEAT_COLOR.ai}"></span>${state._aiPartnerActing === side ? '▶ ' : ''}AI <span style="opacity:.75">(${aiBr.join(', ')})</span>` +
+      `${state.aiPartnerDone === phaseKey() ? ' ✓' : ''}</span>` : '';
+    html = `<b>${esc(SIDE_LABEL[side])}</b> · ${phase} · ${chips}${aiChip}`;
     if(state.phase !== 'move' && sharedNow() && state.baton === me && sidePlayers(side).some(p => p !== me && isHere(p))){
       html += ` <button data-handover style="font:inherit;font-size:12px;padding:2px 8px;border:1px solid #c8a85a;border-radius:10px;background:#3a2c14;color:#f3e6c3;cursor:pointer;pointer-events:auto">Hand over</button>`;
     }
@@ -1005,7 +1090,7 @@ async function start(m, name){
   history.replaceState(null, '', `${location.pathname}?shared=${m.code}&sharedArmies=1${local ? '&onlineTransport=local' : ''}`);
   setOnlineSession({
     shared: true, group: false, matchId: m.id, code: m.code, isHost: m.created_by === me,
-    isRemote, ownsUnit, interceptOrder, holdsAutoEnd, commanderNote, partnerRing,
+    isRemote, ownsUnit, interceptOrder, holdsAutoEnd, commanderNote, partnerRing, asksElsewhere: asksElsewhereHook,
     runsAi: side => {
       const yes = !!S() && S().host === me && sideIsAi(side);
       // The host's own game is starting the AI's move: it is under way.
@@ -1055,11 +1140,11 @@ function waitingRoom(){
   const L = match.state.lobby, mode = MODES[L.mode] || MODES.coop;
   const host = match.created_by === me;
   const seats = match.seats || {};
-  const allowed = new Set(mode.seats);
+  const allowed = new Set(seatsFor(mode, L));
   const online = u => present.has(u) || u === me;
   const seatBtn = k => {
     const who = seats[k], mine = who === me, open = allowed.has(k);
-    const label = !open ? (mode.aiSide === SEAT_SIDE[k] ? 'The AI' : 'Not in this mode') : who ? (mine ? 'You' : esc((match.names || {})[who] || 'A player')) : 'Empty: tap to sit';
+    const label = !open ? (mode.aiSide === SEAT_SIDE[k] ? 'The AI' : mode.helper && SEAT_SIDE[k] === helpedSide(L) ? 'The AI partner' : 'Not in this mode') : who ? (mine ? 'You' : esc((match.names || {})[who] || 'A player')) : 'Empty: tap to sit';
     return `<button data-seat="${k}" ${open ? '' : 'disabled'} style="font:inherit;text-align:left;min-height:50px;padding:5px 9px;border-radius:5px;cursor:${open ? 'pointer' : 'default'};
       border:${mine ? '3px solid #b8963f' : '1px solid #9a8b6c'};background:${SEAT_SIDE[k] === 'red' ? '#a3403a' : '#2e4566'};color:#fbf6ea;opacity:${open ? 1 : .45}">
       <div style="font-size:13px;opacity:.9"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${SEAT_COLOR[k]};margin-right:4px"></span>${SEAT_LABEL[k]}</div>
@@ -1067,11 +1152,12 @@ function waitingRoom(){
   };
   const seated = {};
   for(const k of mode.seats) seated[k] = seats[k] || null;
-  const deal = dealBrigades(seated, L.deal);
+  const helped = mode.helper ? helpedSide(L) : null;
+  const deal = dealBrigades(seated, L.deal, helped);
   const dealRow = side => {
     const [a, b] = SIDE_SEATS[side];
-    if(!(seated[a] && seated[b])) return '';
-    const who = seat => seat ? esc(seated[seat] === me ? 'You' : ((match.names || {})[seated[seat]] || 'A player')) : '?';
+    if(helped ? side !== helped : !(seated[a] && seated[b])) return '';
+    const who = seat => seat === AI_SEAT ? 'AI' : seat ? esc(seated[seat] === me ? 'You' : ((match.names || {})[seated[seat]] || 'A player')) : '?';
     return `<div style="margin:6px 0 0;font-size:14px"><b>${SIDE_LABEL[side]}</b>: ${[0, 1, 2].map(i => {
       const seat = deal[`${side}:${i}`];
       return `<button data-swap="${side}:${i}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:2px 3px;padding:3px 8px;border-radius:12px;
@@ -1094,7 +1180,11 @@ function waitingRoom(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${['red1', 'blue1', 'red2', 'blue2'].map(seatBtn).join('')}</div>
     ${dealRow(SIDES.RED)}${mode.aiSide ? '' : dealRow(SIDES.BLUE)}
     ${host && (seated.red1 && seated.red2 || seated.blue1 && seated.blue2) ? '<p style="margin:2px 0 0;font-size:12px">Tap a Brigade to give it to the other partner.</p>' : ''}
-    ${mode.aiSide ? `<div style="margin:8px 0 0;font-size:14px">The AI: ${AI_LEVELS.map(([v, lab]) =>
+    ${mode.helper ? `<div style="margin:8px 0 0;font-size:14px">The AI helps: ${[SIDES.RED, SIDES.BLUE].map(sd =>
+      `<button data-helped="${sd}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:0 3px;padding:3px 9px;border-radius:12px;border:2px solid ${helped === sd ? '#5b6b3a' : '#b9ab8c'};
+        background:${helped === sd ? '#5b6b3a' : '#f6efd9'};color:${helped === sd ? '#fbf6ea' : '#2a1e14'};cursor:${host ? 'pointer' : 'default'}">${SIDE_LABEL[sd]}</button>`).join('')}</div>
+      ${host ? '<p style="margin:2px 0 0;font-size:12px">The new player sits at the army the AI helps. Tap a Brigade to give it to them or to the AI.</p>' : ''}` : ''}
+    ${mode.aiSide || mode.helper ? `<div style="margin:8px 0 0;font-size:14px">The AI: ${AI_LEVELS.map(([v, lab]) =>
       `<button data-ai="${v}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:0 3px;padding:3px 9px;border-radius:12px;border:2px solid ${L.ai === v ? '#5b6b3a' : '#b9ab8c'};
         background:${L.ai === v ? '#5b6b3a' : '#f6efd9'};color:${L.ai === v ? '#fbf6ea' : '#2a1e14'};cursor:${host ? 'pointer' : 'default'}">${lab}</button>`).join('')}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -1114,10 +1204,13 @@ function waitingRoom(){
   if(host){
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => saveLobby({ mode: b.dataset.mode }));
     el.querySelectorAll('[data-ai]').forEach(b => b.onclick = () => saveLobby({ ai: b.dataset.ai }));
+    el.querySelectorAll('[data-helped]').forEach(b => b.onclick = () => saveLobby({ helped: b.dataset.helped, deal: {} }));
     el.querySelectorAll('[data-swap]').forEach(b => b.onclick = () => {
-      const key = b.dataset.swap, side = key.split(':')[0], [a, c] = SIDE_SEATS[side];
+      const key = b.dataset.swap, side = key.split(':')[0];
+      // On the army the AI helps, a Brigade goes between the player and the AI.
+      const [a, c] = helped ? [`${side}1`, AI_SEAT] : SIDE_SEATS[side];
       // The deal as it is now, not as it was drawn: two quick taps both count.
-      const cur = dealBrigades(seated, match.state.lobby.deal);
+      const cur = dealBrigades(seated, match.state.lobby.deal, helped);
       const nd = { ...cur, [key]: cur[key] === a ? c : a };
       // Each partner keeps at least one Brigade.
       const count = s => [0, 1, 2].filter(i => nd[`${side}:${i}`] === s).length;

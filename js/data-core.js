@@ -406,6 +406,8 @@ export const TERRAIN = TB_DATA.unitTypes.terrainTypes;
 ========================================================= */
 export function humanOwns(side){
   if(state.spectate) return false;      // AI versus AI: there is nobody to ask
+  // Shared armies: while an AI partner acts for this side, its rolls and choices are its own.
+  if(state._aiPartnerActing && side === state._aiPartnerActing) return false;
   return !(state.mode==='ai' && side===state.aiSide);
 }
 
