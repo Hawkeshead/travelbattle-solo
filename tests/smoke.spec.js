@@ -33,7 +33,14 @@ const rank = async (_page, _value) => {};
 function watchForErrors(page) {
   const errors = [];
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+    if (m.type() !== 'error') return;
+    /* A resource from another site failing to load (the Google web fonts, on
+       a runner or sandbox whose network drops them) is not a game error: the
+       page falls back to its own fonts. The console names the resource's
+       URL as the message's location. Our own files failing still counts. */
+    const where = (m.location() && m.location().url) || '';
+    if (/Failed to load resource/.test(m.text()) && /^https?:\/\//.test(where) && !/^https?:\/\/(127\.0\.0\.1|localhost)[:/]/.test(where)) return;
+    errors.push(`console: ${m.text()}`);
   });
   page.on('pageerror', (e) => errors.push(`uncaught: ${e.message}`));
   return errors;
@@ -91,10 +98,12 @@ test('a match starts and reaches deployment', async ({ page }) => {
   await rank(page, 'easy');
 
   await clearBoardSetup(page);
-  const roster = page.locator('#rosterList');
 
-  // Deployment is live: the roster is showing placeable units.
-  await expect(roster.locator('.roster-chip').first()).toBeVisible({ timeout: 10_000 });
+  /* Deployment is live. Since the Army Picker (and then the deployment
+     screen without a roster of chips), what a player sees first is the
+     picker or the roster, depending on the path; either means the match got
+     through board setup into deployment. */
+  await expect(page.locator('#rosterList .roster-chip, #armyPickerDeployBtn').first()).toBeVisible({ timeout: 10_000 });
 
   // The engine agrees we are in the deploy phase. Asserted through the UI
   // rather than by reading game state: since the ES module conversion, `state`
