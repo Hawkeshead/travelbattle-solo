@@ -14,7 +14,7 @@ import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
 import { beginDiagramMode, clearTransientRenderState, draw, syncAmbientClip, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
 import { AudioManager } from './audio-manager.js';
-import { beginFightPhase, beginFirePhase, beginMovePhase, endMovePhase, renderBrigadeStatus, selectUnit, updateHeader } from './ui-battle.js';
+import { beginFightPhase, beginFirePhase, beginMovePhase, endMoveButton, renderBrigadeStatus, selectUnit, updateHeader } from './ui-battle.js';
 import { maybeStartAutoEnd } from './phase-autoend.js';
 import { deployArmyComposition, planArmyDeployment, planGroupArmy } from './ai-deployment.js';
 import { initDeployment, showRosterIfNeeded } from './ui-deployment.js';
@@ -1022,7 +1022,7 @@ function startOrientationPickMode(side, onDone){
   confirmBtn.textContent = 'Confirm';   // the banner over the board says what is being confirmed
   confirmBtn.onclick = ()=>{
     confirmBtn.textContent = 'End Move'; // hand the button back to its normal battle-phase role
-    confirmBtn.onclick = endMovePhase;   // its real handler — never gets re-bound after boot.js's one-time initBattleControls() call, so this must restore it explicitly
+    confirmBtn.onclick = endMoveButton;   // its real handler — never gets re-bound after boot.js's one-time initBattleControls() call, so this must restore it explicitly
     hideBoardHint();
     if(dock) dock.style.display = 'none';
     log(`${SIDE_LABEL[side]} confirms a ${state.boardRotation[side]*90}\u00b0 rotation.`, 'system');

@@ -850,6 +850,11 @@ export function resolveAmbushSpringsNow(onDone){
   processAmbushSpringsSequentially(springs, 0, onDone);
 }
 
+/* The End Move button. Shared armies: each partner's Done (online-shared.js);
+   otherwise it ends the phase. Orientation borrows the button and hands it
+   back to this (ui-menus.js). */
+export function endMoveButton(){ if(!interceptOrder('done', { phase: 'move' })) endMovePhase(); }
+
 export function endMovePhase(){
   cancelAutoEnd();
   resolveAmbushSpringsNow(beginFirePhase);
@@ -1972,7 +1977,7 @@ export function initBattleControls(){
   };
   /* Shared armies: ending a phase is each partner's Done (online-shared.js);
      otherwise exactly as before. */
-  document.getElementById('endMoveBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'move' })) endMovePhase(); };
+  document.getElementById('endMoveBtn').onclick = endMoveButton;
   document.getElementById('endFireBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'fire' })) endFirePhase(); };
   document.getElementById('endFightBtn').onclick = ()=>{ if(!interceptOrder('done', { phase: 'fight' })) endFightPhase(); };
   /* Handed over rather than imported, to keep phase-autoend.js out of the
