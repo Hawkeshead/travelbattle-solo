@@ -88,8 +88,11 @@ const BRIGADE_NAME = ['1st', '2nd', '3rd'];
 const AI_LEVELS = [['hard', 'Marshal'], ['medium', 'Colonel'], ['easy', 'Captain']];
 const otherSide = s => (s === SIDES.RED ? SIDES.BLUE : SIDES.RED);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const BATTLE_PHASES = new Set(['move', 'fire', 'fight']);
-const PHASE_ORDER = { setup: 0, orientation: 0, deploy: 1, move: 2, fire: 3, fight: 4 };
+/* 'rally' is the moment between one side's Fight and the next side's Move
+   (ui-battle endFightPhase): still the battle, still the same writer, so the
+   turn passing on is sent by the phone that ended it. */
+const BATTLE_PHASES = new Set(['move', 'fire', 'fight', 'rally']);
+const PHASE_ORDER = { setup: 0, orientation: 0, deploy: 1, move: 2, fire: 3, fight: 4, rally: 5 };
 const SEND_EVERY_MS = 250, SAVE_EVERY_MS = 3000;
 const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiDifficulty', 'viewEdge',
   'brokenSeen', '_dispatchUntil', '_endDeferred', 'replaying']);
@@ -121,7 +124,10 @@ let present = new Set(), presenceKnown = false;
 let lastShared = null, seq = 0, sendTimer = null, lastSave = 0;
 let setupShown = false, inBattle = false, endShown = false, setupStarted = false;
 let wasWriter = false, lastPhaseKey = null, lastTurnKey = null, lastReferee = null, aiKickedFor = null;
-const S = () => state.shared || null;      // { mode, host, seats, names, commanders, chooser, aiSide }
+/* state.shared: { game, host, seats, names, commanders, chooser, aiTeam }.
+   Not "mode" or "aiSide": pack() drops those names at any depth (each phone
+   keeps its own), which once lost the AI's side after the first hand-over. */
+const S = () => state.shared || null;
 
 const nameOf = uid => (uid === me ? 'You' : (S() && S().names && S().names[uid]) || (match && match.names && match.names[uid]) || 'A player');
 const seatOf = uid => { const s = S(); if(!s || !uid) return null; return Object.keys(s.seats).find(k => s.seats[k] === uid) || null; };
@@ -129,7 +135,7 @@ const mySide = () => { const k = seatOf(me); return k ? SEAT_SIDE[k] : null; };
 const isHere = uid => uid === me || !presenceKnown || present.has(uid);
 const sidePlayers = side => { const s = S(); return s ? SIDE_SEATS[side].map(k => s.seats[k]).filter(Boolean) : []; };
 const sideIsShared = side => sidePlayers(side).length === 2;
-const sideIsAi = side => !!S() && S().aiSide === side;
+const sideIsAi = side => !!S() && S().aiTeam === side;
 
 /* Who commands a unit now: its Brigade's commander, or, while that player is
    away, their partner (if present). Null for the AI's units. */
@@ -313,7 +319,12 @@ function refereeUndo(o){
   draw();
 }
 
+const phaseKey = () => `${state.turnNumber}|${state.turn}|${state.phase}`;
+function freshDoneList(){
+  if(state.sharedDoneKey !== phaseKey()){ state.sharedDoneKey = phaseKey(); state.sharedDone = []; }
+}
 function markDone(uid){
+  freshDoneList();
   state.sharedDone = [...new Set([...(state.sharedDone || []), uid])];
   const need = sidePlayers(state.turn).filter(isHere);
   const left = need.filter(p => !state.sharedDone.includes(p));
@@ -376,9 +387,12 @@ function send(payload){ if(T) T.send(payload); }
    shared Fire or Fight someone present holds the baton. */
 function normalise(){
   const key = `${state.turnNumber}|${state.turn}|${state.phase}`;
+  /* The Done list belongs to the phase it was made in, and travels with the
+     battle: a phone that has just taken the baton must not clear the Dones
+     pressed before it got it. */
+  freshDoneList();
   if(key !== lastPhaseKey){
     lastPhaseKey = key;
-    state.sharedDone = [];
     for(const k of Object.keys(undoLog)) delete undoLog[k];
   }
   if(BATTLE_PHASES.has(state.phase) && state.phase !== 'move' && sideIsShared(state.turn) && !batonValid(state.turn)){
@@ -418,7 +432,19 @@ function startSync(){
     if(BATTLE_PHASES.has(state.phase)) enterBattleView();
     watchReferee();
     updateBanner();
+    syncUndo();
+    if(mine) kickAi();   // the AI's turn arrived some other way: start it once
   }, SEND_EVERY_MS);
+}
+
+/* Undo on a shared army. In the Move phase each partner may ask the referee
+   to take back their own last move (the referee says if there is none), so
+   the button is open to both. In Fire and Fight it belongs to the baton. */
+function syncUndo(){
+  if(!sharedNow() || !sidePlayers(state.turn).includes(me)) return;
+  const b = document.getElementById('undoBtnBattle'); if(!b) return;
+  if(state.phase === 'move') b.disabled = false;
+  else if(state.baton !== me) b.disabled = true;
 }
 
 /* Orders sent to a referee who has gone: send them again to the new one. */
@@ -452,7 +478,7 @@ function setLocal(){
   state.mode = 'ai';
   state.spectate = false;
   const side = mySide();
-  state.aiSide = side ? otherSide(side) : (S() && S().aiSide) || SIDES.BLUE;
+  state.aiSide = side ? otherSide(side) : (S() && S().aiTeam) || SIDES.BLUE;
 }
 
 function applyIncoming(json, incomingSeq){
@@ -540,7 +566,7 @@ function enterBattleView(){
   // export's header lists them too, from state.shared).
   const s = S();
   if(s && s.host === me && !state.matchLog.some(e => e.type === 'commanders'))
-    logReplay('commanders', { mode: s.mode, commanders: Object.fromEntries(Object.entries(s.commanders).map(([k, u]) => [k, s.names[u] || 'a player'])) });
+    logReplay('commanders', { game: s.game, commanders: Object.fromEntries(Object.entries(s.commanders).map(([k, u]) => [k, s.names[u] || 'a player'])) });
   lastTurnKey = `${state.turnNumber}|${state.turn}`;
   setTimeout(announceTurn, 0);
 }
@@ -635,7 +661,7 @@ async function hostBegin(){
   }
   const names = {};
   for(const u of Object.values(seats)) if(u) names[u] = (match.names || {})[u] || 'A player';
-  state.shared = { mode: L.mode, host: me, seats, names, commanders, chooser, aiSide: mode.aiSide };
+  state.shared = { game: L.mode, host: me, seats, names, commanders, chooser, aiTeam: mode.aiSide };
   await T.save(match.id, { status: 'deploy' });
   send({ type: 'begin', shared: state.shared });
   closeLobby();
@@ -644,7 +670,7 @@ async function hostBegin(){
   state.aiDifficulty = L.ai || 'hard';
   const { beginBoardSetup } = await import('./ui-menus.js');
   beginBoardSetup();
-  state.shared = state.shared || { mode: L.mode, host: me, seats, names, commanders, chooser, aiSide: mode.aiSide };
+  state.shared = state.shared || { game: L.mode, host: me, seats, names, commanders, chooser, aiTeam: mode.aiSide };
   setupStarted = true;
   setupShown = true;
   lastShared = pack(); seq += 1;
@@ -977,7 +1003,12 @@ async function start(m, name){
   setOnlineSession({
     shared: true, group: false, matchId: m.id, code: m.code, isHost: m.created_by === me,
     isRemote, ownsUnit, interceptOrder, holdsAutoEnd, commanderNote, partnerRing,
-    runsAi: side => !!S() && S().host === me && sideIsAi(side),
+    runsAi: side => {
+      const yes = !!S() && S().host === me && sideIsAi(side);
+      // The host's own game is starting the AI's move: it is under way.
+      if(yes && state.phase === 'move') aiKickedFor = `${state.turnNumber}|${state.turn}`;
+      return yes;
+    },
   });
   await T.open(m.id, { onMessage, onPresence, onStatus: st => { if(st === 'SUBSCRIBED') send({ type: 'hello' }); } }, { uid: me, name });
   setRemoteAsker(askUnit);
@@ -1101,5 +1132,6 @@ function waitingRoom(){
 
 /* For the tests: this phone's view of who does what. */
 export const _sharedDebug = () => ({ me, writer: writer(), referee: inBattle ? refereeOf(state.turn) : null, baton: state.baton || null,
-  done: state.sharedDone || [], pending: pending.size, queue: queue.length, dice: diceCount, present: [...present], mySide: mySide() });
+  done: state.sharedDone || [], pending: pending.size, queue: queue.length, dice: diceCount, present: [...present], mySide: mySide(),
+  aiKickedFor, seq, moved: state.moved ? state.moved.size : null, turnNumber: state.turnNumber, diceBusy });
 export { handOver, markDone };

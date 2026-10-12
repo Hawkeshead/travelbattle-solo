@@ -218,7 +218,7 @@ function sectionMetadata(){
   /* Shared armies (online-shared.js): who commanded each Brigade. */
   if(state.shared && state.shared.commanders){
     const sh = state.shared, nm = u => (sh.names && sh.names[u]) || 'a player';
-    out.push(`Shared armies   : ${sh.mode}${sh.aiSide ? ', AI ' + SIDE_LABEL[sh.aiSide] : ''}`);
+    out.push(`Shared armies   : ${sh.game}${sh.aiTeam ? ', AI ' + SIDE_LABEL[sh.aiTeam] : ''}`);
     for(const side of ['red', 'blue']){
       const b = [0, 1, 2].map(i => sh.commanders[`${side}:${i}`]).map((u, i) => u ? `Brigade ${i + 1} ${nm(u)}` : null).filter(Boolean);
       if(b.length) out.push(`Commanders      : ${SIDE_LABEL[side]}: ${b.join(', ')}`);
