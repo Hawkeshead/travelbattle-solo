@@ -4,7 +4,7 @@ import { recAi } from './telemetry/recorder.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { zeroedSquares, homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -77,6 +77,7 @@ export const SOLO_ATTACK_PENALTY = 1.2;
 /* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
 export const LONE_CHARGE_COST = 1.2;
 export const CAV_PAIR_BONUS = 0.6;   // heavy cavalry ending within 2 of another friendly cavalry, enemy near (13 Oct)
+export const ZEROED_COST = 0.7;      // per +1 an enemy battery's next shot would get on that square (13 Oct)
 export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
@@ -2187,6 +2188,59 @@ export function brigadeWaypoint(side, brigadeId, mission, plan){
   return point;
 }
 
+/* =========================================================
+   GUNS FIRST (Matthew, 13 Oct 2026)
+
+   "Get the guns into position early, then advance under their cover." In the
+   quiet opening (dice rarely roll before turn four), each battery picks the
+   best firing position it can reach in three of its moves (gunSiteFor: a
+   village on our half first, then a hill, then the best field of fire,
+   judged by vantageScore) and marches straight for it (gunSiting). Its
+   Brigade's other units hold back while it does (gunsFirstMul scales their
+   mission pull) for at most GUNS_FIRST_TURNS of their own turns, then advance
+   regardless. A settled gun with targets already stays, out of command if need
+   be (gunIsEstablished, unchanged), and its Brigadier does not come for it.
+========================================================= */
+export const GUNS_FIRST_TURNS = 2;       // own turns a Brigade waits for its guns
+export const GUNS_FIRST_MUL = 0.35;      // mission pull meanwhile
+export const GUN_SITING_PULL = 0.6;      // per square nearer the site, opening only
+export const GUN_SITE_REACH = 3;         // the site must be reachable in this many moves
+const ownTurnsSoFar = side => Math.ceil(state.turnNumber / 2);
+function gunSiteFor(g){
+  if(g._site && g._site.turn0 === state._matchStartStamp) return g._site;
+  let best = null;
+  const reach = GUN_SITE_REACH * Math.max(1, unitBaseMove(g));
+  const home = homeRowOf(g.side), half = ROWS / 2;
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
+    if(chebyshev(g, { x, y }) > reach) continue;
+    if(Math.abs(y - home) >= half) continue;                    // our half of the map
+    const terr = terrainAt(x, y);
+    if(terr.restrictTo && !terr.restrictTo.includes('ARTILLERY')) continue;
+    if(state.units.some(o => !o.removed && o.id !== g.id && o.x === x && o.y === y)) continue;
+    let v = vantageScore(g, x, y);
+    if(terr.defenseBonus) v += 1.2; else if(terr.elevation > 0) v += 1.0;
+    v += Math.abs(y - home) * 0.15;                              // a little forward is better
+    if(!best || v > best.v) best = { x, y, v };
+  }
+  g._site = best ? { x: best.x, y: best.y, turn0: state._matchStartStamp } : { x: g.x, y: g.y, turn0: state._matchStartStamp };
+  return g._site;
+}
+function inOpening(side){ return ownTurnsSoFar(side) <= GUNS_FIRST_TURNS + 1; }
+function gunSettled(g){ const s = gunSiteFor(g); return g.x === s.x && g.y === s.y; }
+export function gunsFirstMul(u, side, mission){
+  if(UNIT_TYPES[u.type].isArtillery || u.type === 'BRIGADIER') return 1;
+  if(!(mission === 'MAIN_ATTACK' || mission === 'SUPPORT' || mission === 'FLANK')) return 1;
+  if(ownTurnsSoFar(side) > GUNS_FIRST_TURNS) return 1;
+  const guns = state.units.filter(o => !o.removed && o.side === side && o.brigadeId === u.brigadeId && UNIT_TYPES[o.type].isArtillery);
+  return guns.some(g => !gunSettled(g)) ? GUNS_FIRST_MUL : 1;
+}
+/* The gun's own pull to its site, in the opening. */
+export function gunSitingScore(u, side, c){
+  if(!UNIT_TYPES[u.type].isArtillery || !inOpening(side)) return 0;
+  const site = gunSiteFor(u);
+  return -chebyshev(c, site) * GUN_SITING_PULL + (c.x === site.x && c.y === site.y ? 1.0 : 0);
+}
+
 export function missionMoveBonus(u, side, pos, mission, plan){
   if(!mission) return 0;
   const assessment = state._aiDebugLog[side] ? state._aiDebugLog[side].assessment : null;
@@ -3124,8 +3178,10 @@ export function vantageScore(gun, x, y){
   const terr = terrainAt(x, y);
   // Targets dominate; ground breaks ties between positions that can both shoot.
   let score = weightedTargetsFromSquare(gun, x, y);
-  if(terr.defenseBonus) score += 0.6;   // a building: +1 in defence
-  if(terr.elevation > 0) score += 0.5;  // a hill: fires over friendly units
+  // Matthew, 13 Oct 2026: a village first (all attacks take -1 on effect and no
+  // cavalry can attack it), a hill close behind (fires over friends and cover).
+  if(terr.defenseBonus) score += 1.2;   // a building
+  if(terr.elevation > 0) score += 1.0;  // a hill
   return score;
 }
 
@@ -4701,6 +4757,15 @@ export function aiDecideAndExecuteMove(u){
          be formed there, and none of our own cavalry is already next to that
          horseman (then let our cavalry deal with it). */
       if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
+      // GUNS FIRST: a battery's march to its opening position.
+      { const sv = gunSitingScore(u, side, c); if(sv) s += addScore(parts, 'gunSiting', sv); }
+      /* ZEROED SQUARES (13 Oct 2026): ending on a square an enemy battery is
+         ranged on costs ZEROED_COST per point of its next shot's bonus (+1 or
+         +2), so a unit steps off it rather than being calibrated on. */
+      if(t.key !== 'BRIGADIER'){
+        const zb = Math.max(0, ...zeroedSquares().filter(z => z.gunSide !== side && z.x === c.x && z.y === c.y).map(z => z.bonus));
+        if(zb) s -= subScore(parts, 'zeroedSquare', ZEROED_COST * zb);
+      }
       /* HEAVY CAVALRY IN PAIRS (13 Oct 2026). The heavies never fought
          together: in seed 2892839937 the Carabiniers won alone on one wing
          while the 5e Cuirassiers were pushed back four times in eight turns by
@@ -4828,7 +4893,7 @@ export function aiDecideAndExecuteMove(u){
       }
       s += addScore(parts, 'missionPull',
         Math.max(tune(side, 'MISSION_PULL_FLOOR', MISSION_PULL_FLOOR),
-                 missionMoveBonus(u, side, c, mission, plan) * tempoMul * leadMul));
+                 missionMoveBonus(u, side, c, mission, plan) * tempoMul * leadMul * gunsFirstMul(u, side, mission)));
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit

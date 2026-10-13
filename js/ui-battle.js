@@ -15,7 +15,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinish
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
-import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
+import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -1381,11 +1381,16 @@ export function fireArtillery(gun, target, onComplete){
      stays correct if the adjacency exclusion is ever loosened. */
   const canister = dist <= 2;
   if(canister) hitNotes.push('Canister Shot: extra die');
+  const zero = zeroingFor(gun, target);
+  if(zero === 1) hitNotes.push('Sustained Fire +1');
+  else if(zero === 2) hitNotes.push('Calibrated Shot +2');
 
   presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes:hitNotes, at:{x:gun.x,y:gun.y}, also:{x:target.x,y:target.y}}], gun.side, ()=>{
     const hitRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
     const roll = Math.max(...hitRolls);
-    const hit = roll >= needed;
+    // Zeroing adds to the kept die; a kept 1 always misses (Matthew, 13 Oct 2026).
+    const hit = roll > 1 && roll + zero >= needed;
+    recordZeroing(gun, target);   // engine-rules: the zeroing house rule
     /* W6.2, CRACK SHOT, HOUSE RULE: a KEPT hit die of 6 adds +1 to the effect.
        Deliberately the kept die, not "either die shows a 6", so canister raises
        the chance of triggering it without making it automatic. */

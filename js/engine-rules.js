@@ -1804,3 +1804,43 @@ export function checkGroupBreaks(){
     }
   }
 }
+
+/* =========================================================
+   ZEROING, HOUSE RULE (Matthew, 13 Oct 2026)
+
+   A battery firing on the SAME SQUARE it fired on in its previous turn, from
+   the same square, has its crew's corrections: +1 to the to-hit roll
+   ("Sustained Fire") on the second turn running, +2 ("Calibrated Shot") from
+   the third. The square, not the unit: a different unit stepping into a
+   ranged square is shelled just as accurately. It resets if the gun moves,
+   fires at any other square, or lets a turn of its own go by without firing.
+   To-hit only (the effect roll is unchanged); a kept 1 always misses.
+   Every mode. Stored on the gun (u._zero: the square, the gun's square, the
+   turn, how many turns running), so it is saved, undone and synced with the
+   battle.
+========================================================= */
+export function zeroingFor(gun, target){
+  const z = gun._zero;
+  if(!z || z.x !== target.x || z.y !== target.y || z.gx !== gun.x || z.gy !== gun.y) return 0;
+  if(state.turnNumber - z.turn !== 2) return 0;          // its own previous turn, no gap
+  return Math.min(2, z.count);
+}
+export function recordZeroing(gun, target){
+  const run = zeroingFor(gun, target) > 0 || (gun._zero && gun._zero.x === target.x && gun._zero.y === target.y &&
+    gun._zero.gx === gun.x && gun._zero.gy === gun.y && state.turnNumber - gun._zero.turn === 2);
+  gun._zero = { x: target.x, y: target.y, gx: gun.x, gy: gun.y, turn: state.turnNumber, count: run ? Math.min(3, (gun._zero.count || 1) + 1) : 1 };
+}
+/* Squares any battery is ranged on right now (for the board's medallion and
+   for the AI): { x, y, bonus, gunSide } where bonus is what its next shot there
+   would get. */
+export function zeroedSquares(){
+  const out = [];
+  for(const g of state.units){
+    const z = g._zero;
+    if(g.removed || !z || z.gx !== g.x || z.gy !== g.y) continue;
+    const age = state.turnNumber - z.turn;
+    if(age < 0 || age > 2) continue;                      // lapsed: a turn of its own went by
+    out.push({ x: z.x, y: z.y, bonus: Math.min(2, z.count), gunSide: g.side });
+  }
+  return out;
+}

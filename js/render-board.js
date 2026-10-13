@@ -1,4 +1,5 @@
 import { sharedImage } from './image-store.js';
+import { zeroedSquares } from './engine-rules.js';
 import { drawSpotMen, drawSpotMenOverlay } from './spot-men.js';
 import { AudioManager } from './audio-manager.js';
 import { clashActive, figuresOn, drawFigureBodies, figuresAnimating, hasFigures } from './render-figures.js';
@@ -2059,6 +2060,31 @@ export function drawBuildingCluster(cx, cy, cellSize, seed){
   }
 }
 
+/* ZEROED SQUARES (13 Oct 2026): the ranging medallion (assets/ui/zeroed.webp,
+   Matthew's art) in the top right of every square a battery is ranged on,
+   for both sides, with one brass stud under it for +1 to its next shot there
+   and two for +2. Top right, because the top left is a Brigadier's portrait. */
+const ZEROED_IMG = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'assets/ui/zeroed.webp' }) : null;
+function drawZeroedSquares(){
+  if(!ZEROED_IMG || !ZEROED_IMG.complete || !ZEROED_IMG.naturalWidth) return;
+  const seen = new Set();
+  for(const z of zeroedSquares()){
+    const k = z.x + ',' + z.y;
+    if(seen.has(k)) continue; seen.add(k);
+    const sx = SX(z.x, z.y) * CELL, sy = SY(z.x, z.y) * CELL, d = CELL * 0.30;
+    const x = sx + CELL - d - CELL * 0.05, y = sy + CELL * 0.05;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = CELL * 0.04; ctx.shadowOffsetY = CELL * 0.015;
+    ctx.drawImage(ZEROED_IMG, x, y, d, d); ctx.restore();
+    for(let i = 0; i < z.bonus; i++){
+      const cx = x + d / 2 + (z.bonus === 2 ? (i ? 1 : -1) * d * 0.17 : 0), cy = y + d + CELL * 0.035;
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.03, 0, Math.PI * 2);
+      const g = ctx.createRadialGradient(cx - CELL * 0.008, cy - CELL * 0.008, 0.5, cx, cy, CELL * 0.03);
+      g.addColorStop(0, '#fff1b8'); g.addColorStop(1, '#a8802c'); ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = Math.max(1, CELL * 0.006); ctx.strokeStyle = '#3a2408'; ctx.stroke();
+    }
+  }
+}
+
 export function draw(){
   const debugPanel = document.getElementById('aiDebugPanel');
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
@@ -2584,6 +2610,7 @@ export function draw(){
   }
   for(const u of moving) drawUnit(u);
   drawSpotMenOverlay(ctx);   // Spot Men's words and chain marks, above the troops
+  drawZeroedSquares();       // the ranging medallion on squares a battery is zeroed on
 
   // death markers: skull holds for a beat, then fades into drifting smoke
   const now = Date.now();
