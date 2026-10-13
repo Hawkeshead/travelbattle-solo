@@ -76,6 +76,7 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
 export const SOLO_ATTACK_PENALTY = 1.2;
 /* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
 export const LONE_CHARGE_COST = 1.2;
+export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
 export const ENEMY_GUN_ARC_COST = 0.8;      // per gun, for a unit that stays in enemy gun range a second turn (10 Oct)      // heavy cavalry charging an untouched target alone
@@ -1487,8 +1488,24 @@ export function computeArmyPlan(side){
     }
     if(facing){ roles[facing.id] = { role: 'FIX', target: nonTarget.id }; pool = pool.filter(b=>b!==facing); }
   }
-  if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id };
-  if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id };
+  /* STRIKE BY POSITION (13 Oct 2026). STRIKE used to go to the strongest
+     Brigade wherever it stood. In seeds 2948657877 and 2892839937 that was a
+     Brigade twelve columns from its target, with the enemy's best troops in
+     between: it never arrived, and the Brigade that was facing the target sat
+     out as SUPPORT. Now: the strongest Brigade within STRIKE_REACH_COLS columns
+     of the target strikes; if none is that close, the nearest does. SUPPORT is
+     the nearer of what is left. Column distance between Brigade centres. */
+  if(targets[0] && pool.length){
+    const tFoes = brigadeFighters(enemy, targets[0].id);
+    const cx = us => us.length ? us.reduce((n, o) => n + o.x, 0) / us.length : 0;
+    const tx = cx(tFoes);
+    for(const b of pool) b.cols = Math.abs(cx(brigadeFighters(side, b.id)) - tx);
+    const near = pool.filter(b => b.cols <= STRIKE_REACH_COLS);
+    const strike = near.length ? near[0] : [...pool].sort((p, q) => p.cols - q.cols)[0];   // pool is strongest-first
+    pool = [strike, ...pool.filter(b => b !== strike).sort((p, q) => p.cols - q.cols)];
+  }
+  if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id, cols: pool[0].cols };
+  if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id, cols: pool[1].cols };
   /* C3: with no non-target left there is nothing to fix, and a FIX Brigade
      aimed at a Brigade the army is trying to break is just a worse SUPPORT.
      Converted here rather than left to the caller so the log says so. */
@@ -1532,7 +1549,7 @@ export function updateArmyPlan(side){
   const tgt = plan.ranked.filter(r=>plan.targets.includes(r.id))
     .map(r=>`enemy Bde ${r.id} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
   const roles = Object.entries(plan.roles).map(([bId, r]) =>
-    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}) -> enemy Bde ${r.target}` +
+    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}${r.cols != null ? `, ${Math.round(r.cols)} cols from target` : ''}) -> enemy Bde ${r.target}` +
     (r.converted ? ` [${r.converted}]` : '')).join('; ');
   armyPlanLog(side, `ARMY PLAN ${prev ? 'REVISED' : `(T${state.turnNumber})`}: targets=[${tgt}]` +
     `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget}` : 'none'}`);
