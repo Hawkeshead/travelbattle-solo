@@ -31,7 +31,7 @@ import { state, SIDES, SIDE_LABEL } from './data-core.js';
 import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits, draw, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas } from './render-board.js';
-import { ANSWER_WINDOW_MS } from './prompt-panel.js';
+import { ANSWER_WINDOW_MS, closePanelPrompt } from './prompt-panel.js';
 import { playMovementAudio, showLeadershipRollPrompt } from './engine-rules.js';
 import { noteBrigadeBreaks, playTurnTheme, selectUnit, showAmbushChoice, updateHeader } from './ui-battle.js';
 import { log, syncPhaseButtons } from './engine-state.js';
@@ -79,7 +79,7 @@ function unpack(s){
 async function supabaseTransport(){
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
   const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-  let me = null, channel = null;
+  let me = null, channel = null, openArgs = null;
   return {
     async signIn(){
       const { data: { session } } = await sb.auth.getSession();
@@ -99,6 +99,7 @@ async function supabaseTransport(){
     async save(matchId, fields){ await sb.from('matches').update(fields).eq('id', matchId); },
     async load(matchId){ const { data } = await sb.from('matches').select('*').eq('id', matchId).single(); return data; },
     async open(matchId, { onMessage, onPresence, onStatus }, presence){
+      openArgs = [matchId, { onMessage, onPresence, onStatus }, presence];
       await sb.realtime.setAuth();
       channel = sb.channel(`match:${matchId}`, { config: { private: true, broadcast: { self: false }, presence: { key: me } } });
       channel
@@ -110,6 +111,13 @@ async function supabaseTransport(){
         });
     },
     send(payload){ if(channel) channel.send({ type: 'broadcast', event: 'm', payload }); },
+    // Leave and rejoin the match's channel (after the phone was paused and the channel dropped).
+    resubscribe(){
+      if(!channel || !openArgs) return;
+      const [matchId, handlers, presence] = openArgs;
+      try { sb.removeChannel(channel); } catch { /* already gone */ }
+      channel = null; this.open(matchId, handlers, presence);
+    },
   };
 }
 
@@ -167,9 +175,20 @@ function startSync(){
     if(!BATTLE_PHASES.has(state.phase) && !(s.isHost && setupStarted)) return;
     if(state.gameOver) setTimeout(sendRecord, 1500);   // once, after the final battle has gone across
     const now = pack();
-    if(now === lastShared) return;
-    lastShared = now; seq += 1;
-    T.send({ type: 'state', seq, battle: now });
+    /* HEARTBEAT (14 Oct 2026). A broadcast that is lost (a phone in the
+       background, a dropped connection) was never sent again until the battle
+       next changed, so the other phone could sit on an old position, or a
+       finished roll, indefinitely. The phone whose turn it is now repeats its
+       latest battle every HEARTBEAT_MS; the other phone ignores a copy it
+       already has (same seq). */
+    if(now === lastShared){
+      if(BATTLE_PHASES.has(state.phase) && state.turn === s.mySide && Date.now() - lastBeat > HEARTBEAT_MS){
+        lastBeat = Date.now(); T.send({ type: 'state', seq, battle: now, ...logDelta(true) });
+      }
+      return;
+    }
+    lastShared = now; seq += 1; lastBeat = Date.now();
+    T.send({ type: 'state', seq, battle: now, ...logDelta(false) });
     if(Date.now() - lastSave > SAVE_EVERY_MS){
       lastSave = Date.now();
       T.save(s.matchId, { state: { battle: now, seq }, seq, turn_side: state.turn || null,
@@ -182,6 +201,28 @@ function startSync(){
     lastTurn = state.turn;
     updatePill();
   }, SEND_EVERY_MS);
+}
+
+/* THE MATCH LOG ON BOTH PHONES (14 Oct 2026). The match log (state.matchLog,
+   what the export and the match record are built from) was never sent, so
+   each phone held mostly its own turns and an export from either was missing
+   the other player's. Each battle message now carries the entries written
+   since the last one (by index), and the other phone writes them into its own
+   log at the same positions. A heartbeat repeats the last 200 entries, so a
+   lost message is filled in. */
+const HEARTBEAT_MS = 5000;
+let lastBeat = 0, logSent = 0;
+function logDelta(beat){
+  const log = state.matchLog || [];
+  const from = beat ? Math.max(0, log.length - 200) : Math.min(logSent, log.length);
+  logSent = log.length;
+  return { logStart: from, log: log.slice(from) };
+}
+function mergeLog(start, entries){
+  if(!Array.isArray(entries) || start == null) return;
+  if(!state.matchLog) state.matchLog = [];
+  for(let i = 0; i < entries.length; i++) state.matchLog[start + i] = entries[i];
+  logSent = Math.max(logSent, state.matchLog.length);
 }
 
 function applyBattle(json, incomingSeq){
@@ -301,7 +342,15 @@ function onDice(p){
   if(!setupShown && !inBattle) return;
   diceBusy = true;
   clearTimeout(diceSafety);
-  diceSafety = setTimeout(releaseDeferred, 8000);     // never hold the battle back for long if a finish goes missing
+  diceSafety = setTimeout(() => {
+    releaseDeferred();
+    /* NEVER LEAVE DICE STUCK (14 Oct 2026): if the roll's finish was lost, the
+       dice stayed on this phone until the next roll replaced them. After eight
+       quiet seconds they are cleared, unless a question is on screen. */
+    const ov = document.getElementById('diceOverlay');
+    const asking = ov && ov.querySelector('.dice-panel.prompting');
+    if(ov && !asking) ov.classList.remove('show');
+  }, 8000);     // never hold the battle back for long if a finish goes missing
   const a = p.kind === 'trigger' ? { ...p.args, watchSide: onlineSession().remoteSide } : p.args;
   replayDice(p.kind, a, releaseDeferred);
 }
@@ -316,16 +365,58 @@ function askOther(kind, data, fallback, timeoutMs){
     const id = Math.random().toString(36).slice(2);
     const s = onlineSession();
     const name = s.names[s.remoteSide] || 'your opponent';
-    const done = v => { clearTimeout(timer); pendingAsks.delete(id); updatePill(''); resolve(v); };
+    const done = v => {
+      clearTimeout(timer); pendingAsks.delete(id); updatePill(''); hideWaiting();
+      // The question goes away on the other phone too (answered or timed out).
+      T.send({ type: 'askClose', id });
+      resolve(v);
+    };
     const timer = setTimeout(() => done(fallback), timeoutMs);
     pendingAsks.set(id, done);
     T.send({ type: 'ask', id, kind, data });
     updatePill(`${name} is deciding`);
+    showWaiting(kind, data, name, timeoutMs);
   });
 }
+/* WAITING FOR THE OTHER PLAYER (14 Oct 2026). While the other phone decides
+   (an ambush sprung on your unit, their re-roll, their Leadership Roll), this
+   phone says so and nothing on the board can be touched, so a mover cannot
+   carry on past an ambush that has not been fought yet. Clears the moment the
+   answer arrives or the window closes. */
+let waitEl = null;
+function showWaiting(kind, data, name, ms){
+  hideWaiting();
+  const find = id => state.units.find(u => u.id === id);
+  const label = u => u ? (u.historicalName || u.type) : 'your unit';
+  let title = `${name} is deciding`, line = '';
+  if(kind === 'ambush'){ title = 'Ambush!'; line = `${label(find(data.targetId))} has walked into a hidden ${label(find(data.ambId))}. ${name} chooses how to spring it.`; }
+  else if(kind === 'reroll'){ title = `${name} may re-roll`; line = 'Waiting for their choice.'; }
+  else if(kind === 'leadership'){ title = 'Leadership Roll'; line = `${name} is deciding whether to spend their Brigade's save.`; }
+  const wrap = document.getElementById('boardWrap') || document.body;
+  waitEl = document.createElement('div');
+  waitEl.id = 'remoteWait';
+  waitEl.style.cssText = 'position:absolute;inset:0;z-index:45;display:flex;align-items:flex-start;justify-content:center;padding-top:14px;background:rgba(0,0,0,.18);';
+  waitEl.innerHTML = `<div style="background:rgba(233,223,196,.97);border:2px solid #8a6a2a;border-radius:8px;padding:10px 16px;max-width:420px;text-align:center;box-shadow:0 6px 22px rgba(0,0,0,.45);font-family:'Cormorant Garamond',Georgia,serif;color:#2b2016">
+    <div style="font-weight:700;font-size:20px">${esc(title)}</div>
+    ${line ? `<div style="font-size:15px;margin-top:3px">${esc(line)}</div>` : ''}
+    <div style="height:4px;background:rgba(0,0,0,.12);border-radius:2px;margin-top:8px;overflow:hidden"><div class="rw-fill" style="height:100%;width:100%;background:#8a6a2a"></div></div></div>`;
+  // Swallow every touch on the board while the question is open.
+  for(const ev of ['pointerdown', 'pointerup', 'click', 'touchstart']) waitEl.addEventListener(ev, e => { e.stopPropagation(); e.preventDefault(); }, true);
+  wrap.appendChild(waitEl);
+  const fill = waitEl.querySelector('.rw-fill');
+  requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.transition = `width ${ms}ms linear`; fill.style.width = '0%'; }));
+}
+function hideWaiting(){ if(waitEl){ waitEl.remove(); waitEl = null; } }
+const openAsks = new Map();   // question id -> closes it on this phone
+function closeAsk(id){ const f = openAsks.get(id); if(f){ openAsks.delete(id); f(); } }
 
 function onAsk(p){
-  const reply = value => T.send({ type: 'answer', id: p.id, value });
+  const reply = value => { openAsks.delete(p.id); T.send({ type: 'answer', id: p.id, value }); };
+  // If the asking phone moves on first (timed out), its askClose closes this.
+  openAsks.set(p.id, () => {
+    if(p.kind === 'reroll'){ const b = document.getElementById('diceRollBtn'); if(b){ b.style.display = 'none'; b.className = ''; } }
+    else closePanelPrompt(true);
+  });
   const find = id => state.units.find(u => u.id === id);
   if(p.kind === 'reroll') showDiceRerollButton(p.data.label, () => reply(true), () => reply(false));
   else if(p.kind === 'leadership'){
@@ -425,7 +516,8 @@ function onDeployRequest(p){
 }
 
 function onMessage(p){
-  if(p.type === 'state') applyBattle(p.battle, p.seq);
+  if(p.type === 'state'){ mergeLog(p.logStart, p.log); applyBattle(p.battle, p.seq); }
+  else if(p.type === 'askClose') closeAsk(p.id);
   else if(p.type === 'setup'){ if(!onlineSession().isHost){ adopt(unpack(p.battle)); lastShared = pack(); if(!setupShown) enterSetupView(); } }
   else if(p.type === 'dice') onDice(p);
   else if(p.type === 'ask') onAsk(p);
@@ -581,6 +673,7 @@ async function transport(){
   return T;
 }
 
+let lastStatus = null;
 async function start(match, myName, createdHere){
   const me = await T.signIn();
   const mySide = match.red_player === me ? SIDES.RED : SIDES.BLUE;
@@ -592,6 +685,7 @@ async function start(match, myName, createdHere){
   history.replaceState(null, '', `${location.pathname}?join=${match.code}${location.search.includes('onlineTransport=local') ? '&onlineTransport=local' : ''}`);
 
   await T.open(match.id, { onMessage, onPresence, onStatus: st => {
+    lastStatus = st;
     if(st === 'SUBSCRIBED') T.send({ type: 'hello' });
   } }, { name: myName, side: mySide });
 
@@ -599,6 +693,20 @@ async function start(match, myName, createdHere){
   const saved = (await T.load(match.id)) || match;
   if(saved && saved.state && saved.state.battle) applyBattle(saved.state.battle, saved.state.seq || 0);
 
+  /* COMING BACK (14 Oct 2026). Switching to Messages to share the code, or
+     locking the phone, pauses the page and can drop its connection; the other
+     phone then waited on a host that had gone. On return: re-subscribe if the
+     channel is no longer joined, say hello (the other phone resends the
+     battle), and resend ours. */
+  if(!start._vis){
+    start._vis = true;
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState !== 'visible' || !onlineSession()) return;
+      if(T.resubscribe && lastStatus !== 'SUBSCRIBED') T.resubscribe();
+      T.send({ type: 'hello' });
+      if(BATTLE_PHASES.has(state.phase) && state.units && state.units.length){ lastShared = pack(); T.send({ type: 'state', seq, battle: lastShared, ...logDelta(true) }); }
+    });
+  }
   setRemoteDeployHandler(askGuestToDeploy);
   setRemoteAsker(askOther);
   setDiceMirror((kind, args) => T.send({ type: 'dice', kind, args }));
