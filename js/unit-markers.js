@@ -3,17 +3,16 @@
 
    A small cockade hovers over the heads of the unit you have selected, and
    over the enemy unit acting on its turn (the AI, or the other player
-   online), with a soft ring on the ground at its feet:
-   - British: a black cockade with a silver button, a silver ring;
-   - French: the tricolour cockade (blue, white, red), a gold ring.
+   online). No ring at the feet (Matthew, 12 Oct 2026: the cockade only):
+   - British: a black cockade with a silver button;
+   - French: the tricolour cockade (blue, white, red).
    An acting enemy unit also gets a word for what it is doing ("Advancing",
    "Charging", "Firing", "Volley", "Attacking", "Forming Square"), in the
    white slanted lettering of the battle dice, for a moment after it acts.
 
    Drawn on its own layer over the board and above the clouds (the clouds
    are at z-index 10), below the dice and the cards. The cockade keeps the
-   same size on screen at every zoom; the ring belongs to the ground and
-   scales with it. It follows a unit while it moves. Hidden units (in ambush)
+   same size on screen at every zoom and follows a unit while it moves. Hidden units (in ambush)
    are never marked. Visual only: nothing here is saved, synced or replayed.
 ========================================================= */
 import { COLS, humanOwns, state } from './data-core.js';
@@ -92,7 +91,6 @@ function frame(){
     const v = getUnitVisualPos(u), s = toScreen(v.x, v.y);
     const x = cr.left - wr.left + (s.x + 0.5) * cell, y = cr.top - wr.top + (s.y + 0.5) * cell;
     const british = u.side === 'red';
-    ring(x, y + cell * 0.28, cell, british);
     const bob = Math.sin(t * 2.4) * 2;
     const top = y - cell * 0.62 + bob;
     cockade(x, Math.max(COCKADE_R + 2, top), british);
@@ -100,14 +98,6 @@ function frame(){
   }
 }
 
-function ring(x, y, cell, british){
-  const col = british ? 'rgba(232,238,246,0.95)' : 'rgba(255,214,110,0.95)';
-  g.save();
-  g.strokeStyle = col; g.lineWidth = Math.max(1.5, cell * 0.035); g.shadowColor = col; g.shadowBlur = 8;
-  g.globalAlpha = 0.75 + 0.25 * Math.sin(performance.now() / 420);
-  g.beginPath(); g.ellipse(x, y, cell * 0.46, cell * 0.17, 0, 0, Math.PI * 2); g.stroke();
-  g.restore();
-}
 /* A pleated rosette: the outer folds, a middle ring and a button. */
 function cockade(x, y, british){
   const r = COCKADE_R;
