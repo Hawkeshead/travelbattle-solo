@@ -517,14 +517,20 @@ export function hasLOS(gun, target){
   const gunElev = terrainAt(gun.x,gun.y).elevation;
   const tgtElev = terrainAt(target.x,target.y).elevation;
   const shooterElevated = gunElev > 0 || tgtElev > 0;
+  /* TERRAIN BLOCKS OUTRIGHT (Matthew, 13 Oct 2026): woods, villages and hills
+     between a gun and its target block the shot, unless the GUN stands on a
+     hill, from where it fires over all of them. (Before, terrain only counted
+     towards the half-the-path rule below, hills never blocked, and a target on
+     a hill could be shot at over woods and villages too.) Units in the way are
+     unchanged: they block under the half-the-path rule, and a gun or target on
+     a hill fires over them. */
+  if(gunElev <= 0 && path.some(c => { const terr = terrainAt(c.x, c.y); return terr.blocksLOS || terr.elevation > 0; })) return false;
   let blockedCount = 0;
   for(const c of path){
-    const terr = terrainAt(c.x,c.y);
     const occ = unitsAt(c.x,c.y).length>0;
-    const blocksHere = terr.blocksLOS || occ;
-    if(blocksHere){
-      // overhead fire allowed if gun or target is on higher ground than the obstruction
-      if(shooterElevated && terr.elevation <= Math.max(gunElev,tgtElev)) continue;
+    if(occ){
+      // overhead fire allowed over units if the gun or the target is on a hill
+      if(shooterElevated) continue;
       blockedCount++;
     }
   }
