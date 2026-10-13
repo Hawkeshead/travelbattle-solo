@@ -76,6 +76,7 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
 export const SOLO_ATTACK_PENALTY = 1.2;
 /* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
 export const LONE_CHARGE_COST = 1.2;
+export const CAV_PAIR_BONUS = 0.6;   // heavy cavalry ending within 2 of another friendly cavalry, enemy near (13 Oct)
 export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
@@ -691,9 +692,10 @@ function fightingMembers(side, bId){
     o.brigadeId===bId && o.type!=='BRIGADIER');
 }
 
-function badFightFor(u, tgt){
+function badFightFor(u, tgt, wins){
   const fv = estimateFightValue(u, tgt);
-  return finishFloor(u) === 0 ? fv < 0 : fv <= finishFloor(u);
+  const floor = finishFloor(u, wins);
+  return floor === 0 ? fv < 0 : fv <= floor;
 }
 
 /* The remnant hunt this side has running for a target, with its unit, or null. */
@@ -726,7 +728,9 @@ export function updateFinishing(side){
   if(!finishingEnabled(side)){ for(const k of Object.keys(book)) delete book[k]; return; }
   const enemy = otherSide(side);
   const own = state.units.filter(o => !o.removed && o.side===side && o.type!=='BRIGADIER');
-  const wins = brigadeBrokenStatus(enemy).filter(Boolean).length >= 1;
+  // Breaking this Brigade wins the match: one already broken under the usual
+  // rule, or none needed under the Quick Battle "1 Brigade" setting (13 Oct 2026).
+  const wins = brigadeBrokenStatus(enemy).filter(Boolean).length + 1 >= (state.winBrigades === 1 ? 1 : 2);
   const reachOf = t => own.length ? Math.min(...own.map(o => chebyshev(o, t))) : Infinity;
 
   for(const key of Object.keys(book)){
@@ -793,7 +797,7 @@ export function updateFinishing(side){
       if(ot.isArtillery){ if(od > 4 && hasLOS(o, t)) guns.push(`${name} closing from range ${od}`); continue; }
       const radius = ot.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
       if(od > radius) continue;
-      (badFightFor(o, t) ? held : near).push(`${name} (${od} tiles)`);
+      (badFightFor(o, t, wins) ? held : near).push(`${name} (${od} tiles)`);
     }
     finishNote(side, `FINISHING: enemy Bde ${bId} at Brigadier + 1 (${label} at (${t.x},${t.y})). ` +
       `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
@@ -830,7 +834,7 @@ function finishRoleFor(u, startX, startY){
          proportion rather than becoming a second term to sweep. */
       const cavR = tune(u.side, 'FINISH_RADIUS', FINISH_CAV_RADIUS);
       const radius = ut.isCavalry ? cavR : Math.max(2, cavR - 2);
-      if(d > radius || badFightFor(u, tgt)) continue;
+      if(d > radius || badFightFor(u, tgt, f.wins)) continue;
       if(!best || d < best.d0) best = { kind: ut.isCavalry ? 'cav' : 'inf', f, d0: d };
     }
     u._finRole = best;
@@ -845,14 +849,20 @@ function finishRoleFor(u, startX, startY){
    infantry as well was measured and made finishing SLOWER than Saladin, since
    it withdrew the +6 Saladin already paid for exactly the fights infantry take
    against a remnant in cover. */
-function finishFloor(attacker){
-  return attacker && UNIT_TYPES[attacker.type].isCavalry ? 0 : KILL_VALUE_ENGAGE_FLOOR;
+/* WHEN THE KILL WINS THE MATCH (13 Oct 2026): cavalry accept a fight down to
+   FINISH_WIN_CAV_FLOOR (-1.0). Seed 3008835875: the Carabiniers, three
+   squares from a disrupted light cavalry unit whose loss would have won the
+   match, were held back as a bad fight. */
+function finishFloor(attacker, wins){
+  if(!(attacker && UNIT_TYPES[attacker.type].isCavalry)) return KILL_VALUE_ENGAGE_FLOOR;
+  return wins ? FINISH_WIN_CAV_FLOOR : 0;
 }
+export const FINISH_WIN_CAV_FLOOR = -1.0;
 
 export function killCreditFor(side, target, fv, attacker){
   const h = activeHunt(side, target.id);
   if(h){
-    const floor = finishFloor(attacker);
+    const floor = finishFloor(attacker, h.wins);
     if(floor === 0 ? fv < 0 : fv <= floor) return 0;
     return h.wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE;
   }
@@ -4691,6 +4701,17 @@ export function aiDecideAndExecuteMove(u){
          be formed there, and none of our own cavalry is already next to that
          horseman (then let our cavalry deal with it). */
       if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
+      /* HEAVY CAVALRY IN PAIRS (13 Oct 2026). The heavies never fought
+         together: in seed 2892839937 the Carabiniers won alone on one wing
+         while the 5e Cuirassiers were pushed back four times in eight turns by
+         two Hussar regiments working in turn. A heavy regiment ending within
+         two squares of another friendly cavalry unit, with an enemy within
+         four, earns CAV_PAIR_BONUS, so the horse arrive together and the second
+         can follow the first in. */
+      if(t.key === 'HEAVY_CAV' && nearestEnemyDist(c, side) <= 4 &&
+         state.units.some(o => !o.removed && o.side === side && o.id !== u.id && UNIT_TYPES[o.type].isCavalry &&
+           Math.max(Math.abs(o.x - c.x), Math.abs(o.y - c.y)) <= 2))
+        s += addScore(parts, 'cavalryPair', CAV_PAIR_BONUS);
 
       /* ANSWER THE GUNS (7 Oct 2026). In Matthew's match the 2e Grenadiers were
          shelled eight times from the same battery and never moved. A unit fired
