@@ -59,7 +59,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   state.campaign = null;
   state.mode = 'ai';
   state.spectate = true;
-  state.aiDifficulty = 'hard';
+  // SIM_DIFFICULTY=medium|easy plays both sides at that level (default Hard, the shipped one).
+  state.aiDifficulty = process.env.SIM_DIFFICULTY || 'hard';
   state.aiSide = SIDES.RED;
   state.gameOver = false;
   state.winner = null;

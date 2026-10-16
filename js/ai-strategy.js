@@ -1969,7 +1969,17 @@ function nearestCoverTile(u){
 }
 
 export function aiPlanTurn(side){
-  if(state.aiDifficulty!=='hard'){ state._aiDebugLog[side]=null; return; }
+  if(state.aiDifficulty!=='hard'){
+    state._aiDebugLog[side]=null;
+    /* Easy and Medium never planned, so their tempo never left BUILD: an
+       engage weight of x0.2 for the whole match, whatever happened. It now
+       advances at every level, as it does on Hard. Measured 16 Oct 2026 on
+       Medium, ten seeds with sides swapped: 14 of 18 decided matches (78%),
+       better as both Britain and France. The experiment that turns it off
+       is 'no_tempo_all_levels' (tools/sim/variants.mjs). */
+    if(tune(side, 'TEMPO_ALL_LEVELS', 1) && tempoV2(side)) advanceTempo(side, assessBattlefield(side));
+    return;
+  }
   const assessment = assessBattlefield(side);
   /* DRIVEN HERE, NOT FROM THE PLAN CHOOSER. It was called from inside the plan
      chooser first, which looked like the same thing and is not: hysteresis makes

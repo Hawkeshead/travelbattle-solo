@@ -41,6 +41,10 @@ export const VARIANTS = {
 
   control: {},
 
+  /* Easy and Medium tempo advances as on Hard (ON since 16 Oct 2026, 78% on
+     Medium), so the experiment turns it OFF. Run with SIM_DIFFICULTY=medium. */
+  no_tempo_all_levels: { TEMPO_ALL_LEVELS: 0 },
+
   /* Part B of the AI behaviour brief: five weight changes in one pass.
      Values are the brief's, not tuned here. */
   b_weights: {
