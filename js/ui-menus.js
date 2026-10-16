@@ -275,6 +275,14 @@ export function showModeSelect(isSplash){
   onlineBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showOnlinePlayerCount(); };
   extra.appendChild(menuItem(onlineBtn, 'online'));
   extra.appendChild(menuItem(spectateBtn, 'spectate'));
+  // HOW TO PLAY (16 Oct 2026): the rules deck. It opens over the title screen,
+  // so it does not take the title away the way the other items do.
+  const howBtn = document.createElement('button');
+  howBtn.textContent = 'How to Play';
+  howBtn.className = 'title-item htp-title';
+  howBtn.innerHTML = '<span class="ti-art"><span class="htp-q">?</span></span><span class="ti-label">How to Play</span>';
+  howBtn.onclick = (e)=>{ e.stopPropagation(); import('./how-to-play.js').then(mod => mod.openHowToPlay()); };
+  extra.appendChild(howBtn);
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,

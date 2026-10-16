@@ -1851,6 +1851,8 @@ export function initBattleControls(){
     document.getElementById('menuPanel').style.display = 'none';
     renderAiDebugPanel();
   };
+  { const h = document.getElementById('howToPlayBtn');
+    if(h) h.onclick = ()=> import('./how-to-play.js').then(m => m.openHowToPlay()); }
   document.getElementById('logTabMenu').onclick = ()=>{
     document.getElementById('logTabMenu').classList.add('active');
     document.getElementById('logTabReport').classList.remove('active');
