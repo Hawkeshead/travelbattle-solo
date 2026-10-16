@@ -78,6 +78,8 @@ export const SOLO_ATTACK_PENALTY = 1.2;
 export const LONE_CHARGE_COST = 1.2;
 export const CAV_PAIR_BONUS = 0.6;   // heavy cavalry ending within 2 of another friendly cavalry, enemy near (13 Oct)
 export const ZEROED_COST = 0.7;      // per +1 an enemy battery's next shot would get on that square (13 Oct)
+export const SQUARE_THREAT_WEIGHT = 0.15;  // threat in the Form Square comparison (unchanged; see SQUARE AGAINST HORSE)
+export const SQUARE_VS_CAV_BONUS = 1.2;   // infantry in the open, enemy horse in reach, no enemy foot close (16 Oct)
 export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
@@ -5030,7 +5032,20 @@ export function aiDecideAndExecuteMove(u){
        threatPenalty, the lighter coefficient systematically undervalues its
        main benefit. Left alone deliberately so this fix can be measured on its
        own rather than tangled with a weight change. */
-    const squareScore = evaluateState(side) * BASE_STATE_WEIGHT - 0.15*threatPenalty(u, side);
+    /* SQUARE AGAINST HORSE (16 Oct 2026). In Matthew's last fourteen matches his
+       cavalry caught French infantry in line 67 times and won 50; the French
+       formed a square that held against cavalry three times. The general threat
+       term never singled cavalry out. Now: infantry in the open with enemy
+       cavalry able to reach it next turn (within move + 1), and no enemy
+       infantry close enough to punish a square (within 2), weighs forming square
+       up by SQUARE_VS_CAV_BONUS. (A heavier general threat weight was tried
+       first and cost wins against Alexander, so it is left at 0.15.) */
+    const horseNear = state.units.some(o => !o.removed && o.side !== side && UNIT_TYPES[o.type].isCavalry &&
+      !isConcealedFromEnemy(o) && chebyshev(o, u) <= unitBaseMove(o) + 1);
+    const footNear = state.units.some(o => !o.removed && o.side !== side && (o.type === 'INFANTRY' || o.type === 'GUARD') && chebyshev(o, u) <= 2);
+    const inCover = ['WOODS', 'BUILDING'].includes(terrainAt(u.x, u.y).key);
+    const vsHorse = horseNear && !footNear && !inCover ? SQUARE_VS_CAV_BONUS : 0;
+    const squareScore = evaluateState(side) * BASE_STATE_WEIGHT - SQUARE_THREAT_WEIGHT*threatPenalty(u, side) + vsHorse;
     u.formation = origForm;
     if(squareScore > bestScore){
       u.formation = 'square';
