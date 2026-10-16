@@ -283,6 +283,7 @@ export function showModeSelect(isSplash){
   howBtn.innerHTML = '<span class="ti-art"><span class="htp-q">?</span></span><span class="ti-label">How to Play</span>';
   howBtn.onclick = (e)=>{ e.stopPropagation(); import('./how-to-play.js').then(mod => mod.openHowToPlay()); };
   extra.appendChild(howBtn);
+  import('./how-to-play.js').then(mod => mod.maybeShowHowToPlayOnFirstVisit());   // the first time only
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,

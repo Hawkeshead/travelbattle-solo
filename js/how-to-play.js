@@ -1,7 +1,7 @@
 /* =========================================================
    HOW TO PLAY (Matthew, 16 Oct 2026)
 
-   A swipe-through deck of thirteen cards, each a short clip recorded in the
+   A swipe-through deck of fourteen cards, each a short clip recorded in the
    game itself (assets/tutorial/*.webp) with two or three lines of rules and a
    tip. Opened from "How to Play" on the title screen and from the battle
    menu. Swipe, tap Next or Back, tap a dot to jump, Skip goes to the last card;
@@ -10,6 +10,7 @@
 ========================================================= */
 const CARDS = [
   ['card1_turn', 'Your turn', 'Every turn has three phases. Move your units, then fire your guns and volleys, then fight every enemy you are touching.', 'Tap the leather despatch case to end each phase. Tap it again to confirm.'],
+  ['card0_controls', 'Giving orders', 'Tap one of your units to select it: its card opens and the squares it can reach light up. Tap a lit square to move there.', 'Orders such as Form Square or Lay Ambush are on the unit\u2019s card. Pinch to zoom, drag to look around.'],
   ['card2_army', 'Your army', 'Infantry hold the line; the Guard are elite and may re-roll once in a fight. Cavalry move two squares and charge, and heavy cavalry also re-roll. Artillery fires up to six squares.', 'Your Brigadier never fights. His job is keeping his Brigade together.'],
   ['card3_command', 'Stay in command', 'A unit can only move while it touches its Brigadier, or another unit of his Brigade that does. Break the chain and the units beyond it are stuck.', 'Tap Spot Men on a Brigadier\u2019s card to see who is in command and who is cut off.'],
   ['card4_fight', 'Fighting', 'Both sides roll a die and keep the best one. Bonuses add to it, and the bigger number wins by the difference.', 'Win by 1: they fall back. By 2: they run and must rally. By 3 or more: they are destroyed. A draw carries on next turn.'],
@@ -66,6 +67,19 @@ export function openHowToPlay(){
   requestAnimationFrame(() => { root.classList.add('show'); go(0); });
 }
 export function closeHowToPlay(){ if(root) root.classList.remove('show'); }
+
+/* FIRST VISIT: the deck opens by itself the first time the game is played on
+   a phone (remembered there); never in automated test runs (navigator.webdriver),
+   and never for a player arriving by an online invite link. */
+const SEEN_KEY = 'fc_htp_seen';
+export function maybeShowHowToPlayOnFirstVisit(){
+  try {
+    if(localStorage.getItem(SEEN_KEY) || navigator.webdriver) return;
+    if(new URLSearchParams(location.search).has('join')) return;
+    localStorage.setItem(SEEN_KEY, '1');
+  } catch { return; }
+  setTimeout(openHowToPlay, 600);
+}
 
 /* Shows card i; loads its clip and the next one's (the clips are a few
    hundred KB each, so only what is about to be seen is fetched). */
