@@ -15,12 +15,15 @@
    Usage:  node tools/sim/spyglass-check.mjs [seed]     (default 7)
 ========================================================= */
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { loadGame, collapseTimers } from './headless-env.mjs';
 
 const KINDS = new Set(['move', 'fire', 'fight', 'formation', 'ambush', 'status', 'rally', 'leadership', 'turnStart']);
 const TURN_CAP = 400, TIMEOUT_MS = 60_000;
 
-async function child(seed, traceOn){
+async function child(seed, traceOn, outFile){
   const realSetInterval = globalThis.setInterval;
   const g = await loadGame();
   const render = await import('../../js/render-board.js');
@@ -48,26 +51,42 @@ async function child(seed, traceOn){
     const rest = { ...e }; delete rest.at; return JSON.stringify(rest);
   });
   const t = trace.traceStats();
-  process.stdout.write('\u0001RESULT' + JSON.stringify({ events, winner: state.winner || null, turns: state.turnNumber, trace: t }) + '\n');
+  /* The whole game state at the end, AI memory included (its plans, caches
+     and move history), so a trace that disturbed anything the AI keeps, not
+     only what it did, would show here too. Event timestamps are left out. */
+  /* Left out: clock times, and the purely cosmetic art choices the game makes
+     with Math.random on purpose (grass and building tile variants; see the
+     simulator README), which differ between any two runs of anything. */
+  const CLOCK_OR_COSMETIC = new Set(['at', '_matchStartStamp', 'startedAt', 'wallMs', '_dispatchUntil', 'grassStyles', 'buildingStyles']);
+  const snap = JSON.stringify(state, (k, v) => {
+    if(typeof v === 'function') return undefined;
+    if(v instanceof Set) return [...v];
+    if(v instanceof Map) return [...v.entries()];
+    if(CLOCK_OR_COSMETIC.has(k)) return undefined;
+    return v;
+  });
+  const { createHash } = await import('node:crypto');
+  const stateHash = createHash('sha256').update(snap).digest('hex').slice(0, 16);
+  if(process.env.SPYGLASS_DUMP) fs.writeFileSync(process.env.SPYGLASS_DUMP + (traceOn ? '-on' : '-off') + '.json', snap);
+  // Through a file: a whole match is too long for one write before exit.
+  fs.writeFileSync(outFile, JSON.stringify({ events, winner: state.winner || null, turns: state.turnNumber, trace: t, stateHash, stateBytes: snap.length }));
   process.exit(0);
 }
 
 function run(seed, traceOn){
+  const outFile = path.join(os.tmpdir(), `spyglass-check-${process.pid}-${traceOn ? 'on' : 'off'}.json`);
   return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, [process.argv[1], '--child', String(seed), traceOn ? '1' : '0'], { stdio: ['ignore', 'pipe', 'ignore'] });
-    let out = '';
-    p.stdout.on('data', d => { out += d; });
+    const p = spawn(process.execPath, [process.argv[1], '--child', String(seed), traceOn ? '1' : '0', outFile], { stdio: ['ignore', 'ignore', 'ignore'] });
     p.on('close', () => {
-      const line = out.split('\n').find(l => l.startsWith('\u0001RESULT'));
-      if(!line) return reject(new Error('no result from child'));
-      resolve(JSON.parse(line.slice(7)));
+      try { resolve(JSON.parse(fs.readFileSync(outFile, 'utf8'))); fs.unlinkSync(outFile); }
+      catch(e){ reject(new Error('no result from child: ' + e.message)); }
     });
   });
 }
 
 const args = process.argv.slice(2);
 if(args[0] === '--child'){
-  await child(Number(args[1]), args[2] === '1');
+  await child(Number(args[1]), args[2] === '1', args[3]);
 } else {
   const seed = Number(args[0] || 7);
   const off = await run(seed, false);
@@ -78,7 +97,9 @@ if(args[0] === '--child'){
   console.log(`seed ${seed}: trace off ${off.events.length} events (${off.turns} turns, winner ${off.winner}); ` +
               `trace on ${on.events.length} events (${on.turns} turns, winner ${on.winner})`);
   console.log(`trace on captured: ${on.trace.turns} turns, ${on.trace.brigades} Brigade orders, ${on.trace.decisions} unit decisions, ${on.trace.candidates} candidate squares`);
-  if(firstDiff === -1){ console.log('IDENTICAL: every move, shot, fight and roll is the same with the trace on and off.'); process.exit(0); }
+  console.log(`final game state: off ${off.stateHash} (${off.stateBytes} bytes), on ${on.stateHash} (${on.stateBytes} bytes)`);
+  if(firstDiff === -1 && off.stateHash === on.stateHash){ console.log('IDENTICAL: every move, shot, fight and roll, and the whole final game state, are the same with the trace on and off.'); process.exit(0); }
+  if(firstDiff === -1){ console.log('MOVES IDENTICAL, but the final game state differs.'); process.exit(1); }
   console.log(`DIFFERENT at event ${firstDiff}:\n  off: ${off.events[firstDiff]}\n  on:  ${on.events[firstDiff]}`);
   process.exit(1);
 }

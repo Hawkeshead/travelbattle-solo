@@ -1,6 +1,7 @@
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
+import { stepGate, traceDecision, traceOn, traceTurn } from './ai-trace.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
@@ -3658,7 +3659,9 @@ export function aiDecideAndExecuteMove(u){
      scored candidates (Form Square, Lay Ambush, Stand Down). That is correct:
      there is nothing to break down. */
   let decisionForLog = null;
+  let traceScored = null;   // the full score sheet, for the decision trace only
   function recordMove(action, to){
+    if(traceOn()) traceMoveDecision(u, action, { x: startX, y: startY }, to || null, traceScored);
     // The killing-ground term reads how many turns running this unit has ended in enemy gun range.
     if(u._inGunArcTurn !== state.turnNumber){
       u._inGunArcTurn = state.turnNumber;   // once per turn (a move and a Form Square both record)
@@ -4925,6 +4928,7 @@ export function aiDecideAndExecuteMove(u){
   if(typeof globalThis.__fcScoreProbe === 'function') globalThis.__fcScoreProbe(u, scored);
   const decision = { chosen: scored[0] || null, alternatives: scored.slice(1,4), considered: scored.length };
   decisionForLog = decision;
+  traceScored = scored;
 
   const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1;
   // Square is gated on an actual cavalry unit able to reach this square, not on
@@ -5182,8 +5186,113 @@ function finishAiPhase(endPhase){
   p.done();
 }
 
+/* =========================================================
+   THE DECISION TRACE (js/ai-trace.js, drawn by the Spyglass, js/spyglass.js)
+
+   Everything below only READS. It copies numbers the AI has already worked
+   out (the score sheet of every square it weighed, its missions and plans)
+   and calls only helpers that compute nothing of their own: no scoring, no
+   seededRandom, no cache it would fill. Where the AI keeps an objective in a
+   cache it fills during the turn (a rally point, a shelter), the trace reads
+   that cache once the AI has filled it, and never fills it itself. Nothing
+   here is read back by the AI. With capture off (the default) none of it
+   runs. tools/sim/spyglass-check.mjs proves a match plays identically with
+   it on and off.
+========================================================= */
+/* Each mission as a short plain order for the overlay. */
+const ORDER_LABEL = {
+  MAIN_ATTACK: 'Assault', SUPPORT: 'Support', FIX: 'Pin', FLANK: 'Flank', RESERVE: 'Reserve',
+  COUNTERATTACK: 'Counterattack', HOLD: 'Hold', SCREEN: 'Screen guns', WITHDRAW: 'Fall back',
+  SHELTER: 'Take cover', PRESERVE: 'Save remnant', REGROUP: 'Regroup', REUNITE: 'Rejoin men', FETCH: 'Fetch men',
+};
+const ATTACK_ORDERS = new Set(['MAIN_ATTACK', 'SUPPORT', 'FIX', 'FLANK', 'RESERVE', 'COUNTERATTACK']);
+/* The square a Brigade's mission is steering it towards, read from what the
+   AI already holds; null where it holds none (yet). why says where it came from. */
+function tracedObjective(side, bId, mission, brig){
+  const wp = state._aiWaypoints && state._aiWaypoints[`${side}:${bId}`];
+  if(wp && wp.turn === state.turnNumber && wp.point && !ARMY_PLAN_EXEMPT.has(mission)) return { at: wp.point, why: 'waypoint' };
+  if(ATTACK_ORDERS.has(mission)){
+    const tId = armyPlanTargetFor(side, bId, state._aiPlan && state._aiPlan[side]);
+    if(tId == null) return null;
+    const foes = state.units.filter(o => !o.removed && o.side === otherSide(side) && o.brigadeId === tId);
+    if(!foes.length) return null;
+    // Every unit is pulled at the nearest unit of the target Brigade; from the Brigadier, that is this one.
+    const from = brig || foes[0];
+    const near = foes.reduce((a, b) => chebyshev(from, b) < chebyshev(from, a) ? b : a);
+    return { at: { x: near.x, y: near.y }, why: 'target Brigade', targetBrigade: tId };
+  }
+  if(mission === 'REUNITE' || mission === 'FETCH'){
+    const e = brigadeErrand(side, bId); const p = e ? errandRallyPoint(e) : null;
+    return p ? { at: p, why: 'cut-off men' } : null;
+  }
+  if(mission === 'HOLD' || mission === 'WITHDRAW'){
+    const c = state._aiRallyCache;
+    return c && c.side === side && c.turn === state.turnNumber && c.point ? { at: c.point, why: 'rally point' } : null;
+  }
+  if(mission === 'SHELTER' || mission === 'PRESERVE'){
+    const c = mission === 'SHELTER' ? state._aiShelterCache : state._aiPreserveCache;
+    return c && c.turn === state.turnNumber && c.point && c.key === side + ':' + bId ? { at: c.point, why: 'destination' } : null;
+  }
+  return null;   // REGROUP, SCREEN, and every Brigade on Easy or Medium: no single square
+}
+/* "Waiting for guns": the first GUNS_FIRST_TURNS own turns of an attack, while
+   one of the Brigade's guns is not yet on the site it chose (read from the
+   gun, never chosen here: a gun that has not chosen yet counts as waiting). */
+function gunsWaitTimer(side, bId, mission){
+  if(!(mission === 'MAIN_ATTACK' || mission === 'SUPPORT' || mission === 'FLANK')) return null;
+  const left = GUNS_FIRST_TURNS - ownTurnsSoFar(side) + 1;
+  if(left <= 0) return null;
+  const guns = state.units.filter(o => !o.removed && o.side === side && o.brigadeId === bId && UNIT_TYPES[o.type].isArtillery);
+  if(!guns.length) return null;
+  const waiting = guns.some(g => !(g._site && g._site.turn0 === state._matchStartStamp && g.x === g._site.x && g.y === g._site.y));
+  return waiting ? { label: `wait ${left}`, turnsLeft: left } : null;
+}
+function traceBrigadeOrders(side){
+  const missions = state._aiMissions && state._aiMissions[side];
+  const ids = [...new Set(state.units.filter(u => !u.removed && u.side === side).map(u => u.brigadeId))].sort();
+  return ids.map(bId => {
+    const units = state.units.filter(u => !u.removed && u.side === side && u.brigadeId === bId);
+    const brig = units.find(u => u.type === 'BRIGADIER') || null;
+    const mission = (state.aiDifficulty === 'hard' && missions) ? (missions[bId] || null) : null;
+    const timer = gunsWaitTimer(side, bId, mission);
+    const obj = mission ? tracedObjective(side, bId, mission, brig) : null;
+    return { id: bId, brigadier: brig ? { x: brig.x, y: brig.y } : null, units: units.map(u => u.id),
+      mission, order: timer ? 'Site guns' : (mission ? (ORDER_LABEL[mission] || mission) : 'none'),
+      timer: timer ? timer.label : null, objective: obj ? obj.at : null, objectiveWhy: obj ? obj.why : null };
+  });
+}
+/* After each unit, an objective the AI has only now worked out (a rally
+   point, a shelter) is filled in; the orders themselves do not change. */
+function refreshTraceObjectives(side, trace){
+  if(!trace || !trace.brigades) return;
+  for(const b of trace.brigades){
+    if(b.objective || !b.mission) continue;
+    const brig = state.units.find(u => !u.removed && u.side === side && u.brigadeId === b.id && u.type === 'BRIGADIER');
+    const obj = tracedObjective(side, b.id, b.mission, brig);
+    if(obj){ b.objective = obj.at; b.objectiveWhy = obj.why; }
+  }
+}
+/* One unit's move decision, from the score sheet the AI built. */
+function traceMoveDecision(u, action, from, to, scored){
+  const sheet = scored || [];
+  const chosenAt = to || from;
+  const chosen = sheet.find(c => c.x === chosenAt.x && c.y === chosenAt.y) || null;
+  const runner = sheet.find(c => c !== chosen) || null;
+  const pick = c => c ? { x: c.x, y: c.y, score: c.total, terms: { ...c.parts } } : null;
+  traceDecision({ unitId: u.id, side: u.side, brigadeId: u.brigadeId, phase: 'move', action, from, to,
+    target: null, candidates: sheet.map(c => ({ x: c.x, y: c.y, score: c.total, stay: !!c.stay })),
+    chosen: pick(chosen), runnerUp: pick(runner) });
+  if(traceOn()){ const cur = currentTraceRef(); if(cur && cur.side === u.side) refreshTraceObjectives(u.side, cur); }
+}
+let traceRef = null;
+const currentTraceRef = () => traceRef;
+
 export function aiDoMovePhase(){
   const order = orderAiUnitsForMove(aiSideNow()).filter(id => aiOwns(state.units.find(x => x.id === id)));
+  if(traceOn()){
+    traceRef = { side: aiSideNow(), brigades: traceBrigadeOrders(aiSideNow()) };
+    traceTurn(state.turnNumber, aiSideNow(), traceRef.brigades);
+  }
   let i = 0;
   cameraParkPlayerView();
   /* The camera follows by BRIGADE, not by unit. orderAiUnitsForMove already
@@ -5234,7 +5343,7 @@ export function aiDoMovePhase(){
     // A moving unit also waits out its answering call (AI_CUE_LEAD_MS).
     const cueLead = moved ? (u._aiCueLeadMs || 0) : 0;
     if(u) u._aiCueLeadMs = 0;
-    setTimeout(()=> floatingTextIdle().then(()=> resolveAmbushSpringsNow(step)),
+    setTimeout(()=> floatingTextIdle().then(()=> resolveAmbushSpringsNow(()=> stepGate(step))),
       moved ? moveAnimationMs(Math.max(1, steps)) + 60 + cueLead : 340);
   }
   resetFloatingTextTurnBudget();
@@ -5250,6 +5359,7 @@ export function aiFireDecision(gun, onComplete){
   if(targets.length===0){ state.fired.add(gun.id); onComplete(); return; }
   const plan = state.aiDifficulty==='hard' ? state._aiPlan[gun.side] : null;
   let best=null, bestScore=-Infinity;
+  const traceSheet = traceOn() ? [] : null;   // the decision trace's copy of each target's score
   for(const t of targets){
     const dist = chebyshev(gun,t);
     const pHit = dist<=1 ? 1 : Math.max(0,(7-dist))/6;
@@ -5272,8 +5382,12 @@ export function aiFireDecision(gun, onComplete){
     // Section 6, Artillery concentration (Hard): weight toward the plan's actual
     // target Brigade rather than always taking the single highest expected-damage shot.
     if(plan && plan.targetBrigadeId!=null && t.brigadeId===plan.targetBrigadeId) score += pHit * 1.0;
+    if(traceSheet) traceSheet.push({ x: t.x, y: t.y, score, stay: false });
     if(score>bestScore){ bestScore=score; best=t; }
   }
+  if(traceSheet) traceDecision({ unitId: gun.id, side: gun.side, brigadeId: gun.brigadeId, phase: 'fire', action: 'fire',
+    from: { x: gun.x, y: gun.y }, to: null, target: { x: best.x, y: best.y, unitId: best.id },
+    candidates: traceSheet, chosen: { x: best.x, y: best.y, score: bestScore, terms: null }, runnerUp: null });
   if(!state.turnGunTargets) state.turnGunTargets = new Set();
   state.turnGunTargets.add(best.id);
   logAiDebugMove(gun.side, { unit: unitLabel(gun), mission: missionFor(gun), action:'Fire', target: unitLabel(best), score: bestScore.toFixed(2) });
@@ -5362,7 +5476,7 @@ export function aiDoFirePhase(){
     if(i>=guns.length){ aiDoVolleyStep(); return; }
     const gun = guns[i]; i++;
     if(!gun.removed){
-      aiFireDecision(gun, ()=>{ draw(); setTimeout(step, 250); });
+      aiFireDecision(gun, ()=>{ draw(); setTimeout(()=> stepGate(step), 250); });
     } else {
       setTimeout(step, 100);
     }
@@ -5650,6 +5764,7 @@ export function aiDoFightPhase(){
     const attackers = state.units.filter(u=>owesAFight(u, aiSideNow()) && aiOwns(u));
     if(attackers.length===0){ finishAiPhase(endFightPhase); return; }
     let bestA=null, bestT=null, bestScore=-Infinity;
+    const traceSheet = traceOn() ? [] : null;   // the decision trace's copy of each pairing's score
     for(const a of attackers){
       const targets = state.units.filter(o=>!o.removed && o.side!==aiSideNow() && isAdjacent(a,o) && canAttackTarget(a,o));
       for(const t of targets){
@@ -5704,6 +5819,7 @@ export function aiDoFightPhase(){
           }
         }
 
+        if(traceSheet) traceSheet.push({ a, x: t.x, y: t.y, score: s });
         if(s>bestScore){ bestScore=s; bestA=a; bestT=t; }
       }
     }
@@ -5716,6 +5832,10 @@ export function aiDoFightPhase(){
          land while the board is still moving. */
       cameraToAction([bestA, bestT], { durationMs: CAMERA_ACTION_PAN_MS });
       logAiDebugMove(aiSideNow(), { unit: unitLabel(bestA), mission: missionFor(bestA), action:'Fight', target: unitLabel(bestT), score: bestScore.toFixed(2) });
+      if(traceSheet) traceDecision({ unitId: bestA.id, side: bestA.side, brigadeId: bestA.brigadeId, phase: 'fight', action: 'fight',
+        from: { x: bestA.x, y: bestA.y }, to: null, target: { x: bestT.x, y: bestT.y, unitId: bestT.id },
+        candidates: traceSheet.filter(c => c.a === bestA).map(c => ({ x: c.x, y: c.y, score: c.score, stay: false })),
+        chosen: { x: bestT.x, y: bestT.y, score: bestScore, terms: null }, runnerUp: null });
       // Remember what we are working on, so the next attacker in this phase
       // piles onto the same unit. Cleared when the fight phase ends.
       state._aiFocusTargetId = bestT.id;
@@ -5728,7 +5848,7 @@ export function aiDoFightPhase(){
         // attacker choose freshly rather than chasing a unit that has gone.
         if(bestT.removed || bestT.rallying) state._aiFocusTargetId = null;
         draw();
-        setTimeout(step, 300);
+        setTimeout(()=> stepGate(step), 300);
       }), CAMERA_ACTION_PAN_MS);
     } else {
       finishAiPhase(endFightPhase);
