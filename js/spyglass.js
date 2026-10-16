@@ -29,7 +29,8 @@
 
    Hidden in every online game and in Spectate.
 ========================================================= */
-import { COLS, ROWS, state } from './data-core.js';
+import { COLS, ROWS, UNIT_TYPES, state } from './data-core.js';
+import { termOf, iconSvg } from './spyglass-terms.js';
 import { isOnline } from './online-session.js';
 import { canvas as boardCanvas, draw, getUnitVisualPos, setBoardUnderlay, toScreen } from './render-board.js';
 import { currentTrace, onTrace, setStepGate, setTraceCapture } from './ai-trace.js';
@@ -49,7 +50,7 @@ try { const m = localStorage.getItem(STORE); if(MODES.includes(m)) mode = m; } c
 let btn = null, layer = null, g = null, pausePill = null;
 let decision = null;             // the unit decision being shown (Full)
 let waiting = null;              // the AI's next step, held for a tap (Full)
-let lastSig = '';
+let lastSig = '', lastStripKey = '';
 
 export const spyglassMode = () => mode;
 /* Solo against the AI, in battle: the only place the Spyglass exists. */
@@ -149,6 +150,7 @@ onTrace((kind, item) => {
   if(kind === 'turn') decision = null;
   if(kind === 'decision') decision = item;
   if(mode !== 'off') draw();
+  paintStrip();
 });
 
 /* ---------- geometry ---------- */
@@ -245,6 +247,10 @@ function frame(){
   ensureButton(); ensureLayer();
   if(btn) btn.style.display = available() ? '' : 'none';
   if(waiting && !aiActing()){ waiting = null; if(pausePill) pausePill.style.display = 'none'; }
+  // The strip follows the decision on show, and goes when there is none.
+  const tr = liveTrace();
+  const stripKey = mode === 'full' && aiActing() && tr && decision ? `${decision.unitId}|${decision.phase}|${tr.decisions.length}` : '';
+  if(stripKey !== lastStripKey){ lastStripKey = stripKey; paintStrip(); }
   const avail = `${mode}|${available()}`;
   if(avail !== lastSig){ lastSig = avail; syncCapture(); }
   if(!layer) return;
@@ -264,14 +270,27 @@ function frame(){
   g.clearRect(0, 0, W, H);
   // Nothing to show: the layer leaves the page's compositing altogether.
   layer.style.display = t ? '' : 'none';
+  placeStrip(R);
   if(!t) return;
   const full = mode === 'full' && decision && decision.side === t.side && !decisionHidden(decision);
   const placed = [];   // label boxes already on the layer, so they do not pile up
   // Layer one: the orders.
   for(const b of t.brigades){
-    if(b.order === 'none' || !b.objective) continue;
+    if(b.order === 'none') continue;
     const dim = full && decision.brigadeId !== b.id;
     const col = colourOf(b.id);
+    /* An order with no single square to make for (Regroup, Screen guns): its
+       flag stands by the Brigadier, with no line. */
+    if(!b.objective){
+      const bg = b.brigadierId && state.units.find(u => u.id === b.brigadierId && !u.removed);
+      const at = bg && !concealed(bg) ? { x: bg.x, y: bg.y } : b.brigadier;
+      if(at && (!full || !dim)){
+        g.save(); g.globalAlpha = full ? 0.55 : 1;
+        flagLabel(b.timer ? `${b.order}, ${b.timer}` : b.order, at, col, R, placed);
+        g.restore();
+      }
+      continue;
+    }
     const o = sq(b.objective.x, b.objective.y, R);
     g.save(); g.globalAlpha = dim ? 0.3 : (full ? 0.55 : 1);
     // From where the Brigadier stands now: he may have moved since the orders were given.
@@ -469,3 +488,105 @@ function roundshot(x, y, cell){
 }
 
 if(typeof window !== 'undefined' && typeof requestAnimationFrame === 'function') requestAnimationFrame(frame);
+
+/* =========================================================
+   THE FACTOR STRIP (Full): why this square and not the next best
+
+   For a move: the three things that most separated the chosen square from
+   the runner-up, ranked by how much each one differed. Each has its icon,
+   its plain label and a bar: green where it pulled towards the choice, red
+   where it pushed against it (and the choice won anyway). Terms that mean
+   the same thing to a player share one label and are added together; the
+   tie-breaker is never shown. For a shot or a fight: the best two targets
+   and their scores. Docked in a screen corner away from the acting unit
+   (below the board in portrait), so it never covers what is happening.
+========================================================= */
+let strip = null;
+function ensureStrip(){
+  if(strip || typeof document === 'undefined') return;
+  strip = document.createElement('div');
+  strip.id = 'spyglassStrip';
+  strip.setAttribute('aria-live', 'polite');
+  const st = document.createElement('style');
+  st.textContent = `#spyglassStrip{position:fixed;z-index:39;display:none;width:min(268px,72vw);box-sizing:border-box;pointer-events:none;
+      padding:7px 9px 8px;border-radius:9px;background:rgba(20,19,15,.9);border:1px solid rgba(255,248,230,.18);
+      color:#fbf6ea;font:12px/1.25 'IBM Plex Sans',system-ui,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.45)}
+    #spyglassStrip .sg-h{font-weight:700;font-size:11.5px;letter-spacing:.02em;margin:0 0 5px;display:flex;align-items:center;gap:6px}
+    #spyglassStrip .sg-h i{display:inline-block;width:9px;height:9px;border-radius:50%}
+    #spyglassStrip .sg-r{display:grid;grid-template-columns:18px 1fr 64px;align-items:center;gap:6px;margin-top:4px}
+    #spyglassStrip .sg-r svg{width:17px;height:17px;display:block}
+    #spyglassStrip .sg-l{line-height:1.15}   /* long labels wrap rather than being cut short */
+    #spyglassStrip .sg-b{height:7px;border-radius:4px;background:rgba(255,255,255,.1);position:relative;overflow:hidden}
+    #spyglassStrip .sg-b span{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+    #spyglassStrip .sg-n{font-size:10.5px;opacity:.7;margin-top:5px}`;
+  document.head.appendChild(st);
+  document.body.appendChild(strip);
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* The three biggest differences between the chosen square and the runner-up,
+   by label (terms with one label added together). */
+export function topFactors(d, n = 3){
+  if(!d || !d.chosen || !d.chosen.terms || !d.runnerUp || !d.runnerUp.terms) return [];
+  const byLabel = new Map();
+  for(const k of new Set([...Object.keys(d.chosen.terms), ...Object.keys(d.runnerUp.terms)])){
+    const term = termOf(k);
+    if(!term) continue;   // the tie-breaker
+    const diff = (d.chosen.terms[k] || 0) - (d.runnerUp.terms[k] || 0);
+    const e = byLabel.get(term.label) || { label: term.label, icon: term.icon, diff: 0 };
+    e.diff += diff; byLabel.set(term.label, e);
+  }
+  return [...byLabel.values()].filter(e => Math.abs(e.diff) > 0.005).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, n);
+}
+function paintStrip(){
+  ensureStrip();
+  if(!strip) return;
+  const t = liveTrace();
+  const show = mode === 'full' && aiActing() && t && decision && decision.side === t.side && !decisionHidden(decision);
+  if(!show){ strip.style.display = 'none'; strip.dataset.for = ''; return; }
+  const col = colourOf(decision.brigadeId);
+  let rows = '', head = '', note = '';
+  // Green pulled towards the choice, red pushed against it; grey for the next-best target (neither).
+  const bar = (v, max, good) => `<div class="sg-b"><span style="width:${Math.max(6, Math.round(100 * Math.abs(v) / (max || 1)))}%;background:${good === null ? '#9b968a' : good ? '#63c46e' : '#e0675a'}"></span></div>`;
+  if(decision.phase === 'move'){
+    const moved = decision.to && (decision.to.x !== decision.from.x || decision.to.y !== decision.from.y);
+    head = moved ? 'Why this square' : 'Why it held';
+    const f = topFactors(decision);
+    const max = f.length ? Math.abs(f[0].diff) : 1;
+    rows = f.map(e => `<div class="sg-r">${iconSvg(e.icon)}<div class="sg-l">${esc(e.label)}</div>${bar(e.diff, max, e.diff > 0)}</div>`).join('');
+    // Nothing but the tie-breaker between them: say so plainly.
+    if(!f.length) note = decision.runnerUp ? 'A near tie: the next best square scored the same.' : 'It had no other square to choose.';
+    else note = 'Green pulled towards it, red pushed against it.';
+  } else {
+    head = decision.phase === 'fire' ? 'Why this target' : 'Why this fight';
+    const tops = [...(decision.candidates || [])].sort((a, b) => b.score - a.score).slice(0, 2);
+    const max = tops.length ? Math.max(...tops.map(c => Math.abs(c.score))) : 1;
+    rows = tops.map((c, i) => {
+      const u = state.units.find(o => !o.removed && o.x === c.x && o.y === c.y && o.side !== decision.side);
+      const name = u ? (UNIT_TYPES[u.type] && UNIT_TYPES[u.type].label) || u.type : 'Target';
+      return `<div class="sg-r">${iconSvg(decision.phase === 'fire' ? 'roundshot' : 'sabres')}<div class="sg-l">${i ? '2nd' : '1st'}: ${esc(name)}</div>${bar(c.score, max, i === 0 ? true : null)}</div>`;
+    }).join('');
+    if(tops.length < 2) note = 'The only target in reach.';
+  }
+  strip.innerHTML = `<div class="sg-h"><i style="background:${col}"></i>${head}</div>${rows}${note ? `<div class="sg-n">${note}</div>` : ''}`;
+  strip.style.display = 'block';
+  strip.dataset.for = `${decision.unitId}|${decision.phase}`;
+}
+/* Docked in the left-hand corner away from the acting unit (the dials are on
+   the right); below the board when there is room there (a phone in portrait). */
+function placeStrip(R){
+  if(!strip || strip.style.display === 'none' || !R || !decision) return;
+  const u = state.units.find(o => o.id === decision.unitId);
+  const at = u ? sq(u.x, u.y, R) : null;
+  const vh = window.innerHeight, h = strip.offsetHeight || 90;
+  const below = R.wr.bottom + 8;
+  let top, left = Math.max(8, R.wr.left + 8);
+  if(vh - below > h + 70) top = below;   // the free space under the board
+  else {
+    const unitY = at ? R.wr.top + at.y : vh / 2;
+    top = unitY < vh / 2 ? Math.min(vh - h - 70, R.wr.bottom - h - 8) : R.wr.top + 8;
+    // Its own column clear of the unit: if the unit is in the left third, dock it further right.
+    if(at && R.wr.left + at.x < left + 286) left = Math.max(left, R.wr.left + at.x + at.cell);
+  }
+  strip.style.top = `${Math.max(8, Math.round(top))}px`;
+  strip.style.left = `${Math.round(Math.min(left, window.innerWidth - (strip.offsetWidth || 268) - 64))}px`;
+}
