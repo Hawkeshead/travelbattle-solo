@@ -275,6 +275,15 @@ export function showModeSelect(isSplash){
   onlineBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showOnlinePlayerCount(); };
   extra.appendChild(menuItem(onlineBtn, 'online'));
   extra.appendChild(menuItem(spectateBtn, 'spectate'));
+  // HOW TO PLAY (16 Oct 2026): the rules deck. It opens over the title screen,
+  // so it does not take the title away the way the other items do.
+  const howBtn = document.createElement('button');
+  howBtn.textContent = 'How to Play';
+  howBtn.className = 'title-item htp-title';
+  howBtn.innerHTML = '<span class="ti-art"><span class="htp-q">?</span></span><span class="ti-label">How to Play</span>';
+  howBtn.onclick = (e)=>{ e.stopPropagation(); import('./how-to-play.js').then(mod => mod.openHowToPlay()); };
+  extra.appendChild(howBtn);
+  import('./how-to-play.js').then(mod => mod.maybeShowHowToPlayOnFirstVisit());   // the first time only
   // Operations and Campaigns are parked — see OPERATIONS_ENABLED. Same treatment
   // as Hotseat above: the entry point is simply not offered. showOperationsMenu,
   // showCampaignMenu and everything downstream are untouched and still exported,
@@ -621,7 +630,7 @@ export function beginOperation(card, playerSide){
 export function showOperationModeSelect(scenario){
   document.getElementById('overlayTitle').textContent = 'How will you play this Operation?';
   document.getElementById('overlayText').innerHTML =
-    'Note: the AI plays Operations with the same tactics as a standard battle — it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
+    'Note: the AI plays Operations with the same tactics as a standard battle: it isn\'t yet tuned specifically for objectives like holding a zone or escaping, so it may not defend an Operation\'s goal as sharply as it plays a normal fight.';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.style.display = 'flex';
@@ -925,14 +934,22 @@ export function startAmbientLayer(){
   syncAmbientClip();   // clouds over the board only (render-board.js)
 }
 
+/* The orientation rolls (12 Oct 2026): no panel, like the battle dice. Each
+   side's die lands over the middle of its own half of the map (`at`), and the
+   camera stays where it is (noFrame): there is no fight to close in on. */
+function orientationGroups(redRoll, blueRoll){
+  const half = COLS / 2, row = (ROWS - 1) / 2;
+  const redX = half / 2 - 0.5;   // Britain's board is the left half (buildTerrainMap: red at column 0)
+  return [
+    { label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll, at:{ x: redX, y: row }, noFrame:true },
+    { label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll, at:{ x: half + half / 2 - 0.5, y: row }, noFrame:true },
+  ];
+}
 function rollOrientationOrder(){
   const redRoll = rollD6(), blueRoll = rollD6();
   const firstSide = redRoll===blueRoll ? null : (redRoll>blueRoll ? SIDES.RED : SIDES.BLUE);
-  const resultText = firstSide===null ? 'Tied \u2014 rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
-  showDice([
-    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
-    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
-  ], resultText, firstSide===null?'draw':'win', ()=>{
+  const resultText = firstSide===null ? 'Tied, rolling again' : `${SIDE_LABEL[firstSide]} goes first`;
+  showDice(orientationGroups(redRoll, blueRoll), resultText, firstSide===null?'draw':'win', ()=>{
     if(firstSide===null){ rollOrientationOrder(); return; }
     log(`${SIDE_LABEL[firstSide]} rolls higher and goes first for table orientation.`, 'system');
     rollRotationEligibility(firstSide);
@@ -945,11 +962,8 @@ function rollRotationEligibility(firstSide){
   const resultText = redEligible && blueEligible ? 'Both may rotate their board'
     : redEligible ? 'Only Britain may rotate their board'
     : blueEligible ? 'Only France may rotate their board'
-    : 'Neither rolled high enough \u2014 both boards stay as they are';
-  showDice([
-    {label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll},
-    {label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll}
-  ], resultText, 'draw', ()=>{
+    : 'Neither rolled high enough: both boards stay as they are';
+  showDice(orientationGroups(redRoll, blueRoll), resultText, 'draw', ()=>{
     log(`Britain rolls ${redRoll}, France rolls ${blueRoll} for the right to rotate their board.`, 'system');
     const order = firstSide===SIDES.BLUE ? [SIDES.BLUE, SIDES.RED] : [SIDES.RED, SIDES.BLUE];
     const eligible = order.filter(s => (s===SIDES.RED ? redEligible : blueEligible));
@@ -1060,7 +1074,7 @@ export function handleOrientationClick(x){
 export function showGrandMatchTypeSelect(){
   document.getElementById('overlayTitle').textContent = 'Grand Strategy';
   document.getElementById('overlayText').innerHTML =
-    'Four boards combined into a 20x20 battlefield — the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
+    'Four boards combined into a 20x20 battlefield: the same two boards, each used twice, randomly placed and rotated. Every unit type except Brigadier is doubled.';
   let extra = document.getElementById('modeChoices');
   extra.innerHTML = '';
   extra.style.display = 'flex';

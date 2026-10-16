@@ -44,7 +44,7 @@ export function undoLastAction(){
   if(undoStack.length===0) return;
   const diceOverlay = document.getElementById('diceOverlay');
   if(diceOverlay && diceOverlay.classList.contains('show')){
-    log('Cannot undo while dice are on screen — wait for the result to clear.', 'system');
+    log('Cannot undo while dice are on screen: wait for the result to clear.', 'system');
     return;
   }
   const snap = undoStack.pop();

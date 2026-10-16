@@ -168,13 +168,14 @@ function setClosedPose(){
 }
 
 /* ---------- mirroring the hidden end buttons ---------- */
-const BUTTON_FOR_PHASE = { move: 'endMoveBtn', fire: 'endFireBtn', fight: 'endFightBtn' };
+/* 12 Oct 2026: orientation's Confirm (endMoveBtn relabelled) uses the case too; it
+   was the last control still drawn as the old paper envelope. */
+const BUTTON_FOR_PHASE = { move: 'endMoveBtn', fire: 'endFireBtn', fight: 'endFightBtn', orientation: 'endMoveBtn' };
 function sync(){
   if(!ready) return;
   const dock = document.getElementById('phaseDock');
   /* The battle's three phases, and Begin Battle once both armies are down
-     (10 Oct 2026: it still showed the old seal). Orientation's Confirm keeps
-     its own button. */
+     (10 Oct 2026: it still showed the old seal), and orientation's Confirm. */
   const id = BUTTON_FOR_PHASE[state.phase];
   const begin = document.getElementById('beginBattleBtn');
   const offered = !id && begin && begin.style.display !== 'none' && dock && dock.style.display !== 'none';
@@ -207,7 +208,7 @@ function writeLabel(small){
   const [a, b] = words();
   const l1 = label.querySelector('.dp-l1'), l2 = label.querySelector('.dp-l2'), sm = label.querySelector('.dp-small');
   l1.textContent = a; l2.textContent = b;
-  sm.textContent = small != null ? small : (current ? PHASES[current.id].next : '');
+  sm.textContent = small != null ? small : nextLine();
   // A five-letter word fills about 70% of the despatch; longer words shrink to fit.
   fit(l1, 63); fit(l2, 63); fit(sm, 47);
 }
@@ -329,7 +330,9 @@ function playConfirmedSounds(){
 
 /* ---------- the auto-end countdown (phase-autoend.js) ---------- */
 let countdownFinish = null;
-const countdownText = n => `${current ? PHASES[current.id].next : ''} in ${n}`;
+const countdownText = n => `${nextLine()} in ${n}`;
+/* The despatch's small line: where the order leads (orientation: the map is set). */
+function nextLine(){ return !current ? '' : state.phase === 'orientation' ? 'the map is set' : PHASES[current.id].next; }
 export function despatchActive(){ return ready && !!root && root.style.display !== 'none'; }
 export function despatchAvailable(){ return despatchActive() && !root.classList.contains('disabled'); }
 /* Opens the case (if it is not already) and counts on its small line. */

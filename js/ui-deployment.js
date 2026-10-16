@@ -1,5 +1,5 @@
 import { aiDeployStep } from './ai-deployment.js';
-import { BRIGADE_COMPOSITIONS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, UNIT_TYPES, state } from './data-core.js';
+import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { inBounds, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
 import { cellFromClient, draw, fromScreen } from './render-board.js';
@@ -157,7 +157,7 @@ export function restartDeployment(){
   state._aiArmyChoice = null;
   state._aiCompositionChoice = null;
   state._aiPlanUsed = null;
-  log('Deployment restarted — both armies withdrawn from the field.', 'system');
+  log('Deployment restarted: both armies withdrawn from the field.', 'system');
   initDeployment(firstPlacement);
   draw();
 }
@@ -365,10 +365,42 @@ export function placeUnit(side, typeKey, x, y){
 // Called when a side confirms their current Brigade is done (Brigadier +
 // at least 2 more units placed). Advances to the next Brigade and passes
 // the turn to the other side, matching the alternate-Brigade rule.
+/* AI BRIGADIERS START WITH THEIR MEN (13 Oct 2026). The AI places a Brigadier
+   before his Brigade, so the Brigade could end up spread away from him: in
+   seed 2948657877 Napoleon stood at (3,0) with his cavalry at (14,1) and they
+   waited eight turns for him. When an AI Brigade is complete, its Brigadier
+   moves to the free square of the home rows nearest his Brigade's centre,
+   next to one of his units if any such square is free (so the Brigade starts
+   in command). Standard and grand boards; the four-army 2v2 has its own
+   deployment. Human Brigadiers are left where their player put them. */
+function recentreBrigadier(side, bIdx){
+  if(state.group) return;
+  const brig = state.units.find(u => !u.removed && u.side === side && u.brigadeId === bIdx && u.type === 'BRIGADIER');
+  const men = state.units.filter(u => !u.removed && u.side === side && u.brigadeId === bIdx && u.type !== 'BRIGADIER');
+  if(!brig || !men.length) return;
+  const cx = men.reduce((n, u) => n + u.x, 0) / men.length, cy = men.reduce((n, u) => n + u.y, 0) / men.length;
+  // The back row only: a Brigadier in the front rank is the first thing the
+  // enemy reaches (the first version used both home rows and cost the AI half
+  // its wins against Alexander in the simulator).
+  const zone = [side === SIDES.RED ? ROWS - 1 : 0];
+  const nextToMen = (x, y) => men.some(u => Math.max(Math.abs(u.x - x), Math.abs(u.y - y)) === 1);
+  const score = (x, y) => Math.hypot(x - cx, y - cy) + (nextToMen(x, y) ? 0 : 3);
+  let best = { x: brig.x, y: brig.y, s: score(brig.x, brig.y) };
+  for(const y of zone) for(let x = 0; x < COLS; x++){
+    if(state.units.some(u => !u.removed && u.x === x && u.y === y)) continue;
+    const terr = TERRAIN[state.terrain[y][x]];
+    if(terr && terr.restrictTo && !terr.restrictTo.includes('BRIGADIER')) continue;
+    const sc = score(x, y);
+    if(sc < best.s - 0.01) best = { x, y, s: sc };
+  }
+  if(best.x !== brig.x || best.y !== brig.y){ brig.x = best.x; brig.y = best.y; }
+}
+
 export function confirmCurrentBrigade(){
   const side = state.deployTurn;
   if(!(state.currentBrigadeHasBrigadier[side] && state.currentBrigadeCount[side]>=2)) return;
   const bIdx = state.deployBrigadeIndex[side];
+  if(!humanOwns(side)) recentreBrigadier(side, bIdx);
   log(`${SIDE_LABEL[side]}'s Brigade ${bIdx+1} is fully deployed.`, 'system');
   state.deployBrigadeIndex[side]++;
   state.currentBrigadeHasBrigadier[side] = false;

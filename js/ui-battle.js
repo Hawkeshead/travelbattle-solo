@@ -15,7 +15,7 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinish
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
-import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom } from './engine-rules.js';
+import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -433,7 +433,7 @@ export function renderAiDebugPanel(){
     return;
   }
   if(state.aiDifficulty!=='hard'){
-    el.innerHTML = `<div class="dbg-empty">${SIDE_LABEL[state.aiSide]} is playing Easy/Medium — no operational plan to report. Switch to Hard to see one.</div>`;
+    el.innerHTML = `<div class="dbg-empty">${SIDE_LABEL[state.aiSide]} is playing Easy/Medium: no operational plan to report. Switch to Hard to see one.</div>`;
     return;
   }
   const dbg = state._aiDebugLog[state.aiSide];
@@ -454,7 +454,7 @@ export function renderAiDebugPanel(){
   html += `<div class="dbg-row"><span class="dbg-label">Type:</span> ${plan.type}</div>`;
   html += `<div class="dbg-row"><span class="dbg-label">Main effort:</span> ${plan.mainEffortBrigadeId!=null ? 'Own Brigade '+(plan.mainEffortBrigadeId+1) : 'none'}</div>`;
   html += `<div class="dbg-row"><span class="dbg-label">Target:</span> ${plan.targetBrigadeId!=null ? 'Enemy Brigade '+(plan.targetBrigadeId+1) : 'none'}</div>`;
-  html += `<div class="dbg-row"><span class="dbg-label">Held for:</span> ${plan.turnsHeld} turn${plan.turnsHeld===1?'':'s'}${plan.reasons&&plan.reasons.length?' — reassessed: '+plan.reasons.join('; '):''}</div>`;
+  html += `<div class="dbg-row"><span class="dbg-label">Held for:</span> ${plan.turnsHeld} turn${plan.turnsHeld===1?'':'s'}${plan.reasons&&plan.reasons.length?', reassessed: '+plan.reasons.join('; '):''}</div>`;
 
   html += `<h4>Brigade Missions</h4>`;
   for(const bId of Object.keys(missions)){
@@ -463,11 +463,11 @@ export function renderAiDebugPanel(){
 
   html += `<h4>This Turn's Decisions</h4>`;
   if(dbg.moveLog.length===0){
-    html += '<div class="dbg-empty">Move phase not complete yet — reopen this tab once it finishes.</div>';
+    html += '<div class="dbg-empty">Move phase not complete yet: reopen this tab once it finishes.</div>';
   } else {
     for(const m of dbg.moveLog){
-      html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'—'}): ${m.action}` +
-        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?' — '+m.reason:''}${m.score!=null&&m.score!=='—'?` <span style="color:var(--ink-dim);">[${m.score}]</span>`:''}</div>`;
+      html += `<div class="dbg-move"><span class="dbg-label">${m.unit}</span> (${m.mission||'-'}): ${m.action}` +
+        `${m.to?' to '+m.to:''}${m.target?' vs '+m.target:''}${m.reason?': '+m.reason:''}${m.score!=null&&m.score!=='-'?` <span style="color:var(--ink-dim);">[${m.score}]</span>`:''}</div>`;
     }
   }
   el.innerHTML = html;
@@ -645,9 +645,9 @@ export function beginFightPhase(){
   if(!anyFightsAvailable(state.turn)){
     const stuck = turnedAroundInContact(state.turn);
     if(stuck.length > 0){
-      log(`${stuck.map(unitLabel).join(', ')} still turned around from being pushed back — can't fight this turn. Skipping Fight phase.`, 'system');
+      log(`${stuck.map(unitLabel).join(', ')} still turned around from being pushed back: can't fight this turn. Skipping Fight phase.`, 'system');
     } else {
-      log('No units in contact — skipping Fight phase.', 'system');
+      log('No units in contact: skipping Fight phase.', 'system');
     }
   }
   maybeStartAutoEnd();
@@ -969,7 +969,7 @@ export function endFightPhase(){
       log('Units in contact must fight before the phase can end.', 'system');
       return;
     }
-    log(`Fight gate refused ${state._fightGateRefusals} times — forcing the phase to end. Diagnostics:`, 'system');
+    log(`Fight gate refused ${state._fightGateRefusals} times: forcing the phase to end. Diagnostics:`, 'system');
     for(const line of describeBlockingContacts(state.turn, 3)) log(line, 'system');
     logReplay('gateForced', { side: state.turn, refusals: state._fightGateRefusals });
   }
@@ -1381,7 +1381,7 @@ export function fireArtillery(gun, target, onComplete){
   const needed = dist; // to-hit number: a target at range N needs a roll of N or higher — pure range, no formation modifier
   const hitNotes = [];
   const minRoll = Math.max(1, Math.min(6, needed));
-  hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range — cannot hit');
+  hitNotes.push(minRoll<=6 ? `Need ${minRoll}+ to hit` : 'Out of range: cannot hit');
 
   /* W6.1, CANISTER SHOT, HOUSE RULE. A gun firing at 2 squares or less rolls two
      dice for BOTH the to-hit and the effect.
@@ -1399,11 +1399,16 @@ export function fireArtillery(gun, target, onComplete){
      stays correct if the adjacency exclusion is ever loosened. */
   const canister = dist <= 2;
   if(canister) hitNotes.push('Canister Shot: extra die');
+  const zero = zeroingFor(gun, target);
+  if(zero === 1) hitNotes.push('Sustained Fire +1');
+  else if(zero === 2) hitNotes.push('Calibrated Shot +2');
 
   presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes:hitNotes, at:{x:gun.x,y:gun.y}, also:{x:target.x,y:target.y}}], gun.side, ()=>{
     const hitRolls = canister ? [rollD6(), rollD6()] : [rollD6()];
     const roll = Math.max(...hitRolls);
-    const hit = roll >= needed;
+    // Zeroing adds to the kept die; a kept 1 always misses (Matthew, 13 Oct 2026).
+    const hit = roll > 1 && roll + zero >= needed;
+    recordZeroing(gun, target);   // engine-rules: the zeroing house rule
     /* W6.2, CRACK SHOT, HOUSE RULE: a KEPT hit die of 6 adds +1 to the effect.
        Deliberately the kept die, not "either die shows a 6", so canister raises
        the chance of triggering it without making it automatic. */
@@ -1415,7 +1420,7 @@ export function fireArtillery(gun, target, onComplete){
     AudioManager.playEffect('artillery-fire', 'audio/effects/artillery-fire.wav', 'cannon',
       { pan: AudioManager.panForBoardX(gun.x) });
     showDice([{label:'To Hit', side:gun.side, rolls:hitRolls, keptValue:roll, notes:hitNotes, at:{x:gun.x,y:gun.y}, also:{x:target.x,y:target.y}}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
-      log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ' — Crack Shot' : ''}.`, 'combat');
+      log(`Artillery fires at ${unitLabel(target)} (range ${dist}${canister ? ', canister' : ''}, needs ${needed}+): rolled ${hitRolls.join('/')}${crackShot ? ', Crack Shot' : ''}.`, 'combat');
       if(!hit){
         /* A MISS IS A SHOT. It used to return here without ever reaching
            logReplay, so no `fire` event existed for it and the export could not
@@ -1552,7 +1557,7 @@ export function resolveVolley(shooter, target, onComplete){
   if(coverPenalty) notes.push('-1 effect: target in wood/building');
   // Cancelling exactly is the intended behaviour, but a player watching two
   // modifiers appear and the number not move deserves to be told why.
-  if(turnedBonus && coverPenalty) notes.push('(these cancel — base table)');
+  if(turnedBonus && coverPenalty) notes.push('(these cancel: base table)');
 
   showActionLine(shooter, target, '#e8c46a', 3800, true);
   recordGunfire('musket', shooter, target);   // three muzzle flashes along the front, then smoke (render-gunfire.js)
@@ -1704,7 +1709,7 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
     onComplete();
   } else if(roll===4){
     setTurnedAround(u);
-    log(`${unitLabel(u)} is shaken — cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
+    log(`${unitLabel(u)} is shaken: cannot move next turn, turns to face.`, 'combat'); logNarration('artillery_disrupt');
     onComplete();
   } else if(roll===5){
     logNarration('artillery_rout');
@@ -1806,7 +1811,7 @@ export function initBattleControls(){
     }
     const out = [...keep].sort((a,b)=>a-b).map(i=>lines[i]);
     exportText.value = out.length
-      ? `[filtered: ${t} — ${out.length} lines. Copy still gives the full log]\n\n` + out.join('\n')
+      ? `[filtered: ${t}, ${out.length} lines. Copy still gives the full log]\n\n` + out.join('\n')
       : `[no lines matching ${t}]`;
     exportText.scrollTop = 0;
   }
@@ -1864,6 +1869,8 @@ export function initBattleControls(){
     document.getElementById('menuPanel').style.display = 'none';
     renderAiDebugPanel();
   };
+  { const h = document.getElementById('howToPlayBtn');
+    if(h) h.onclick = ()=> import('./how-to-play.js').then(m => m.openHowToPlay()); }
   document.getElementById('logTabMenu').onclick = ()=>{
     document.getElementById('logTabMenu').classList.add('active');
     document.getElementById('logTabReport').classList.remove('active');
@@ -1948,7 +1955,7 @@ export function initBattleControls(){
       u.hidden = false;
       state.moved.add(u.id);
       u.noActionThisTurn = true;
-      log(`${unitLabel(u)} stands down from ambush — no move or fight for the rest of this turn.`, u.side);
+      log(`${unitLabel(u)} stands down from ambush: no move or fight for the rest of this turn.`, u.side);
     } else if(canLayAmbush(u)){
       u.hidden = true;
       state.moved.add(u.id);

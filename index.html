@@ -1412,6 +1412,40 @@
   @media (max-width:900px) and (orientation:portrait){
     html.panel-art #unitOverlayPanel{ width:min(322px,calc(100vw - 12px)); }
   }
+
+  /* HOW TO PLAY (js/how-to-play.js, 16 Oct 2026): the swipe-through rules deck,
+     in the game's wood-and-parchment panel. */
+  #howToPlay{ position:fixed; inset:0; z-index:120; display:none; align-items:center; justify-content:center;
+    background:rgba(16,18,12,.72); padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px); }
+  #howToPlay.show{ display:flex; }
+  #howToPlay .htp-frame{ position:relative; width:min(96vw,900px); height:min(92vh,520px); border-radius:10px; padding:12px; box-sizing:border-box;
+    background:linear-gradient(180deg,#7a4a26,#4a2c17 30%,#3a2111); box-shadow:0 18px 40px rgba(0,0,0,.55); }
+  #howToPlay .htp-frame::after{ content:""; position:absolute; inset:6px; border-radius:7px; border:2px solid rgba(241,214,138,.35); pointer-events:none; }
+  #howToPlay .htp-sheet{ position:relative; height:100%; border-radius:4px; overflow:hidden; color:#2b1f14;
+    background:radial-gradient(120% 90% at 50% 40%, #f3e6c6 0%, #ead9b4 55%, #cdb383 100%); font-family:'Cormorant Garamond', Georgia, serif; }
+  #howToPlay .htp-track{ display:flex; height:calc(100% - 52px); transition:transform .38s cubic-bezier(.2,.8,.2,1); touch-action:pan-y; }
+  #howToPlay .htp-card{ flex:0 0 100%; display:grid; grid-template-columns:1.3fr 1fr; gap:20px; align-items:center; padding:30px 24px 4px; box-sizing:border-box; min-width:0; }
+  #howToPlay .htp-plate{ margin:0; border-radius:6px; overflow:hidden; border:3px solid #6b4a24; background:#2a2f1f; aspect-ratio:568/262;
+    box-shadow:inset 0 0 0 1px rgba(255,236,190,.4), 0 6px 14px rgba(43,31,20,.35); }
+  #howToPlay .htp-plate img{ display:block; width:100%; height:100%; object-fit:cover; }
+  #howToPlay .htp-words h2{ font-weight:700; font-size:clamp(22px,4vw,32px); line-height:1.05; margin:0 0 8px; color:#7a1f1a; }
+  #howToPlay .htp-words p{ font-weight:500; font-size:clamp(14px,2.1vw,18px); line-height:1.36; margin:0 0 8px; max-width:34ch; }
+  #howToPlay .htp-tip{ font-style:italic; font-weight:600 !important; color:#5a4631; }
+  #howToPlay .htp-bar{ position:absolute; left:0; right:0; bottom:0; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; }
+  #howToPlay .htp-dots{ display:flex; gap:7px; flex-wrap:wrap; justify-content:center; max-width:60%; }
+  #howToPlay .htp-dot{ width:10px; height:10px; border-radius:50%; border:1px solid #6b4a24; background:rgba(107,74,36,.18); padding:0; min-height:0; cursor:pointer; }
+  #howToPlay .htp-dot[aria-current="true"]{ background:radial-gradient(circle at 35% 35%,#f1d68a,#c9a24a 60%,#8a6a2a); border-color:#5a3d1a; }
+  #howToPlay .htp-btn{ font:inherit; font-weight:700; font-size:17px; color:#2b1f14; background:linear-gradient(180deg,#f1d68a,#c9a24a); border:1px solid #6b4a24;
+    border-radius:16px; padding:4px 16px; min-height:32px; cursor:pointer; box-shadow:0 2px 4px rgba(43,31,20,.3); }
+  #howToPlay .htp-btn[disabled]{ opacity:.35; cursor:default; }
+  #howToPlay .htp-skip{ position:absolute; top:6px; right:44px; font:inherit; font-style:italic; font-weight:600; font-size:16px; color:#5a4631; background:none; border:0; cursor:pointer; z-index:2; min-height:0; }
+  #howToPlay .htp-close{ position:absolute; top:2px; right:10px; font:inherit; font-size:26px; line-height:1; color:#5a4631; background:none; border:0; cursor:pointer; z-index:2; min-height:0; }
+  #howToPlay button:focus-visible{ outline:2px solid #7a1f1a; outline-offset:2px; }
+  @media (max-aspect-ratio:1/1){ #howToPlay .htp-frame{ height:min(92vh,760px); } #howToPlay .htp-card{ grid-template-columns:1fr; align-content:start; gap:12px; } }
+  @media (prefers-reduced-motion:reduce){ #howToPlay .htp-track{ transition:none; } }
+  .htp-title .ti-art{ display:flex; align-items:center; justify-content:center; }
+  .htp-title .htp-q{ font-family:'Cormorant Garamond', Georgia, serif; font-weight:700; font-size:clamp(28px,6vh,46px); color:#5a3d1a; text-shadow:0 1px 0 rgba(255,240,200,.6); }
+  #menuPanel .htp-open{ font:inherit; font-weight:700; color:#2b1f14; background:linear-gradient(180deg,#f1d68a,#c9a24a); border:1px solid #6b4a24; border-radius:14px; padding:4px 14px; cursor:pointer; }
 </style>
 <!-- Opened by double-clicking the file rather than served over http? Say so
      plainly. This has never worked — the game loads data/*.json over XHR, which
@@ -1527,6 +1561,10 @@
         <div id="aiDebugPanel"></div>
         <div id="menuPanel" style="display:none;">
           <div class="menuSection">
+            <h3>Rules</h3>
+            <button type="button" id="howToPlayBtn" class="htp-open">How to Play</button>
+          </div>
+          <div class="menuSection">
             <h3>Sound</h3>
             <label class="menuToggleRow">
               <span>Mute</span>
@@ -1587,7 +1625,7 @@
 
     <div id="replayOverlay" class="hidden">
       <div id="replayCaptionBar">
-        <div id="replayTurnLabel">Turn 1 — Britain</div>
+        <div id="replayTurnLabel">Turn 1: Britain</div>
         <div id="replayEventLabel"></div>
       </div>
       <div id="replayControlBar">

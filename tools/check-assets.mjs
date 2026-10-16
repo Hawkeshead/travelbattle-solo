@@ -162,7 +162,7 @@ const TIER_RULES = [
   // 3: rare or legacy
   ['assets/terrain/v1/', 3], ['assets/units/', 3], ['audio/music/', 3],
   // 1: any battle
-  ['assets/terrain/v2/', 1], ['assets/terrain/', 3], ['assets/units-pixel/', 1], ['assets/dice/', 1], ['assets/ui/menu/', 2], ['assets/ui/', 1],
+  ['assets/terrain/v2/', 1], ['assets/terrain/', 3], ['assets/tutorial/', 3], ['assets/units-pixel/', 1], ['assets/dice/', 1], ['assets/ui/menu/', 2], ['assets/ui/', 1],
   ['assets/brigadiers/', 1], ['assets/icons/status/', 1], ['audio/effects/', 1], ['audio/ui/', 1],
   // 2: soon
   ['assets/portraits/', 2], ['assets/icons/', 2], ['assets/ambient/', 2], ['audio/ambience/', 2],

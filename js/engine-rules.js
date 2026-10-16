@@ -188,6 +188,10 @@ export function clearAmbushIfOutOfWoods(u, reason){
   if(terrainAt(u.x, u.y).key === 'WOODS') return;
   u.hidden = false;
   u.ambushWaited = 0;
+  /* LEAVING AN AMBUSH (Matthew, 16 Oct 2026): a unit may march out of its
+     ambush, but it cannot volley at the end of that same turn; its men are
+     still coming out of cover. */
+  u._leftAmbushTurn = state.turnNumber;
   logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y,
     phase:'standDown', reason: reason || 'moved out of the woods' });
 }
@@ -517,14 +521,20 @@ export function hasLOS(gun, target){
   const gunElev = terrainAt(gun.x,gun.y).elevation;
   const tgtElev = terrainAt(target.x,target.y).elevation;
   const shooterElevated = gunElev > 0 || tgtElev > 0;
+  /* TERRAIN BLOCKS OUTRIGHT (Matthew, 13 Oct 2026): woods, villages and hills
+     between a gun and its target block the shot, unless the GUN stands on a
+     hill, from where it fires over all of them. (Before, terrain only counted
+     towards the half-the-path rule below, hills never blocked, and a target on
+     a hill could be shot at over woods and villages too.) Units in the way are
+     unchanged: they block under the half-the-path rule, and a gun or target on
+     a hill fires over them. */
+  if(gunElev <= 0 && path.some(c => { const terr = terrainAt(c.x, c.y); return terr.blocksLOS || terr.elevation > 0; })) return false;
   let blockedCount = 0;
   for(const c of path){
-    const terr = terrainAt(c.x,c.y);
     const occ = unitsAt(c.x,c.y).length>0;
-    const blocksHere = terr.blocksLOS || occ;
-    if(blocksHere){
-      // overhead fire allowed if gun or target is on higher ground than the obstruction
-      if(shooterElevated && terr.elevation <= Math.max(gunElev,tgtElev)) continue;
+    if(occ){
+      // overhead fire allowed over units if the gun or the target is on a hill
+      if(shooterElevated) continue;
       blockedCount++;
     }
   }
@@ -629,6 +639,7 @@ export function volleyTargets(u){
      resolve as an anonymous volley instead. Holding fire is the whole of what an
      ambush is. */
   if(u.hidden) return [];
+  if(u._leftAmbushTurn === state.turnNumber) return [];        // just left an ambush this turn (clearAmbushIfOutOfWoods)
   if(state.volleyed && state.volleyed.has(u.id)) return [];    // one volley per Firing phase
   return state.units.filter(o=>!o.removed && o.side!==u.side &&
     o.type!=='BRIGADIER' &&                                    // never a valid target, as with artillery
@@ -1011,7 +1022,7 @@ export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
   // Uncapped, matching the bonus application in resolveFight: see the note there.
   roll.value = roll.keptDie + valueBonus;
   reasons.push(`Re-roll (Guard/Hvy Cav): re-rolled to ${newVal}, fights on ${roll.keptDie}`);
-  log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav) — new roll: ${newVal}.`, 'combat');
+  log(`${unitLabel(unit)} uses its re-roll (Guard/Hvy Cav), new roll: ${newVal}.`, 'combat');
   next();
 }
 
@@ -1084,14 +1095,14 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     const effectOf = m => m >= 3 ? 'destroyed' : m === 2 ? 'routed' : 'pushed back';
     
     let resultText, resultCls;
-    if(genuineDraw){ resultText = 'Drawn — continues next turn'; resultCls = 'draw'; }
+    if(genuineDraw){ resultText = 'Drawn, continues next turn'; resultCls = 'draw'; }
     // A tie-win is always a pushback: the margin is zero by definition.
-    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground — ${aName} pushed back`; resultCls = 'win'; }
-    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie — ${dName} pushed back`; resultCls = 'win'; }
-    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie — ${dName} pushed back`; resultCls = 'win'; }
+    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground: ${aName} pushed back`; resultCls = 'win'; }
+    else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie: ${dName} pushed back`; resultCls = 'win'; }
+    else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie: ${dName} pushed back`; resultCls = 'win'; }
     else {
       const winner = aVal > dVal ? aName : dName, loser = aVal > dVal ? dName : aName;
-      resultText = `${winner} wins by ${margin} — ${loser} ${effectOf(margin)}`;
+      resultText = `${winner} wins by ${margin}: ${loser} ${effectOf(margin)}`;
       resultCls = 'win';
     }
     return { resultText, resultCls, genuineDraw, defenderHillTieWin, attackerChargeTieWin, attackerColumnTieWin };
@@ -1159,7 +1170,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
        at:{x:attacker.x,y:attacker.y}, unitId:attacker.id, portrait:unitPortraitHTML(attacker), unitName:attacker.historicalName || aType.label},
       {label:dName, side:defender.side, rolls:dRoll.rolls, keptValue:dRoll.keptDie, finalValue:dRoll.value, notes:dReasons,
        at:{x:defender.x,y:defender.y}, unitId:defender.id, portrait:unitPortraitHTML(defender), unitName:defender.historicalName || dType.label}
-    ], rerollPending ? 'Re-roll available — result pending' : interim.resultText,
+    ], rerollPending ? 'Re-roll available: result pending' : interim.resultText,
        rerollPending ? 'draw' : interim.resultCls, null, true);
 
     offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, ()=>{
@@ -1270,7 +1281,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       });
 
       if(genuineDraw){
-        log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn — fight continues next turn.`, 'combat');
+        log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn, fight continues next turn.`, 'combat');
         logNarration('melee_stalemate');
         onComplete();
         return;
@@ -1380,6 +1391,23 @@ export function pushBack(loser, winner){
     // shove any friendly unit already standing in the landing square one further step back
     const blocker = unitsAt(nx,ny).find(o=>o.side===loser.side && o.id!==loser.id);
     let landingClear = true;
+    /* FALLING BACK INTO A COLUMN (Matthew, 16 Oct 2026). Infantry pushed back
+       onto a square held by one battalion of their own infantry fall in beside
+       it: the two form a column on that square, and the battalion behind is
+       not shoved back too. Only where a column could form anyway (infantry or
+       Guard, neither in square, ground that allows two). */
+    const foot = o => o && (UNIT_TYPES[o.type].key === 'INFANTRY' || UNIT_TYPES[o.type].key === 'GUARD');
+    const occupants = unitsAt(nx,ny).filter(o=>!o.removed && o.id!==loser.id);
+    if(blocker && occupants.length === 1 && foot(loser) && foot(blocker) &&
+       loser.formation !== 'square' && blocker.formation !== 'square' && terrainAt(nx,ny).allowDouble){
+      const st = Math.max(Math.abs(nx-loser.x), Math.abs(ny-loser.y)) || 1;
+      animateUnitTo(loser, nx, ny, 'pushback');
+      playMovementAudio(loser, st, 'pushback');
+      log(`${unitLabel(loser)} falls back into ${unitLabel(blocker)}'s square; the two form a column.`, 'combat');
+      setTurnedAround(loser);
+      log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
+      return;
+    }
     if(blocker){
       const bx = nx+dx, by = ny+dy;
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
@@ -1562,7 +1590,7 @@ export function retreatAndRally(loser, onComplete){
            that did succeed, which reads worse. */
         playRallyCall(loser);
         if(nowhereToGo){
-          log(`${unitLabel(loser)} is driven against the board edge with nowhere to go — ` +
+          log(`${unitLabel(loser)} is driven against the board edge with nowhere to go: ` +
               `it holds the square, turned about, and RALLIES (rolled ${r}).`, 'combat');
           logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y,
             newStatus:'HeldAtEdge', reason:'rallied with nowhere to retreat to' });
@@ -1635,7 +1663,7 @@ export function showLeadershipRollPrompt(loser, brig, choose, opts = {}){
       { label: 'Save', caption: 'spend the roll', icon: 'icon_save', primary: true, value: true },
       { label: 'Let go', caption: 'unit is lost', icon: 'icon_letgo', primary: false, value: false },
     ],
-    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll — one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
+    rulesHTML: `${unitLabel(loser)} has failed to rally and will be removed unless you spend ${unitLabel(brig)}'s Leadership Roll: one guaranteed save for the whole match, for any unit in this Brigade. Use it now?`,
     units: [loser, brig],
     answerMs: opts.answerMs || 0,
     afterChoose: 'close',
@@ -1661,7 +1689,7 @@ export function applyLeadershipRollChoice(loser, brig, useIt, onComplete){
       side: loser.side, unitId: loser.id, brigadierId: brig.id,
       brigadeId: loser.brigadeId, x: loser.x, y: loser.y,
     });
-    log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it — saved! (one-time use, now spent)`, 'combat');
+    log(`${unitLabel(loser)} fails to rally, but ${unitLabel(brig)}'s Leadership Roll guarantees it: saved! (one-time use, now spent)`, 'combat');
     logNarration('rally_success');
   } else {
     log(`${unitLabel(loser)} is removed from the field.`, 'combat');
@@ -1724,7 +1752,7 @@ export function removeUnit(u, reason){
            same reason. */
         logReplay('status', { unitId:brig.id, side:brig.side, x:brig.x, y:brig.y,
           newStatus:'Withdrawn', reason:'Brigade broken' });
-        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws — the Brigade is broken.`, 'system');
+        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws: the Brigade is broken.`, 'system');
       }
     }
   }
@@ -1804,4 +1832,44 @@ export function checkGroupBreaks(){
       return;
     }
   }
+}
+
+/* =========================================================
+   ZEROING, HOUSE RULE (Matthew, 13 Oct 2026)
+
+   A battery firing on the SAME SQUARE it fired on in its previous turn, from
+   the same square, has its crew's corrections: +1 to the to-hit roll
+   ("Sustained Fire") on the second turn running, +2 ("Calibrated Shot") from
+   the third. The square, not the unit: a different unit stepping into a
+   ranged square is shelled just as accurately. It resets if the gun moves,
+   fires at any other square, or lets a turn of its own go by without firing.
+   To-hit only (the effect roll is unchanged); a kept 1 always misses.
+   Every mode. Stored on the gun (u._zero: the square, the gun's square, the
+   turn, how many turns running), so it is saved, undone and synced with the
+   battle.
+========================================================= */
+export function zeroingFor(gun, target){
+  const z = gun._zero;
+  if(!z || z.x !== target.x || z.y !== target.y || z.gx !== gun.x || z.gy !== gun.y) return 0;
+  if(state.turnNumber - z.turn !== 2) return 0;          // its own previous turn, no gap
+  return Math.min(2, z.count);
+}
+export function recordZeroing(gun, target){
+  const run = zeroingFor(gun, target) > 0 || (gun._zero && gun._zero.x === target.x && gun._zero.y === target.y &&
+    gun._zero.gx === gun.x && gun._zero.gy === gun.y && state.turnNumber - gun._zero.turn === 2);
+  gun._zero = { x: target.x, y: target.y, gx: gun.x, gy: gun.y, turn: state.turnNumber, count: run ? Math.min(3, (gun._zero.count || 1) + 1) : 1 };
+}
+/* Squares any battery is ranged on right now (for the board's medallion and
+   for the AI): { x, y, bonus, gunSide } where bonus is what its next shot there
+   would get. */
+export function zeroedSquares(){
+  const out = [];
+  for(const g of state.units){
+    const z = g._zero;
+    if(g.removed || !z || z.gx !== g.x || z.gy !== g.y) continue;
+    const age = state.turnNumber - z.turn;
+    if(age < 0 || age > 2) continue;                      // lapsed: a turn of its own went by
+    out.push({ x: z.x, y: z.y, bonus: Math.min(2, z.count), gunSide: g.side });
+  }
+  return out;
 }

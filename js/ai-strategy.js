@@ -4,7 +4,7 @@ import { recAi } from './telemetry/recorder.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
-import { homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
+import { zeroedSquares, homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
 import { AudioManager } from './audio-manager.js';
 import { CAMERA_ACTION_PAN_MS, FAST_ANIMATION_MODE, MOVE_PROFILES, animateUnitTo, cameraParkPlayerView, cameraToAction, cameraToUnits, displaceBrigadierIfPresent, draw, moveAnimationMs } from './render-board.js';
@@ -76,6 +76,11 @@ export const MIN_COMMAND_FRACTION_TO_ATTACK = 0.5;
 export const SOLO_ATTACK_PENALTY = 1.2;
 /* 7 Oct 2026, from Matthew's match of that day (see each term where used). */
 export const LONE_CHARGE_COST = 1.2;
+export const CAV_PAIR_BONUS = 0.6;   // heavy cavalry ending within 2 of another friendly cavalry, enemy near (13 Oct)
+export const ZEROED_COST = 0.7;      // per +1 an enemy battery's next shot would get on that square (13 Oct)
+export const SQUARE_THREAT_WEIGHT = 0.15;  // threat in the Form Square comparison (unchanged; see SQUARE AGAINST HORSE)
+export const SQUARE_VS_CAV_BONUS = 1.2;   // infantry in the open, enemy horse in reach, no enemy foot close (16 Oct)
+export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
 export const ENEMY_GUN_ARC_COST = 0.8;      // per gun, for a unit that stays in enemy gun range a second turn (10 Oct)      // heavy cavalry charging an untouched target alone
@@ -690,9 +695,10 @@ function fightingMembers(side, bId){
     o.brigadeId===bId && o.type!=='BRIGADIER');
 }
 
-function badFightFor(u, tgt){
+function badFightFor(u, tgt, wins){
   const fv = estimateFightValue(u, tgt);
-  return finishFloor(u) === 0 ? fv < 0 : fv <= finishFloor(u);
+  const floor = finishFloor(u, wins);
+  return floor === 0 ? fv < 0 : fv <= floor;
 }
 
 /* The remnant hunt this side has running for a target, with its unit, or null. */
@@ -725,7 +731,9 @@ export function updateFinishing(side){
   if(!finishingEnabled(side)){ for(const k of Object.keys(book)) delete book[k]; return; }
   const enemy = otherSide(side);
   const own = state.units.filter(o => !o.removed && o.side===side && o.type!=='BRIGADIER');
-  const wins = brigadeBrokenStatus(enemy).filter(Boolean).length >= 1;
+  // Breaking this Brigade wins the match: one already broken under the usual
+  // rule, or none needed under the Quick Battle "1 Brigade" setting (13 Oct 2026).
+  const wins = brigadeBrokenStatus(enemy).filter(Boolean).length + 1 >= (state.winBrigades === 1 ? 1 : 2);
   const reachOf = t => own.length ? Math.min(...own.map(o => chebyshev(o, t))) : Infinity;
 
   for(const key of Object.keys(book)){
@@ -792,7 +800,7 @@ export function updateFinishing(side){
       if(ot.isArtillery){ if(od > 4 && hasLOS(o, t)) guns.push(`${name} closing from range ${od}`); continue; }
       const radius = ot.isCavalry ? FINISH_CAV_RADIUS : FINISH_INF_RADIUS;
       if(od > radius) continue;
-      (badFightFor(o, t) ? held : near).push(`${name} (${od} tiles)`);
+      (badFightFor(o, t, wins) ? held : near).push(`${name} (${od} tiles)`);
     }
     finishNote(side, `FINISHING: enemy Bde ${bId} at Brigadier + 1 (${label} at (${t.x},${t.y})). ` +
       `Kill value +${(wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE).toFixed(2)}${wins ? ' (would win)' : ''}. ` +
@@ -829,7 +837,7 @@ function finishRoleFor(u, startX, startY){
          proportion rather than becoming a second term to sweep. */
       const cavR = tune(u.side, 'FINISH_RADIUS', FINISH_CAV_RADIUS);
       const radius = ut.isCavalry ? cavR : Math.max(2, cavR - 2);
-      if(d > radius || badFightFor(u, tgt)) continue;
+      if(d > radius || badFightFor(u, tgt, f.wins)) continue;
       if(!best || d < best.d0) best = { kind: ut.isCavalry ? 'cav' : 'inf', f, d0: d };
     }
     u._finRole = best;
@@ -844,14 +852,20 @@ function finishRoleFor(u, startX, startY){
    infantry as well was measured and made finishing SLOWER than Saladin, since
    it withdrew the +6 Saladin already paid for exactly the fights infantry take
    against a remnant in cover. */
-function finishFloor(attacker){
-  return attacker && UNIT_TYPES[attacker.type].isCavalry ? 0 : KILL_VALUE_ENGAGE_FLOOR;
+/* WHEN THE KILL WINS THE MATCH (13 Oct 2026): cavalry accept a fight down to
+   FINISH_WIN_CAV_FLOOR (-1.0). Seed 3008835875: the Carabiniers, three
+   squares from a disrupted light cavalry unit whose loss would have won the
+   match, were held back as a bad fight. */
+function finishFloor(attacker, wins){
+  if(!(attacker && UNIT_TYPES[attacker.type].isCavalry)) return KILL_VALUE_ENGAGE_FLOOR;
+  return wins ? FINISH_WIN_CAV_FLOOR : 0;
 }
+export const FINISH_WIN_CAV_FLOOR = -1.0;
 
 export function killCreditFor(side, target, fv, attacker){
   const h = activeHunt(side, target.id);
   if(h){
-    const floor = finishFloor(attacker);
+    const floor = finishFloor(attacker, h.wins);
     if(floor === 0 ? fv < 0 : fv <= floor) return 0;
     return h.wins ? FINISH_KILL_VALUE_WINS : FINISH_KILL_VALUE;
   }
@@ -1009,7 +1023,7 @@ export function updateOperationalPlan(side, assessment){
     const mainEffort = assessment.liveOwnBrigades.find(b=>b.id===prev.mainEffortBrigadeId);
     const target = assessment.liveEnemyBrigades.find(b=>b.id===prev.targetBrigadeId);
     if(prev.mainEffortBrigadeId!=null && !mainEffort){ mustReassess = true; reasons.push('main effort Brigade broken/withdrawn'); }
-    else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed — exploit or pick a new one'); }
+    else if(prev.targetBrigadeId!=null && !target){ mustReassess = true; reasons.push('target Brigade destroyed: exploit or pick a new one'); }
     else if(prev.turnsHeld > MAX_PLAN_TURNS_UNCHANGED){ mustReassess = true; reasons.push('plan stale, no resolution in ' + prev.turnsHeld + ' turns'); }
     /* Soft trigger, so it is gated by the hysteresis floor. The two triggers
        above are HARD (the main effort Brigade broken, the target Brigade
@@ -1027,7 +1041,7 @@ export function updateOperationalPlan(side, assessment){
     else if(prev.turnsHeld >= MIN_PLAN_TURNS_BEFORE_CHANGE
       && assessment.strengthRatio < 0.7 && prev.type!=='DEFENSIVE' && prev.type!=='WITHDRAWAL'
       && !localAttackStillFavourable(assessment, prev.mainEffortBrigadeId, prev.targetBrigadeId)){
-      mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge — abandon and stabilise');
+      mustReassess = true; reasons.push('army badly outnumbered overall, and the current push has also lost its local edge: abandon and stabilise');
     }
 
     /* --- OPPORTUNITY TRIGGERS ---
@@ -1046,14 +1060,14 @@ export function updateOperationalPlan(side, assessment){
       if(assessment.brigadesFromDefeat <= 1 && prev.type!=='WITHDRAWAL'
         && assessment.strengthRatio < WITHDRAW_ON_BRINK_RATIO){
         mustReassess = true;
-        reasons.push('one Brigade break from defeat — withdraw while there is still something to save');
+        reasons.push('one Brigade break from defeat: withdraw while there is still something to save');
       }
       // A finishing chance overrides everything, including the settling period. One
       // more Brigade break ends the battle; there is no posture worth holding
       // through that.
       else if(assessment.finishingChance && prev.type!=='FINISHING_BLOW'){
         mustReassess = true;
-        reasons.push('one Brigade break from victory and an enemy Brigade is on the brink — go and finish it');
+        reasons.push('one Brigade break from victory and an enemy Brigade is on the brink: go and finish it');
       }
       // An enemy Brigade that has come unstuck from its own army is the opening a
       // behind-but-not-beaten army needs, whatever posture it happens to be in.
@@ -1061,13 +1075,13 @@ export function updateOperationalPlan(side, assessment){
         && assessment.strengthRatio >= MIN_RATIO_FOR_OPPORTUNISM
         && prev.type!=='BRIGADE_DESTRUCTION'){
         mustReassess = true;
-        reasons.push('an enemy Brigade has become isolated — worth breaking posture to exploit');
+        reasons.push('an enemy Brigade has become isolated: worth breaking posture to exploit');
       }
       // Material recovery, with hysteresis: the exit ratios sit above the entry
       // ratios so an army sitting on a threshold doesn't flip posture repeatedly.
       else if(settled && passive && assessment.strengthRatio >= (PASSIVE_EXIT_RATIO[prev.type] || Infinity)){
         mustReassess = true;
-        reasons.push('position recovered to ratio ' + assessment.strengthRatio.toFixed(2) + ' — no longer justifies staying passive');
+        reasons.push('position recovered to ratio ' + assessment.strengthRatio.toFixed(2) + ': no longer justifies staying passive');
       }
     }
   }
@@ -1487,8 +1501,24 @@ export function computeArmyPlan(side){
     }
     if(facing){ roles[facing.id] = { role: 'FIX', target: nonTarget.id }; pool = pool.filter(b=>b!==facing); }
   }
-  if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id };
-  if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id };
+  /* STRIKE BY POSITION (13 Oct 2026). STRIKE used to go to the strongest
+     Brigade wherever it stood. In seeds 2948657877 and 2892839937 that was a
+     Brigade twelve columns from its target, with the enemy's best troops in
+     between: it never arrived, and the Brigade that was facing the target sat
+     out as SUPPORT. Now: the strongest Brigade within STRIKE_REACH_COLS columns
+     of the target strikes; if none is that close, the nearest does. SUPPORT is
+     the nearer of what is left. Column distance between Brigade centres. */
+  if(targets[0] && pool.length){
+    const tFoes = brigadeFighters(enemy, targets[0].id);
+    const cx = us => us.length ? us.reduce((n, o) => n + o.x, 0) / us.length : 0;
+    const tx = cx(tFoes);
+    for(const b of pool) b.cols = Math.abs(cx(brigadeFighters(side, b.id)) - tx);
+    const near = pool.filter(b => b.cols <= STRIKE_REACH_COLS);
+    const strike = near.length ? near[0] : [...pool].sort((p, q) => p.cols - q.cols)[0];   // pool is strongest-first
+    pool = [strike, ...pool.filter(b => b !== strike).sort((p, q) => p.cols - q.cols)];
+  }
+  if(pool[0] && targets[0]) roles[pool[0].id] = { role: 'STRIKE',  target: targets[0].id, cols: pool[0].cols };
+  if(pool[1] && targets[0]) roles[pool[1].id] = { role: 'SUPPORT', target: targets[0].id, cols: pool[1].cols };
   /* C3: with no non-target left there is nothing to fix, and a FIX Brigade
      aimed at a Brigade the army is trying to break is just a worse SUPPORT.
      Converted here rather than left to the caller so the log says so. */
@@ -1532,7 +1562,7 @@ export function updateArmyPlan(side){
   const tgt = plan.ranked.filter(r=>plan.targets.includes(r.id))
     .map(r=>`enemy Bde ${r.id} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
   const roles = Object.entries(plan.roles).map(([bId, r]) =>
-    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}) -> enemy Bde ${r.target}` +
+    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}${r.cols != null ? `, ${Math.round(r.cols)} cols from target` : ''}) -> enemy Bde ${r.target}` +
     (r.converted ? ` [${r.converted}]` : '')).join('; ');
   armyPlanLog(side, `ARMY PLAN ${prev ? 'REVISED' : `(T${state.turnNumber})`}: targets=[${tgt}]` +
     `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget}` : 'none'}`);
@@ -2158,6 +2188,59 @@ export function brigadeWaypoint(side, brigadeId, mission, plan){
   }
   state._aiWaypoints[key] = { turn: state.turnNumber, point };
   return point;
+}
+
+/* =========================================================
+   GUNS FIRST (Matthew, 13 Oct 2026)
+
+   "Get the guns into position early, then advance under their cover." In the
+   quiet opening (dice rarely roll before turn four), each battery picks the
+   best firing position it can reach in three of its moves (gunSiteFor: a
+   village on our half first, then a hill, then the best field of fire,
+   judged by vantageScore) and marches straight for it (gunSiting). Its
+   Brigade's other units hold back while it does (gunsFirstMul scales their
+   mission pull) for at most GUNS_FIRST_TURNS of their own turns, then advance
+   regardless. A settled gun with targets already stays, out of command if need
+   be (gunIsEstablished, unchanged), and its Brigadier does not come for it.
+========================================================= */
+export const GUNS_FIRST_TURNS = 2;       // own turns a Brigade waits for its guns
+export const GUNS_FIRST_MUL = 0.35;      // mission pull meanwhile
+export const GUN_SITING_PULL = 0.6;      // per square nearer the site, opening only
+export const GUN_SITE_REACH = 3;         // the site must be reachable in this many moves
+const ownTurnsSoFar = side => Math.ceil(state.turnNumber / 2);
+function gunSiteFor(g){
+  if(g._site && g._site.turn0 === state._matchStartStamp) return g._site;
+  let best = null;
+  const reach = GUN_SITE_REACH * Math.max(1, unitBaseMove(g));
+  const home = homeRowOf(g.side), half = ROWS / 2;
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
+    if(chebyshev(g, { x, y }) > reach) continue;
+    if(Math.abs(y - home) >= half) continue;                    // our half of the map
+    const terr = terrainAt(x, y);
+    if(terr.restrictTo && !terr.restrictTo.includes('ARTILLERY')) continue;
+    if(state.units.some(o => !o.removed && o.id !== g.id && o.x === x && o.y === y)) continue;
+    let v = vantageScore(g, x, y);
+    if(terr.defenseBonus) v += 1.2; else if(terr.elevation > 0) v += 1.0;
+    v += Math.abs(y - home) * 0.15;                              // a little forward is better
+    if(!best || v > best.v) best = { x, y, v };
+  }
+  g._site = best ? { x: best.x, y: best.y, turn0: state._matchStartStamp } : { x: g.x, y: g.y, turn0: state._matchStartStamp };
+  return g._site;
+}
+function inOpening(side){ return ownTurnsSoFar(side) <= GUNS_FIRST_TURNS + 1; }
+function gunSettled(g){ const s = gunSiteFor(g); return g.x === s.x && g.y === s.y; }
+export function gunsFirstMul(u, side, mission){
+  if(UNIT_TYPES[u.type].isArtillery || u.type === 'BRIGADIER') return 1;
+  if(!(mission === 'MAIN_ATTACK' || mission === 'SUPPORT' || mission === 'FLANK')) return 1;
+  if(ownTurnsSoFar(side) > GUNS_FIRST_TURNS) return 1;
+  const guns = state.units.filter(o => !o.removed && o.side === side && o.brigadeId === u.brigadeId && UNIT_TYPES[o.type].isArtillery);
+  return guns.some(g => !gunSettled(g)) ? GUNS_FIRST_MUL : 1;
+}
+/* The gun's own pull to its site, in the opening. */
+export function gunSitingScore(u, side, c){
+  if(!UNIT_TYPES[u.type].isArtillery || !inOpening(side)) return 0;
+  const site = gunSiteFor(u);
+  return -chebyshev(c, site) * GUN_SITING_PULL + (c.x === site.x && c.y === site.y ? 1.0 : 0);
 }
 
 export function missionMoveBonus(u, side, pos, mission, plan){
@@ -3097,8 +3180,10 @@ export function vantageScore(gun, x, y){
   const terr = terrainAt(x, y);
   // Targets dominate; ground breaks ties between positions that can both shoot.
   let score = weightedTargetsFromSquare(gun, x, y);
-  if(terr.defenseBonus) score += 0.6;   // a building: +1 in defence
-  if(terr.elevation > 0) score += 0.5;  // a hill: fires over friendly units
+  // Matthew, 13 Oct 2026: a village first (all attacks take -1 on effect and no
+  // cavalry can attack it), a hill close behind (fires over friends and cover).
+  if(terr.defenseBonus) score += 1.2;   // a building
+  if(terr.elevation > 0) score += 1.0;  // a hill
   return score;
 }
 
@@ -4674,6 +4759,26 @@ export function aiDecideAndExecuteMove(u){
          be formed there, and none of our own cavalry is already next to that
          horseman (then let our cavalry deal with it). */
       if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
+      // GUNS FIRST: a battery's march to its opening position.
+      { const sv = gunSitingScore(u, side, c); if(sv) s += addScore(parts, 'gunSiting', sv); }
+      /* ZEROED SQUARES (13 Oct 2026): ending on a square an enemy battery is
+         ranged on costs ZEROED_COST per point of its next shot's bonus (+1 or
+         +2), so a unit steps off it rather than being calibrated on. */
+      if(t.key !== 'BRIGADIER'){
+        const zb = Math.max(0, ...zeroedSquares().filter(z => z.gunSide !== side && z.x === c.x && z.y === c.y).map(z => z.bonus));
+        if(zb) s -= subScore(parts, 'zeroedSquare', ZEROED_COST * zb);
+      }
+      /* HEAVY CAVALRY IN PAIRS (13 Oct 2026). The heavies never fought
+         together: in seed 2892839937 the Carabiniers won alone on one wing
+         while the 5e Cuirassiers were pushed back four times in eight turns by
+         two Hussar regiments working in turn. A heavy regiment ending within
+         two squares of another friendly cavalry unit, with an enemy within
+         four, earns CAV_PAIR_BONUS, so the horse arrive together and the second
+         can follow the first in. */
+      if(t.key === 'HEAVY_CAV' && nearestEnemyDist(c, side) <= 4 &&
+         state.units.some(o => !o.removed && o.side === side && o.id !== u.id && UNIT_TYPES[o.type].isCavalry &&
+           Math.max(Math.abs(o.x - c.x), Math.abs(o.y - c.y)) <= 2))
+        s += addScore(parts, 'cavalryPair', CAV_PAIR_BONUS);
 
       /* ANSWER THE GUNS (7 Oct 2026). In Matthew's match the 2e Grenadiers were
          shelled eight times from the same battery and never moved. A unit fired
@@ -4790,7 +4895,7 @@ export function aiDecideAndExecuteMove(u){
       }
       s += addScore(parts, 'missionPull',
         Math.max(tune(side, 'MISSION_PULL_FLOOR', MISSION_PULL_FLOOR),
-                 missionMoveBonus(u, side, c, mission, plan) * tempoMul * leadMul));
+                 missionMoveBonus(u, side, c, mission, plan) * tempoMul * leadMul * gunsFirstMul(u, side, mission)));
     }
     // Section 9 (Hard): selective lookahead, only for the "important" move categories —
     // a charge, a move that sets up a fight next phase, or a Reserve/Fix-mission unit
@@ -4927,7 +5032,20 @@ export function aiDecideAndExecuteMove(u){
        threatPenalty, the lighter coefficient systematically undervalues its
        main benefit. Left alone deliberately so this fix can be measured on its
        own rather than tangled with a weight change. */
-    const squareScore = evaluateState(side) * BASE_STATE_WEIGHT - 0.15*threatPenalty(u, side);
+    /* SQUARE AGAINST HORSE (16 Oct 2026). In Matthew's last fourteen matches his
+       cavalry caught French infantry in line 67 times and won 50; the French
+       formed a square that held against cavalry three times. The general threat
+       term never singled cavalry out. Now: infantry in the open with enemy
+       cavalry able to reach it next turn (within move + 1), and no enemy
+       infantry close enough to punish a square (within 2), weighs forming square
+       up by SQUARE_VS_CAV_BONUS. (A heavier general threat weight was tried
+       first and cost wins against Alexander, so it is left at 0.15.) */
+    const horseNear = state.units.some(o => !o.removed && o.side !== side && UNIT_TYPES[o.type].isCavalry &&
+      !isConcealedFromEnemy(o) && chebyshev(o, u) <= unitBaseMove(o) + 1);
+    const footNear = state.units.some(o => !o.removed && o.side !== side && (o.type === 'INFANTRY' || o.type === 'GUARD') && chebyshev(o, u) <= 2);
+    const inCover = ['WOODS', 'BUILDING'].includes(terrainAt(u.x, u.y).key);
+    const vsHorse = horseNear && !footNear && !inCover ? SQUARE_VS_CAV_BONUS : 0;
+    const squareScore = evaluateState(side) * BASE_STATE_WEIGHT - SQUARE_THREAT_WEIGHT*threatPenalty(u, side) + vsHorse;
     u.formation = origForm;
     if(squareScore > bestScore){
       u.formation = 'square';
@@ -5293,7 +5411,7 @@ function aiDoVolleyStep(){
       if(value < tune(u.side, 'VOLLEY_FLOOR', 1.0)){ step(); return; }
     }
     logAiDebugMove(u.side, { unit: unitLabel(u), mission: missionFor(u), action:'Volley',
-                             target: unitLabel(target), score: '—' });
+                             target: unitLabel(target), score: '-' });
     /* A volley is always at range 1, so this is close to a pure close-up: the
        fit calculation settles at CAMERA_ACTION_ZOOM for two adjacent squares. */
     cameraToAction([u, target], { durationMs: CAMERA_ACTION_PAN_MS });
@@ -5728,12 +5846,12 @@ export function formatAiDecision(entry, indent){
 
 export function exportAiMoveLog(){
   const side = state.aiSide;
-  if(!side) return 'No AI opponent in this match — nothing to export.';
+  if(!side) return 'No AI opponent in this match: nothing to export.';
   const history = state._aiMoveHistory[side] || [];
   if(history.length===0) return 'No AI moves recorded this match.';
 
   const lines = [];
-  lines.push(`=== AI MOVE LOG — ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
+  lines.push(`=== AI MOVE LOG: ${SIDE_LABEL[side]} (${state.aiDifficulty||'?'}) ===`);
   lines.push(`Total AI moves: ${history.length}`);
   /* TWO NUMBERS, BECAUSE ONE OF THEM HAS BEEN MISREAD THREE TIMES.
 
