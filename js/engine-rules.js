@@ -188,6 +188,10 @@ export function clearAmbushIfOutOfWoods(u, reason){
   if(terrainAt(u.x, u.y).key === 'WOODS') return;
   u.hidden = false;
   u.ambushWaited = 0;
+  /* LEAVING AN AMBUSH (Matthew, 16 Oct 2026): a unit may march out of its
+     ambush, but it cannot volley at the end of that same turn; its men are
+     still coming out of cover. */
+  u._leftAmbushTurn = state.turnNumber;
   logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y,
     phase:'standDown', reason: reason || 'moved out of the woods' });
 }
@@ -635,6 +639,7 @@ export function volleyTargets(u){
      resolve as an anonymous volley instead. Holding fire is the whole of what an
      ambush is. */
   if(u.hidden) return [];
+  if(u._leftAmbushTurn === state.turnNumber) return [];        // just left an ambush this turn (clearAmbushIfOutOfWoods)
   if(state.volleyed && state.volleyed.has(u.id)) return [];    // one volley per Firing phase
   return state.units.filter(o=>!o.removed && o.side!==u.side &&
     o.type!=='BRIGADIER' &&                                    // never a valid target, as with artillery
@@ -1385,6 +1390,23 @@ export function pushBack(loser, winner){
     // shove any friendly unit already standing in the landing square one further step back
     const blocker = unitsAt(nx,ny).find(o=>o.side===loser.side && o.id!==loser.id);
     let landingClear = true;
+    /* FALLING BACK INTO A COLUMN (Matthew, 16 Oct 2026). Infantry pushed back
+       onto a square held by one battalion of their own infantry fall in beside
+       it: the two form a column on that square, and the battalion behind is
+       not shoved back too. Only where a column could form anyway (infantry or
+       Guard, neither in square, ground that allows two). */
+    const foot = o => o && (UNIT_TYPES[o.type].key === 'INFANTRY' || UNIT_TYPES[o.type].key === 'GUARD');
+    const occupants = unitsAt(nx,ny).filter(o=>!o.removed && o.id!==loser.id);
+    if(blocker && occupants.length === 1 && foot(loser) && foot(blocker) &&
+       loser.formation !== 'square' && blocker.formation !== 'square' && terrainAt(nx,ny).allowDouble){
+      const st = Math.max(Math.abs(nx-loser.x), Math.abs(ny-loser.y)) || 1;
+      animateUnitTo(loser, nx, ny, 'pushback');
+      playMovementAudio(loser, st, 'pushback');
+      log(`${unitLabel(loser)} falls back into ${unitLabel(blocker)}'s square; the two form a column.`, 'combat');
+      setTurnedAround(loser);
+      log(`${unitLabel(loser)} pushed back and turned around; can only turn around next turn.`, 'combat');
+      return;
+    }
     if(blocker){
       const bx = nx+dx, by = ny+dy;
       if(inBounds(bx,by) && unitsAt(bx,by).length===0){
