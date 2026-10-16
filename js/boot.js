@@ -184,6 +184,7 @@ setDiceScreenPoint((x, y) => {
 /* Framing a fight for its dice: the units themselves plus two squares either
    side across the screen, where the dice groups sit, kept on the board. */
 initUnitMarkers();   // the cockade over a selected or acting unit (unit-markers.js)
+import('./spyglass.js');   // the Spyglass dial: follow the AI's thinking (solo games only)
 setDiceFrame(points => {
   const pad = [];
   for(const p of points) for(const dx of [-2, 2]) pad.push({ x: Math.max(0, Math.min(COLS - 1, p.x + dx)), y: p.y });

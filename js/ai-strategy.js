@@ -5256,7 +5256,7 @@ function traceBrigadeOrders(side){
     const mission = (state.aiDifficulty === 'hard' && missions) ? (missions[bId] || null) : null;
     const timer = gunsWaitTimer(side, bId, mission);
     const obj = mission ? tracedObjective(side, bId, mission, brig) : null;
-    return { id: bId, brigadier: brig ? { x: brig.x, y: brig.y } : null, units: units.map(u => u.id),
+    return { id: bId, brigadier: brig ? { x: brig.x, y: brig.y } : null, brigadierId: brig ? brig.id : null, units: units.map(u => u.id),
       mission, order: timer ? 'Site guns' : (mission ? (ORDER_LABEL[mission] || mission) : 'none'),
       timer: timer ? timer.label : null, objective: obj ? obj.at : null, objectiveWhy: obj ? obj.why : null };
   });

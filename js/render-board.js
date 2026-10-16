@@ -58,6 +58,10 @@ export function fromScreen(sx_, sy_){
   }
 }
 const SX = (x, y) => toScreen(x, y).x;
+/* Something drawn on the ground under the units, registered from outside
+   (the Spyglass, js/spyglass.js) so this module imports nothing of it. */
+let boardUnderlay = null;
+export function setBoardUnderlay(fn){ boardUnderlay = fn || null; }
 const SY = (x, y) => toScreen(x, y).y;
 
 /* =========================================================
@@ -2574,6 +2578,8 @@ export function draw(){
 
      Stacked squares (doubled infantry) are offset so both are visible. */
   drawOperationAreas();   // Operations: the named areas, under the units
+  // The Spyglass (spyglass.js): the AI's weighed squares and objectives, on the ground under the troops.
+  if(boardUnderlay) boardUnderlay(ctx, CELL, (x, y) => ({ x: SX(x, y)*CELL, y: SY(x, y)*CELL }));
   // Spot Men (spot-men.js): a Brigadier's command chain, on the ground under the troops.
   drawSpotMen(ctx, CELL, (x, y) => ({ x: SX(x, y)*CELL + CELL/2, y: SY(x, y)*CELL + CELL/2 }), highlightCells,
     state.selectedUnitId ? state.units.find(u => u.id === state.selectedUnitId) : null);
