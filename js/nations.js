@@ -58,6 +58,9 @@ export const NATIONS = {
   confederation: { key: 'confederation', name: 'Confederation of the Rhine', adjective: 'Confederation', team: 'imperial', side: 'blue', maxArmies: 1,
              colours: { main: '#8a6d1a', dim: '#4e3e0f', accent: '#151515' }, art: null,
              cockade: ['#151515', '#d4a92a', '#151515'] },
+  france_2: { key: 'france_2', name: 'France (2nd Army)', adjective: 'French', team: 'imperial', side: 'blue', maxArmies: 1, secondOf: 'france',
+             colours: { main: '#2e4566', dim: '#1c2a3d', accent: '#f6f3ea' }, art: null,
+             cockade: ['#c8191e', '#f6f3ea', '#1f3a8a'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };

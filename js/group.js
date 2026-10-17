@@ -33,7 +33,7 @@ export const GROUP_ARMIES = [
   { id:'red1',  side:SIDES.RED,  edge:'S', nation:'britain', label:'Britain',          short:'Britain',    color:'#a3403a', skin:1, brigadeOffset:0 },
   { id:'red2',  side:SIDES.RED,  edge:'E', nation:'prussia', label:'Prussia',          short:'Prussia',    color:'#2b2b2e', skin:1, brigadeOffset:3 },
   { id:'blue1', side:SIDES.BLUE, edge:'N', nation:'france',  label:'France',           short:'France I',   color:'#2e4566', skin:1, brigadeOffset:0 },
-  { id:'blue2', side:SIDES.BLUE, edge:'W', nation:'france',  label:'France (2nd Army)',  short:'France II',  color:'#6a4a8c', skin:2, brigadeOffset:3 },
+  { id:'blue2', side:SIDES.BLUE, edge:'W', nation:'france_2', label:'France (2nd Army)',  short:'France II',  color:'#6a4a8c', skin:2, brigadeOffset:3 },
 ];
 export const TEAM_LABEL = { red:'the Coalition', blue:'France and her ally' };
 

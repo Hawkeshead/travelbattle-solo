@@ -900,5 +900,87 @@
         "bio": "The Bavarian foot artillery was among the best of the German allied gunners, its batteries modernised alongside the rest of the Bavarian army in the years before 1809. It fought for Napoleon in the war against Austria that year and in the invasion of Russia in 1812. In 1813 its guns turned against the French when Bavaria joined the Allies. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "france_2": {
+    "BRIGADIER": [
+      {
+        "name": "Davout",
+        "bio": "Louis-Nicolas Davout, the Iron Marshal, was the strictest disciplinarian and perhaps the finest corps commander of the Grande Arm\u00e9e. Before Austerlitz his III Corps force-marched from Vienna to hold the villages of Telnitz and Sokolnitz against the Allied assault. At Auerstedt in 1806, with a single corps of some 28,000 men, he met and routed the main Prussian army of more than 63,000 under the Duke of Brunswick, while Napoleon beat the smaller Prussian force at Jena. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Ney",
+        "bio": "Michel Ney, the son of a cooper, rose from hussar trooper to Marshal of France and was hailed by Napoleon as the bravest of the brave. In the retreat from Moscow he took over the rearguard and was famously among the last Frenchmen to leave Russian soil, musket in hand. Impetuous and fearless rather than subtle, he led the great cavalry charges at Waterloo and was executed by the restored monarchy later that year. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Lasalle",
+        "bio": "Antoine-Charles-Louis Lasalle was the hussar general of the Grande Arm\u00e9e, a hard-drinking hellraiser and a brilliant light cavalry leader. In the pursuit after Jena his 5th and 7th Hussars became known as the Infernal Brigade, and with a few hundred tired horsemen he bluffed the fortress of Stettin and its garrison into surrender. He was killed at Wagram in July 1809, shot in the head while leading a charge at the age of thirty-four. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "1er Chasseurs \u00e0 Pied",
+        "bio": "The 1er R\u00e9giment de Chasseurs \u00e0 Pied de la Garde Imp\u00e9riale was the second senior infantry regiment of the Old Guard, brother regiment to the Grenadiers, and Napoleon often wore its green colonel's uniform on campaign. Its veterans wore bearskins without the grenadiers' brass plate and were held back with the rest of the Old Guard as the army's final reserve. At Waterloo its battalions took part in the final advance of the Guard. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Fusiliers-Grenadiers",
+        "bio": "The Fusiliers-Grenadiers belonged to the Middle Guard, regiments raised to give promising soldiers a path into the Imperial Guard and to stiffen the army with picked men who were not yet Old Guard veterans. They fought at Essling, Wagram and in Spain, and marched into Russia in 1812. Trained by Old Guard officers, they were held to almost the same standard of steadiness under fire. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "57e Ligne",
+        "bio": "The 57e R\u00e9giment d'Infanterie de Ligne carried a nickname Napoleon gave it himself: the Terrible 57th, which nothing can stop. It fought in almost all of his campaigns, storming the Pratzen Heights at Austerlitz. At Borodino it helped take Bagration's fl\u00e8ches, and tradition holds that Bagration, watching its advance, called out Bravo before he was struck down by a French shell. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "84e Ligne",
+        "bio": "The 84e R\u00e9giment d'Infanterie de Ligne won everlasting fame at Graz in June 1809, when two of its battalions held the town against a whole Austrian corps. After presenting the captured Austrian flags to Napoleon on the field of Wagram, Colonel Gambin was told his regiment's eagles would be engraved with the words One Against Ten. The motto Un contre dix stayed with the regiment ever after. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "33e Ligne",
+        "bio": "The 33e R\u00e9giment d'Infanterie de Ligne served in Friant's division of Davout's III Corps, which Davout drilled harder than any other in the army. Before Austerlitz the division force-marched from Vienna and arrived on the morning of the battle to hold the French right against the main Allied attack. At Auerstedt, Friant's men swung round the Prussian flank in an assault that bent the enemy line backwards. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "48e Ligne",
+        "bio": "The 48e R\u00e9giment d'Infanterie de Ligne marched with the 33e in Friant's division, one of the three divisions that made Davout's III Corps the most feared in the Grande Arm\u00e9e. At Austerlitz it fought in the struggle for Telnitz and Sokolnitz after a march of some seventy miles in under two days. At Auerstedt the division arrived to secure the French right while Gudin's men held on at Hassenhausen. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "111e Ligne",
+        "bio": "The 111e R\u00e9giment d'Infanterie de Ligne was another of Friant's regiments in Davout's III Corps, the formation that in the early years of the Empire was handed the hardest work in the army. It shared in the forced march to Austerlitz and the defence of the French right there, and in the victory over the main Prussian army at Auerstedt the following year. Afterwards the III Corps carried an aura of invincibility. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "15e L\u00e9g\u00e8re",
+        "bio": "The 15e R\u00e9giment d'Infanterie L\u00e9g\u00e8re was the light infantry of Friant's division at Austerlitz, screening the line regiments of Davout's III Corps with its skirmishers. Light infantry like the 15e fought in loose order ahead of the columns, picking off officers and gunners before the main attack went in. Its voltigeurs were chosen from the smallest, nimblest and most accurate men in the regiment. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Grenadiers \u00e0 Cheval de la Garde",
+        "bio": "The Grenadiers \u00e0 Cheval were the senior heavy cavalry of the Imperial Guard, tall men on black horses, wearing bearskins, and nicknamed the Gods. They were the shock troops of the Guard, held back as a final reserve and committed at the crucial moment, charging decisively at Austerlitz and in the great cavalry attack at Eylau. From 1813 they bore the brunt of the fighting as the Empire fought for survival. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Dragons de l'Imp\u00e9ratrice",
+        "bio": "The Dragons de l'Imp\u00e9ratrice, the Empress's Dragoons, were raised for the Imperial Guard in 1806 from picked men of the line dragoon regiments, and named in honour of Jos\u00e9phine. In their green coats and brass helmets with black horsehair crests, they fought in Spain, Russia and the campaigns of 1813 and 1814. At Waterloo they joined the massed cavalry attacks on the Allied squares. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "5e Hussards",
+        "bio": "The 5e Hussards formed one half of Lasalle's Infernal Brigade alongside the 7e Hussards, a name earned in the relentless pursuit of the broken Prussian army after Jena in 1806. In those weeks the brigade bluffed the fortress of Stettin into surrender with a fraction of the garrison's numbers. In Poland the following winter Lasalle held the brigade for an hour under heavy Russian fire in the mud at Golymin. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Chasseurs \u00e0 Cheval de la Garde",
+        "bio": "The Chasseurs \u00e0 Cheval de la Garde were the second senior cavalry regiment of the Old Guard and Napoleon's personal escort, never far from the Emperor on campaign. At Austerlitz two squadrons and the Mamelukes charged under General Rapp into the Russian Guard cavalry, inflicting heavy casualties and capturing Prince Repnin of the Chevalier Guard. Their green and scarlet hussar-style uniforms made them among the most recognisable horsemen in Europe. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Artillerie \u00e0 Pied de la Garde",
+        "bio": "The Foot Artillery of the Imperial Guard manned the heaviest guns in the army, the twelve-pounders the soldiers called the Emperor's beautiful daughters. Napoleon, an artillery officer by training, used them as a massed reserve to smash a hole in the enemy line before the decisive attack. At Wagram and Borodino the Guard's batteries formed the core of the great gun lines. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Artillerie \u00e0 Cheval de la Garde",
+        "bio": "The Horse Artillery of the Imperial Guard rode with the Guard cavalry, every gunner mounted so the batteries could gallop into position, fire and limber up again before the enemy could reply. Its crews wore hussar-style uniforms and were among the most highly trained artillerymen in Europe. The Guard horse batteries supported the cavalry charges of the Guard from Austerlitz to Waterloo. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
