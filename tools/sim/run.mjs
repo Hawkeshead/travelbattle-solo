@@ -62,8 +62,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   // SIM_DIFFICULTY=medium|easy plays both sides at that level (default Hard, the shipped one).
   state.aiDifficulty = process.env.SIM_DIFFICULTY || 'hard';
   state.aiSide = SIDES.RED;
-  // SIM_RED_NATION=prussia: the AI commands that Coalition nation instead of Britain (js/nations.js).
-  state.nations = { red: process.env.SIM_RED_NATION || 'britain', blue: 'france' };
+  // SIM_RED_NATION=prussia, SIM_BLUE_NATION=poland: the AI commands those nations instead of Britain and France (js/nations.js).
+  state.nations = { red: process.env.SIM_RED_NATION || 'britain', blue: process.env.SIM_BLUE_NATION || 'france' };
   state.gameOver = false;
   state.winner = null;
   state.turnNumber = 1;
