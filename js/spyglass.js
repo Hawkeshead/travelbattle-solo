@@ -11,8 +11,8 @@
               weighed tinted in its Brigade's colour (darker scored higher),
               the best three numbered, an arrow to the square it took (or
               "held"), and for a shot or a fight an arrow to the target with
-              crossed sabres or a roundshot. The AI waits after each unit for
-              a tap ("Tap to continue"), so it can be followed at any pace.
+              crossed sabres or a roundshot. The AI pauses briefly after each
+              unit (1.6 s) and carries on by itself; a tap skips ahead.
 
    DISPLAY ONLY. Everything drawn comes from the AI's decision trace
    (js/ai-trace.js), which the AI writes and never reads; switching the
@@ -89,9 +89,17 @@ function ensureButton(){
       font:600 15px 'IM Fell English',Georgia,serif;color:#fbf6ea;background:rgba(20,24,20,.86);border:1px solid #c8a85a;
       padding:7px 16px;border-radius:16px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.5)}`;
   document.head.appendChild(style);
-  // Next to the field report dial, so it reads as one of the instruments.
-  const log = document.getElementById('logIconBtn');
-  hud.insertBefore(btn, log ? log.nextSibling : null);
+  /* (17 Oct 2026) The dial used to join the column of dials, which pushed Undo
+     up into the despatch case's corner, hidden and hard to reach. It now sits
+     on its own at the foot of the OTHER edge of the screen, in the same brass. */
+  style.textContent += `
+    #spyglassBtn{position:fixed;z-index:21;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);right:calc(env(safe-area-inset-right,0px) + 8px);left:auto;
+      width:40px;height:40px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;
+      background:radial-gradient(circle at 38% 32%,#D8B96A 0%,#A9883A 46%,#6B5320 100%);border:1px solid #3E2F11;
+      box-shadow:inset 0 1px 0 rgba(255,246,214,.7),inset 0 -3px 6px rgba(0,0,0,.5),0 4px 9px rgba(0,0,0,.55);cursor:pointer}
+    html.island-left #spyglassBtn{right:6px;left:auto}
+    html.island-right #spyglassBtn{left:6px;right:auto}`;
+  document.body.appendChild(btn);
   btn.onclick = () => setMode(MODES[(MODES.indexOf(mode) + 1) % MODES.length]);
   paintButton();
 }
@@ -111,20 +119,28 @@ export function setMode(m){
   if(mode !== 'full') releasePause();
   draw();
 }
-function syncCapture(){
+export function syncCapture(){
   const on = mode !== 'off' && available();
   setTraceCapture(on);
   setStepGate(on && mode === 'full' ? holdForTap : null);
 }
 
 /* ---------- the pause (Full) ---------- */
+/* (17 Oct 2026) A short timed pause, not a tap: waiting for a tap stalled the
+   game whenever Matthew looked away. The AI carries on by itself after
+   SPYGLASS_PAUSE_MS; a tap skips ahead. Never in Spectate or online (where the
+   Spyglass is not available), even if its gate was left set by a solo match. */
+const SPYGLASS_PAUSE_MS = 1600;
+let pauseTimer = null;
 function holdForTap(next){
-  if(mode !== 'full' || !aiActing()){ next(); return; }
+  if(mode !== 'full' || !available() || !aiActing()){ next(); return; }
   waiting = next; waitingFor = `${state.turnNumber}|${state.turn}|${state._matchStartStamp}`;
+  clearTimeout(pauseTimer);
+  pauseTimer = setTimeout(releasePause, SPYGLASS_PAUSE_MS);
   if(!pausePill){
     pausePill = document.createElement('button');
     pausePill.id = 'spyglassPause'; pausePill.type = 'button';
-    pausePill.textContent = 'Tap to continue';
+    pausePill.textContent = 'Next move\u2026 (tap to skip)';
     pausePill.onclick = e => { e.stopPropagation(); releasePause(); };
     document.body.appendChild(pausePill);   // at the foot of the screen, below the board in portrait
     // A tap on the board itself also carries on, and is not taken as a click on a unit.
@@ -138,6 +154,7 @@ function holdForTap(next){
   pausePill.style.display = 'block';
 }
 function releasePause(){
+  clearTimeout(pauseTimer);
   if(pausePill) pausePill.style.display = 'none';
   const n = waiting; waiting = null;
   // Only into the turn it was holding: a match left or restarted meanwhile drops it.

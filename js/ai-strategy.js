@@ -81,6 +81,8 @@ export const CAV_PAIR_BONUS = 0.6;   // heavy cavalry ending within 2 of another
 export const ZEROED_COST = 0.7;      // per +1 an enemy battery's next shot would get on that square (13 Oct)
 export const SQUARE_THREAT_WEIGHT = 0.15;  // threat in the Form Square comparison (unchanged; see SQUARE AGAINST HORSE)
 export const SQUARE_VS_CAV_BONUS = 1.2;   // infantry in the open, enemy horse in reach, no enemy foot close (16 Oct)
+export const CAV_STEP_BACK_BONUS = 2.0;   // cavalry that won its attack last turn steps clear of enemy infantry (17 Oct)
+export const APPROACH_GUN_COST = 1.5;   // per enemy gun covering the ground around a target Brigade (17 Oct)
 export const STRIKE_REACH_COLS = 6;   // army plan: a Brigade this many columns from the target may strike it (13 Oct)
 export const COLUMN_GUN_REACH = 3;          // a column is only kept out of guns this close (hits on 3+, canister at 2)
 export const STACK_UNDER_GUNS_COST = 1.5;   // per enemy gun covering a square where two of ours would stand (10 Oct)
@@ -1465,10 +1467,23 @@ export function computeArmyPlan(side){
       heavy: foes.filter(o=>o.type==='HEAVY_CAV').length,
       guard: foes.filter(o=>o.type==='GUARD').length,
       art:   foes.filter(o=>o.type==='ARTILLERY').length };
+    /* APPROACH COST (17 Oct 2026): guns guarding the ground in front of a
+       Brigade make it harder to break than its own toughness says. Seed
+       3646781236: Graham's Brigade (two guns) was rated easiest, and those guns
+       killed three French units on the way in. Every enemy gun with a line of
+       fire to any square within 3 of the Brigade's centre adds APPROACH_GUN_COST. */
+    const ccx = foes.reduce((n, o) => n + o.x, 0) / foes.length, ccy = foes.reduce((n, o) => n + o.y, 0) / foes.length;
+    const near = [];
+    for(let y = Math.max(0, Math.round(ccy) - 3); y <= Math.min(ROWS - 1, Math.round(ccy) + 3); y++)
+      for(let x = Math.max(0, Math.round(ccx) - 3); x <= Math.min(COLS - 1, Math.round(ccx) + 3); x++) near.push({ x, y });
+    const guns = state.units.filter(o => !o.removed && o.side === enemy && UNIT_TYPES[o.type].isArtillery);
+    const covering = guns.filter(g => near.some(c => chebyshev(g, c) <= 6 && hasLOS(g, c))).length;
+    const approach = covering * APPROACH_GUN_COST;
+    parts.approach = +approach.toFixed(1);
     ranked.push({ id: bId, units: foes.length, parts, toughness: brigadeToughness(foes),
                   superiority: sup.score, supNumbers: sup.numbers, supType: sup.type,
-                  ourBest: sup.brigadeId,
-                  difficulty: brigadeToughness(foes) - sup.score });
+                  ourBest: sup.brigadeId, approach,
+                  difficulty: brigadeToughness(foes) - sup.score + approach });
   }
   if(!ranked.length) return null;
   ranked.sort((a,b)=> a.difficulty - b.difficulty);       // easiest first
@@ -1544,19 +1559,134 @@ function armyPlanSignature(side){
   return part(side) + '|' + part(enemy);
 }
 
+/* =========================================================
+   ARMY PLAN REVIEWS (17 Oct 2026, from seed 3646781236)
+
+   The plan used to be rewritten only when a Brigade or a Brigadier was lost
+   on either side. In seed 3646781236 the STRIKE Brigade (Soult) lost half its
+   units by turn 13 and sheltered for the rest of the match, while the plan
+   kept it as STRIKE for 25 more turns and the target was never attacked.
+
+   Now the plan is also reviewed:
+   - every ARMY_REVIEW_EVERY of this side's turns (periodic);
+   - at once when the STRIKE Brigade is below half its strength at
+     assignment, has turned to SHELTER, PRESERVE or WITHDRAW, or has not fought
+     a unit of its target within STRIKE_CONTACT_TURNS of its own turns; when a
+     target's difficulty has risen by more than 2.0 since assignment; or when
+     any Brigade has held the same mission for MISSION_REVIEW_TURNS of its turns.
+   A review recomputes the plan; it only changes roles when STRIKE moves to a
+   different Brigade or the target changes, only when a STRIKE trigger fired,
+   and never within ARMY_ROLE_MIN_TURNS of this side's turns of the last change
+   (the thrash guard). Periodic and mission reviews log, and change nothing
+   unless a trigger fires with them. Every review is logged, with its trigger and outcome.
+========================================================= */
+export const ARMY_REVIEW_EVERY = 5;
+export let ARMY_REVIEW_CHANGES = false;   // see the measurement note at the role-change test
+export const STRIKE_CONTACT_TURNS = 8;
+export const ARMY_ROLE_MIN_TURNS = 4;
+export const MISSION_REVIEW_TURNS = 10;
+const ownTurns = n => n * 2;    // this side's turns, in turn numbers (sides alternate)
+const strikeOf = plan => { const e = Object.entries(plan.roles).find(([, r]) => r.role === 'STRIKE'); return e ? { id: Number(e[0]), target: e[1].target } : null; };
+function strikeFoughtTarget(side, strike, since){
+  const log = state.matchLog || [];
+  const unit = id => state.units.find(u => u.id === id);
+  for(let i = log.length - 1; i >= 0; i--){
+    const ev = log[i];
+    if(ev.turn != null && ev.turn < since) break;
+    if(ev.type !== 'fight') continue;
+    const a = unit(ev.attackerId), d = unit(ev.defenderId);
+    if(!a || !d) continue;
+    const mine = a.side === side ? a : d.side === side ? d : null, theirs = mine === a ? d : a;
+    if(mine && mine.brigadeId === strike.id && theirs.brigadeId === strike.target) return true;
+  }
+  return false;
+}
+function reviewTriggers(side, book){
+  const out = [];
+  const strike = strikeOf(book.plan);
+  if(strike){
+    const now = brigadeFighters(side, strike.id).length, start = (book.start || {})[strike.id] || now;
+    if(start && now < start * 0.5) out.push(`STRIKE below 50% (Bde${strike.id} at ${now} of ${start})`);
+    const m = state._aiMissions && state._aiMissions[side] && state._aiMissions[side][strike.id];
+    if(m === 'SHELTER' || m === 'PRESERVE' || m === 'WITHDRAW') out.push(`STRIKE Bde${strike.id} turned ${m}`);
+    if(state.turnNumber - book.assigned >= ownTurns(STRIKE_CONTACT_TURNS) && !strikeFoughtTarget(side, strike, book.assigned))
+      out.push(`STRIKE Bde${strike.id} has not fought its target in ${STRIKE_CONTACT_TURNS} turns`);
+    const fresh = computeArmyPlan(side), t0 = (book.plan.ranked || []).find(r => r.id === strike.target), t1 = fresh && fresh.ranked.find(r => r.id === strike.target);
+    // Only a target that has got HARDER is a reason to look again; one that got easier is the attack working.
+    if(t0 && t1 && t1.difficulty - t0.difficulty > 2.0) out.push(`target difficulty rose ${t0.difficulty.toFixed(1)} -> ${t1.difficulty.toFixed(1)}`);
+  }
+  // A Brigade that has held one mission for MISSION_REVIEW_TURNS of its turns.
+  const ms = (state._aiMissions && state._aiMissions[side]) || {};
+  book.missionSince = book.missionSince || {};
+  for(const [bId, m] of Object.entries(ms)){
+    const held = book.missionSince[bId];
+    if(!held || held.m !== m){ book.missionSince[bId] = { m, since: state.turnNumber }; continue; }
+    if(state.turnNumber - held.since >= ownTurns(MISSION_REVIEW_TURNS)){
+      out.push(`MISSION REVIEW Bde${bId}: ${m} held ${MISSION_REVIEW_TURNS} turns`);
+      held.since = state.turnNumber;   // reviewed: the next review is another ten turns on
+    }
+  }
+  return out;
+}
+
+function cavWonLastTurn(u){
+  const log = state.matchLog || [];
+  for(let i = log.length - 1; i >= 0; i--){
+    const ev = log[i];
+    if(ev.turn != null && ev.turn < state.turnNumber - 2) break;
+    if(ev.type === 'fight' && ev.attackerId === u.id && ev.aRoll > ev.dRoll) return true;
+  }
+  return false;
+}
+function footAdjacent(u, side, at){
+  return state.units.some(o => !o.removed && o.side !== side && (o.type === 'INFANTRY' || o.type === 'GUARD') && !o.turnOnly &&
+    Math.max(Math.abs(o.x - at.x), Math.abs(o.y - at.y)) === 1);
+}
+
 export function updateArmyPlan(side){
   if(!state._aiArmyPlan) state._aiArmyPlan = {};
   const sig = armyPlanSignature(side);
   const prev = state._aiArmyPlan[side];
   if(prev && prev.signature === sig){
-    const status = Object.entries(prev.plan.roles)
-      .map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
-    armyPlanLog(side, `ARMY PLAN status: ${status}`);
-    return prev.plan;
+    const triggers = reviewTriggers(side, prev);
+    const periodic = state.turnNumber - prev.reviewed >= ownTurns(ARMY_REVIEW_EVERY);
+    const strikeTriggers = triggers.filter(t => !t.startsWith('MISSION REVIEW'));
+    for(const t of triggers.filter(t => t.startsWith('MISSION REVIEW'))) armyPlanLog(side, `${t} (T${state.turnNumber}), rescored`);
+    if(!triggers.length && !periodic){
+      const status = Object.entries(prev.plan.roles)
+        .map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
+      armyPlanLog(side, `ARMY PLAN status: ${status}`);
+      return prev.plan;
+    }
+    prev.reviewed = state.turnNumber;
+    const fresh = computeArmyPlan(side);
+    const a = strikeOf(prev.plan), b = fresh && strikeOf(fresh);
+    const differs = !!(fresh && b && (!a || a.id !== b.id || a.target !== b.target));
+    /* Roles change only on a trigger, and never twice within ARMY_ROLE_MIN_TURNS.
+       (Letting a periodic review swap roles whenever the recomputed plan
+       differed cost wins against Alexander: 7 of 19 where the live build won
+       11 of 20. The plan's own ranking drifts turn to turn; a stalled STRIKE is
+       the reason to change, not the drift.) */
+    const allowed = ARMY_REVIEW_CHANGES && strikeTriggers.length > 0 && state.turnNumber - prev.changed >= ownTurns(ARMY_ROLE_MIN_TURNS);
+    const why = strikeTriggers.length ? `trigger=${strikeTriggers.join('; ')}` : triggers.length ? 'mission review' : 'periodic';
+    if(!differs || !allowed){
+      armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}, no change${differs && !allowed ? ' (held: last change under ' + ARMY_ROLE_MIN_TURNS + ' turns ago)' : ''}`);
+      return prev.plan;
+    }
+    const was = Object.entries(prev.plan.roles).map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
+    const now = Object.entries(fresh.roles).map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
+    const t = fresh.ranked.find(r => r.id === b.target);
+    armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}\n   result: ${was} -> ${now}\n   target: enemy Bde ${b.target}` +
+      (t ? ` (diff ${(t.difficulty - (t.approach || 0)).toFixed(1)} + approach ${(t.approach || 0).toFixed(1)} = ${t.difficulty.toFixed(1)})` : ''));
+    state._aiArmyPlan[side] = { signature: sig, plan: fresh, assigned: state.turnNumber, reviewed: state.turnNumber, changed: state.turnNumber,
+      start: Object.fromEntries(Object.keys(fresh.roles).map(id => [id, brigadeFighters(side, Number(id)).length])), missionSince: prev.missionSince };
+    return fresh;
   }
   const plan = computeArmyPlan(side);
   if(!plan) return null;
-  state._aiArmyPlan[side] = { signature: sig, plan };
+  state._aiArmyPlan[side] = { signature: sig, plan, assigned: state.turnNumber, reviewed: state.turnNumber, changed: state.turnNumber,
+    start: Object.fromEntries(Object.keys(plan.roles).map(id => [id, brigadeFighters(side, Number(id)).length])),
+    missionSince: prev && prev.missionSince };
   /* C1: ZERO-INDEXED, like Section 2 and the move log. The plan used to print
      Bde 1, 2, 3 for the same Brigades the rest of the export calls 0, 1, 2, so
      any cross-reference between the plan and a unit's moves was off by one. */
@@ -4772,6 +4902,14 @@ export function aiDecideAndExecuteMove(u){
          be formed there, and none of our own cavalry is already next to that
          horseman (then let our cavalry deal with it). */
       if((t.key === 'INFANTRY' || t.key === 'GUARD') && !c.stay && squareTrapAt(u, side, c)) s += addScore(parts, 'squareTrap', SQUARE_TRAP_BONUS);
+      /* CHARGE AND STEP BACK (17 Oct 2026, seed 2840069081): French cavalry
+         won a charge, stayed next to the infantry, and was hit the next turn
+         by a column with +2 (attack column, defender turned). A cavalry unit
+         whose attack won in its side's last turn, standing next to enemy
+         infantry that can attack it, scores a move to a square out of reach of
+         that infantry at CAV_STEP_BACK_BONUS. */
+      if(t.isCavalry && !c.stay && cavWonLastTurn(u) && footAdjacent(u, side, u) && !footAdjacent(u, side, c))
+        s += addScore(parts, 'cavStepBack', CAV_STEP_BACK_BONUS);
       // GUNS FIRST: a battery's march to its opening position.
       { const sv = gunSitingScore(u, side, c); if(sv) s += addScore(parts, 'gunSiting', sv); }
       /* ZEROED SQUARES (13 Oct 2026): ending on a square an enemy battery is
