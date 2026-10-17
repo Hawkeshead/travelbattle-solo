@@ -52,6 +52,7 @@
 ========================================================= */
 import { recOnlineMerged } from './telemetry/recorder.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, setBoardMode, state } from './data-core.js';
+import { NATIONS, nationKeyFor, nationsForSide } from './nations.js';
 import { setOnlineSession, setRemoteAsker, setRemoteDeployHandler, sharedArmiesEnabled } from './online-session.js';
 import { localTransport, supabaseTransport } from './online-group.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
@@ -76,8 +77,8 @@ export { sharedArmiesEnabled };
 
 /* ---------- modes and seats ---------- */
 export const MODES = {
-  coop: { label: 'Co-op against the AI', note: 'Two of you share Britain against the AI.', seats: ['red1', 'red2'], aiSide: SIDES.BLUE },
-  '2v1': { label: '2 against 1', note: 'Two of you share Britain against one player as France.', seats: ['red1', 'red2', 'blue1'], aiSide: null },
+  coop: { label: 'Co-op against the AI', note: 'Two of you share the Coalition army against the AI.', seats: ['red1', 'red2'], aiSide: SIDES.BLUE },
+  '2v1': { label: '2 against 1', note: 'Two of you share the Coalition army against one player as France.', seats: ['red1', 'red2', 'blue1'], aiSide: null },
   '2v2': { label: '2 against 2, shared', note: 'Two players to each army.', seats: ['red1', 'red2', 'blue1', 'blue2'], aiSide: null },
   /* For a new player: they command one Brigade and the AI their other two,
      against one player with a whole army. The host picks which army has the
@@ -90,7 +91,11 @@ const AI_SEAT = 'ai';
 const seatsFor = (mode, L) => mode.helper ? ['red1', 'blue1'] : mode.seats;
 const helpedSide = L => (L && L.helped) || SIDES.RED;
 const SEAT_SIDE = { red1: SIDES.RED, red2: SIDES.RED, blue1: SIDES.BLUE, blue2: SIDES.BLUE };
-const SEAT_LABEL = { red1: 'Britain · 1st commander', red2: 'Britain · 2nd commander', blue1: 'France · 1st commander', blue2: 'France · 2nd commander' };
+/* NATIONS (17 Oct 2026): the Coalition's nation (Britain or Prussia) is a
+   lobby setting (L.red), chosen by the host or by anyone in a Coalition seat;
+   the seat labels and colours follow it. France is always the Imperial side. */
+const lobbyNations = L => ({ red: nationKeyFor({ red: L && L.red }, SIDES.RED), blue: 'france' });
+const SEAT_LABEL = (k, L) => `${NATIONS[lobbyNations(L)[SEAT_SIDE[k]]].name} · ${k.endsWith('1') ? '1st' : '2nd'} commander`;
 const SIDE_SEATS = { red: ['red1', 'red2'], blue: ['blue1', 'blue2'] };
 /* Each partner's colour: the ring round their units on their teammate's
    screen, and their mark in the banner, the lobby and their pings. */
@@ -749,6 +754,7 @@ async function hostBegin(){
   send({ type: 'begin', shared: state.shared });
   closeLobby();
   state.scenario = null; state.campaign = null;
+  state.nations = lobbyNations(L);
   setLocal();
   state.aiDifficulty = L.ai || 'hard';
   const { beginBoardSetup } = await import('./ui-menus.js');
@@ -796,6 +802,7 @@ function onAsk(p){
 ========================================================= */
 function onMessage(p){
   if(p.type === 'lobby') refreshLobby();
+  else if(p.type === 'lobbyNation'){ if(!S() && match && match.created_by === me && NATIONS[p.red] && NATIONS[p.red].side === SIDES.RED) saveLobby({ red: p.red }); }
   else if(p.type === 'begin'){ if(!S()) state.shared = p.shared; closeLobby(); flash('The battle is being set up'); }
   else if(p.type === 'state') applyIncoming(p.battle, p.seq);
   else if(p.type === 'dice') onDice(p);
@@ -1146,8 +1153,8 @@ function waitingRoom(){
     const who = seats[k], mine = who === me, open = allowed.has(k);
     const label = !open ? (mode.aiSide === SEAT_SIDE[k] ? 'The AI' : mode.helper && SEAT_SIDE[k] === helpedSide(L) ? 'The AI partner' : 'Not in this mode') : who ? (mine ? 'You' : esc((match.names || {})[who] || 'A player')) : 'Empty: tap to sit';
     return `<button data-seat="${k}" ${open ? '' : 'disabled'} style="font:inherit;text-align:left;min-height:50px;padding:5px 9px;border-radius:5px;cursor:${open ? 'pointer' : 'default'};
-      border:${mine ? '3px solid #b8963f' : '1px solid #9a8b6c'};background:${SEAT_SIDE[k] === 'red' ? '#a3403a' : '#2e4566'};color:#fbf6ea;opacity:${open ? 1 : .45}">
-      <div style="font-size:13px;opacity:.9"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${SEAT_COLOR[k]};margin-right:4px"></span>${SEAT_LABEL[k]}</div>
+      border:${mine ? '3px solid #b8963f' : '1px solid #9a8b6c'};background:${NATIONS[lobbyNations(L)[SEAT_SIDE[k]]].colours.main};color:#fbf6ea;opacity:${open ? 1 : .45}">
+      <div style="font-size:13px;opacity:.9"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${SEAT_COLOR[k]};margin-right:4px"></span>${SEAT_LABEL(k, L)}</div>
       <div style="font-size:16px">${label}</div></button>`;
   };
   const seated = {};
@@ -1158,7 +1165,7 @@ function waitingRoom(){
     const [a, b] = SIDE_SEATS[side];
     if(helped ? side !== helped : !(seated[a] && seated[b])) return '';
     const who = seat => seat === AI_SEAT ? 'AI' : seat ? esc(seated[seat] === me ? 'You' : ((match.names || {})[seated[seat]] || 'A player')) : '?';
-    return `<div style="margin:6px 0 0;font-size:14px"><b>${SIDE_LABEL[side]}</b>: ${[0, 1, 2].map(i => {
+    return `<div style="margin:6px 0 0;font-size:14px"><b>${NATIONS[lobbyNations(L)[side]].name}</b>: ${[0, 1, 2].map(i => {
       const seat = deal[`${side}:${i}`];
       return `<button data-swap="${side}:${i}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:2px 3px;padding:3px 8px;border-radius:12px;
         border:2px solid ${SEAT_COLOR[seat] || '#999'};background:#f6efd9;color:#2a1e14;cursor:${host ? 'pointer' : 'default'}">${BRIGADE_NAME[i]} Brigade: ${who(seat)}</button>`;
@@ -1168,6 +1175,8 @@ function waitingRoom(){
   const blueOk = mode.aiSide === SIDES.BLUE || mode.seats.filter(k => SEAT_SIDE[k] === 'blue').some(k => seats[k]);
   const hostSeated = mode.seats.some(k => seats[k] === me) || !host;
   const canStart = redOk && blueOk && hostSeated;
+  // The Coalition's nation: the host, or a player in a Coalition seat (who asks the host's phone to save it).
+  const canNation = host || SIDE_SEATS.red.some(k => seats[k] === me);
   const el = shell(`
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <div style="font-family:'Petit Formal Script',cursive;font-size:24px">Game ${esc(match.code)}</div>
@@ -1177,12 +1186,15 @@ function waitingRoom(){
       `<button data-mode="${k}" ${host ? '' : 'disabled'} style="font:inherit;font-size:14px;padding:5px 10px;border-radius:14px;cursor:${host ? 'pointer' : 'default'};
         border:2px solid ${k === L.mode ? '#5b6b3a' : '#b9ab8c'};background:${k === L.mode ? '#5b6b3a' : '#f6efd9'};color:${k === L.mode ? '#fbf6ea' : '#2a1e14'}">${md.label}</button>`).join('')}</div>
     <p style="margin:0 0 6px;font-size:13px;font-style:italic">${mode.note} Tap a seat to sit; tap it again to stand up.</p>
+    <div style="margin:0 0 6px;font-size:14px">The Coalition: ${nationsForSide(SIDES.RED).map(n =>
+      `<button data-nation="${n.key}" ${canNation ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:0 3px;padding:3px 9px;border-radius:12px;border:2px solid ${lobbyNations(L).red === n.key ? '#c8a24e' : '#b9ab8c'};
+        background:${lobbyNations(L).red === n.key ? n.colours.main : '#f6efd9'};color:${lobbyNations(L).red === n.key ? '#fbf6ea' : '#2a1e14'};cursor:${canNation ? 'pointer' : 'default'}">${n.name}</button>`).join('')} against France</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${['red1', 'blue1', 'red2', 'blue2'].map(seatBtn).join('')}</div>
     ${dealRow(SIDES.RED)}${mode.aiSide ? '' : dealRow(SIDES.BLUE)}
     ${host && (seated.red1 && seated.red2 || seated.blue1 && seated.blue2) ? '<p style="margin:2px 0 0;font-size:12px">Tap a Brigade to give it to the other partner.</p>' : ''}
     ${mode.helper ? `<div style="margin:8px 0 0;font-size:14px">The AI helps: ${[SIDES.RED, SIDES.BLUE].map(sd =>
       `<button data-helped="${sd}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:0 3px;padding:3px 9px;border-radius:12px;border:2px solid ${helped === sd ? '#5b6b3a' : '#b9ab8c'};
-        background:${helped === sd ? '#5b6b3a' : '#f6efd9'};color:${helped === sd ? '#fbf6ea' : '#2a1e14'};cursor:${host ? 'pointer' : 'default'}">${SIDE_LABEL[sd]}</button>`).join('')}</div>
+        background:${helped === sd ? '#5b6b3a' : '#f6efd9'};color:${helped === sd ? '#fbf6ea' : '#2a1e14'};cursor:${host ? 'pointer' : 'default'}">${NATIONS[lobbyNations(L)[sd]].name}</button>`).join('')}</div>
       ${host ? '<p style="margin:2px 0 0;font-size:12px">The new player sits at the army the AI helps. Tap a Brigade to give it to them or to the AI.</p>' : ''}` : ''}
     ${mode.aiSide || mode.helper ? `<div style="margin:8px 0 0;font-size:14px">The AI: ${AI_LEVELS.map(([v, lab]) =>
       `<button data-ai="${v}" ${host ? '' : 'disabled'} style="font:inherit;font-size:13px;margin:0 3px;padding:3px 9px;border-radius:12px;border:2px solid ${L.ai === v ? '#5b6b3a' : '#b9ab8c'};
@@ -1200,6 +1212,10 @@ function waitingRoom(){
     const k = b.dataset.seat;
     try { match = await T.seat(match.id, seats[k] === me ? null : k); send({ type: 'lobby' }); waitingRoom(); }
     catch(e){ el.querySelector('#osWho').textContent = friendly(e); refreshLobby(); }
+  });
+  el.querySelectorAll('[data-nation]').forEach(b => b.onclick = () => {
+    if(!canNation) return;
+    if(host) saveLobby({ red: b.dataset.nation }); else send({ type: 'lobbyNation', red: b.dataset.nation });
   });
   if(host){
     el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => saveLobby({ mode: b.dataset.mode }));

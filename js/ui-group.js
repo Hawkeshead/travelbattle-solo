@@ -21,7 +21,7 @@ export function showGroupMenu(){
   document.getElementById('overlayTitle').textContent = 'Online Group';
   document.getElementById('overlaySubtitle').style.display = 'none';
   document.getElementById('overlayText').innerHTML =
-    'Two against two on the four-board map. Britain and her second army hold the south and east edges, France and hers the north and west. ' +
+    'Two against two on the four-board map. Britain and Prussia hold the south and east edges, France and hers the north and west. ' +
     'One army moves at a time, alternating sides. An army is broken when two of its three Brigades are; a side loses when both its armies are broken. ' +
     'With three players, one commands both armies of a side.';
   document.getElementById('overlayBtn').style.display = 'none';

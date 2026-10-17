@@ -87,7 +87,7 @@ function summary(){
   const me = state.aiSide === 'red' ? 'blue' : 'red';
   return {
     round: Math.max(1, Math.ceil((state.turnNumber || 1) / 2)), turnNumber: state.turnNumber || 1,
-    playerSide: me, operation: state.scenario && state.scenario.kind === 'operation' ? state.scenario.name : null,
+    playerSide: me, nations: state.nations, operation: state.scenario && state.scenario.kind === 'operation' ? state.scenario.name : null,
     alive: { red: state.units.filter(u => u.side === 'red' && !u.removed && u.type !== 'BRIGADIER').length,
       blue: state.units.filter(u => u.side === 'blue' && !u.removed && u.type !== 'BRIGADIER').length },
   };

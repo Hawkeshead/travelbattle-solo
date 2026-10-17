@@ -369,8 +369,20 @@ export function nationOf(sideOrUnit){
 }
 /* A nation's names and histories, from data/unit-archive.json. */
 export const archiveOf = nationKey => UNIT_ARCHIVE[nationKey] || {};
-export const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
-export const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
+/* Each side's UI colour is its nation's (js/nations.js), read live like
+   SIDE_LABEL: Britain's red and France's blue as before, Prussia's black. A
+   single unit's colour is its own nation's (unitColor), which in the four-army
+   mode can differ from its side's. */
+export const SIDE_COLOR = {
+  get red(){ return nationFor(state.nations, 'red').colours.main; },
+  get blue(){ return nationFor(state.nations, 'blue').colours.main; },
+};
+export const SIDE_COLOR_DIM = {
+  get red(){ return nationFor(state.nations, 'red').colours.dim; },
+  get blue(){ return nationFor(state.nations, 'blue').colours.dim; },
+};
+export const unitColor = u => NATIONS[nationOf(u)].colours.main;
+export const unitNationName = u => NATIONS[nationOf(u)].name;
 
 export const UNIT_TYPES = TB_DATA.unitTypes.unitTypes;
 

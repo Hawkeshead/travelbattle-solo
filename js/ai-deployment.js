@@ -497,7 +497,7 @@ export function deployGroupArmy(army, compositionId){
     for(const e of entries){
       const cell = chooseGroupDeployCell(army, e.type, i, e.forceBack, rng);
       if(!cell) continue;
-      const u = newUnit(army.side, e.type, cell.x, cell.y, army.brigadeOffset + i);
+      const u = newUnit(army.side, e.type, cell.x, cell.y, army.brigadeOffset + i, army.nation);
       u.army = army.id;
       state.units.push(u);
     }

@@ -23,11 +23,17 @@ import { COLS, ROWS, SIDES, state } from './data-core.js';
    which of that team's armies it is.
 ========================================================= */
 
+/* NATIONS (17 Oct 2026): the Coalition's two armies are one British and one
+   Prussian (at most one army per Coalition nation), so the second Coalition
+   army is Prussia in its own colours and art, and no longer needs the green
+   recolour (skin 2) that told two British armies apart. France still fields
+   two armies, the second recoloured violet. Each army's units carry its
+   nation (u.nation), so names, art and dice follow the army, not the team. */
 export const GROUP_ARMIES = [
-  { id:'red1',  side:SIDES.RED,  edge:'S', label:'Britain',          short:'Britain I',  color:'#a3403a', skin:1, brigadeOffset:0 },
-  { id:'red2',  side:SIDES.RED,  edge:'E', label:'Britain (2nd Army)', short:'Britain II', color:'#3f6b3a', skin:2, brigadeOffset:3 },
-  { id:'blue1', side:SIDES.BLUE, edge:'N', label:'France',           short:'France I',   color:'#2e4566', skin:1, brigadeOffset:0 },
-  { id:'blue2', side:SIDES.BLUE, edge:'W', label:'France (2nd Army)',  short:'France II',  color:'#6a4a8c', skin:2, brigadeOffset:3 },
+  { id:'red1',  side:SIDES.RED,  edge:'S', nation:'britain', label:'Britain',          short:'Britain',    color:'#a3403a', skin:1, brigadeOffset:0 },
+  { id:'red2',  side:SIDES.RED,  edge:'E', nation:'prussia', label:'Prussia',          short:'Prussia',    color:'#2b2b2e', skin:1, brigadeOffset:3 },
+  { id:'blue1', side:SIDES.BLUE, edge:'N', nation:'france',  label:'France',           short:'France I',   color:'#2e4566', skin:1, brigadeOffset:0 },
+  { id:'blue2', side:SIDES.BLUE, edge:'W', nation:'france',  label:'France (2nd Army)',  short:'France II',  color:'#6a4a8c', skin:2, brigadeOffset:3 },
 ];
 export const TEAM_LABEL = { red:'the Coalition', blue:'France and her ally' };
 

@@ -1,5 +1,6 @@
 import { offerBeginBattle } from './ui-deployment.js';
-import { DEFAULT_NATIONS } from './nations.js';
+import { DEFAULT_NATIONS, NATIONS, nationFor, nationKeyFor, nationsForSide } from './nations.js';
+import { NATION_FLAG } from './nation-flags.js';
 import { gateBattle } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
@@ -169,7 +170,7 @@ const LAST_SETUP_KEY = 'fc:lastSetup';
 function saveLastSetup(){
   try {
     localStorage.setItem(LAST_SETUP_KEY, JSON.stringify({
-      aiSide: state.aiSide, difficulty: state.aiDifficulty,
+      aiSide: state.aiSide, difficulty: state.aiDifficulty, nations: state.nations,
     }));
   } catch { /* private mode — the seal simply will not appear next time */ }
 }
@@ -303,7 +304,7 @@ export function showModeSelect(isSplash){
   loadSave().then(save => {
     if(!save || document.documentElement.classList.contains('title-hidden') || extra.querySelector('.resume-battle')) return;
     const sm = save.summary || {};
-    const you = sm.playerSide === SIDES.BLUE ? 'France' : 'Britain';
+    const you = nationFor(sm.nations, sm.playerSide === SIDES.BLUE ? SIDES.BLUE : SIDES.RED).name;
     const mins = Math.max(0, Math.round((Date.now() - save.savedAt) / 60000));
     const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} d ago`;
     // The first object in the row: the pocket watch. Its line under the label
@@ -335,7 +336,8 @@ export function showModeSelect(isSplash){
   // a first run when there is nothing to repeat.
   const last = loadLastSetup();
   if(last){
-    const side = last.aiSide === SIDES.BLUE ? 'Britain' : 'France';
+    // The player's nation (a setup saved before nations existed reads as Britain against France).
+    const side = nationFor(last.nations, last.aiSide === SIDES.BLUE ? SIDES.RED : SIDES.BLUE).name;
     const again = document.createElement('button');
     again.textContent = 'Same Again \u00B7 ' + side;
     menuItem(again, 'again');
@@ -343,6 +345,7 @@ export function showModeSelect(isSplash){
       state.scenario = null; state.campaign = null;
       state.mode = 'ai';
       state.aiSide = last.aiSide;
+      state.nations = { red: nationKeyFor(last.nations, SIDES.RED), blue: nationKeyFor(last.nations, SIDES.BLUE) };
       state.aiDifficulty = 'hard';      // one AI level for now (see showSideSelect)
       extra.style.display = 'none';
       document.getElementById('overlay').classList.remove('show');
@@ -662,8 +665,8 @@ export function clearFolio(){
    enough to become the top of a ladder of easier levels. The old rank
    screen (showDifficultySelect) is kept below for that day, but is no longer
    reached. */
-const FLAG_BRITAIN = '<svg viewBox="0 0 60 30" preserveAspectRatio="none" aria-hidden="true"><clipPath id="ujc"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="ujt"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#ujc)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#ujt)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>';
-const FLAG_FRANCE = '<svg viewBox="0 0 3 2" preserveAspectRatio="none" aria-hidden="true"><rect width="1" height="2" x="0" fill="#002395"/><rect width="1" height="2" x="1" fill="#fff"/><rect width="1" height="2" x="2" fill="#ED2939"/></svg>';
+const FLAG_BRITAIN = NATION_FLAG.britain;
+const FLAG_FRANCE = NATION_FLAG.france;
 export function showSideSelect(){
   clearFolio();
   const box = document.querySelector('#overlay .box');
@@ -676,32 +679,47 @@ export function showSideSelect(){
   extra.innerHTML = '';
   extra.className = 'as-sides';
   extra.style.display = 'flex';
-  /* Each side is just its flag (Matthew, 1 Oct): the Union Flag and the
-     tricolour, drawn as SVG so they stay crisp at any size. The name is there
-     for screen readers. */
-  const side = (flagSvg, name, aiSide) => {
+  /* Each side is just its flag (Matthew, 1 Oct). The name is there for
+     screen readers. NATIONS (17 Oct 2026): the Coalition can be Britain or
+     Prussia. Taking a Coalition flag gives the AI France; taking France asks
+     which Coalition nation the AI commands, on a second row of flags. */
+  const go = (nations, aiSide) => {
+    state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
+    state.nations = nations;
+    saveLastSetup();
+    extra.style.display = 'none';
+    document.getElementById('overlay').classList.remove('show');
+    if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
+    beginBoardSetup();
+  };
+  const flag = (key, onPick) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'side-flag';
-    b.setAttribute('aria-label', name);
-    b.innerHTML = flagSvg;
-    b.onclick = ()=>{
-      state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
-      saveLastSetup();
-      extra.style.display = 'none';
-      document.getElementById('overlay').classList.remove('show');
-      if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
-      beginBoardSetup();
-    };
+    b.dataset.nation = key;
+    b.setAttribute('aria-label', NATIONS[key].name);
+    b.innerHTML = NATION_FLAG[key];
+    b.onclick = onPick;
     return b;
   };
-  extra.appendChild(side(FLAG_BRITAIN, 'Britain', SIDES.BLUE));
-  extra.appendChild(side(FLAG_FRANCE, 'France', SIDES.RED));
-  // Back to the title screen (the menu is no longer a panel to fall back to).
   const back = document.createElement('button');
   back.type = 'button'; back.className = 'op-back'; back.textContent = 'Back';
-  back.onclick = ()=> showModeSelect();
-  extra.appendChild(back);
+  const showSides = () => {
+    extra.innerHTML = '';
+    for(const n of nationsForSide(SIDES.RED)) extra.appendChild(flag(n.key, () => go({ red: n.key, blue: 'france' }, SIDES.BLUE)));
+    extra.appendChild(flag('france', showOpponents));
+    // Back to the title screen (the menu is no longer a panel to fall back to).
+    back.onclick = ()=> showModeSelect();
+    extra.appendChild(back);
+  };
+  const showOpponents = () => {
+    document.getElementById('overlayTitle').textContent = 'Choose Your Opponent';
+    extra.innerHTML = '';
+    for(const n of nationsForSide(SIDES.RED)) extra.appendChild(flag(n.key, () => go({ red: n.key, blue: 'france' }, SIDES.RED)));
+    back.onclick = ()=>{ document.getElementById('overlayTitle').textContent = 'Choose Your Side'; showSides(); };
+    extra.appendChild(back);
+  };
+  showSides();
 }
 
 // Difficulty is presented as the opponent's rank on a service record. Chevrons
@@ -944,8 +962,8 @@ function orientationGroups(redRoll, blueRoll){
   const half = COLS / 2, row = (ROWS - 1) / 2;
   const redX = half / 2 - 0.5;   // Britain's board is the left half (buildTerrainMap: red at column 0)
   return [
-    { label:'Britain', side:SIDES.RED, rolls:[redRoll], keptValue:redRoll, at:{ x: redX, y: row }, noFrame:true },
-    { label:'France', side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll, at:{ x: half + half / 2 - 0.5, y: row }, noFrame:true },
+    { label:SIDE_LABEL[SIDES.RED], side:SIDES.RED, rolls:[redRoll], keptValue:redRoll, at:{ x: redX, y: row }, noFrame:true },
+    { label:SIDE_LABEL[SIDES.BLUE], side:SIDES.BLUE, rolls:[blueRoll], keptValue:blueRoll, at:{ x: half + half / 2 - 0.5, y: row }, noFrame:true },
   ];
 }
 function rollOrientationOrder(){
@@ -1269,7 +1287,14 @@ function renderArmyPickerCard(){
   const army = TB_DATA.armyCompositions[index];
   document.getElementById('armyPickerIndex').textContent = index+1;
   const forEl = document.getElementById('armyPickerFor');
-  if(forEl) forEl.textContent = pickerGroupArmy ? pickerGroupArmy.label + ' \u00b7 ' : '';
+  // Whose army this is: the nation (or the four-army mode's army), in its colour.
+  const nation = NATIONS[pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side)];
+  if(forEl){
+    forEl.textContent = (pickerGroupArmy ? pickerGroupArmy.label : nation.name) + ' \u00b7 ';
+    forEl.style.color = nation.colours.main;
+  }
+  const panel = document.getElementById('armyPickerPanel');
+  if(panel) panel.style.setProperty('--nation', nation.colours.main);
   document.getElementById('armyPickerName').textContent = army.name;
   document.getElementById('armyPickerSummary').textContent = army.summary;
   const cardsEl = document.getElementById('armyPickerBrigadeCards');
@@ -1294,7 +1319,7 @@ function drawArmyPreview(side, army){
   if(!out || !state.terrain) return;
   const ghosts = pickerGroupArmy ? planGroupArmy(pickerGroupArmy, army.id) : planArmyDeployment(side, army.id);
   for(const g of ghosts){
-    const list = archiveOf(nationOf(side))[g.type] || [];
+    const list = archiveOf(pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side))[g.type] || [];
     g.historicalName = list.length ? list[0].name : null;
   }
   const off = document.createElement('canvas');

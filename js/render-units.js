@@ -1,5 +1,5 @@
 import { sharedImage } from './image-store.js';
-import { CELL, SIDES, SIDE_COLOR, TERRAIN_STYLE, UNIT_TYPES, state } from './data-core.js';
+import { CELL, SIDES, TERRAIN_STYLE, UNIT_TYPES, state, unitColor } from './data-core.js';
 import { clashOffset, figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
@@ -189,7 +189,7 @@ export function unitPortraitHTML(u){
   }
   const glyph = (t.key==='HEAVY_CAV'||t.key==='LIGHT_CAV') ? '\u25B2\u25B2\u25B2'
     : (t.key==='BRIGADIER' ? '\u2605' : '\u25CF\u25CF\u25CF\u25CF\u25CF');
-  return `<span class="portrait-glyph" style="color:${SIDE_COLOR[u.side]};">${glyph}</span>`;
+  return `<span class="portrait-glyph" style="color:${unitColor(u)};">${glyph}</span>`;
 }
 
 
@@ -549,7 +549,7 @@ function drawUnitInner(u, off){
   if(co){ cx += co.x*CELL; cy += co.y*CELL; }
   const t = UNIT_TYPES[u.type];
   const isSel = state.selectedUnitId===u.id;
-  const col = (state.group && armyOf(u)) ? armyOf(u).color : SIDE_COLOR[u.side];
+  const col = (state.group && armyOf(u)) ? armyOf(u).color : unitColor(u);
   const size = CELL*0.62*off.scale; // common scale basis for the new marker drawing functions
   const r = CELL*0.30*off.scale;    // legacy radius, still used by the Brigadier star fallback
 

@@ -2,7 +2,7 @@
    ONLINE GROUP: 2v2 with a phone each.
 
    Up to four players join with a code and sit down at an army in the lobby:
-   Britain I (south), Britain II (east), France I (north), France II (west).
+   Britain (south), Prussia (east), France I (north), France II (west).
    Seats can be swapped freely until the host starts. An army with nobody in
    its seat is commanded by its teammate, so three players works (and two,
    one a side). A member without a seat watches.
@@ -45,7 +45,7 @@ const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiD
 const skipKey = k => k === 'matchLog' || k === 'replayStartUnits' || k.startsWith('_ai') || LOCAL_ONLY.has(k);
 const pack = () => JSON.stringify(state, (k, v) => (k && skipKey(k)) ? undefined : (v instanceof Set ? { __isSet: true, items: [...v] } : v));
 const unpack = s => JSON.parse(s, (k, v) => (v && v.__isSet) ? new Set(v.items) : v);
-const SEAT_LABEL = { red1:'Britain I \u00b7 south', red2:'Britain II \u00b7 east', blue1:'France I \u00b7 north', blue2:'France II \u00b7 west' };
+const SEAT_LABEL = { red1:'Britain \u00b7 south', red2:'Prussia \u00b7 east', blue1:'France I \u00b7 north', blue2:'France II \u00b7 west' };
 const TEAMMATE = { red1:'red2', red2:'red1', blue1:'blue2', blue2:'blue1' };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 

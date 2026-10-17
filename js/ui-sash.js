@@ -22,7 +22,7 @@
    pan, so the lettering stays one size at any zoom, and following the unit's
    DRAWN position so it rides along while the unit walks.
 ========================================================= */
-import { COLS, ROWS, SIDE_COLOR, UNIT_TYPES, state } from './data-core.js';
+import { COLS, ROWS, UNIT_TYPES, state, unitColor } from './data-core.js';
 import { canvas, getUnitVisualPos, toScreen } from './render-board.js';
 
 /* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
@@ -72,7 +72,7 @@ function paint(force){
   const key = [u.id, opensLeft, ...orders.map(o => o.label)].join('|');
   if(force || key !== lastKey){
     lastKey = key;
-    root.style.setProperty('--side', SIDE_COLOR[u.side]);
+    root.style.setProperty('--side', unitColor(u));
     root.classList.toggle('left', opensLeft);
     root.querySelector('.sash-name').textContent = u.historicalName || UNIT_TYPES[u.type].label;
     const n = orders.length;

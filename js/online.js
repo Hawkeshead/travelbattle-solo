@@ -28,6 +28,7 @@
 import { recOnlineMerged, recPresence } from './telemetry/recorder.js';
 import { BUILD } from './build-info.js';
 import { state, SIDES, SIDE_LABEL } from './data-core.js';
+import { NATIONS, nationsForSide } from './nations.js';
 import { setOnlineSession, onlineSession, setRemoteDeployHandler, setRemoteAsker } from './online-session.js';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './online-config.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits, draw, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas } from './render-board.js';
@@ -516,6 +517,9 @@ function onDeployRequest(p){
 }
 
 function onMessage(p){
+  /* NATIONS: the Coalition seat chooses Britain or Prussia, so whoever holds
+     it tells the other phone each time that phone says hello. */
+  if(p.type === 'hello' && !setupStarted && onlineSession() && onlineSession().mySide === SIDES.RED) T.send({ type: 'nation', red: state.nations.red });
   if(p.type === 'state'){ mergeLog(p.logStart, p.log); applyBattle(p.battle, p.seq); }
   else if(p.type === 'askClose') closeAsk(p.id);
   else if(p.type === 'setup'){ if(!onlineSession().isHost){ adopt(unpack(p.battle)); lastShared = pack(); if(!setupShown) enterSetupView(); } }
@@ -525,6 +529,7 @@ function onMessage(p){
   else if(p.type === 'deployRequest') onDeployRequest(p);
   else if(p.type === 'record') onRecord(p);
   else if(p.type === 'armyChosen') onArmyChosen(p);
+  else if(p.type === 'nation'){ if(!setupStarted && NATIONS[p.red] && NATIONS[p.red].side === SIDES.RED){ state.nations = { ...state.nations, red: p.red }; updateLobby(); } }
   else if(p.type === 'hello' && setupStarted && !BATTLE_PHASES.has(state.phase) && !pendingDeploy){
     T.send({ type: 'setup', battle: pack() });
   }
@@ -626,8 +631,8 @@ export function openLobby({ joinCode } = {}){
     <label style="display:block;margin:4px 0">Your name</label>
     <input id="olName" value="${esc(name)}" maxlength="40" style="font:inherit;width:100%;padding:8px;border:1px solid #9a8b6c;border-radius:4px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      ${btn('New game as Britain', 'data-side="red"', '#a3403a')}
-      ${btn('New game as France', 'data-side="blue"', '#2e4566')}
+      ${nationsForSide(SIDES.RED).concat(nationsForSide(SIDES.BLUE)).map(n =>
+        btn(`New game as ${n.name}`, `data-side="${n.side}" data-nation="${n.key}"`, n.colours.main)).join('\n      ')}
     </div>
     <label style="display:block;margin:14px 0 4px">Or join with a code</label>
     <div style="display:flex;gap:8px"><input id="olCode" maxlength="6" value="${esc(joinCode || '')}"
@@ -643,6 +648,8 @@ export function openLobby({ joinCode } = {}){
   el.querySelector('#olClose').onclick = () => { closeLobby(); history.replaceState(null, '', location.pathname); };
   el.querySelectorAll('[data-side]').forEach(b => b.onclick = async () => {
     const n = getName(); if(!n) return;
+    // A Coalition host's nation is set before the match opens (state.nations goes across with the battle).
+    state.nations = { red: b.dataset.side === SIDES.RED ? b.dataset.nation : 'britain', blue: 'france' };
     try { status('Connecting...'); await start(await (await transport()).create(b.dataset.side, n), n, true); }
     catch(e){ status(friendly(e), true); }
   });
@@ -721,7 +728,9 @@ function waitingRoom(){
   const el = lobbyShell(`
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(s.code)}</div>
     <p style="margin:2px 0 6px;font-size:14px">Your opponent enters this code under <b>Online</b> (2 players), or taps your invite.</p>
-    <p style="margin:6px 0">You are <b>${SIDE_LABEL[s.mySide]}</b>.</p>
+    <p id="olYou" style="margin:6px 0"></p>
+    ${s.mySide === SIDES.RED && !s.isHost ? `<div id="olNation" style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 8px">${
+      nationsForSide(SIDES.RED).map(n => btn(`Play as ${n.name}`, `data-nation="${n.key}"`, n.colours.main)).join('')}</div>` : ''}
     <p id="olWho" style="margin:6px 0;font-style:italic"></p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       ${btn('Send invite link', 'id="olShare"')}
@@ -735,6 +744,11 @@ function waitingRoom(){
     if(navigator.share){ try { await navigator.share({ title: 'Field Command', text, url }); return; } catch {} }
     try { await navigator.clipboard.writeText(`${text} ${url}`); el.querySelector('#olWho').textContent = 'Invite copied.'; } catch {}
   };
+  el.querySelectorAll('#olNation [data-nation]').forEach(b => b.onclick = () => {
+    state.nations = { ...state.nations, red: b.dataset.nation };
+    T.send({ type: 'nation', red: b.dataset.nation });
+    updateLobby();
+  });
   const startBtn = el.querySelector('#olStart');
   if(startBtn) startBtn.onclick = async () => {
     closeLobby();
@@ -756,7 +770,10 @@ function updateLobby(){
   const s = onlineSession(); if(!s || !lobbyEl) return;
   const who = lobbyEl.querySelector('#olWho'); if(!who) return;
   const them = present.find(p => p && p.side === s.remoteSide);
-  who.textContent = them ? `${them.name} is here.` : 'Waiting for your opponent to join...';
+  who.textContent = them ? `${them.name} is here, playing ${SIDE_LABEL[s.remoteSide]}.` : 'Waiting for your opponent to join...';
+  const you = lobbyEl.querySelector('#olYou');
+  if(you) you.innerHTML = `You are <b>${SIDE_LABEL[s.mySide]}</b>.`;
+  lobbyEl.querySelectorAll('#olNation [data-nation]').forEach(b => { b.style.outline = b.dataset.nation === state.nations.red ? '3px solid #c8a24e' : 'none'; });
 }
 
 /* ---------------------------------------------------------

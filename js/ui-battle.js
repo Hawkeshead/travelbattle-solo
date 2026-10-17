@@ -12,7 +12,7 @@ import * as AI_MODULE from './ai-strategy.js';
 import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
-import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state, unitColor, unitNationName } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
 import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
@@ -1083,7 +1083,7 @@ export function renderUnitInfo(u){
   if(!u){ el.innerHTML='<span class="empty">No unit selected</span>'; sqBtn.disabled=true; ambBtn.style.display='none'; if(overlay) overlay.classList.remove('show'); return; }
   if(overlay && state.phase!=='deploy') overlay.classList.add('show');
   const panelEl = document.getElementById('unitOverlayPanel');
-  if(panelEl) panelEl.style.setProperty('--side', SIDE_COLOR[u.side]);   // frames the portrait in the side's colour
+  if(panelEl) panelEl.style.setProperty('--side', unitColor(u));   // frames the portrait in the unit's nation's colour
   if(panelEl){
     const inLeftHalf = u.x < COLS/2;
     panelEl.classList.toggle('anchor-right', inLeftHalf);  // unit on the left -> panel on the right
@@ -1098,9 +1098,9 @@ export function renderUnitInfo(u){
   const ground = { OPEN:'Open ground', FIELD:'Fields', PLOUGHED_FIELD:'Ploughed field', ROAD:'Road',
                    WOODS:'Woods', BUILDING:'Buildings', HILL:'Hill' }[terr.key] || String(terr.key);
   // Shared armies: the Brigade's commander ("Anna's Brigade", "Your Brigade").
-  const sub = [u.historicalName ? t.label : null, SIDE_LABEL[u.side], commanderNote(u)].filter(Boolean).join(' · ');
+  const sub = [u.historicalName ? t.label : null, unitNationName(u), commanderNote(u)].filter(Boolean).join(' · ');
   el.innerHTML = `
-    <div class="u-name" style="color:${SIDE_COLOR[u.side]}">${heading}</div>
+    <div class="u-name" style="color:${unitColor(u)}">${heading}</div>
     <div class="u-sub">${sub}</div>
     <div class="u-tags">
       <span class="tag">Move ${t.move}</span>
@@ -1115,7 +1115,7 @@ export function renderUnitInfo(u){
   `;
   const portraitEl = document.getElementById('unitPortrait');
   if(portraitEl){
-    portraitEl.style.background = `linear-gradient(160deg, ${SIDE_COLOR[u.side]}22, var(--paper-2))`;
+    portraitEl.style.background = `linear-gradient(160deg, ${unitColor(u)}22, var(--paper-2))`;
     if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
       portraitEl.innerHTML = `<img class="u-art" alt="" src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}">`;
     } else if(t.isArtillery){
@@ -1124,7 +1124,7 @@ export function renderUnitInfo(u){
       portraitEl.innerHTML = `<img class="u-art" alt="" src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}">`;
     } else {
       const glyph = (t.key==='HEAVY_CAV'||t.key==='LIGHT_CAV') ? '\u25B2\u25B2\u25B2' : (t.key==='BRIGADIER' ? '\u2605' : '\u25CF\u25CF\u25CF\u25CF\u25CF');
-      portraitEl.innerHTML = `<span style="font-size:26px;letter-spacing:2px;color:${SIDE_COLOR[u.side]};">${glyph}</span>`;
+      portraitEl.innerHTML = `<span style="font-size:26px;letter-spacing:2px;color:${unitColor(u)};">${glyph}</span>`;
     }
   }
   /* Hidden outright for anything that can never form Square, rather than shown
