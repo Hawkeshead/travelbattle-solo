@@ -52,6 +52,9 @@ export const NATIONS = {
   poland:   { key: 'poland', name: 'Poland', adjective: 'Polish', team: 'imperial', side: 'blue', maxArmies: 1,
              colours: { main: '#a3203a', dim: '#5e1222', accent: '#f2f2ee' }, art: null,
              cockade: ['#f2f2ee', '#a3203a', '#f2f2ee'] },
+  italy:    { key: 'italy', name: 'Italy & Naples', adjective: 'Italian', team: 'imperial', side: 'blue', maxArmies: 1,
+             colours: { main: '#2e6b3a', dim: '#1b4123', accent: '#c8191e' }, art: null,
+             cockade: ['#2e6b3a', '#f6f3ea', '#c8191e'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };

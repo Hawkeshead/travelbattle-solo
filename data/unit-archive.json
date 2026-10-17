@@ -736,5 +736,87 @@
         "bio": "The Polish horse artillery rode with the Duchy's lancers, every gunner mounted so the guns could keep pace with the cavalry. At Borodino two Polish horse batteries supported the three regiments of Polish uhlans in the 4th Light Cavalry Division of Latour-Maubourg's corps. They served on with the cavalry through the retreat and the campaign of 1813. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "italy": {
+    "BRIGADIER": [
+      {
+        "name": "Eug\u00e8ne de Beauharnais",
+        "bio": "Eug\u00e8ne de Beauharnais, Napoleon's stepson, ruled the Kingdom of Italy as Viceroy and commanded its army through the wars of 1809 to 1814. In Russia he led the IV Corps, largely Italian, and at Maloyaroslavets in October 1812 threw in his Italian division to win a town that changed hands eight times in a day. When Murat abandoned the shattered Grande Arm\u00e9e on the retreat, it was Eug\u00e8ne who took command of what was left of it. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Pino",
+        "bio": "Domenico Pino of Milan was Minister of War of the Kingdom of Italy and its best-known fighting general. He led Italian divisions in Prussia in 1807 and in Spain from 1808 to 1810, and in 1812 commanded the 15th (Italian) Division of Eug\u00e8ne's IV Corps. At Maloyaroslavets his division, in action for the first time that campaign, was thrown into the burning town to drive the Russians out; his brother Giacomo was killed in the fighting. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Guglielmo Pepe",
+        "bio": "Guglielmo Pepe was a Calabrian officer who served the French-ruled Kingdom of Naples under Joseph Bonaparte and then Murat, fighting in the Peninsula with the Neapolitan contingent. He rose to general in Murat's army and fought in the Neapolitan War of 1815, when Murat marched north to make himself master of Italy and was beaten by the Austrians at Tolentino. A lifelong patriot, Pepe later led the Neapolitan revolution of 1820. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Italian Guard Grenadiers",
+        "bio": "The Granatieri of the Italian Royal Guard were the senior infantry of the Kingdom of Italy, modelled closely on Napoleon's Imperial Guard and wearing bearskins and the green and white of the Italian kingdom. The Royal Guard marched into Russia with Eug\u00e8ne's IV Corps in 1812. At Maloyaroslavets it was said to have displayed qualities that entitled it evermore to rank among the bravest troops of Europe, and the battle is still remembered in Italy as the Battle of the Italians. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Italian Guard Velites",
+        "bio": "The Veliti Reali of the Italian Royal Guard were picked young men who served in the Guard and trained there as future officers, in imitation of the French Guard's v\u00e9lites. They fought alongside the Guard grenadiers through the campaigns of the Kingdom of Italy, from Austria in 1809 to Russia in 1812. Few of the Italian Guard returned from the retreat from Moscow. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "1st Italian Light Infantry",
+        "bio": "The 1st Light Infantry Regiment was one of the light regiments of the Army of the Kingdom of Italy, organised on the French model with chasseurs and voltigeur companies trained to skirmish ahead of the line. Italian light infantry served with Eug\u00e8ne in the war against Austria in 1809 and with the IV Corps in Russia in 1812. Napoleon came to regard his Italian troops as among the most dependable of his allies. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd Italian Line Infantry",
+        "bio": "The 2nd Line Infantry Regiment belonged to the army of the Kingdom of Italy, recruited by conscription across Lombardy, Venetia and the Romagna and dressed in white coats with distinguishing facings. Italian line regiments served in Spain under Pino and others from 1808, where they fought through the long sieges and counter-guerrilla war in Catalonia. In 1812 Italian line infantry marched into Russia with the IV Corps. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "3rd Italian Line Infantry",
+        "bio": "The 3rd Line Infantry Regiment of the Kingdom of Italy served through the Empire's wars from Austria to Russia. In the campaign of 1812 the Italian infantry of the IV Corps fought at Maloyaroslavets, where the corps took the town against Dokhturov's and Raevsky's Russians. In 1813 and 1814 the regiment fought with Eug\u00e8ne in the defence of northern Italy against the Austrians. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Dalmatian Regiment",
+        "bio": "The Royal Dalmatian Regiment was raised from the Adriatic coast of Dalmatia after it passed to the Kingdom of Italy, drawing on a coastal people with a long tradition of soldiering for Venice. Its men served in the Italian army's campaigns, including the invasion of Russia in 1812. Dalmatians were valued as tough, hardy infantry, well used to fighting in difficult country. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Neapolitan Guard Velites",
+        "bio": "The Velites of the Neapolitan Royal Guard formed part of the Guard Division that Joachim Murat led north in 1815, when he broke with the Allies and marched to unite Italy under his own crown. At Tolentino in May 1815 the Guard Division descended from Monte Milone against the Austrian left flank, but the attack failed and Murat's army was destroyed. Two Velite regiments, each about a thousand men, stood in the line that day. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Neapolitan 10th Line",
+        "bio": "The 10th Line Infantry Regiment belonged to the army that Murat built in the Kingdom of Naples on French lines after 1808. Neapolitan troops served Napoleon in Spain and in Germany, and in 1815 the line regiments marched north with Murat's 40,000 men for the Neapolitan War against Austria. At Tolentino the 10th, 11th and 12th Line fought together as a combined force of about 1,100 men. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Dragoni Napoleone",
+        "bio": "The Dragoni Napoleone, the Napoleon Dragoons, were one of the two dragoon regiments of the Kingdom of Italy, named in honour of its king, the Emperor himself. As early as 1807 they served at the siege of Colberg on the Baltic, alongside Polish and W\u00fcrttemberg troops in the force sent against the Prussian fortress. They went on to fight in Spain and with Eug\u00e8ne in Russia in 1812. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Dragoni della Regina",
+        "bio": "The Dragoni della Regina, the Queen's Dragoons, were the second dragoon regiment of the Kingdom of Italy, named in honour of the Empress Jos\u00e9phine. With the Napoleon Dragoons they took part in the siege of Colberg in 1807, and later served in Spain and in the campaigns of 1809 and 1812. The Italian dragoons were considered good heavy cavalry, mounted on strong horses from the plains of Lombardy. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "Neapolitan Guard Hussars",
+        "bio": "The Hussars of the Neapolitan Royal Guard were the showpiece of Murat's cavalry, raised by a king who had made his name as the most flamboyant cavalryman in Europe and dressed his own Guard accordingly. At Tolentino in 1815 they rode with the Guard cavalry, some 426 men on 556 horses. Murat's love of display was matched by real courage, and his Guard horsemen fought hard in the battle that cost him his throne. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Neapolitan Guard Lancers",
+        "bio": "The Lancers of the Neapolitan Royal Guard were one of four Guard cavalry units, alongside hussars, mounted chasseurs and chevau-l\u00e9gers, that Murat took north in the Neapolitan War of 1815. Around 300 strong at Tolentino, they were armed with the lance on the Polish model then fashionable across the French-allied armies. They shared the defeat that ended Murat's reign and, within months, his life. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Italian Guard Horse Artillery",
+        "bio": "The Horse Artillery of the Italian Royal Guard supported the Guard cavalry and the reserves of Eug\u00e8ne's army, every gunner mounted so the guns could gallop into action. Trained to French standards, the Italian artillery was among the best arms of the Kingdom's army. It served with the IV Corps in Russia in 1812 and in the defence of Italy in 1813 and 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Neapolitan Foot Artillery",
+        "bio": "The foot artillery of the Kingdom of Naples was reorganised on French lines after 1806, first under Joseph Bonaparte and then under Murat. In 1815 Murat took fifty-six guns north for the Neapolitan War. The Neapolitan gunners fought at Tolentino and in the string of rearguard actions that followed the defeat. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
