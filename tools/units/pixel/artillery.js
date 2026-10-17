@@ -9,7 +9,8 @@ const ART = (() => {
   const W = 112, H = 96;
   const PAL = {
     british: { car: '#7a8892', iron: '#2b2b2d', bronze: '#bf9440' },   // grey carriage
-    french:  { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' }    // olive green carriage
+    french:  { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' },   // olive green carriage
+    prussian: { car: '#4e5c6a', iron: '#2b2b2d', bronze: '#bf9440' }   // blue-grey carriage (colour to verify)
   };
   const VIEW = {
     toward: { yaw: 50 * Math.PI / 180, k: 1.2, ox: 54, oy: 86 },

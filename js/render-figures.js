@@ -36,7 +36,8 @@
    (gunners), melee, fall (held as the body), flee.
 ========================================================= */
 import { sharedImage } from './image-store.js';
-import { CELL, SIDES, UNIT_TYPES, state } from './data-core.js';
+import { CELL, SIDES, UNIT_TYPES, nationOf, state } from './data-core.js';
+import { NATIONS } from './nations.js';
 import { ensureAnimationLoopRunning, toScreen, unitMoveKind } from './render-board.js';
 import { imageFor } from './asset-loader.js';
 
@@ -76,10 +77,20 @@ const HEADLESS = typeof navigator === 'undefined' || /jsdom/i.test(navigator.use
    where the bodies lie, each man's variant) runs whatever the setting, so
    switching mid-battle shows the true state, and two phones online keep the
    same state.figures whichever way each player has set his own screen. */
-export const figuresOn = () => !HEADLESS && style !== 'classic';
+export const figuresOn = u => !HEADLESS && (style !== 'classic' || (!!u && !hasClassicArt(u)));
+/* NATIONS (17 Oct 2026). A unit's art is its nation's (js/nations.js 'art'),
+   not its side's. Only Britain and France have classic icons, so under the
+   Classic setting every other nation's units still draw as pixel figures
+   (figuresOn(u)); anyFiguresOn says whether any unit on the field does. */
+const CLASSIC_ART = new Set(Object.values(NATIONS).filter(n => n.classic).map(n => n.art));
+const hasClassicArt = u => CLASSIC_ART.has(artOf(u));
+const artOf = u => NATIONS[nationOf(u)].art;
+/* The British fought in two ranks; everyone else here, Prussia included (the
+   1812 regulations), in three. */
+const twoRanks = u => nationOf(u) === 'britain';
+export const anyFiguresOn = () => !HEADLESS && (style !== 'classic' || (state.units || []).some(u => !hasClassicArt(u)));
 const TRACK = !HEADLESS;
 
-const NATION = { [SIDES.RED]: 'british', [SIDES.BLUE]: 'french' };
 const OLD_TYPES = ['INFANTRY', 'GUARD', 'LIGHT_CAV', 'HEAVY_CAV', 'ARTILLERY', 'ARTILLERY_GUN'];
 const PIX_TYPES = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV', 'BRIGADIER'];
 /* BRIGADIER (10 Oct 2026): one mounted general officer (tools/units/pixel/
@@ -106,7 +117,7 @@ export function initFigures(){
   (PIXEL() ? load('assets/units-pixel', PIX_TYPES, META_PIX) : load('assets/units', OLD_TYPES, META_OLD))
     .then(() => { ready = true; }, () => { ready = false; });
 }
-export const figuresReady = () => figuresOn() && ready;
+export const figuresReady = () => !HEADLESS && ready;   // callers have asked figuresOn(u) first
 /* The sheet for one man. A facing his type was not drawn in (a side-on view
    for cavalry, gunners, the bearer or the gun) uses his unit's own facing,
    toward or away (uf). An anim his type lacks (the bearer's fire or melee,
@@ -214,7 +225,7 @@ function layoutFor(u, facing, partner){
       out.push({ x: -0.40, y: 0.16, f: 'left' }, { x: 0.40, y: 0.16, f: 'right' });
       return out;
     }
-    return u.side === SIDES.RED ? ranks([5, 5], facing) : ranks([4, 3, 3], facing);
+    return twoRanks(u) ? ranks([5, 5], facing) : ranks([4, 3, 3], facing);
   }
   if(k === 'LIGHT_CAV' || k === 'HEAVY_CAV') return [{ x: -0.27, y: 0.32, f: facing }, { x: 0, y: 0.21, f: facing }, { x: 0.27, y: 0.32, f: facing }];
   if(k === 'BRIGADIER') return [{ x: 0.04, y: 0.30, f: facing }];   // the general, alone, a little right of centre (his portrait sits top left)
@@ -235,7 +246,7 @@ function placesFor(u, slots, facing, par){
   if(par == null && u.formation === 'square') return { rest: slots, bearer: { x: 0, y: 0.16, f: facing } };
   // Column block indices 10 (unit 1's evens) and 9 (unit 2's odds) are its
   // centre: own-list positions 5 and 4. Line: see ranks() for the order.
-  const bi = par != null ? (par === 0 ? 5 : 4) : (u.side === SIDES.RED ? 7 : 5);
+  const bi = par != null ? (par === 0 ? 5 : 4) : (twoRanks(u) ? 7 : 5);
   return { rest: slots.filter((_, i) => i !== bi), bearer: slots[bi] || null };
 }
 const placeOf = (places, s, m, B) => (m === B ? places.bearer : places.rest[s.slots[m]]);
@@ -320,7 +331,7 @@ function unitAnim(u){
 }
 
 function collectMen(men, u, s, places, anim, facing){
-  const nation = NATION[u.side];
+  const nation = artOf(u);
   const k = kind(u);
   const B = bearerOf(u, s);
   // Position jitter and each man's place in the idle loop (0..1), from the
@@ -496,7 +507,7 @@ export function clashOffset(u, full){
   if(c.tEnd != null && t > c.tEnd && c.end !== 'hold') k *= 1 - ease((t - c.tEnd) / c.endMs);
   const p = toScreen(c.from.x, c.from.y), q = toScreen(c.to.x, c.to.y);
   const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
-  const m = c.dist * k * (full || (figuresOn() && hasFigures(u)) ? 1 : CLASH_NUDGE);
+  const m = c.dist * k * (full || (figuresOn(u) && hasFigures(u)) ? 1 : CLASH_NUDGE);
   return { x: dx / len * m, y: dy / len * m };
 }
 /* Which frames a unit in a clash plays, or null when it is not in one. */
@@ -551,7 +562,7 @@ function fell(u, s, man){
   const co = clashOffset(u, true) || { x: 0, y: 0 };
   const p = boardOffset(slot.x + co.x, slot.y + co.y);
   const id = 'b' + (++bodyCounter) + '_' + u.id + '_' + man;
-  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: man === B ? 'GUARD_BEARER' : kind(u), facing: slot.f, uf: facing, v: s.v ? s.v[man] : 0, side: u.side });
+  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: artOf(u), type: man === B ? 'GUARD_BEARER' : kind(u), facing: slot.f, uf: facing, v: s.v ? s.v[man] : 0, side: u.side });
   // A man who already fell in the clash lies still; anyone else falls now.
   if(!(CLASH[u.id] && CLASH[u.id].end === 'hold')) FALLING[id] = now();
 }
@@ -567,7 +578,7 @@ function wreck(u){
   const facing = facingOf(u, false);
   const p = boardOffset(0, facing === 'away' ? (PIXEL() ? 0.20 : 0.18) : 0.30);
   const id = 'w' + (++bodyCounter) + '_' + u.id;
-  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: NATION[u.side], type: 'ARTILLERY_GUN', facing, uf: facing, v: 0, side: u.side, wreck: true });
+  (state.figureBodies = state.figureBodies || []).push({ id, bx: u.x + p.x, by: u.y + p.y, nation: artOf(u), type: 'ARTILLERY_GUN', facing, uf: facing, v: 0, side: u.side, wreck: true });
 }
 const unitById = id => (state.units || []).find(u => u.id === id);
 /* A unit's fire or melee, for as long as its longest sheet runs (a battery:
@@ -635,6 +646,7 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
   const settled = [], falling = [], fading = [];
   for(const b of bodies){
     if(hiddenAt && hiddenAt(b)) continue;
+    if(style === 'classic' && CLASSIC_ART.has(b.nation)) continue;   // its unit was drawn as an icon
     const age = t - (FIRST_SEEN[b.id] || (FIRST_SEEN[b.id] = t));
     if(age >= BODY_LIE_MS + BODY_FADE_MS) continue;           // gone
     if(age >= BODY_LIE_MS){ fading.push({ b, a: 1 - (age - BODY_LIE_MS) / BODY_FADE_MS }); continue; }
@@ -676,5 +688,5 @@ function paintBody(c, b, fallStart){
 }
 /* Still moving: a man falling, a walk between formations, or bodies on the
    field (they keep the loop alive until the last has faded). */
-export const figuresAnimating = () => figuresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0 || bodiesShown);
+export const figuresAnimating = () => anyFiguresOn() && (Object.keys(FALLING).length > 0 || Object.keys(WALK).length > 0 || bodiesShown);
 

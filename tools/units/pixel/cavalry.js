@@ -27,7 +27,17 @@ const CAV = (() => {
        with a tricolour edge, tricolour sash, the grey (Napoleon's Marengo, Ney's
        chestnut among the others). */
     gb_general: { coat: '#c8191e', coatDk: '#8f1014', fac: '#1c2a5a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#c8191e'], general: true, sash: ['#9a1a2e', '#6e1020'], horses: [0, 5, 2, 0, 3] },
-    fr_general: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#d0202a'], general: true, sash: ['#203a8a', '#f6f3ea', '#d0202a'], horses: [5, 2, 5, 3, 0] }
+    fr_general: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#d0202a'], general: true, sash: ['#203a8a', '#f6f3ea', '#d0202a'], horses: [5, 2, 5, 3, 0] },
+    /* PRUSSIA (17 Oct 2026). Heavy: the 1813 cuirassier (Gardes du Corps,
+       Brandenburg) WITHOUT a cuirass: white coat, red facings, black leather
+       helmet with a brass plate and black crest, black-and-white shabraque,
+       dark horses. Light: the 1st Leib-Hussars, black dolman with white braid
+       across the chest, black shako with the white death's head, red-edged
+       black shabraque. General: dark Prussian blue, red collar, gold lace, a
+       bicorne with a white-and-black plume, the silver-and-black sash. */
+    pr_heavy: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1c1c1e', clothDk: '#0e0e10', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', horses: [1, 3, 1, 0, 3] },
+    pr_light: { coat: '#1d1d1f', coatDk: '#0e0e10', fac: '#c8191e', breech: '#1d1d1f', breechDk: '#0e0e10', cloth: '#1c1c1e', clothDk: '#0e0e10', lace: '#c8191e', helm: 'shako', plume: ['#1f1f1f', '#1f1f1f'], badge: '#f6f3ea', hussar: '#f6f3ea', curved: true, horses: [0, 2, 3, 0, 2] },
+    pr_general: { coat: '#1f2a4a', coatDk: '#141c33', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f2a4a', clothDk: '#141c33', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#151515'], general: true, sash: ['#d8dce2', '#151515', '#d8dce2'], horses: [1, 0, 3, 1, 2] }
   };
   // The generals' grey charger, a coat of its own (index 5; the troopers' coats are untouched).
   HORSE[5] = ['#b8b2a8', '#d6d0c6', '#8e887e', '#e8e4dc'];
@@ -100,8 +110,10 @@ const CAV = (() => {
   /* ---------- headgear ---------- */
   function headgear(p, back) {
     if (R.helm === 'dragoon') {
-      p(1, 1, C.B, 10, 5); p(9, 1, C.b, 2, 5);
-      if (!back) { p(0, 5, C.B, 12, 1); p(1, 6, C.b, 10, 1); p(4, 2, '#fff2b0', 2, 2); p(3, -3, R.crest, 6, 4); p(2, -1, R.crest, 2, 3); p(8, -2, '#2a2420', 2, 3); }
+      // brass by default; a nation can give it its own colour (Prussia: black leather, a brass plate)
+      const hc = R.helmCol || C.B, hd = R.helmDk || C.b;
+      p(1, 1, hc, 10, 5); p(9, 1, hd, 2, 5);
+      if (!back) { p(0, 5, hc, 12, 1); p(1, 6, hd, 10, 1); p(4, 2, R.helmHi || '#fff2b0', 2, 2); p(3, -3, R.crest, 6, 4); p(2, -1, R.crest, 2, 3); p(8, -2, '#2a2420', 2, 3); }
       else { p(1, 5, C.b, 10, 1); p(3, -3, R.crest, 6, 4); p(5, 1, R.crest, 2, 5); }
     } else if (R.helm === 'cuirassier') {
       // steel skull, brass comb, black horsehair mane down the back, red plume on the left
@@ -119,7 +131,7 @@ const CAV = (() => {
     } else {
       // bell-topped shako with a plume
       p(1, 1, '#1f1f1f', 10, 5); p(0, 0, '#1f1f1f', 12, 1); p(9, 1, '#3c3c3c', 2, 5);
-      if (!back) { p(4, 2, C.B, 3, 2); p(1, 5, C.D, 10, 1); p(0, 6, C.D, 12, 1); }
+      if (!back) { p(4, 2, R.badge || C.B, 3, 2); p(1, 5, C.D, 10, 1); p(0, 6, C.D, 12, 1); }
       const px0 = back ? 2 : 8;
       p(px0, -6, R.plume[0], 2, 4); p(px0, -2, R.plume[1], 2, 2);
     }
@@ -149,7 +161,8 @@ const CAV = (() => {
       if (back) { p(2, 24, R.coat, 3, 3); p(7, 24, R.coatDk, 3, 3); p(1, 22, sh[0], 2, 5); }   // coat skirts, sash ends
     } else if (!back) {
       p(3, 14, R.fac, 6, 1); p(4, 13, C.D, 4, 1);                          // collar, stock
-      for (let i = 0; i < 9; i++) p(1 + i, 15 + i, C.W, 2, 1);            // crossbelt over the left shoulder
+      if (R.hussar) for (let i = 0; i < 4; i++) p(1, 15 + i * 2, R.hussar, 10, 1);   // hussar braid across the dolman
+      else for (let i = 0; i < 9; i++) p(1 + i, 15 + i, C.W, 2, 1);       // crossbelt over the left shoulder
       p(0, 22, C.W, 12, 2); p(5, 22, C.B, 2, 2);                           // waist belt and buckle
       for (let i = 0; i < 3; i++) p(6, 16 + i * 2, C.B, 1, 1);
       if (R.helm === 'shako') { p(2, 15, R.fac, 1, 7); p(9, 15, R.fac, 1, 7); }   // facing-coloured plastron edges
@@ -234,7 +247,7 @@ const CAV = (() => {
   const cache = new Map();
   function get(nation, view, pose, v, type = 'heavy') {
     const vv = view === 'away' ? 'away' : 'toward';
-    const sk = (nation === 'french' ? 'fr_' : 'gb_') + type;
+    const sk = ({ british: 'gb_', french: 'fr_', prussian: 'pr_' }[nation] || 'gb_') + type;
     const key = `${sk}:${vv}:${pose}:${v}`; let c = cache.get(key); if (c) return c;
     R = SPECS[sk];
     if (pose === 'hit') c = fallen(vv, v, 0); else if (pose === 'kneel') c = fallen(vv, v, 1); else if (pose === 'down') c = fallen(vv, v, 2);

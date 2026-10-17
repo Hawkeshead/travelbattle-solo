@@ -15,7 +15,8 @@
    same size on screen at every zoom and follows a unit while it moves. Hidden units (in ambush)
    are never marked. Visual only: nothing here is saved, synced or replayed.
 ========================================================= */
-import { COLS, humanOwns, state } from './data-core.js';
+import { COLS, humanOwns, nationOf, state } from './data-core.js';
+import { NATIONS } from './nations.js';
 import { canvas as boardCanvas, getUnitVisualPos, toScreen } from './render-board.js';
 
 const ACT_MS = 2200;           // how long an enemy unit stays marked after acting
@@ -90,25 +91,28 @@ function frame(){
   for(const { u, word } of marks){
     const v = getUnitVisualPos(u), s = toScreen(v.x, v.y);
     const x = cr.left - wr.left + (s.x + 0.5) * cell, y = cr.top - wr.top + (s.y + 0.5) * cell;
-    const british = u.side === 'red';
+    const nation = nationOf(u);
     const bob = Math.sin(t * 2.4) * 2;
     const top = y - cell * 0.62 + bob;
-    cockade(x, Math.max(COCKADE_R + 2, top), british);
+    cockade(x, Math.max(COCKADE_R + 2, top), nation);
     if(word) label(word, x, Math.max(14, top - COCKADE_R - 8));
   }
 }
 
-/* A pleated rosette: the outer folds, a middle ring and a button. */
-function cockade(x, y, british){
+/* A pleated rosette: the outer folds, a middle ring and a button, in the
+   nation's own colours (js/nations.js 'cockade'): the British black, the
+   French tricolour, the Prussian black and white. */
+function cockade(x, y, nation){
   const r = COCKADE_R;
-  const [outer, middle, button] = british ? ['#151515', '#2b2b2b', '#d9dee4'] : ['#c8191e', '#f6f3ea', '#1f3a8a'];
+  const [outer, middle, button] = NATIONS[nation].cockade;
+  const darkFolds = outer === '#151515';
   g.save(); g.translate(x, y);
   g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 5; g.shadowOffsetY = 2;
   g.fillStyle = outer; g.beginPath();
   const n = 22;
   for(let i = 0; i <= n * 2; i++){ const a = i / (n * 2) * Math.PI * 2, rr = i % 2 ? r : r * 0.86; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
   g.fill(); g.shadowColor = 'transparent';
-  g.strokeStyle = british ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.22)'; g.lineWidth = 0.8;
+  g.strokeStyle = darkFolds ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.22)'; g.lineWidth = 0.8;
   for(let i = 0; i < n; i++){ const a = i / n * Math.PI * 2; g.beginPath(); g.moveTo(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5); g.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); g.stroke(); }
   g.fillStyle = middle; g.beginPath(); g.arc(0, 0, r * 0.62, 0, Math.PI * 2); g.fill();
   g.fillStyle = button; g.beginPath(); g.arc(0, 0, r * 0.34, 0, Math.PI * 2); g.fill();

@@ -10,22 +10,30 @@ const GROG = (() => {
     T: '#7a5030', t: '#553820', I: '#d8dce2', i: '#8a8f98', E: '#24160c', M: '#a0524a', MO: '#5a1e18', F: ['#fff6c0', '#ffd23a', '#ff8a1a'], RED: '#d0202a', REDK: '#931218' };
   const NAT = {
     british: { coat: '#c8191e', coatDk: '#8f1014', coatHi: '#e2443d', fac: '#f3e7a0', tr: '#8d8f9a', trDk: '#6a6c77', pack: '#24201c', packDk: '#110f0d' },
-    french:  { coat: '#21409f', coatDk: '#142a6e', coatHi: '#3a5cc4', fac: '#d0202a', tr: '#f6f3ea', trDk: '#cfcabd', pack: '#a06c3a', packDk: '#72481f' }
+    french:  { coat: '#21409f', coatDk: '#142a6e', coatHi: '#3a5cc4', fac: '#d0202a', tr: '#f6f3ea', trDk: '#cfcabd', pack: '#a06c3a', packDk: '#72481f' },
+    // Prussia, 1813 (17 Oct 2026): dark Prussian blue, red (Brandenburg) collar and cuffs, grey trousers, calfskin pack.
+    // One look for all six line regiments; the provincial facings (Pomeranian white, East Prussian brick red) are not drawn.
+    prussian: { coat: '#1f2a4a', coatDk: '#131a30', coatHi: '#2e3d66', fac: '#c8191e', tr: '#8d8f9a', trDk: '#6a6c77', pack: '#7a5434', packDk: '#553820', roll: true }
   };
   const NATG = {
     // British Guard: a deeper red, Guards blue facings, Highland kilts
     british: { ...NAT.british, coat: '#a8121a', coatDk: '#740c10', coatHi: '#c42a30', fac: '#203a8a', kilt: true },
     // French Old Guard: navy coats and trousers, red grenadier epaulettes, gold earrings and medals for the veterans
-    french:  { ...NAT.french, coat: '#16245e', coatDk: '#0d1640', coatHi: '#283a8a', tr: '#1f2f72', trDk: '#141f50', epaulette: '#d0202a', gold: true }
+    french:  { ...NAT.french, coat: '#16245e', coatDk: '#0d1640', coatHi: '#283a8a', tr: '#1f2f72', trDk: '#141f50', epaulette: '#d0202a', gold: true },
+    // Prussian Foot Guards: the line's blue and red, white lace bars on the collar, and the shako with the silver Guard star (no bearskins in 1813)
+    prussian: { ...NAT.prussian, lace: true, shako: true }
   };
   const NATA = {
     // Royal Artillery: dark blue coat, red facings, grey trousers. French foot artillery: dark blue with red facings and epaulettes, blue trousers.
     british: { ...NAT.british, coat: '#1c2a5a', coatDk: '#121b3c', coatHi: '#2c3e7a', fac: '#c8191e', gunner: true },
-    french:  { ...NAT.french, coat: '#1c2a5a', coatDk: '#121b3c', coatHi: '#2c3e7a', fac: '#d0202a', tr: '#1c2a5a', trDk: '#121b3c', epaulette: '#d0202a', gunner: true }
+    french:  { ...NAT.french, coat: '#1c2a5a', coatDk: '#121b3c', coatHi: '#2c3e7a', fac: '#d0202a', tr: '#1c2a5a', trDk: '#121b3c', epaulette: '#d0202a', gunner: true },
+    // Prussian foot artillery: dark blue with black facings, grey trousers, black shako
+    prussian: { ...NAT.prussian, fac: '#151515', roll: false, gunner: true }
   };
   const TARTAN = ['#1f3b2a', '#1d2a4f', '#0e1410'];
   const tartan = (x, y) => (x % 4 === 0 || y % 4 === 3) ? TARTAN[2] : (((x >> 1) + (y >> 1)) % 2 ? TARTAN[0] : TARTAN[1]);
-  const FLAGC = { blue: '#1f3a8a', red: '#c8191e', white: '#f6f3ea', fblue: '#21409f', fred: '#d0202a', gold: '#e6b422' };
+  const FLAGC = { blue: '#1f3a8a', red: '#c8191e', white: '#f6f3ea', fblue: '#21409f', fred: '#d0202a', gold: '#e6b422', black: '#151515' };
+  const ROLL = ['#8e9094', '#6a6c70'];   // a grey greatcoat, rolled
   const SMOKE = ['rgba(232,232,226,.92)', 'rgba(210,210,204,.85)', 'rgba(245,245,240,.7)', 'rgba(190,190,186,.6)'];
 
   function canvas(w = W, h = H) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -60,7 +68,19 @@ const GROG = (() => {
     });
     px(11, 31, N.trDk, 2, 3);
   }
-  function shakoFB(px, nation, back) {
+  function shakoFB(px, nation, back, guard) {
+    if (nation === 'prussian') {
+      // the 1813 shako in its black oilcloth cover: a plain cylinder and a peak,
+      // the black-and-white cockade, and for the Guard the silver star
+      px(8, 4, C.K, 8, 8); px(15, 4, C.k, 1, 8); px(8, 4, '#2c2c2c', 8, 1);
+      if (!back) {
+        px(9, 5, '#2c2c2c', 1, 6);                                              // a crease in the cover
+        px(11, 5, C.W, 2, 2); px(11, 6, C.K, 1, 1);                             // cockade
+        if (guard) { px(11, 7, C.I, 2, 4); px(10, 8, C.I, 4, 2); px(9, 9, C.i, 1, 1); px(14, 9, C.i, 1, 1); }
+        px(6, 12, C.D, 12, 1); px(7, 13, C.D, 10, 1);
+      } else px(8, 12, C.k, 8, 1);
+      return;
+    }
     if (nation === 'british') {
       px(7, 6, C.K, 10, 6); px(8, 5, C.K, 8, 1); px(9, 4, C.K, 6, 1); px(15, 6, C.k, 2, 6);
       if (!back) { px(10, 6, C.B, 4, 3); px(11, 9, C.B, 2, 1); px(11, 5, C.B, 2, 1); px(13, 6, C.b, 1, 3); px(8, 10, C.w, 2, 1); px(10, 11, C.w, 4, 1); px(14, 10, C.w, 2, 1); px(6, 12, C.D, 12, 1); px(7, 13, C.D, 10, 1); }
@@ -128,6 +148,11 @@ const GROG = (() => {
           if (d1 < 0.6 || d2 < 0.6) col = FLAGC.red;
           if (Math.abs(c - cx) < 2.6 || Math.abs(r - cy) < 2.3) col = FLAGC.white;
           if (Math.abs(c - cx) < 1.4 || Math.abs(r - cy) < 1.2) col = FLAGC.red;
+        } else if (nation === 'prussian') {
+          // white, black wedges in from the corners, the black eagle at the centre
+          const dx = Math.abs(c - cx), dy = Math.abs(r - cy);
+          col = dx / (w / 2) + dy / (h / 2) > 1.3 ? FLAGC.black : FLAGC.white;
+          if ((dx < 1.6 && dy < 3.2) || (dy < 1.1 && dx < 4.2) || (r === Math.round(cy) - 2 && dx < 3)) col = FLAGC.black;
         } else {
           col = c < 6 ? FLAGC.fblue : c < 12 ? FLAGC.white : FLAGC.fred;
           if (r === 0 || r === h - 1) col = FLAGC.gold;
@@ -171,6 +196,14 @@ const GROG = (() => {
       for (let i = 0; i < 4; i++) px(11, 23 + i * 2, C.B, 2, 1);
       for (let i = 0; i < 9; i++) px(7 + i, 22 + i, C.W, 2, 1);
       if (nation === 'british') { px(6, 22, N.fac, 1, 8); px(17, 22, N.fac, 1, 8); }
+    } else if (nation === 'prussian') {
+      // single-breasted kollet: coloured collar (Guard: white lace bars), one row of
+      // buttons, a white crossbelt, and the grey greatcoat rolled over the shoulder
+      px(9, 21, N.fac, 6, 1); px(10, 20, C.D, 4, 1);
+      if (N.lace) { px(10, 21, C.W, 1, 1); px(13, 21, C.W, 1, 1); }
+      for (let i = 0; i < 4; i++) px(11, 23 + i * 2, C.B, 2, 1);
+      for (let i = 0; i < 9; i++) px(15 - i, 22 + i, C.W, 2, 1);
+      for (let i = 0; i < 9; i++) { px(6 + i, 21 + i, ROLL[0], 3, 1); px(6 + i, 22 + i, ROLL[1], 3, 1); }
     } else if (nation === 'british') {
       px(4, 21, C.w, 1, 2); px(19, 21, C.w, 1, 2);
       px(9, 21, N.fac, 6, 1); px(10, 20, C.D, 4, 1);
@@ -197,6 +230,7 @@ const GROG = (() => {
     px(6, 21, '#8a8c90', 12, 2); px(6, 22, '#6a6c70', 12, 1);
     px(6, 22, C.W, 1, 8); px(17, 22, C.W, 1, 8);
     if (nation === 'british') { px(11, 25, C.W, 2, 2); px(10, 26, C.w, 4, 1); px(10, 19, '#9a9ea4', 4, 2); }
+    else if (nation === 'prussian') { px(8, 23, '#9a7450', 2, 2); px(13, 26, '#9a7450', 2, 2); for (let i = 0; i < 9; i++) { px(15 - i, 21 + i, ROLL[0], 3, 1); px(15 - i, 22 + i, ROLL[1], 3, 1); } }
     else { px(9, 23, '#e6d6b8', 2, 2); px(13, 25, '#e6d6b8', 2, 2); px(10, 28, '#e6d6b8', 2, 1); px(15, 23, '#c89a62', 1, 3); }
     px(7, 30, N.coat, 4, 4); px(13, 30, N.coatDk, 4, 4); px(7, 33, C.W, 4, 1); px(13, 33, C.W, 4, 1); px(11, 30, N.coatDk, 2, 4);
   }
@@ -280,7 +314,7 @@ const GROG = (() => {
       const px = (x, y, c, w, h) => px0(x + (y < 31 ? sway : 0), y, c, w, h);
       legsFB(px0, N, bearer && !['walk1', 'walk2', 'run1', 'run2'].includes(base) ? 'stand' : base, back);
       if (back) { torsoBack(px, N, nation); headBack(px, v); } else { torsoFront(px, N, nation); faceFB(px, v, tache, ['charge', 'lunge', 'run1', 'run2'].includes(base), pose === 'look' ? (v % 2 ? 1 : -1) : 0, kind === 'line' || kind === 'gunner' ? -1 : v % 5, N.gold && v % 5 !== 2); }
-      if (kind === 'line' || kind === 'gunner') shakoFB(px, nation, back); else bearskinFB(px, nation, back);
+      if (kind === 'line' || kind === 'gunner') shakoFB(px, nation, back); else if (N.shako) shakoFB(px, nation, back, true); else bearskinFB(px, nation, back);
       if (bearer) bearerArms(px, N, v, base, back, nation, fp);
       else if (kind === 'gunner') gunnerArms(px, N, v, base, back);
       else armsFB(px, N, v, base, back);
@@ -352,6 +386,7 @@ const GROG = (() => {
       px(9, 21, N.coat, 8, 10); px(9, 21, N.coatDk, 2, 10); px(16, 22, N.coatHi, 1, 8);
       px(11, 21, N.fac, 5, 1); px(12, 20, C.D, 4, 1);
       if (nation === 'british') { for (let i = 0; i < 8; i++) px(15 - Math.floor(i * 0.6), 22 + i, C.W, 2, 1); px(15, 24, C.W, 2, 1); px(15, 26, C.W, 2, 1); px(15, 28, C.W, 2, 1); }
+      else if (nation === 'prussian') { for (let i = 0; i < 8; i++) px(15 - Math.floor(i * 0.6), 22 + i, C.W, 2, 1); px(16, 23, C.B, 1, 1); px(16, 25, C.B, 1, 1); px(16, 27, C.B, 1, 1); px(9, 20, ROLL[0], 6, 2); px(9, 22, ROLL[1], 3, 2); if (N.lace) px(15, 21, C.W, 1, 1); }
       else { px(15, 22, C.W, 2, 6); px(16, 23, C.B, 1, 1); px(16, 25, C.B, 1, 1); px(10, 22, C.W, 2, 9); }
       px(8, 30, C.D, 3, 3); // cartridge box at the back hip
       // head, facing right
@@ -370,8 +405,11 @@ const GROG = (() => {
       } else if (tache) px(15, 18, h, 2, 1);
       if (!(st === 1 && !['charge', 'lunge', 'run1', 'run2'].includes(pose))) { if (['charge', 'lunge', 'run1', 'run2'].includes(pose)) px(15, 19, C.MO, 2, 1); else px(15, 19, C.M, 2, 1); }
       // headgear
-      if (kind !== 'line') bearskinSide(px, nation);
-      else if (nation === 'british') {
+      if (kind !== 'line' && !N.shako) bearskinSide(px, nation);
+      else if (nation === 'prussian') {
+        px(9, 4, C.K, 8, 8); px(9, 4, C.k, 1, 8); px(14, 12, C.D, 5, 1); px(10, 12, C.D, 4, 1); px(16, 5, C.W, 1, 2);
+        if (N.shako) px(16, 8, C.I, 1, 3);
+      } else if (nation === 'british') {
         px(9, 6, C.K, 8, 6); px(13, 4, C.K, 4, 2); px(9, 6, C.k, 1, 6); px(15, 5, C.B, 2, 3); px(16, 9, C.w, 1, 2);
         px(14, 12, C.D, 5, 1); px(10, 12, C.D, 4, 1); px(9, 0, C.W, 2, 3); px(9, 3, C.RED, 2, 3);
       } else {

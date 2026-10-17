@@ -1,7 +1,8 @@
 import { sharedImage } from './image-store.js';
 import { AudioManager } from './audio-manager.js';
-import { humanOwns } from './data-core.js';
-import { DICE_FACES, DICE_NATION, DICE_TUMBLE_FRAMES, diceArtPaths, diceFacePath, diceTumblePath } from './dice-art.js';
+import { humanOwns, nationOf, state } from './data-core.js';
+import { NATIONS } from './nations.js';
+import { DICE_ARTS, DICE_FACES, DICE_TUMBLE_FRAMES, diceArtPaths, diceFacePath, diceTumblePath } from './dice-art.js';
 
 export const PIP_LAYOUT = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 
@@ -16,7 +17,19 @@ if(typeof Image !== 'undefined'){
   for(const path of diceArtPaths()) DICE_IMG[path] = sharedImage(path);
 }
 const imgReady = path => { const i = DICE_IMG[path]; return !!(i && i.complete && i.naturalWidth > 0); };
-const nationOf = side => (side && DICE_NATION[side]) || null;
+/* Whose dice: the rolling unit's nation where the group names its unit (in
+   the four-army game the two armies of a side can be different nations),
+   else the side's nation this match. Only nations with painted dice; any
+   other gets the pip fallback. */
+function diceArtOf(sideOrGroup){
+  if(!sideOrGroup) return null;
+  const g = typeof sideOrGroup === 'object' ? sideOrGroup : null;
+  const u = g && g.unitId && (state.units || []).find(x => x.id === g.unitId);
+  const who = u || (g ? g.side : sideOrGroup);
+  if(!who) return null;
+  const art = NATIONS[nationOf(who)].art;
+  return DICE_ARTS.includes(art) ? art : null;
+}
 /* Every face and every tumble frame of that nation is ready. */
 function artReady(nation){
   if(!nation) return false;
@@ -27,7 +40,7 @@ function artReady(nation){
 
 /* value: the face (null before the roll: face 1, dimmed); side: who rolled. */
 export function dieFaceHTML(value, extraClass, side){
-  const nation = nationOf(side);
+  const nation = diceArtOf(side);
   /* The painted dice whenever the side is known, loaded or not (9 Oct 2026):
      the pip fallback below has no image to tumble, which was the other way
      a roll snapped straight to its result. An image still loading shows for
@@ -330,7 +343,7 @@ export function presentRollTrigger(groups, triggerSide, onTrigger, legendText){
     // "who against whom" while the player is still deciding whether to roll.
     const faceHTML = g.portrait ? `<div class="dice-face">${g.portrait}</div>` : '';
     const whoHTML = g.unitName ? `<div class="dice-who">${g.unitName}</div>` : '';
-    const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending', g.side)).join('');
+    const diceHTML = Array(g.diceCount||1).fill(0).map(()=>dieFaceHTML(null,'pending', g)).join('');
     // On the board the labels wait for the roll (they appear under the landed dice).
     const notesHTML = (!board && g.notes && g.notes.length) ?
       `<div class="dice-notes">${g.notes.map(n=>`<span>${n}</span>`).join('')}</div>` : '';
@@ -471,7 +484,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
         const cls = final ? dieClass(g, idx) : 'rolling';
         const settle = final && settling && settling.has(k) ? ' settle' : '';
         k++;
-        return dieFaceHTML(shown, cls + settle, g.side);
+        return dieFaceHTML(shown, cls + settle, g);
       }).join('');
       const adjustHTML = final ? (boardOn ? '' : adjustmentHTML(g)) : '';
       // Portrait and regiment name, so a fight reads as "who against whom"
@@ -535,7 +548,7 @@ export function showDice(groups, resultText, resultCls, onSettled, holdOpen){
     renderFrame(false);
     const dieEls = [...groupsEl.querySelectorAll('.die')];
     const nations = [];
-    groups.forEach(g => g.rolls.forEach(() => nations.push(nationOf(g.side))));
+    groups.forEach(g => g.rolls.forEach(() => nations.push(diceArtOf(g))));
     const values = [];
     groups.forEach(g => g.rolls.forEach(v => values.push(v)));
     const n = dieEls.length;
@@ -604,7 +617,7 @@ export function refreshDiceFrame(groups, resultText, resultCls){
       // While a side's re-roll is still tumbling, its earlier dice show no
       // verdict yet: the kept mark moves only once the new die has landed.
       const rolling = prevCounts.length && g.rolls.length > (prevCounts[i] || 0);
-      return dieFaceHTML(v, fresh ? 'rolling fresh' : rolling ? '' : dieClass(g, idx), g.side);
+      return dieFaceHTML(v, fresh ? 'rolling fresh' : rolling ? '' : dieClass(g, idx), g);
     }).join('');
     const boardOn = onBoardFor(groups);
     const adjustHTML = boardOn ? '' : adjustmentHTML(g);

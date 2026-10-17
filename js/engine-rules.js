@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
 import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
-import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
@@ -1496,9 +1496,9 @@ export function playChargeSabres(u){
     { ...SELECT_CUE, pan: AudioManager.panForBoardX(u.x) });
 }
 
-export const RALLY_CALL = {
-  red: ['audio/effects/rally-british-1.m4a'],
-  blue: [],   // French take to come
+export const RALLY_CALL = {     // by nation (17 Oct 2026)
+  britain: ['audio/effects/rally-british-1.m4a'],
+  france: [],   // French take to come
 };
 
 function playerCommands(side){
@@ -1509,7 +1509,7 @@ function playerCommands(side){
 
 function playRallyCall(unit){
   if(!playerCommands(unit.side)) return;
-  const takes = RALLY_CALL[unit.side];
+  const takes = RALLY_CALL[nationOf(unit)];
   if(!takes || !takes.length) return;
   /* 1.6x: the recorded take sits well below the rest of the effects and was
      barely audible over the score. */
@@ -1565,7 +1565,7 @@ export function retreatAndRally(loser, onComplete){
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
 
-  presentRollTrigger([{label:'Rally', side:loser.side, diceCount:1, notes:rallyNote, at:{x:loser.x,y:loser.y}}], loser.side, ()=>{
+  presentRollTrigger([{label:'Rally', side:loser.side, unitId:loser.id, diceCount:1, notes:rallyNote, at:{x:loser.x,y:loser.y}}], loser.side, ()=>{
     const r = rollD6();
     const success = successOn.includes(r);
     /* The rally in full: the roll, the threshold and its reason, whether a
@@ -1580,7 +1580,7 @@ export function retreatAndRally(loser, onComplete){
       leadershipAvailable: !!(brig && !brig.leadershipUsed),
       note: rallyNote[0] || null,
     });
-    showDice([{label:'Rally', side:loser.side, rolls:[r], keptValue:r, notes:rallyNote, at:{x:loser.x,y:loser.y}}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
+    showDice([{label:'Rally', side:loser.side, unitId:loser.id, rolls:[r], keptValue:r, notes:rallyNote, at:{x:loser.x,y:loser.y}}], success ? 'Rallies!' : 'Fails to rally', success ? 'win' : 'lose', ()=>{
       if(success){
         logNarration('rally_success');
         /* Played on the SUCCESS branch, before the outcome splits, so it covers

@@ -12,7 +12,7 @@ import * as AI_MODULE from './ai-strategy.js';
 import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
-import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, state, unitColor, unitNationName } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
 import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
@@ -41,17 +41,18 @@ const armyForBrigade = (side, bId) => state.group ? GROUP_ARMIES.find(a => a.sid
    sides are filled now, but the fallback stays: it is what made this safe to
    land half-built, and it is what a third army would land against.
 
-   Deliberately keyed by side rather than by nationality: `state` knows red and
-   blue, and a nationality lookup would be a second source of truth for something
-   the board already decides. */
+   KEYED BY NATION (17 Oct 2026, for Prussia; was by side). A Prussian unit must
+   not answer in English, and in the four-army game one side holds two nations,
+   so the unit's own nation (nationOf) picks its voice. A nation with no takes
+   yet (Prussia) clicks, as above. */
 export const FOOT_ACK = {
-  red: [
+  britain: [
     'audio/effects/ack-british-1.m4a',
     'audio/effects/ack-british-2.m4a',
     'audio/effects/ack-british-3.m4a',
     'audio/effects/ack-british-4.m4a',
   ],
-  blue: [
+  france: [
     'audio/effects/ack-french-1.m4a',
     'audio/effects/ack-french-2.m4a',
     'audio/effects/ack-french-3.m4a',
@@ -65,7 +66,7 @@ export const FOOT_ACK = {
    list, because the list plays one take at random: one honk among four ouis
    would come up a fifth of the time, not half. */
 export const FOOT_ACK_ALT = {
-  blue: ['audio/effects/ack-french-honk.m4a'],
+  france: ['audio/effects/ack-french-honk.m4a'],
 };
 
 /* The acknowledgement list for this unit, or null if it should click instead.
@@ -75,9 +76,9 @@ export const FOOT_ACK_ALT = {
 export function footAckFor(u){
   const key = UNIT_TYPES[u.type].key;
   if(key !== 'INFANTRY' && key !== 'GUARD') return null;
-  const alt = FOOT_ACK_ALT[u.side];
+  const alt = FOOT_ACK_ALT[nationOf(u)];
   if(alt && alt.length && Math.random() < 0.5) return alt;   // a sound choice, so not the game's seeded dice
-  const list = FOOT_ACK[u.side];
+  const list = FOOT_ACK[nationOf(u)];
   return (list && list.length) ? list : null;
 }
 
@@ -91,12 +92,12 @@ export const MUSKET_VOLLEY_TAKES = [
   'audio/effects/musket-volley-4.m4a',
 ];
 
-/* The officer's order before a volley, by side. leadMs is when the volley
+/* The officer's order before a volley, by nation. leadMs is when the volley
    starts: the French take is 2.53s and "prepare to fire!" ends at about 2.45s,
    so the shot follows his last word. A side with no entry volleys at once. */
 export const VOLLEY_COMMAND = {
-  blue: { file: 'audio/effects/french-fire-command.mp3', leadMs: 2450 },
-  red:  null,
+  france:  { file: 'audio/effects/french-fire-command.mp3', leadMs: 2450 },
+  britain: null,
 };
 
 /* =========================================================
@@ -473,11 +474,11 @@ export function renderAiDebugPanel(){
   el.innerHTML = html;
 }
 
-/* Brigadier selection call, by side. The two takes measure within 0.1 dB of each
+/* Brigadier selection call, by nation (a nation with none clicks). The two takes measure within 0.1 dB of each
    other on average loudness, so both share SELECT_CUE. */
 export const BRIGADIER_SELECT = {
-  red:  'audio/effects/brigadier-select-british.mp3',
-  blue: 'audio/effects/brigadier-select-attention.wav',
+  britain: 'audio/effects/brigadier-select-british.mp3',
+  france:  'audio/effects/brigadier-select-attention.wav',
 };
 
 /* A unit's selection cue: the Brigadier's call, the sabre, the gun, the foot
@@ -488,8 +489,8 @@ export function playSelectCue(u){
   const selT = UNIT_TYPES[u.type];
   /* Brigadier checked BEFORE isCavalry: Brigadiers are mounted but not flagged
      as cavalry, so the sound follows the rank rather than that flag. */
-  if(selT.key === 'BRIGADIER'){
-    AudioManager.playEffect(`brigadier-select-${u.side}`, BRIGADIER_SELECT[u.side], 'ui', SELECT_CUE);
+  if(selT.key === 'BRIGADIER' && BRIGADIER_SELECT[nationOf(u)]){
+    AudioManager.playEffect(`brigadier-select-${nationOf(u)}`, BRIGADIER_SELECT[nationOf(u)], 'ui', SELECT_CUE);
   } else if(selT.isArtillery){
     AudioManager.playEffect('artillery-select', 'audio/effects/artillery-select.wav', 'ui', SELECT_CUE);
   } else if(selT.isCavalry){
@@ -500,13 +501,14 @@ export function playSelectCue(u){
        memory is keyed on it, and a single key would let a British take and a
        French one count as the same sound, so the two languages could alternate
        in a way that reads as one voice changing accent. */
-    AudioManager.playEffect(`foot-ack-${u.side}`, footAckFor(u), 'ui', SELECT_CUE);
+    AudioManager.playEffect(`foot-ack-${nationOf(u)}`, footAckFor(u), 'ui', SELECT_CUE);
   } else {
     AudioManager.playEffect('unit-select', 'audio/effects/chess-piece-placed.wav', 'ui', SELECT_CUE);
   }
 }
 
-/* TURN THEMES, KEYED BY SIDE. volumeScale is per file, set by measuring its
+/* TURN THEMES, KEYED BY NATION (the acting army's, in the four-army game).
+   A nation with no theme yet (Prussia) starts its turn in silence. volumeScale is per file, set by measuring its
    peak so it sits as loud as it can without clipping:
      France  32.3s, peaks -5.5 dB -> 1.5x, about -2 dB. Set to match the
              loudness settled on for the earlier 9.5s take (1.95x on a quieter
@@ -514,8 +516,8 @@ export function playSelectCue(u){
      Britain 29.3s (longer, for a human choosing moves), peaks -2.4 dB -> 1.2x,
              about -0.8 dB. On average it sits about 3.5 dB under France. */
 export const TURN_THEME = {
-  blue: { file: 'audio/effects/france-turn-theme-long.m4a', volumeScale: 1.5 },
-  red:  { file: 'audio/effects/britain-turn-theme.mp3', volumeScale: 1.2 },
+  france:  { file: 'audio/effects/france-turn-theme-long.m4a', volumeScale: 1.5 },
+  britain: { file: 'audio/effects/britain-turn-theme.mp3', volumeScale: 1.2 },
 };
 export const TURN_THEME_FADE_MS = 800;
 
@@ -524,9 +526,11 @@ export const TURN_THEME_FADE_MS = 800;
    the new turn's theme starts on a fresh gain at full level every time. */
 export function playTurnTheme(side){
   AudioManager.fadeOutEffects('turn-theme-', TURN_THEME_FADE_MS);
-  const theme = TURN_THEME[side];
+  const army = state.group && side === state.turn ? actingArmy() : null;
+  const nation = army ? army.nation : nationOf(side);
+  const theme = TURN_THEME[nation];
   if(!theme) return;
-  AudioManager.playEffect(`turn-theme-${side}`, theme.file, 'ui', { volumeScale: theme.volumeScale });
+  AudioManager.playEffect(`turn-theme-${nation}`, theme.file, 'ui', { volumeScale: theme.volumeScale });
 }
 
 export function beginMovePhase(){
@@ -1594,8 +1598,8 @@ export function resolveVolley(shooter, target, onComplete){
        Queued on the audio clock only: the turn is not held for it, the volley
        simply sounds while the dice are still rolling. British volleys are
        unchanged. */
-    const fireCmd = VOLLEY_COMMAND[shooter.side];
-    if(fireCmd) AudioManager.playEffect(`volley-command-${shooter.side}`, fireCmd.file, 'musketVolley',
+    const fireCmd = VOLLEY_COMMAND[nationOf(shooter)];
+    if(fireCmd) AudioManager.playEffect(`volley-command-${nationOf(shooter)}`, fireCmd.file, 'musketVolley',
       { pan: AudioManager.panForBoardX(shooter.x) });
     AudioManager.playEffect('musket-volley', MUSKET_VOLLEY_TAKES, 'musketVolley',
       { pan: AudioManager.panForBoardX(shooter.x), delayMs: fireCmd ? fireCmd.leadMs : 0 });

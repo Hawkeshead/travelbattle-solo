@@ -10,18 +10,24 @@
    Per nation: its key (also its key in data/unit-archive.json), the name
    shown to the player, the side it fights for, how many of its armies a
    match may field (null: no limit set yet, left open for a second French
-   army), its UI colours, and the folder its art lives in.
+   army), its UI colours, the folder its pixel art lives in, whether it has
+   classic icons (only Britain and France; the others draw as pixel figures
+   under the Classic setting), and its cockade (the selection marker: outer
+   folds, middle ring, button).
 
    A leaf module (no imports), so the campaign map's pure core and the tests
    can read it as well as the game.
 ========================================================= */
 export const NATIONS = {
   britain: { key: 'britain', name: 'Britain', adjective: 'British', team: 'coalition', side: 'red', maxArmies: 1,
-             colours: { main: '#a3403a', dim: '#5c2825' }, art: 'british' },
+             colours: { main: '#a3403a', dim: '#5c2825' }, art: 'british', classic: true,
+             cockade: ['#151515', '#2b2b2b', '#d9dee4'] },
   france:  { key: 'france', name: 'France', adjective: 'French', team: 'imperial', side: 'blue', maxArmies: null,
-             colours: { main: '#2e4566', dim: '#1c2a3d' }, art: 'french' },
+             colours: { main: '#2e4566', dim: '#1c2a3d' }, art: 'french', classic: true,
+             cockade: ['#c8191e', '#f6f3ea', '#1f3a8a'] },
   prussia: { key: 'prussia', name: 'Prussia', adjective: 'Prussian', team: 'coalition', side: 'red', maxArmies: 1,
-             colours: { main: '#1d1d1f', dim: '#0e0e0f', accent: '#f2f2ee' }, art: 'prussian' },
+             colours: { main: '#1d1d1f', dim: '#0e0e0f', accent: '#f2f2ee' }, art: 'prussian',
+             cockade: ['#151515', '#f2f2ee', '#151515'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };

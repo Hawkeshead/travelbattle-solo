@@ -1,6 +1,6 @@
 import { offerBeginBattle } from './ui-deployment.js';
 import { DEFAULT_NATIONS, NATIONS, nationFor, nationKeyFor, nationsForSide } from './nations.js';
-import { NATION_FLAG } from './nation-flags.js';
+import { NATION_EMBLEM, NATION_FLAG } from './nation-flags.js';
 import { gateBattle } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
@@ -1290,7 +1290,7 @@ function renderArmyPickerCard(){
   // Whose army this is: the nation (or the four-army mode's army), in its colour.
   const nation = NATIONS[pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side)];
   if(forEl){
-    forEl.textContent = (pickerGroupArmy ? pickerGroupArmy.label : nation.name) + ' \u00b7 ';
+    forEl.innerHTML = (NATION_EMBLEM[nation.key] || '') + (pickerGroupArmy ? pickerGroupArmy.label : nation.name) + ' \u00b7 ';
     forEl.style.color = nation.colours.main;
   }
   const panel = document.getElementById('armyPickerPanel');

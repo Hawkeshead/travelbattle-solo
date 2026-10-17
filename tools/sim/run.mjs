@@ -62,6 +62,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
   // SIM_DIFFICULTY=medium|easy plays both sides at that level (default Hard, the shipped one).
   state.aiDifficulty = process.env.SIM_DIFFICULTY || 'hard';
   state.aiSide = SIDES.RED;
+  // SIM_RED_NATION=prussia: the AI commands that Coalition nation instead of Britain (js/nations.js).
+  state.nations = { red: process.env.SIM_RED_NATION || 'britain', blue: 'france' };
   state.gameOver = false;
   state.winner = null;
   state.turnNumber = 1;
@@ -149,6 +151,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     wallMs: Date.now() - t0,
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
     survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
+    nations: { ...state.nations }, redNames: state.units.filter(u => u.side === SIDES.RED).slice(0, 3).map(u => u.historicalName),
     brokenBrigades: countBrokenBrigades(state, SIDES),
     stall: finished === 'win' ? null : snapshotStall(state, SIDES),
     remnants: remnantsOf(state, SIDES),

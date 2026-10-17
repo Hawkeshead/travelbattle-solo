@@ -11,3 +11,5 @@ Sheets live in assets/units-pixel/{nation}/{UNIT_TYPE}/{anim}_{facing}_v{variant
 - facings, anims {frameCount, fps, loop}
 
 Unit types: INFANTRY, GUARD, GUARD_BEARER (Guard colour bearer, flag wave baked in), ARTILLERY (gunners), ARTILLERY_GUN, LIGHT_CAV, HEAVY_CAV, BRIGADIER (a mounted general officer: cavalry.js 'general' specs, bicorne, epaulettes, sash; exported by `node tools/units/pixel/export-brigadier.mjs`, then converted to lossless webp).
+
+Every type for a whole nation (17 Oct 2026): `node tools/units/pixel/export-nation.mjs prussian` writes the png strips and copies the sidecars; convert them to lossless webp after. `--verify` (with `npx http-server . -p 4173` running) draws the sheets and compares them pixel for pixel with the ones in assets/ instead of writing: British and French reproduce exactly (bar 1 or 2 colour values in the cavalry falls, from webp rounding), so a new nation exported this way matches the shipped rigs. A new nation needs its own branches in infantry.js (NAT, NATG, NATA, headgear, torso, flag), cavalry.js (SPECS with its prefix) and artillery.js (PAL), its 'art' folder in js/nations.js, and its dice in js/dice-art.js.
