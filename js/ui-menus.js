@@ -1,6 +1,7 @@
 import { offerBeginBattle } from './ui-deployment.js';
 import { DEFAULT_NATIONS, NATIONS, nationFor, nationKeyFor, nationsForSide } from './nations.js';
 import { NATION_EMBLEM, NATION_FLAG } from './nation-flags.js';
+import { layoutRefusal } from './brigade-rules.js';
 import { gateBattle } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
@@ -9,7 +10,7 @@ import { operationBriefHTML, redrawOperation, setupOperation } from './operation
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline, sharedArmiesEnabled } from './online-session.js';
-import { humanOwns, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
+import { humanOwns, statesOf, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
@@ -1313,7 +1314,8 @@ function renderArmyPickerCard(){
   document.getElementById('armyPickerIndex').textContent = index+1;
   const forEl = document.getElementById('armyPickerFor');
   // Whose army this is: the nation (or the four-army mode's army), in its colour.
-  const nation = NATIONS[pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side)];
+  const nationKey = pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side);
+  const nation = NATIONS[nationKey];
   if(forEl){
     forEl.innerHTML = (NATION_EMBLEM[nation.key] || '') + (pickerGroupArmy ? pickerGroupArmy.label : nation.name) + ' \u00b7 ';
     forEl.style.color = nation.colours.main;
@@ -1321,7 +1323,14 @@ function renderArmyPickerCard(){
   const panel = document.getElementById('armyPickerPanel');
   if(panel) panel.style.setProperty('--nation', nation.colours.main);
   document.getElementById('armyPickerName').textContent = army.name;
-  document.getElementById('armyPickerSummary').textContent = army.summary;
+  /* A combined army's layout that would give a single-state Brigade is
+     refused (js/brigade-rules.js): the reason stands in for the summary and
+     Deploy is off until another layout is chosen. */
+  const refusal = layoutRefusal(nation.adjective, army, archiveOf(nationKey), statesOf(nationKey));
+  const sumEl = document.getElementById('armyPickerSummary');
+  sumEl.textContent = refusal || army.summary;
+  sumEl.classList.toggle('refused', !!refusal);
+  document.getElementById('armyPickerDeployBtn').disabled = !!refusal;
   const cardsEl = document.getElementById('armyPickerBrigadeCards');
   cardsEl.innerHTML = army.brigades.map((b,i)=>
     `<div class="apCard" style="border-top-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div><ul class="apUnits">${brigadeUnitLines(b).map(l=>`<li>${l}</li>`).join('')}</ul></div>`

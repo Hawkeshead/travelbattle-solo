@@ -8,7 +8,7 @@
    immediately, exactly as it read inline literals before this change,
    with no restructuring of the game code itself.
 ========================================================= */
-import { NATIONS, nationFor, nationKeyFor } from './nations.js';
+import { NATIONS, baseNation, nationFor, nationKeyFor } from './nations.js';
 export const TB_DATA = (function(){
   function loadJSON(path){
     const xhr = new XMLHttpRequest();
@@ -30,6 +30,8 @@ export const TB_DATA = (function(){
       terrainLayouts: loadJSON('data/terrain-layouts.json'),
       unitTypes: loadJSON('data/unit-types.json'),
       armyCompositions: loadJSON('data/army-compositions.json'),
+      /* The state each unit of a combined army was raised in (js/brigade-rules.js). */
+      unitStates: loadJSON('data/unit-states.json'),
       /* Campaign maps (campaign-map-core.js), one file per map, keyed by id. */
       campaignMaps: { flanders: loadJSON('data/campaign-maps/flanders.json') },
     };
@@ -369,6 +371,8 @@ export function nationOf(sideOrUnit){
 }
 /* A nation's names and histories, from data/unit-archive.json. */
 export const archiveOf = nationKey => UNIT_ARCHIVE[nationKey] || {};
+/* A combined army's units by state (data/unit-states.json), or undefined. */
+export const statesOf = nationKey => (TB_DATA.unitStates || {})[baseNation(nationKey)];
 /* Each side's UI colour is its nation's (js/nations.js), read live like
    SIDE_LABEL: Britain's red and France's blue as before, Prussia's black. A
    single unit's colour is its own nation's (unitColor), which in the four-army

@@ -1,0 +1,13 @@
+{
+  "_about": "The state each unit of a combined army was raised in, by nation and then by unit name (the names in data/unit-archive.json). Read by js/brigade-rules.js: a Brigade of such an army may not be made up entirely of one state's troops (its Brigadier aside). Kept apart from the archive so its entries stay name and bio only.",
+  "confederation": {
+    "Wrede": "Bavaria", "Bavarian Leib-Regiment": "Bavaria", "Bavarian Foot Artillery": "Bavaria",
+    "Thielmann": "Saxony", "Saxon Leib-Grenadier-Garde": "Saxony", "Saxon Garde du Corps": "Saxony",
+    "Hochberg": "Baden", "Baden Line Infantry": "Baden", "Baden Hussars": "Baden",
+    "Westphalian Guard Grenadiers": "Westphalia", "Westphalian 1st Cuirassiers": "Westphalia",
+    "Württemberg Kronprinz Regiment": "Württemberg", "Württemberg Horse Artillery": "Württemberg",
+    "Berg 1st Infantry": "Berg", "Berg Lancers": "Berg",
+    "Hessian Leib-Regiment": "Hesse-Darmstadt",
+    "Nassau 2nd Regiment": "Nassau"
+  }
+}

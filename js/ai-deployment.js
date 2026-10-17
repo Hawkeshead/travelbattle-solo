@@ -1,5 +1,7 @@
 import { AI_UNIT_VALUE, terrainSeekBonus } from './ai-tactics.js';
-import { COLS, ROWS, SIDES, TB_DATA, state } from './data-core.js';
+import { COLS, ROWS, SIDES, TB_DATA, archiveOf, nationOf, state, statesOf } from './data-core.js';
+import { NATIONS } from './nations.js';
+import { layoutRefusal } from './brigade-rules.js';
 import { isRoadLike, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { confirmCurrentBrigade, placeUnit, sideFullyDeployed } from './ui-deployment.js';
 import { isOnline, requestRemoteDeploy, aiAllowedOnline } from './online-session.js';
@@ -174,6 +176,18 @@ export function weakestEnemyFlank(humanSide){
   return weakest;
 }
 
+/* A combined army (the Confederation) may not field a single-state Brigade
+   (js/brigade-rules.js): the AI keeps its choice if it passes, else takes the
+   first layout that does. For every other nation this returns the choice. */
+function allowedLayout(side, id){
+  const nk = nationOf(side), states = statesOf(nk);
+  if(!states) return id;
+  const ok = c => !layoutRefusal(NATIONS[nk].adjective, c, archiveOf(nk), states);
+  const chosen = TB_DATA.armyCompositions.find(c => c.id === id);
+  if(chosen && ok(chosen)) return id;
+  const first = TB_DATA.armyCompositions.find(ok);
+  return first ? first.id : id;
+}
 function pickCounterArmy(humanSide){
   const humanUnits = state.units.filter(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
   if(humanUnits.length === 0) return null;
@@ -264,7 +278,7 @@ export function aiDeployStepHard(side){
            is the very thing the AI's own counter-pick hunts for. */
         const enemyIsDown = state.units.some(u=>!u.removed && u.side===humanSide && u.type!=='BRIGADIER');
         const counterPick = (otherIsHuman && enemyIsDown) ? pickCounterArmy(humanSide) : null;
-        choices[side] = counterPick || pickGroundSuitedArmy(side);
+        choices[side] = allowedLayout(side, counterPick || pickGroundSuitedArmy(side));
       }
       const army = TB_DATA.armyCompositions.find(a=>a.id===choices[side]);
       const brig = army && army.brigades[bIdx];

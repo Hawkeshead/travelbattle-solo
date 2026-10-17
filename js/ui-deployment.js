@@ -1,5 +1,7 @@
 import { aiDeployStep } from './ai-deployment.js';
-import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, TERRAIN, UNIT_TYPES, humanOwns, state } from './data-core.js';
+import { BRIGADE_COMPOSITIONS, COLS, ROWS, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state, statesOf } from './data-core.js';
+import { NATIONS } from './nations.js';
+import { brigadeRefusal } from './brigade-rules.js';
 import { inBounds, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
 import { log, newUnit, pushUndoSnapshot, resetHistoricalIdentities, resetUndoStack, undoStack } from './engine-state.js';
 import { cellFromClient, draw, fromScreen } from './render-board.js';
@@ -193,7 +195,9 @@ export function renderRoster(){
   const hasBrig = state.currentBrigadeHasBrigadier[side];
   const count = state.currentBrigadeCount[side];
   document.getElementById('rosterTitle').textContent = `${SIDE_LABEL[side]}: Brigade ${bIdx+1} of 3`;
-  progress.textContent = !hasBrig
+  progress.textContent = state._brigadeRefused && state._brigadeRefused.side === side && state._brigadeRefused.bIdx === bIdx
+    ? state._brigadeRefused.why
+    : !hasBrig
     ? 'Place a Brigadier to start this Brigade'
     : `${count} unit${count===1?'':'s'} placed (minimum 2)`;
 
@@ -400,6 +404,16 @@ export function confirmCurrentBrigade(){
   const side = state.deployTurn;
   if(!(state.currentBrigadeHasBrigadier[side] && state.currentBrigadeCount[side]>=2)) return;
   const bIdx = state.deployBrigadeIndex[side];
+  /* A combined army's Brigade may not be all one state's troops
+     (js/brigade-rules.js): a player's is refused here, with the reason,
+     until it is mixed (Undo and place again). The AI only ever picks army
+     layouts that pass, so it never reaches this. */
+  if(humanOwns(side)){
+    const names = state.units.filter(u => !u.removed && u.side === side && u.brigadeId === bIdx && u.type !== 'BRIGADIER').map(u => u.historicalName);
+    const why = brigadeRefusal(NATIONS[nationOf(side)].adjective, names, statesOf(nationOf(side)));
+    if(why){ state._brigadeRefused = { side, bIdx, why }; log(why, 'system'); renderRoster(); return; }
+  }
+  state._brigadeRefused = null;
   if(!humanOwns(side)) recentreBrigadier(side, bIdx);
   log(`${SIDE_LABEL[side]}'s Brigade ${bIdx+1} is fully deployed.`, 'system');
   state.deployBrigadeIndex[side]++;

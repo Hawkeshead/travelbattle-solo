@@ -76,3 +76,33 @@ test('army limits: one per Coalition nation, more only where allowed', () => {
   assert.strictEqual(cannotField(['france'], 'france'), null);
   assert.ok(cannotField(['france', 'france'], 'france'));
 });
+
+/* THE CONFEDERATION'S MIXED BRIGADES (js/brigade-rules.js). */
+import { brigadeRefusal, layoutNames, layoutRefusal, singleStateOf } from '../js/brigade-rules.js';
+const STATES = JSON.parse(fs.readFileSync(new URL('../data/unit-states.json', import.meta.url), 'utf8'));
+const LAYOUTS = JSON.parse(fs.readFileSync(new URL('../data/army-compositions.json', import.meta.url), 'utf8'));
+
+test('every Confederation unit has a state, and every state on record is a real unit', () => {
+  const names = Object.values(ARCHIVE.confederation).flat().map(e => e.name);
+  for(const n of names) assert.ok(STATES.confederation[n], `${n} has no state`);
+  for(const n of Object.keys(STATES.confederation)) assert.ok(names.includes(n), `${n} is not in the roster`);
+});
+
+test('a Brigade all from one state is refused, a mixed one is not', () => {
+  const S = STATES.confederation;
+  assert.strictEqual(singleStateOf(['Bavarian Leib-Regiment', 'Bavarian Foot Artillery'], S), 'Bavaria');
+  assert.match(brigadeRefusal('Confederation', ['Saxon Leib-Grenadier-Garde', 'Saxon Garde du Corps'], S), /all from Saxony/);
+  assert.strictEqual(brigadeRefusal('Confederation', ['Bavarian Leib-Regiment', 'Baden Hussars'], S), null);
+  assert.strictEqual(brigadeRefusal('Confederation', [], S), null);
+  // A layout whose Brigade would draw the two Bavarian units is refused.
+  const bavarian = { brigades: [{ units: [{ type: 'INFANTRY' }, { type: 'ARTILLERY' }] }] };
+  const archive = { BRIGADIER: ARCHIVE.confederation.BRIGADIER, INFANTRY: [{ name: 'Bavarian Leib-Regiment' }], ARTILLERY: [{ name: 'Bavarian Foot Artillery' }] };
+  assert.deepStrictEqual(layoutNames(bavarian, archive), [['Bavarian Leib-Regiment', 'Bavarian Foot Artillery']]);
+  assert.match(layoutRefusal('Confederation', bavarian, archive, S), /all from Bavaria/);
+});
+
+test('every army layout is allowed for the Confederation as the rosters stand', () => {
+  for(const c of LAYOUTS) assert.strictEqual(layoutRefusal('Confederation', c, ARCHIVE.confederation, STATES.confederation), null, c.id);
+  // Nations without a state map are never refused.
+  for(const c of LAYOUTS) assert.strictEqual(layoutRefusal('France', c, ARCHIVE.france, undefined), null);
+});
