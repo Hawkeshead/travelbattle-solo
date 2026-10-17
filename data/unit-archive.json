@@ -654,5 +654,87 @@
         "bio": "Freira's battery was the second of the Portuguese batteries engaged at Bussaco in September 1810, where the Allied army beat off Mass\u00e9na's assaults on the ridge. The Portuguese gunners proved themselves the equal of their British comrades, and the artillery served on with Wellington through the campaigns of 1811 to 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "poland": {
+    "BRIGADIER": [
+      {
+        "name": "Poniatowski",
+        "bio": "Prince J\u00f3zef Poniatowski, nephew of the last King of Poland, became Minister of War of the Duchy of Warsaw and the commander of its army. In 1809 he held an Austrian force twice his size to a standstill at Raszyn, and in 1812 he led the all-Polish V Corps, 36,000 strong, at Smolensk and Borodino. Made a Marshal of the Empire at Leipzig on 16 October 1813, he was cut off three days later when the Elster bridge was blown, led a last charge, and drowned trying to swim the river after being wounded four times. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "D\u0105browski",
+        "bio": "Jan Henryk D\u0105browski founded the Polish Legions in Italy in 1797, gathering exiled Poles to fight for France in the hope of restoring their country. The song written for his legionnaires, with its promise that Poland has not yet perished, became the Polish national anthem. He raised the uprising of 1806 that brought Polish troops back to their homeland alongside Napoleon, and commanded a division in the Russian campaign of 1812. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Krasi\u0144ski",
+        "bio": "Wincenty Krasi\u0144ski commanded the 1st Polish Light Horse Regiment of the Imperial Guard from its formation in 1807 until Napoleon's first abdication in 1814. Under him the regiment became one of the most celebrated cavalry units in Europe, riding as part of Napoleon's personal escort from Spain to Russia and on into France. Its officers went on to command so widely that the regiment was called a school for generals. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "1st Vistula Legion Infantry",
+        "bio": "The Vistula Legion grew out of the Poles serving in Italy and was renamed in 1808, with the same status as French line units. Its veteran regiments were sent into Spain, where they fought through both terrible sieges of Zaragoza in 1808 and 1809, street by street and house by house. Withdrawn for the invasion of Russia, the legion fought at Smolensk and Borodino and its survivors were still in the line at Leipzig. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd Vistula Legion Infantry",
+        "bio": "The 2nd Regiment of the Vistula Legion marched into Spain in June 1808 and became part of the long and savage campaign there, fighting alongside the French at the sieges of Zaragoza. Hardened by years of war against Spanish regulars and guerrillas alike, the legion's men were among the most experienced soldiers Poland put in the field. In 1812 each regiment of the legion was given its own small battery of two light guns for the march on Moscow. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "1st Polish Infantry Regiment",
+        "bio": "The 1st Infantry Regiment of the Army of the Duchy of Warsaw was raised in 1806 and served until the Duchy's army was reorganised in 1814. It fought at Raszyn and at Praga in 1809 as Poniatowski defended the Duchy against the Austrians, and its colours bore the white silk inscription Pu\u0142k Pierwszy Piechoty above the eagle. It marched into Russia in 1812 and fought on to the Battle of Leipzig. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "3rd Polish Infantry Regiment",
+        "bio": "The 3rd Infantry Regiment took its name by order of Poniatowski as Minister of War in June 1807, and was garrisoned in Warsaw. In 1809 it fought at Raszyn, then at Zamo\u015b\u0107 and Sandomierz as the Poles carried the war into Austrian Galicia. By the end of that year it numbered more than 2,600 men. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "8th Polish Infantry Regiment",
+        "bio": "The 8th Infantry Regiment began as the 4th Regiment of the Kalisz Legion and was commanded by the poet Cyprian Godebski. At Raszyn in April 1809 Godebski was killed leading the regiment's 1st Battalion into the attack, a death later painted by January Suchodolski. The regiment went on to fight at Smolensk and Borodino in 1812. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd Polish Infantry Regiment",
+        "bio": "The 2nd Infantry Regiment was one of the line regiments raised for the new Polish army during the rising of 1806 and 1807, as Poles flocked to Napoleon's cause after the fall of Prussia. Like the rest of the Duchy's infantry it was organised, armed and drilled on the French model, in three battalions of six companies. It served through the defence of the Duchy in 1809 and the campaigns that followed. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "3rd Vistula Legion Infantry",
+        "bio": "The 3rd Regiment of the Vistula Legion entered Spain with the 2nd in June 1808 and spent the following years in the hard fighting of the Peninsula. Brought back for the Russian campaign in 1812, it was ordered to recruit a third battalion, which did not catch up with the regiment until the retreat from Moscow was well under way. Its survivors were merged into a single Vistula Regiment in 1813. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "4th Vistula Legion Infantry",
+        "bio": "The 4th Regiment of the Vistula Legion was born of the short-lived Second Vistula Legion, which Napoleon ordered raised from prisoners taken from the Austrians in 1809. When that legion failed to recruit up to strength it was disbanded in February 1810, and its men were folded into the original legion as its 4th Regiment. It served with the legion through the invasion of Russia. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "1st Polish Light Horse of the Guard",
+        "bio": "The 1er R\u00e9giment de Chevau-l\u00e9gers Polonais de la Garde Imp\u00e9riale was raised in 1807 and served as part of Napoleon's escort. At Somosierra in November 1808 a single squadron of about 125 men under Jan Kozietulski charged up a narrow mountain road against four Spanish batteries, sabres drawn, and took them in a charge said to have lasted seven minutes, opening the road to Madrid. Afterwards the regiment took up the lance and fought in every campaign to 1815. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "14th Polish Cuirassiers",
+        "bio": "The 14th Cuirassier Regiment was the Duchy of Warsaw's heavy cavalry, armoured horsemen raised for the invasion of Russia in 1812. At Borodino it rode in the 7th Heavy Cavalry Division of Latour-Maubourg's IV Cavalry Corps, brigaded with Saxon and Westphalian cuirassiers. That division took part in the great cavalry assault on the Russian centre around the Raevsky Redoubt. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "1st Vistula Lancers",
+        "bio": "The 1st Lancer Regiment of the Vistula Legion had to prove the worth of the lance to a sceptical Napoleon in 1808, and proved it beyond doubt at Albuera on 16 May 1811. Bursting out of a rainstorm onto the flank and rear of Colborne's British brigade, the lancers destroyed three of its four battalions, taking prisoners, guns and colours in one of the most devastating cavalry charges of the Peninsular War. In 1811 the regiment passed into the French line as the 7th Chevau-l\u00e9gers Lanciers. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Krakus Horse",
+        "bio": "The Krakus were light horsemen raised from the peasants of the Krak\u00f3w region, riding small, hardy horses and armed with lances in the manner of Cossacks. Poniatowski brought them into his corps for the 1813 campaign in Germany, where they served as scouts and skirmishers against the Russian Cossacks they so closely resembled. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Duchy of Warsaw Foot Artillery",
+        "bio": "The foot artillery of the Duchy of Warsaw was built on the French model, with French-style guns, drill and organisation, and served with Poniatowski's V Corps in 1812. At Borodino the Polish guns supported the attacks on Utitsa and its mound on the far right of the French line. In 1813 they fought through the campaign in Saxony to the final battle at Leipzig. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Polish Horse Artillery",
+        "bio": "The Polish horse artillery rode with the Duchy's lancers, every gunner mounted so the guns could keep pace with the cavalry. At Borodino two Polish horse batteries supported the three regiments of Polish uhlans in the 4th Light Cavalry Division of Latour-Maubourg's corps. They served on with the cavalry through the retreat and the campaign of 1813. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
