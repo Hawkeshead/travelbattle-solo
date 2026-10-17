@@ -593,7 +593,6 @@ function drawUnitInner(u, off){
       ctx.restore();
     }
     if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, sp.y*CELL + off.dy*CELL + CELL*0.04, CELL*0.92, CELL*0.92); ctx.restore(); }
-    drawSideMarker(u, cx - CELL/2, sp.y*CELL + off.dy*CELL);
     drawStatusColumn(statusBadgesFor([u]), cx - off.dx*CELL - CELL/2, cy - off.dy*CELL - CELL/2);
     return;
   }
@@ -681,7 +680,6 @@ function drawColumnUnitPairInner(u1, u2){
   const size = CELL*0.62;
   if(figuresOn(u1) && drawColumnFigures(ctx, u1, u2, cx, cy)){
     if(isSel){ ctx.save(); ctx.strokeStyle = '#f4e9c9'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(cx - CELL*0.46, cy - CELL*0.46, CELL*0.92, CELL*0.92); ctx.restore(); }
-    drawSideMarker(u1, cx - CELL/2, cy - CELL/2);
     drawStatusColumn(statusBadgesFor([u1, u2]), cx - CELL/2, cy - CELL/2);
     return;
   }
@@ -738,47 +736,4 @@ export let highlightCells = [];
 
 export function setHighlightCells(cells){
   highlightCells = cells;
-}
-
-
-/* =========================================================
-   SIDE MARKER: TWO OPTIONS FOR MATTHEW (17 Oct 2026), NOT SWITCHED ON.
-
-   Prussian and French coats are both dark blue, so a team marker is proposed
-   for telling Coalition from Imperial at a glance. Neither is a ring at the
-   unit's feet (the cockade stays the only selection marker). Off unless asked
-   for with ?sideMarker=pennant or ?sideMarker=edge (or localStorage
-   fc_side_marker), until one is chosen:
-   - pennant: a small swallow-tailed pennant on a staff in the top right of
-     the unit's square, in its team's colour;
-   - edge: a coloured strip along the bottom edge of the square, like the
-     painted edge of a miniature's base.
-   Team colours: the Coalition red, the Imperial side blue (the board's own
-   red and blue sides), each with a pale outline so it reads on any ground.
-========================================================= */
-const SIDE_MARKER = (() => {
-  try {
-    const q = new URLSearchParams(globalThis.location ? location.search : '').get('sideMarker');
-    const v = q || localStorage.getItem('fc_side_marker');
-    return v === 'pennant' || v === 'edge' ? v : null;
-  } catch { return null; }
-})();
-const TEAM_MARK = { red: '#c0251c', blue: '#2f5fd0' };
-function drawSideMarker(u, x0, y0){
-  if(!SIDE_MARKER || !u) return;
-  const col = TEAM_MARK[u.side];
-  ctx.save();
-  if(SIDE_MARKER === 'pennant'){
-    const sx = x0 + CELL*0.86, top = y0 + CELL*0.06, h = CELL*0.30;
-    ctx.fillStyle = '#3a2618'; ctx.fillRect(sx, top, Math.max(1.5, CELL*0.02), h);         // the staff
-    const w = CELL*0.13, ph = CELL*0.10;
-    ctx.beginPath(); ctx.moveTo(sx, top + 1); ctx.lineTo(sx - w, top + 1); ctx.lineTo(sx - w*0.7, top + 1 + ph/2); ctx.lineTo(sx - w, top + 1 + ph); ctx.lineTo(sx, top + 1 + ph); ctx.closePath();
-    ctx.fillStyle = col; ctx.fill();
-    ctx.lineWidth = Math.max(1, CELL*0.012); ctx.strokeStyle = 'rgba(250,244,228,.9)'; ctx.stroke();
-  } else {
-    const h = Math.max(3, CELL*0.05), y = y0 + CELL*0.93 - h;
-    ctx.fillStyle = 'rgba(250,244,228,.85)'; ctx.fillRect(x0 + CELL*0.06 - 1, y - 1, CELL*0.88 + 2, h + 2);
-    ctx.fillStyle = col; ctx.fillRect(x0 + CELL*0.06, y, CELL*0.88, h);
-  }
-  ctx.restore();
 }
