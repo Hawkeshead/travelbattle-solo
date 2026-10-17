@@ -19,7 +19,7 @@ import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artillery
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
-import { BRIGADIER_PORTRAIT_KEY, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
+import { BRIGADIER_PORTRAIT_KEY, gunPortraitSrc, unitPortraitHTML, REGIMENT_IMAGE_DATA, REGIMENT_PORTRAIT_KEY, UNIT_IMAGE_DATA, highlightCells, setHighlightCells } from './render-units.js';
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
@@ -1123,7 +1123,8 @@ export function renderUnitInfo(u){
     if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
       portraitEl.innerHTML = `<img class="u-art" alt="" src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}">`;
     } else if(t.isArtillery){
-      portraitEl.innerHTML = `<img class="u-art u-gun" alt="" src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}">`;
+      const gun = gunPortraitSrc(u);
+      portraitEl.innerHTML = `<img class="u-art u-gun" alt="" src="${gun}"${gun.includes('units-pixel') ? ' style="image-rendering:pixelated"' : ''}>`;
     } else if(REGIMENT_PORTRAIT_KEY[u.historicalName]){
       portraitEl.innerHTML = `<img class="u-art" alt="" src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}">`;
     } else {

@@ -831,7 +831,7 @@ export function exportFullMatchLog(){
   // undo carry; the count is here so an export says what the field looked like.
   if(Array.isArray(state.figureBodies) && state.figureBodies.length){
     const bodies = state.figureBodies.filter(b => !b.wreck);
-    lines.push('', `Fallen on the field: ${bodies.length} men (British ${bodies.filter(b => b.nation === 'british').length}, French ${bodies.filter(b => b.nation === 'french').length}), ` +
+    lines.push('', `Fallen on the field: ${bodies.length} men (${SIDE_LABEL.red} ${bodies.filter(b => b.side === 'red').length}, ${SIDE_LABEL.blue} ${bodies.filter(b => b.side === 'blue').length}), ` +
       `${state.figureBodies.length - bodies.length} wrecked guns`);
   }
   lines.push('');

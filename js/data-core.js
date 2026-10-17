@@ -8,7 +8,7 @@
    immediately, exactly as it read inline literals before this change,
    with no restructuring of the game code itself.
 ========================================================= */
-import { NATIONS, baseNation, nationFor, nationKeyFor } from './nations.js';
+import { NATIONS, baseNation, groupSideName, nationFor, nationKeyFor } from './nations.js';
 export const TB_DATA = (function(){
   function loadJSON(path){
     const xhr = new XMLHttpRequest();
@@ -354,10 +354,12 @@ export const TERRAIN_STYLE = (() => {
 export const SIDES = { RED: 'red', BLUE: 'blue' };
 /* The name of the nation fighting on each side THIS match (js/nations.js):
    Britain and France unless one was picked. Read live, so every log line,
-   banner and menu that says SIDE_LABEL[side] names the right nation. */
+   banner and menu that says SIDE_LABEL[side] names the right nation. In the
+   four-army game a side is its two armies' nations ("Russia and Spain"). */
+const sideName = side => (state.group ? groupSideName(state.groupNations, side) : nationFor(state.nations, side).name);
 export const SIDE_LABEL = {
-  get red(){ return nationFor(state.nations, 'red').name; },
-  get blue(){ return nationFor(state.nations, 'blue').name; },
+  get red(){ return sideName('red'); },
+  get blue(){ return sideName('blue'); },
 };
 /* A side's or a unit's nation key ('britain', 'france', 'prussia'). A unit
    carries its own (stamped by newUnit), which in the four-army mode can
@@ -386,7 +388,7 @@ export const SIDE_COLOR_DIM = {
   get blue(){ return nationFor(state.nations, 'blue').colours.dim; },
 };
 export const unitColor = u => NATIONS[nationOf(u)].colours.main;
-export const unitNationName = u => NATIONS[nationOf(u)].name;
+export const unitNationName = u => NATIONS[baseNation(nationOf(u))].name;   // 'Russia' for either Russian army
 
 export const UNIT_TYPES = TB_DATA.unitTypes.unitTypes;
 

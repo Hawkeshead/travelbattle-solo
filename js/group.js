@@ -1,5 +1,5 @@
 import { COLS, ROWS, SIDES, state } from './data-core.js';
-import { NATIONS, armyKeysFor, cannotField } from './nations.js';
+import { DEFAULT_GROUP_NATIONS, NATIONS, armyKeysFor, cannotField, groupPick } from './nations.js';
 
 /* =========================================================
    GROUP: FOUR ARMIES, TWO TEAMS (2v2)
@@ -33,13 +33,9 @@ import { NATIONS, armyKeysFor, cannotField } from './nations.js';
    army's units carry its nation (u.nation), so names, art and dice follow the
    army, not the side. Everything else about an army (its label, colour,
    recolour) is read from its pick, so every phone shows the same. */
-export const DEFAULT_GROUP_NATIONS = { red1: 'britain', red2: 'prussia', blue1: 'france', blue2: 'france' };
+export { DEFAULT_GROUP_NATIONS };
 const SECOND_COLOR = { france: '#6a4a8c', russia: '#5e7d2c' };   // a nation's second army, told apart from its first
-const pickOf = id => {
-  const k = state.groupNations && state.groupNations[id];
-  const side = id.startsWith('red') ? SIDES.RED : SIDES.BLUE;
-  return NATIONS[k] && NATIONS[k].side === side && !NATIONS[k].secondOf ? k : DEFAULT_GROUP_NATIONS[id];
-};
+const pickOf = id => groupPick(state.groupNations, id);
 function makeArmy(id, side, edge, brigadeOffset){
   const ids = side === SIDES.RED ? ['red1', 'red2'] : ['blue1', 'blue2'];
   const i = ids.indexOf(id);

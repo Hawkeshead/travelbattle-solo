@@ -24,7 +24,7 @@
    AI's plan, combo, finishing and per-unit decision lines (ai-strategy, at the
    sites that write the text lines today) and the match end (engine-objectives).
 ========================================================= */
-import { state } from '../data-core.js';
+import { nationOf, state } from '../data-core.js';
 import { deriveMeasures, flagsFromExport, termRows } from './derive.js';
 import { isOnline, onlineSession } from '../online-session.js';
 import { BUILD } from '../build-info.js';
@@ -117,7 +117,9 @@ export const recStart = guard(meta => {
     onlineMatchId: online,
     build: { version: meta && meta.build ? meta.build.version : null, commit: meta && meta.build ? meta.build.commit : null, aiWeightsHash: null },
     ai: state.mode === 'ai' && !isOnline() ? { baseline: (meta && meta.aiBaseline) || 'main', difficulty: state.aiDifficulty || null } : null,
-    players: sides.map(side => ({ seat: state.mode === 'ai' && !isOnline() ? (actorFor(side) === 'ai' ? side : 'solo') : side, side, name: (meta && meta.names && meta.names[side]) || null, user_id: null, actor: actorFor(side) })),
+    players: sides.map(side => ({ seat: state.mode === 'ai' && !isOnline() ? (actorFor(side) === 'ai' ? side : 'solo') : side, side, name: (meta && meta.names && meta.names[side]) || null, user_id: null, actor: actorFor(side),
+      // the nation(s) this side fought as (two in the four-army game)
+      nations: [...new Set((state.units || []).filter(u => u.side === side).map(u => nationOf(u)))] })),
     firstDeployer: (meta && meta.firstDeployer) || null,
     counterPick: meta && meta.counterPick != null ? !!meta.counterPick : null,
     startedAt: new Date(t0).toISOString(),

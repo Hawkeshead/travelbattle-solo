@@ -14,7 +14,10 @@
    they all go (or none do). Rings show each unit's cooldown and pips show
    each Brigadier's banked orders.
 ========================================================= */
-import { SIDES, state } from '../data-core.js';
+import { SIDES, nationOf, state } from '../data-core.js';
+import { RALLY_CALL } from '../engine-rules.js';
+import { artPrefixesFor } from '../nations.js';
+import { prepareFiles } from '../asset-loader.js';
 import { finishBattle, placeArmy, setupBoard } from './setup.js';
 import { aiTick, createAi } from './ai.js';
 import { guideSeen, showGuide } from './guide.js';
@@ -47,6 +50,7 @@ export function launchRealTime(){
   const playerSide = state.aiSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
   state.spectate = false;
   AudioManager.stopMusic();
+  prepareFiles(artPrefixesFor([nationOf(SIDES.RED), nationOf(SIDES.BLUE)]));   // a nation's figures and dice, if not Britain's or France's
   const aiSide = playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
   // The board, then the AI's army (chosen at random, as the turn-based AI
   // does); the player chooses theirs from the Army Picker once the board has
@@ -475,7 +479,11 @@ function soundFor(e){
     if(/Shaken|routed|destroyed/.test(e.text)) setTimeout(() => AudioManager.playEffect('artillery-impact', 'audio/effects/artillery-impact.wav', 'majorCombat'), 350);
   }
   else if(e.kind === 'destroyed') AudioManager.playEffect('unit-destroyed', 'audio/effects/unit-destroyed.wav', 'majorCombat');
-  else if(e.kind === 'rally' && e.side === 'red' && /Rallies|saves/.test(e.text)) AudioManager.playEffect('rally-red', 'audio/effects/rally-british-1.m4a', 'majorCombat');
+  else if(e.kind === 'rally' && /Rallies|saves/.test(e.text)){
+    // The side's nation's own rally call (engine-rules RALLY_CALL); a nation with none is silent, never another's voice.
+    const takes = RALLY_CALL[nationOf(e.side)];
+    if(takes && takes.length) AudioManager.playEffect(`rally-${nationOf(e.side)}`, takes, 'majorCombat');
+  }
 }
 
 /* THE BATTLE RECORD for analysis, like the turn-based Full Match Log: what

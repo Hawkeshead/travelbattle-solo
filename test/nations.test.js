@@ -106,3 +106,14 @@ test('every army layout is allowed for the Confederation as the rosters stand', 
   // Nations without a state map are never refused.
   for(const c of LAYOUTS) assert.strictEqual(layoutRefusal('France', c, ARCHIVE.france, undefined), null);
 });
+
+test('the four-army game names a side by its armies\' nations', async () => {
+  const { groupPick, groupSideName } = await import('../js/nations.js');
+  assert.strictEqual(groupSideName(undefined, 'red'), 'Britain and Prussia');
+  assert.strictEqual(groupSideName(undefined, 'blue'), 'France');
+  assert.strictEqual(groupSideName({ red1: 'russia', red2: 'spain' }, 'red'), 'Russia and Spain');
+  assert.strictEqual(groupSideName({ red1: 'russia', red2: 'russia' }, 'red'), 'Russia');
+  // A pick for the wrong side, or a second army's own key, reads as the default.
+  assert.strictEqual(groupPick({ red1: 'poland' }, 'red1'), 'britain');
+  assert.strictEqual(groupPick({ blue2: 'france_2' }, 'blue2'), 'france');
+});

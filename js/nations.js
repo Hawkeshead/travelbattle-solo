@@ -63,6 +63,22 @@ export const NATIONS = {
              colours: { main: '#2e4566', dim: '#1c2a3d', accent: '#f6f3ea' }, dice: 'french', art: 'french2',
              cockade: ['#c8191e', '#f6f3ea', '#1f3a8a'] },
 };
+/* THE FOUR-ARMY GAME's picks (state.groupNations, one base nation per army)
+   and where nobody picks: Britain and Prussia against two French armies. Here
+   rather than in group.js so data-core can name a side from them. */
+export const DEFAULT_GROUP_NATIONS = { red1: 'britain', red2: 'prussia', blue1: 'france', blue2: 'france' };
+export function groupPick(groupNations, armyId){
+  const k = groupNations && groupNations[armyId];
+  const side = armyId.startsWith('red') ? 'red' : 'blue';
+  return NATIONS[k] && NATIONS[k].side === side && !NATIONS[k].secondOf ? k : DEFAULT_GROUP_NATIONS[armyId];
+}
+/* A side's name in the four-army game: its one nation, or both ("Russia and
+   Spain"). */
+export function groupSideName(groupNations, side){
+  const [a, b] = side === 'red' ? ['red1', 'red2'] : ['blue1', 'blue2'];
+  const x = groupPick(groupNations, a), y = groupPick(groupNations, b);
+  return x === y ? NATIONS[x].name : `${NATIONS[x].name} and ${NATIONS[y].name}`;
+}
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };
 export const TEAM_OF_SIDE = { red: 'coalition', blue: 'imperial' };

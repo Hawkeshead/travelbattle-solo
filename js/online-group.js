@@ -315,13 +315,20 @@ async function saveGroupNation(army, key){
   if(groupNationProblem(picks, army, key) || !NATIONS[key] || NATIONS[key].side !== armyById(army).side || NATIONS[key].secondOf) return;
   match.state = { ...(match.state || {}), groupNations: { ...picks, [army]: key } };
   await T.save(match.id, { state: match.state });
-  T.send({ type: 'lobby' });
+  // The picks go with the message too: the host is their only writer, so its
+  // latest message is always right, even if a reload reaches stored data that
+  // has not caught up yet.
+  T.send({ type: 'lobby', groupNations: match.state.groupNations });
   waitingRoom();
 }
+let latestNations = null;
 async function refreshLobby(){
   if(controllers || !T || !match) return;
   const m = await T.load(match.id);
-  if(m){ match = m; waitingRoom(); }
+  if(m){
+    if(latestNations) m.state = { ...(m.state || {}), groupNations: latestNations };
+    match = m; waitingRoom();
+  }
 }
 
 /* ---------------------------------------------------------
@@ -603,7 +610,7 @@ function onAsk(p){
    Messages
 --------------------------------------------------------- */
 function onMessage(p){
-  if(p.type === 'lobby') refreshLobby();
+  if(p.type === 'lobby'){ if(p.groupNations) latestNations = p.groupNations; refreshLobby(); }
   else if(p.type === 'groupNation'){ if(!controllers && match && match.created_by === me && match.seats[p.army] === p.from) saveGroupNation(p.army, p.key); }
   else if(p.type === 'begin'){ if(!controllers){ setControllers(p.controllers); match.seats = p.seats || match.seats; closeLobby(); flash('The battle is being set up'); } }
   else if(p.type === 'setup'){ if(match.created_by !== me) adoptSetup(p.battle, p.seq); }

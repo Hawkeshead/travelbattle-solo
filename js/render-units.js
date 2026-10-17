@@ -1,5 +1,6 @@
 import { sharedImage } from './image-store.js';
-import { CELL, SIDES, TERRAIN_STYLE, UNIT_TYPES, state, unitColor } from './data-core.js';
+import { CELL, SIDES, TERRAIN_STYLE, UNIT_TYPES, nationOf, state, unitColor } from './data-core.js';
+import { NATIONS } from './nations.js';
 import { clashOffset, figuresOn, drawColumnFigures, drawUnitFigures, hasFigures } from './render-figures.js';
 import { GRASS_DETAIL_FILES } from './terrain-v2.js';
 import { armyOf } from './group.js';
@@ -176,13 +177,19 @@ export const REGIMENT_PORTRAIT_KEY = {
    Returns markup rather than a URL because the artillery case sizes differently
    (the cannon is a wide icon, the portraits are square crops) and the fallback
    is text, not an image at all. */
+/* A battery's picture: the classic cannon for Britain and France, and every
+   other nation's own pixel gun (they have no classic art). */
+export function gunPortraitSrc(u){
+  const n = NATIONS[nationOf(u)];
+  return n.classic || !n.art ? UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue'] : `assets/units-pixel/${n.art}/ARTILLERY_GUN/idle_toward_v0.webp`;
+}
 export function unitPortraitHTML(u){
   const t = UNIT_TYPES[u.type];
   if(t.key==='BRIGADIER' && BRIGADIER_PORTRAIT_KEY[u.historicalName]){
     return `<img src="${UNIT_IMAGE_DATA[BRIGADIER_PORTRAIT_KEY[u.historicalName]]}" class="portrait-img">`;
   }
   if(t.isArtillery){
-    return `<img src="${UNIT_IMAGE_DATA[u.side===SIDES.RED?'cannon_red':'cannon_blue']}" class="portrait-icon">`;
+    return `<img src="${gunPortraitSrc(u)}" class="portrait-icon"${NATIONS[nationOf(u)].classic ? '' : ' style="image-rendering:pixelated"'}>`;
   }
   if(REGIMENT_PORTRAIT_KEY[u.historicalName]){
     return `<img src="${REGIMENT_IMAGE_DATA[REGIMENT_PORTRAIT_KEY[u.historicalName]]}" class="portrait-img">`;

@@ -801,7 +801,7 @@ function onAsk(p){
    MESSAGES AND PRESENCE
 ========================================================= */
 function onMessage(p){
-  if(p.type === 'lobby') refreshLobby();
+  if(p.type === 'lobby'){ if(p.lobby) latestLobby = p.lobby; refreshLobby(); }
   else if(p.type === 'lobbyNation'){
     // From a player seated on that side: the host checks and saves it.
     const n = NATIONS[p.key];
@@ -1132,16 +1132,23 @@ async function start(m, name){
     const poll = setInterval(() => { if(S()) clearInterval(poll); else refreshLobby(); }, 3000);
   }
 }
+/* The lobby settings as the host last sent them: the host is their only
+   writer, so its latest message is always right, even when a reload reaches
+   stored data that has not caught up yet. */
+let latestLobby = null;
 async function refreshLobby(){
   if(S() || !T || !match) return;
   const m = await T.load(match.id);
-  if(m){ match = m; waitingRoom(); }
+  if(m){
+    if(latestLobby) m.state = { ...(m.state || {}), lobby: latestLobby };
+    match = m; waitingRoom();
+  }
 }
 async function saveLobby(change){
   const L = { ...match.state.lobby, ...change };
   match.state = { ...match.state, lobby: L };
   await T.save(match.id, { state: match.state });
-  send({ type: 'lobby' });
+  send({ type: 'lobby', lobby: L });
   waitingRoom();
 }
 

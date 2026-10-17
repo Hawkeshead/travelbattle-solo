@@ -1,7 +1,7 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
 import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
-import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state } from './data-core.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state, unitNationName } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
 import { log, logNarration, logReplay } from './engine-state.js';
@@ -954,7 +954,7 @@ export function canRerollFight(unit, roll){
 }
 
 export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dReasons, aValueBonus, dValueBonus, onComplete){
-  const aLabel = SIDE_LABEL[attacker.side].split(' ')[0], dLabel = SIDE_LABEL[defender.side].split(' ')[0];
+  const aLabel = unitNationName(attacker).split(' ')[0], dLabel = unitNationName(defender).split(' ')[0];   // the unit's own nation (the four-army game's sides hold two)
   function currentGroups(){
     return [
       {label:aLabel, side:attacker.side, rolls:aRoll.rolls, keptValue:aRoll.keptDie, finalValue:aRoll.value, notes:aReasons,
@@ -1062,7 +1062,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
      into combatBonuses under W5, where it grants a second die instead and is
      cancelled entirely by a building. Applying it here as well would double it. */
 
-  const aName = SIDE_LABEL[attacker.side].split(' ')[0], dName = SIDE_LABEL[defender.side].split(' ')[0];
+  const aName = unitNationName(attacker).split(' ')[0], dName = unitNationName(defender).split(' ')[0];
   const tieWinNote = attacker.charged && aType.isCavalry && defender.formation!=='square' ? `${aName} wins ties (Charge)`
     : isInColumn(attacker) && (aType.key==='INFANTRY'||aType.key==='GUARD') ? `${aName} wins ties (Column)`
     : null;
@@ -1338,7 +1338,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         logReplay('formation', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, to:'line', by:'combat' });
         log(`${unitLabel(loser)}'s Square is broken by the attack and reforms Line.`, loser.side);
       }
-      log(`${unitLabel(attacker)} (${SIDE_LABEL[attacker.side]}) vs ${unitLabel(defender)} (${SIDE_LABEL[defender.side]}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
+      log(`${unitLabel(attacker)} (${unitNationName(attacker)}) vs ${unitLabel(defender)} (${unitNationName(defender)}): ${finalA}-${finalD}. ${unitLabel(loser)} of ${SIDE_LABEL[loser.side]} takes the worse of it.`, 'combat');
 
       const attackerSucceeded = winnerIsAttacker;
       if(diff===1){
@@ -1735,7 +1735,7 @@ export function removeUnit(u, reason){
   state._lastKillTurn = state.turnNumber;
   logReplay('status', { unitId:u.id, side:u.side, x:u.x, y:u.y, newStatus:'Destroyed', reason });
   addDeathEffect(u.x, u.y);
-  log(`${unitLabel(u)} (${SIDE_LABEL[u.side]}) removed: ${reason}.`, 'system');
+  log(`${unitLabel(u)} (${unitNationName(u)}) removed: ${reason}.`, 'system');
   if(u.type!=='BRIGADIER'){
     const brig = state.units.find(o=>!o.removed && o.side===u.side && o.brigadeId===u.brigadeId && o.type==='BRIGADIER');
     /* Not in an Operation: there the break rule does not apply, and a Brigadier
@@ -1752,7 +1752,7 @@ export function removeUnit(u, reason){
            same reason. */
         logReplay('status', { unitId:brig.id, side:brig.side, x:brig.x, y:brig.y,
           newStatus:'Withdrawn', reason:'Brigade broken' });
-        log(`${unitLabel(brig)} (${SIDE_LABEL[brig.side]}) withdraws: the Brigade is broken.`, 'system');
+        log(`${unitLabel(brig)} (${unitNationName(brig)}) withdraws: the Brigade is broken.`, 'system');
       }
     }
   }
