@@ -692,7 +692,11 @@ export function showSideSelect(){
     if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
     beginBoardSetup();
   };
+  /* A flag with its nation's name under it (with ten nations, not every
+     flag is known at a glance). */
   const flag = (key, onPick) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'side-pick';
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'side-flag';
@@ -700,23 +704,44 @@ export function showSideSelect(){
     b.setAttribute('aria-label', NATIONS[key].name);
     b.innerHTML = NATION_FLAG[key];
     b.onclick = onPick;
-    return b;
+    const cap = document.createElement('span');
+    cap.className = 'side-cap';
+    cap.textContent = NATIONS[key].name;
+    wrap.appendChild(b); wrap.appendChild(cap);
+    return wrap;
+  };
+  const group = (title, side, onPick) => {
+    const g = document.createElement('div');
+    g.className = 'side-group';
+    g.innerHTML = `<div class="side-group-title">${title}</div>`;
+    const row = document.createElement('div');
+    row.className = 'side-group-flags';
+    for(const n of nationsForSide(side)) row.appendChild(flag(n.key, () => onPick(n.key)));
+    g.appendChild(row);
+    return g;
   };
   const back = document.createElement('button');
   back.type = 'button'; back.className = 'op-back'; back.textContent = 'Back';
+  /* ALL NATIONS (17 Oct 2026): first your own nation, from either side, then
+     your opponent from the other side's nations; the AI commands that one.
+     Same Again on the title screen repeats the last pairing in one tap. */
   const showSides = () => {
+    document.getElementById('overlayTitle').textContent = 'Choose Your Side';
     extra.innerHTML = '';
-    for(const n of nationsForSide(SIDES.RED)) extra.appendChild(flag(n.key, () => go({ red: n.key, blue: 'france' }, SIDES.BLUE)));
-    extra.appendChild(flag('france', showOpponents));
+    extra.classList.add('many');
+    extra.appendChild(group('The Coalition', SIDES.RED, key => showOpponents(SIDES.RED, key)));
+    extra.appendChild(group('The Imperial side', SIDES.BLUE, key => showOpponents(SIDES.BLUE, key)));
     // Back to the title screen (the menu is no longer a panel to fall back to).
     back.onclick = ()=> showModeSelect();
     extra.appendChild(back);
   };
-  const showOpponents = () => {
+  const showOpponents = (mySide, myKey) => {
     document.getElementById('overlayTitle').textContent = 'Choose Your Opponent';
     extra.innerHTML = '';
-    for(const n of nationsForSide(SIDES.RED)) extra.appendChild(flag(n.key, () => go({ red: n.key, blue: 'france' }, SIDES.RED)));
-    back.onclick = ()=>{ document.getElementById('overlayTitle').textContent = 'Choose Your Side'; showSides(); };
+    const theirs = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    extra.appendChild(group(theirs === SIDES.RED ? 'The Coalition' : 'The Imperial side', theirs,
+      key => go(mySide === SIDES.RED ? { red: myKey, blue: key } : { red: key, blue: myKey }, theirs)));
+    back.onclick = showSides;
     extra.appendChild(back);
   };
   showSides();

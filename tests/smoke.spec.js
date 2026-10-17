@@ -24,6 +24,12 @@ import { test, expect } from '@playwright/test';
    and vice versa. */
 const faction = (page, side) =>
   page.locator(`#modeChoices .side-flag[aria-label="${side}"]`);
+/* Since all nations (17 Oct 2026) the side screen asks for your nation, then
+   your opponent's: Britain, then France, is the old one-tap Britain. */
+async function playBritainAgainstFrance(page) {
+  await faction(page, 'Britain').click();
+  await faction(page, 'France').click();
+}
 /* Since 1 Oct 2026 there is one AI level (Marshal): choosing a side starts the
    match, and the rank screen is no longer shown. Kept as a no-op so the call
    sites still read as the flow they describe. */
@@ -94,7 +100,7 @@ test('a match starts and reaches deployment', async ({ page }) => {
   // this exercises the same "does board setup reach deployment" path via the
   // vs-AI entry point instead.
   await page.getByRole('button', { name: 'Quick Battle' }).click();
-  await faction(page, 'Britain').click();
+  await playBritainAgainstFrance(page);
   await rank(page, 'easy');
 
   await clearBoardSetup(page);
@@ -197,7 +203,7 @@ test.skip('a full vs-AI deployment completes for both sides', async ({ page }) =
   // ai-deployment.js and ai-strategy.js, the most interconnected files in the
   // codebase and the ones the other tests never touch.
   await page.getByRole('button', { name: 'Quick Battle' }).click();
-  await faction(page, 'Britain').click();
+  await playBritainAgainstFrance(page);
   await rank(page, 'easy');
 
   await clearBoardSetup(page);
@@ -330,7 +336,7 @@ test('the Army Picker deploys the chosen Army correctly', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Quick Battle' }).click();
-  await faction(page, 'Britain').click();
+  await playBritainAgainstFrance(page);
   await rank(page, 'hard');
 
   // Waits out the board-orientation dice sequence (which can take a real
@@ -378,7 +384,7 @@ test('the Army Picker previews the formation and browses without errors', async 
   const errors = watchForErrors(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Quick Battle' }).click();
-  await faction(page, 'Britain').click();
+  await playBritainAgainstFrance(page);
   await rank(page, 'hard');
 
   // The phase seal doubles as the orientation Confirm (ui-menus.js). It used to

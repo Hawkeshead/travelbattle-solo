@@ -1,4 +1,5 @@
 import { COLS, ROWS, SIDES, state } from './data-core.js';
+import { NATIONS, armyKeysFor, cannotField } from './nations.js';
 
 /* =========================================================
    GROUP: FOUR ARMIES, TWO TEAMS (2v2)
@@ -23,19 +24,50 @@ import { COLS, ROWS, SIDES, state } from './data-core.js';
    which of that team's armies it is.
 ========================================================= */
 
-/* NATIONS (17 Oct 2026): the Coalition's two armies are one British and one
-   Prussian (at most one army per Coalition nation), so the second Coalition
-   army is Prussia in its own colours and art, and no longer needs the green
-   recolour (skin 2) that told two British armies apart. France still fields
-   two armies, the second recoloured violet. Each army's units carry its
-   nation (u.nation), so names, art and dice follow the army, not the team. */
+/* NATIONS. Each army's nation is chosen per match (state.groupNations, one
+   pick per army, by seat): any Coalition nation for the south and east armies,
+   any Imperial one for the north and west, within the limits in
+   js/nations.js (one army per nation, Russia and France up to two). A
+   nation's second army fights under its own roster ('france_2'). Where
+   nobody picks it is Britain and Prussia against two French armies. Each
+   army's units carry its nation (u.nation), so names, art and dice follow the
+   army, not the side. Everything else about an army (its label, colour,
+   recolour) is read from its pick, so every phone shows the same. */
+export const DEFAULT_GROUP_NATIONS = { red1: 'britain', red2: 'prussia', blue1: 'france', blue2: 'france' };
+const SECOND_COLOR = { france: '#6a4a8c', russia: '#5e7d2c' };   // a nation's second army, told apart from its first
+const pickOf = id => {
+  const k = state.groupNations && state.groupNations[id];
+  const side = id.startsWith('red') ? SIDES.RED : SIDES.BLUE;
+  return NATIONS[k] && NATIONS[k].side === side && !NATIONS[k].secondOf ? k : DEFAULT_GROUP_NATIONS[id];
+};
+function makeArmy(id, side, edge, brigadeOffset){
+  const ids = side === SIDES.RED ? ['red1', 'red2'] : ['blue1', 'blue2'];
+  const i = ids.indexOf(id);
+  return { id, side, edge, brigadeOffset,
+    get pick(){ return pickOf(id); },
+    get nation(){ return armyKeysFor(ids.map(pickOf))[i]; },
+    get twin(){ return pickOf(ids[0]) === pickOf(ids[1]); },              // both armies of the side are one nation
+    get second(){ return this.twin && i === 1; },
+    get label(){ const n = NATIONS[this.pick].name; return this.second ? `${n} (2nd Army)` : n; },
+    get short(){ const n = NATIONS[this.pick].name; return this.twin ? `${n} ${i ? 'II' : 'I'}` : n; },
+    get color(){ return this.second ? (SECOND_COLOR[this.pick] || NATIONS[this.pick].colours.dim) : NATIONS[this.pick].colours.main; },
+    // A second army of a nation with classic icons has them recoloured (Classic models only).
+    get skin(){ return this.second && NATIONS[this.pick].classic ? 2 : 1; } };
+}
 export const GROUP_ARMIES = [
-  { id:'red1',  side:SIDES.RED,  edge:'S', nation:'britain', label:'Britain',          short:'Britain',    color:'#a3403a', skin:1, brigadeOffset:0 },
-  { id:'red2',  side:SIDES.RED,  edge:'E', nation:'prussia', label:'Prussia',          short:'Prussia',    color:'#2b2b2e', skin:1, brigadeOffset:3 },
-  { id:'blue1', side:SIDES.BLUE, edge:'N', nation:'france',  label:'France',           short:'France I',   color:'#2e4566', skin:1, brigadeOffset:0 },
-  { id:'blue2', side:SIDES.BLUE, edge:'W', nation:'france_2', label:'France (2nd Army)',  short:'France II',  color:'#6a4a8c', skin:2, brigadeOffset:3 },
+  makeArmy('red1', SIDES.RED, 'S', 0),
+  makeArmy('red2', SIDES.RED, 'E', 3),
+  makeArmy('blue1', SIDES.BLUE, 'N', 0),
+  makeArmy('blue2', SIDES.BLUE, 'W', 3),
 ];
-export const TEAM_LABEL = { red:'the Coalition', blue:'France and her ally' };
+export const TEAM_LABEL = { red:'the Coalition', blue:'the Imperial side' };
+/* Why this army cannot take that nation, given the other army of its side
+   (a short reason for a greyed-out choice), or null. */
+export function groupNationProblem(picks, armyId, key){
+  const mate = { red1: 'red2', red2: 'red1', blue1: 'blue2', blue2: 'blue1' }[armyId];
+  const other = (picks && picks[mate]) || DEFAULT_GROUP_NATIONS[mate];
+  return cannotField([other], key);
+}
 
 export function isGroup(){ return !!state.group; }
 export function armyById(id){ return GROUP_ARMIES.find(a => a.id === id) || null; }

@@ -35,7 +35,9 @@ import { deployGroupArmy } from './ai-deployment.js';
 import { showGroupArmyPicker, startAmbientLayer } from './ui-menus.js';
 import { replayDice, setDiceMirror, showDiceRerollButton } from './dice.js';
 import { AudioManager } from './audio-manager.js';
-import { GROUP_ARMIES, armyById, refreshGroupControl, rollTurnOrder } from './group.js';
+import { DEFAULT_GROUP_NATIONS, GROUP_ARMIES, armyById, groupNationProblem, refreshGroupControl, rollTurnOrder } from './group.js';
+import { NATIONS } from './nations.js';
+import { groupNationRowsHtml, wireGroupNationRows } from './nation-pick-ui.js';
 import { prepareGroupBoard } from './ui-group.js';
 
 const SEND_EVERY_MS = 250, SAVE_EVERY_MS = 3000;
@@ -45,7 +47,8 @@ const LOCAL_ONLY = new Set(['mode', 'aiSide', 'spectate', 'selectedUnitId', 'aiD
 const skipKey = k => k === 'matchLog' || k === 'replayStartUnits' || k.startsWith('_ai') || LOCAL_ONLY.has(k);
 const pack = () => JSON.stringify(state, (k, v) => (k && skipKey(k)) ? undefined : (v instanceof Set ? { __isSet: true, items: [...v] } : v));
 const unpack = s => JSON.parse(s, (k, v) => (v && v.__isSet) ? new Set(v.items) : v);
-const SEAT_LABEL = { red1:'Britain \u00b7 south', red2:'Prussia \u00b7 east', blue1:'France I \u00b7 north', blue2:'France II \u00b7 west' };
+const EDGE_NAME = { red1: 'south', red2: 'east', blue1: 'north', blue2: 'west' };
+const SEAT_LABEL = k => `${armyById(k).short} \u00b7 ${EDGE_NAME[k]}`;   // follows the army's nation pick
 const TEAMMATE = { red1:'red2', red2:'red1', blue1:'blue2', blue2:'blue1' };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 
@@ -253,6 +256,11 @@ async function start(m, name){
 function waitingRoom(){
   if(controllers) return;
   const host = match.created_by === me;
+  /* NATIONS: each army's nation (match.state.groupNations, saved by the
+     host). The army's own commander or the host may change it; a guest's
+     choice goes to the host's phone, which checks the limits and saves it. */
+  state.groupNations = { ...DEFAULT_GROUP_NATIONS, ...((match.state && match.state.groupNations) || {}) };
+  const canPick = k => host || match.seats[k] === me;
   const url = `${location.origin}${location.pathname}?group=${match.code}`;
   const seatBtn = k => {
     const who = match.seats[k];
@@ -261,7 +269,7 @@ function waitingRoom(){
     const label = who ? (mine ? 'You' : esc(nameOf(who))) : 'Empty: tap to take';
     return `<button data-seat="${k}" style="font:inherit;text-align:left;min-height:54px;padding:6px 10px;border-radius:5px;cursor:pointer;
       border:${mine ? '3px solid #b8963f' : '1px solid #9a8b6c'};background:${a.color};color:#fbf6ea">
-      <div style="font-size:14px;opacity:.9">${SEAT_LABEL[k]}</div><div style="font-size:17px">${label}</div></button>`;
+      <div style="font-size:14px;opacity:.9">${SEAT_LABEL(k)}</div><div style="font-size:17px">${label}</div></button>`;
   };
   const seated = new Set(Object.values(match.seats).filter(Boolean));
   const watchers = (match.members || []).filter(u => !seated.has(u));
@@ -271,6 +279,7 @@ function waitingRoom(){
     <div style="font-family:'Petit Formal Script',cursive;font-size:26px">Game ${esc(match.code)}</div>
     <p style="margin:2px 0 8px;font-size:14px">Friends enter this code under <b>Online</b> (3 or 4 players), or tap your invite. Tap an army to command it; tap it again to stand up.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${['red1','blue1','red2','blue2'].map(seatBtn).join('')}</div>
+    ${groupNationRowsHtml(state.groupNations, canPick)}
     <p style="margin:10px 0 4px;font-size:14px">${(match.members || []).map(u =>
       `<span style="white-space:nowrap;margin-right:10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:${online(u) ? '#5fae6a' : '#999'}"></span>${esc(u === me ? 'You' : nameOf(u))}</span>`).join('')}</p>
     ${watchers.length ? `<p style="margin:0 0 4px;font-size:13px;font-style:italic">Not seated (will watch): ${watchers.map(u => esc(u === me ? 'you' : nameOf(u))).join(', ')}</p>` : ''}
@@ -289,6 +298,9 @@ function waitingRoom(){
     try { match = await T.seat(match.id, match.seats[k] === me ? null : k); T.send({ type: 'lobby' }); waitingRoom(); }
     catch(e){ el.querySelector('#ogWho').textContent = friendly(e); refreshLobby(); }
   });
+  wireGroupNationRows(el, (army, key) => {
+    if(host) saveGroupNation(army, key); else T.send({ type: 'groupNation', army, key, from: me });
+  });
   el.querySelector('#ogShare').onclick = async () => {
     const text = `Join my Field Command group battle. Code: ${match.code}\n\nIn the Field Command app, tap Online, choose 3 or 4 players and enter the code. Or open this link:`;
     if(navigator.share){ try { await navigator.share({ title: 'Field Command', text, url }); return; } catch { /* dismissed */ } }
@@ -296,6 +308,15 @@ function waitingRoom(){
   };
   const startBtn = el.querySelector('#ogStart');
   if(startBtn) startBtn.onclick = () => { if(redOk && blueOk) hostBegin(); };
+}
+/* Host only: an army's nation, if its side's limits allow it. */
+async function saveGroupNation(army, key){
+  const picks = { ...DEFAULT_GROUP_NATIONS, ...((match.state && match.state.groupNations) || {}) };
+  if(groupNationProblem(picks, army, key) || !NATIONS[key] || NATIONS[key].side !== armyById(army).side || NATIONS[key].secondOf) return;
+  match.state = { ...(match.state || {}), groupNations: { ...picks, [army]: key } };
+  await T.save(match.id, { state: match.state });
+  T.send({ type: 'lobby' });
+  waitingRoom();
 }
 async function refreshLobby(){
   if(controllers || !T || !match) return;
@@ -324,6 +345,7 @@ async function hostBegin(){
   const fresh = await T.load(match.id); if(fresh) match = fresh;
   const c = computeControllers(match.seats);
   if(!Object.values(c).every(Boolean)) return;
+  state.groupNations = { ...DEFAULT_GROUP_NATIONS, ...((match.state && match.state.groupNations) || {}) };
   await T.save(match.id, { status: 'deploy' });
   setControllers(c);
   T.send({ type: 'begin', controllers: c, seats: match.seats });
@@ -582,6 +604,7 @@ function onAsk(p){
 --------------------------------------------------------- */
 function onMessage(p){
   if(p.type === 'lobby') refreshLobby();
+  else if(p.type === 'groupNation'){ if(!controllers && match && match.created_by === me && match.seats[p.army] === p.from) saveGroupNation(p.army, p.key); }
   else if(p.type === 'begin'){ if(!controllers){ setControllers(p.controllers); match.seats = p.seats || match.seats; closeLobby(); flash('The battle is being set up'); } }
   else if(p.type === 'setup'){ if(match.created_by !== me) adoptSetup(p.battle, p.seq); }
   else if(p.type === 'state') applyIncoming(p.battle, p.seq);

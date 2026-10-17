@@ -1274,13 +1274,33 @@
   .side-text{ display:flex; flex-direction:column; gap:2px; }
   .side-name{ font-family:'Cinzel',serif; font-size:16px; letter-spacing:.08em; }
   .side-line{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:14px; letter-spacing:0; text-transform:none; opacity:.85; }
+  /* ALL NATIONS (17 Oct 2026): the flags in two groups, the Coalition and the
+     Imperial side, each flag with its nation's name under it, smaller so a
+     group of six still fits three to a row on a phone. */
+  #modeChoices.as-sides.many{ flex-direction:column; align-items:center; gap:10px; }
+  #modeChoices.as-sides .side-group{ width:100%; text-align:center; }
+  #modeChoices.as-sides .side-group-title{ font-family:'Cinzel',serif; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#5a4220; margin:0 0 6px; }
+  #modeChoices.as-sides .side-group-flags{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px 12px; }
+  #modeChoices.as-sides .side-pick{ display:flex; flex-direction:column; align-items:center; gap:3px; width:104px; }
+  #modeChoices.as-sides .side-cap{ font-family:'Cormorant Garamond',serif; font-size:13px; line-height:1.1; color:#2e2010; text-align:center; }
+  html #overlay .box.as-sides-screen #modeChoices.many button.side-flag.side-flag{ width:96px; height:64px; }
   /* Three flags since Prussia (17 Oct 2026): they shrink to stay on one row on a phone. */
   @media (max-width:480px){
     html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag{ width:84px; height:56px; }
+    html #overlay .box.as-sides-screen #modeChoices.many button.side-flag.side-flag{ width:72px; height:48px; }
+    #modeChoices.as-sides .side-pick{ width:80px; }
+    #modeChoices.as-sides .side-cap{ font-size:12px; }
     #modeChoices.as-sides{ gap:10px; }
   }
   @media (max-height:430px){
     html #overlay .box.as-sides-screen #modeChoices button.side-flag.side-flag{ width:120px; height:80px; }
+    /* A phone on its side: each group of flags on one row, small. */
+    html #overlay .box.as-sides-screen #modeChoices.many button.side-flag.side-flag{ width:60px; height:40px; border-width:2px; }
+    #modeChoices.as-sides.many{ gap:4px; }
+    #modeChoices.as-sides .side-pick{ width:70px; gap:1px; }
+    #modeChoices.as-sides .side-cap{ font-size:11px; }
+    #modeChoices.as-sides .side-group-title{ margin:0 0 3px; font-size:11px; }
+    #modeChoices.as-sides .side-group-flags{ gap:4px 8px; flex-wrap:nowrap; }
     .mode-toggle{ margin:6px 0 0; }
   }
 

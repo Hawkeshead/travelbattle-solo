@@ -3,7 +3,8 @@ import { assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSetGrand,
 import { deployGroupArmy } from './ai-deployment.js';
 import { seededRandom } from './engine-rules.js';
 import { log, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
-import { armyById, rollTurnOrder } from './group.js';
+import { DEFAULT_GROUP_NATIONS, armyById, rollTurnOrder } from './group.js';
+import { groupNationRowsHtml, wireGroupNationRows } from './nation-pick-ui.js';
 import { draw, sizeCanvas } from './render-board.js';
 import { startBattle, updateHeader } from './ui-battle.js';
 import { ensureModeChoices, showGroupArmyPicker, showModeSelect, startAmbientLayer } from './ui-menus.js';
@@ -20,10 +21,18 @@ export function showGroupMenu(){
   if(box) box.classList.remove('as-folio', 'as-victory');
   document.getElementById('overlayTitle').textContent = 'Online Group';
   document.getElementById('overlaySubtitle').style.display = 'none';
-  document.getElementById('overlayText').innerHTML =
-    'Two against two on the four-board map. Britain and Prussia hold the south and east edges, France and hers the north and west. ' +
-    'One army moves at a time, alternating sides. An army is broken when two of its three Brigades are; a side loses when both its armies are broken. ' +
-    'With three players, one commands both armies of a side.';
+  /* Each army's nation, chosen here for Pass and Play (one phone, so every
+     row can be changed); the online lobby has its own copy of these rows. */
+  if(!state.groupNations) state.groupNations = { ...DEFAULT_GROUP_NATIONS };
+  const text = document.getElementById('overlayText');
+  const drawText = () => {
+    text.innerHTML =
+      'Two against two on the four-board map: the Coalition holds the south and east edges, the Imperial side the north and west. ' +
+      'One army moves at a time, alternating sides. An army is broken when two of its three Brigades are; a side loses when both its armies are broken. ' +
+      'With three players, one commands both armies of a side.' + groupNationRowsHtml(state.groupNations, () => true);
+    wireGroupNationRows(text, (army, key) => { state.groupNations = { ...state.groupNations, [army]: key }; drawText(); });
+  };
+  drawText();
   document.getElementById('overlayBtn').style.display = 'none';
   const extra = ensureModeChoices();
   extra.innerHTML = '';
