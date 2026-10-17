@@ -21,6 +21,10 @@
      (and whenever the loader is not running at all: headless, the simulator,
      a page without the manifest) a battle starts at once, synchronously,
      exactly as before.
+   - NATIONS (17 Oct 2026): only Britain's and France's figures and dice are
+     tier 1; every other nation's are tier 3, fetched for the battle that uses
+     them (prepareFiles), which gateBattle waits for, so a visitor downloads
+     only the nations they play.
    - ready(url) / whenReady(urls, ms): for animations that want their frames
      (render-figures): has this decoded yet, and wait for these up to ms.
      imageFor(url): the decoded Image itself, for drawing.
@@ -37,6 +41,7 @@ let status = 'idle';           // idle | loading | done
 let tier1Done = false, tier1Waiters = [];
 let total = 0, doneCount = 0, tier1Total = 0, tier1Count = 0;
 let cache = null;
+let manifestFiles = [];          // every file in the manifest, for prepareFiles
 export const CACHE_NAME = 'fc-' + (BUILD.commit || 'dev');
 
 export const ready = url => decoded.has(url);
@@ -123,6 +128,7 @@ export async function startAssetLoading(){
   try { const r = await fetch('assets-manifest.json', { cache: 'no-cache' }); if(!r.ok) return; m = await r.json(); }
   catch { return; }
   status = 'loading';
+  manifestFiles = m.files;
   try { if(typeof caches !== 'undefined') cache = await caches.open(CACHE_NAME); } catch { cache = null; }
   const t1 = m.files.filter(f => f.tier === 1), t2 = m.files.filter(f => f.tier === 2);
   total = t1.length + t2.length; tier1Total = t1.length;
@@ -162,15 +168,28 @@ html.title-away #assetProgress{opacity:0;}
   document.body.appendChild(bar);
 }
 function progress(){
-  const share = total ? doneCount / total : 1;
+  const share = total ? Math.min(1, doneCount / total) : 1;
   if(bar){ bar.firstChild.style.width = (share * 100).toFixed(1) + '%'; if(status === 'done') bar.classList.add('done'); }
   if(gateEl){ gateEl.querySelector('i').style.width = (tier1Total ? tier1Count / tier1Total * 100 : 100).toFixed(1) + '%'; }
 }
 /* A battle's starting point calls this first: true means go on now; false
    means it has been put off and `run` will be called once tier 1 is ready. */
 let pendingRun = null;
-export function gateBattle(run){
-  if(tier1Ready()) return true;
+/* Downloads and decodes every manifest file under these path prefixes not
+   already loaded (a nation's figures and dice). Resolves when done; at once
+   when the loader is not running (headless, the simulator). */
+const preparing = new Map();
+export function prepareFiles(prefixes){
+  if(status === 'idle' || !prefixes || !prefixes.length) return Promise.resolve();
+  return whenTier1().then(() => Promise.all(prefixes.map(p => {
+    if(!preparing.has(p)) preparing.set(p, runTier(manifestFiles.filter(f => f.path.startsWith(p) && !decoded.has(f.path))));
+    return preparing.get(p);
+  })));
+}
+const prepared = prefixes => status === 'idle' || !prefixes.length ||
+  (tier1Ready() && manifestFiles.filter(f => prefixes.some(p => f.path.startsWith(p))).every(f => decoded.has(f.path)));
+export function gateBattle(run, prefixes = []){
+  if(tier1Ready() && prepared(prefixes)) return true;
   const first = !pendingRun;
   pendingRun = run;   // a second tap while waiting replaces the first, never doubles it
   if(!gateEl){
@@ -180,7 +199,7 @@ export function gateBattle(run){
     document.body.appendChild(gateEl);
     progress();
   }
-  if(first) whenTier1().then(() => {
+  if(first) whenTier1().then(() => prepareFiles(prefixes)).then(() => {
     if(gateEl){ gateEl.remove(); gateEl = null; }
     const r = pendingRun; pendingRun = null;
     if(r) r();

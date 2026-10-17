@@ -3,7 +3,9 @@ import { assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSetGrand,
 import { deployGroupArmy } from './ai-deployment.js';
 import { seededRandom } from './engine-rules.js';
 import { log, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
-import { DEFAULT_GROUP_NATIONS, armyById, rollTurnOrder } from './group.js';
+import { DEFAULT_GROUP_NATIONS, GROUP_ARMIES, armyById, rollTurnOrder } from './group.js';
+import { artPrefixesFor } from './nations.js';
+import { prepareFiles } from './asset-loader.js';
 import { groupNationRowsHtml, wireGroupNationRows } from './nation-pick-ui.js';
 import { draw, sizeCanvas } from './render-board.js';
 import { startBattle, updateHeader } from './ui-battle.js';
@@ -88,6 +90,7 @@ export function prepareGroupBoard(){
   document.getElementById('overlay').classList.remove('show');
   startAmbientLayer();
 
+  prepareFiles(artPrefixesFor(GROUP_ARMIES.map(a => a.nation)));   // the armies' figures and dice, if not Britain's or France's
   resetHistoricalIdentities();
   state.units.length = 0;
   state.turnNumber = 1;

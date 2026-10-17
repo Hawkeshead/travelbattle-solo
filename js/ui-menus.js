@@ -1,8 +1,8 @@
 import { offerBeginBattle } from './ui-deployment.js';
-import { DEFAULT_NATIONS, NATIONS, nationFor, nationKeyFor, nationsForSide } from './nations.js';
+import { DEFAULT_NATIONS, NATIONS, artPrefixesFor, nationFor, nationKeyFor, nationsForSide } from './nations.js';
 import { NATION_EMBLEM, NATION_FLAG } from './nation-flags.js';
 import { layoutRefusal } from './brigade-rules.js';
-import { gateBattle } from './asset-loader.js';
+import { gateBattle, prepareFiles } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
 import { getCard, readyCards } from './scenario-cards.js';
@@ -886,7 +886,9 @@ export function showDifficultySelect(){
 export function beginBoardSetup(){
   // Not until the battle's art is loaded (asset-loader): at once when it is.
   // Online and Group matches start in step with the other phones, so never wait.
-  if(!isOnline() && !state.group && !gateBattle(() => beginBoardSetup())) return;
+  const art = artPrefixesFor([nationKeyFor(state.nations, SIDES.RED), nationKeyFor(state.nations, SIDES.BLUE)]);
+  if(!isOnline() && !state.group && !gateBattle(() => beginBoardSetup(), art)) return;
+  prepareFiles(art);   // online: not waited for, but started at once
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
   state.campaignRun = null;   // a standard match is not a campaign step
   state.mapBattle = null;     // nor a campaign map battle

@@ -27,7 +27,7 @@ function diceArtOf(sideOrGroup){
   const u = g && g.unitId && (state.units || []).find(x => x.id === g.unitId);
   const who = u || (g ? g.side : sideOrGroup);
   if(!who) return null;
-  const art = NATIONS[nationOf(who)].art;
+  const art = NATIONS[nationOf(who)].dice;
   return DICE_ARTS.includes(art) ? art : null;
 }
 /* Every face and every tumble frame of that nation is ready. */

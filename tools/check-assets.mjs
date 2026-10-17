@@ -160,7 +160,10 @@ if (missing.length) {
    so the manifest always matches the build.
 ========================================================= */
 const TIER_RULES = [
-  // 3: rare or legacy
+  // 1: Britain's and France's figures and dice, which most battles use
+  ['assets/units-pixel/british/', 1], ['assets/units-pixel/french/', 1], ['assets/dice/british_', 1], ['assets/dice/french_', 1],
+  // 3: rare or legacy, or only for the battle that uses it (every other nation's figures and dice: js/asset-loader.js prepareFiles)
+  ['assets/units-pixel/', 3], ['assets/dice/', 3],
   ['assets/terrain/v1/', 3], ['assets/units/', 3], ['audio/music/', 3],
   // 1: any battle
   ['assets/terrain/v2/', 1], ['assets/terrain/', 3], ['assets/tutorial/', 3], ['assets/units-pixel/', 1], ['assets/dice/', 1], ['assets/ui/menu/', 2], ['assets/ui/', 1],
