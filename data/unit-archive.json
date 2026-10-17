@@ -408,5 +408,87 @@
         "bio": "The Guard Artillery supported the Russian Guard infantry at Borodino, moving forward with the regiments around Semenovskoye. There it was smothered by the more numerous French guns and suffered very heavy casualties, its gunners standing to their pieces at murderous range. It went on to serve with the Guard through the campaigns of 1813 and 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "austria": {
+    "BRIGADIER": [
+      {
+        "name": "Archduke Charles",
+        "bio": "Archduke Charles, brother of the Emperor Francis, was Austria's finest general and the reformer who rebuilt its army after the disasters of 1805. At Aspern-Essling in May 1809 he inflicted on Napoleon the first defeat the Emperor had suffered in person in a major battle. When French cavalry broke through his centre, he brought up the grenadier reserve and, by tradition, seized a colour of the Zach Regiment and led it forward himself to restore the line. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Schwarzenberg",
+        "bio": "Karl Philipp, Prince Schwarzenberg, was a cavalryman who made his name with a victorious cuirassier charge at Le Cateau in 1794. In 1812 he commanded the Austrian contingent in the invasion of Russia at Napoleon's own request; a year later, with Austria at war with France, he was made commander-in-chief of the Allied armies. At Leipzig in October 1813 he directed the Battle of the Nations that broke Napoleon's power in Germany, and is said to have led a cavalry charge against Murat in person. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Liechtenstein",
+        "bio": "Prince Johann of Liechtenstein was Austria's great cavalry commander, leading the reserve cavalry through the campaigns of 1805 and 1809. At Aspern, when French horsemen burst through the Austrian centre, his dragoons and cuirassiers came galloping up behind the grenadiers to drive them back. After Wagram he succeeded Archduke Charles in command of the army and negotiated the peace that followed. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Murray Grenadier Brigade",
+        "bio": "Austria had no Imperial Guard of the French kind; its elite infantry were the grenadier battalions, formed from the grenadier companies of the line regiments and massed into a reserve under the army commander. At Aspern in 1809 Murray's brigade belonged to Lindenau's Grenadier Reserve Division. When the French cavalry broke the Austrian centre on the second day, the grenadiers were brought up at the double and formed a chequerboard of squares that stopped the charge. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Scovaud Grenadier Brigade",
+        "bio": "Scovaud's brigade was another of the four brigades of the Grenadier Reserve at Aspern, picked men in tall bearskin caps drawn from the best soldiers of Austria's German and Hungarian regiments. Held back by Archduke Charles for the decisive moment, the grenadiers were committed to plug the gap in the centre and then to the counter-attacks that drove the French back towards the Danube. Austria's grenadiers fought again as a reserve corps at Leipzig in 1813. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "IR 15 Zach",
+        "bio": "Infantry Regiment Nr. 15, named after its colonel-proprietor General Zach, fought at Aspern in 1809 in the corps that held the Austrian centre. It was a colour of this regiment that Archduke Charles is said to have taken in his own hand to rally the wavering line when French cavalry broke through, one of the most celebrated images of the battle. Like all Austrian line regiments it wore white coats, with its own facing colour to tell it apart. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "IR 4 Hoch- und Deutschmeister",
+        "bio": "Infantry Regiment Nr. 4, the Hoch- und Deutschmeister, was Vienna's own regiment, its proprietor the Grand Master of the Teutonic Order and its recruits drawn from the capital. It fought through every war against Revolutionary and Napoleonic France and became a symbol of the city it was raised in. The regiment's march remains one of the best known in Austria. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "IR 33 Hungarian",
+        "bio": "Infantry Regiment Nr. 33 was one of the Hungarian line regiments that made up a large part of the Austrian army, distinguished by their tight blue trousers worn with the white coat. Hungarian regiments fought at Aspern, where Hohenzollern's corps broke through the French right-centre and helped carry the battle. Hardy and aggressive, the Hungarian infantry were among the best foot soldiers of the Habsburg monarchy. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Vienna Volunteers",
+        "bio": "The Vienna Volunteers were raised in 1809, when Austria called its people to arms against Napoleon in a spirit of national war new to the Habsburg monarchy. Alongside the new Landwehr militia, these battalions of citizens and students marched out to fight beside the regulars. A battalion of Vienna Volunteers fought at Aspern in May 1809. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "St. Georger Grenzers",
+        "bio": "The St. Georger Grenz Infantry came from the Military Frontier, the long borderland with the Ottoman Empire where every family owed military service in return for land. Grenzers were born skirmishers and hardy soldiers, used to fighting in broken ground and serving as Austria's light infantry. St. Georger Grenzers fought at Aspern in 1809. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd J\u00e4ger Battalion",
+        "bio": "The J\u00e4ger battalions were Austria's riflemen, recruited from huntsmen and foresters of the Alpine and Bohemian lands and armed with rifles rather than muskets. Dressed in pike grey with green facings and a round hat, they fought in open order ahead of the line, picking off officers at range. The 2nd J\u00e4ger fought at Aspern in 1809. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Kaiser Cuirassiers",
+        "bio": "The Kaiser Cuirassiers took the Emperor himself as proprietor and were the senior of Austria's heavy cavalry regiments. Austrian cuirassiers wore a breastplate only, without a backplate, over a white coat, and were among the best heavy horsemen in Europe. At Leipzig in 1813 Austria massed its cuirassiers into a corps under Count Nostitz, which rode into action on the southern front of the Battle of the Nations. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Knesevich Dragoons",
+        "bio": "The Knesevich Dragoon Regiment served at Aspern in 1809 in Clary's brigade, one of the heavy dragoon regiments of the Austrian reserve cavalry. Austrian dragoons were battle cavalry rather than mounted infantry, charging alongside the cuirassiers on big horses. In the crisis of the battle, Liechtenstein's dragoons came up behind the grenadier squares and drove off the French horsemen who had broken through the centre. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "Schwarzenberg Uhlans",
+        "bio": "The Schwarzenberg Uhlans were the lancer regiment granted to Prince Schwarzenberg as its proprietor in reward for his service commanding Archduke Charles's rearguard. Austrian uhlans were recruited largely from Galicia, Austria's share of partitioned Poland, and carried the lance and the czapka in the Polish style. The regiment served through the wars of 1809 and 1813 to 1814 as its proprietor rose to command all the Allied armies. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Szekler Hussars",
+        "bio": "The Szekler Hussars were raised from the Szekler people of eastern Transylvania, a frontier community with a long tradition of mounted service. Like all Austrian hussars they were light horsemen in the Hungarian style, with braided dolman, pelisse and shako, used for scouting, raiding and pursuit. Hungary's hussars gave the whole of Europe its idea of what light cavalry should look like. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Austrian Position Battery",
+        "bio": "The position batteries were the heavy artillery of the Austrian army, armed with twelve-pounders and held in reserve to be massed where the fighting was hardest. At Aspern Archduke Charles brought 288 guns into action, and great batteries filled the open ground between the villages of Aspern and Essling. Their fire tore into the French columns crossing the Marchfeld. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Austrian Cavalry Battery",
+        "bio": "The Austrian cavalry batteries supported the mounted arm with light guns, their gunners riding on the gun carriages and a padded ammunition wagon known as the sausage rather than on horses of their own. The arrangement kept the batteries cheap and fast enough to follow the cavalry into action. They served with the reserve cavalry from 1805 through to the campaigns of 1813 and 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }

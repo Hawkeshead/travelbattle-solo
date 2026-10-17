@@ -40,6 +40,9 @@ export const NATIONS = {
   russia_2: { key: 'russia_2', name: 'Russia (2nd Army)', adjective: 'Russian', team: 'coalition', side: 'red', maxArmies: 1, secondOf: 'russia',
              colours: { main: '#2f4a2e', dim: '#1c2e1b', accent: '#f2f2ee' }, art: null,
              cockade: ['#151515', '#e07a1a', '#151515'] },
+  austria:  { key: 'austria', name: 'Austria', adjective: 'Austrian', team: 'coalition', side: 'red', maxArmies: 1,
+             colours: { main: '#a8841f', dim: '#5e4a12', accent: '#f4f1e8' }, art: null,
+             cockade: ['#151515', '#e6b422', '#151515'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };
