@@ -572,5 +572,87 @@
         "bio": "The guns of C\u00e1diz held the city through the great French siege from 1810 to 1812, when the port became the seat of Spain's free government and its parliament wrote the liberal Constitution of 1812. Protected by the sea and supplied by the Royal Navy, the defenders never let the French close in. Spanish gunners manned the city's batteries throughout the siege. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "portugal": {
+    "BRIGADIER": [
+      {
+        "name": "Beresford",
+        "bio": "William Carr Beresford was the British general given command of the Portuguese army in 1809, with the rank of Marshal. In a few years he turned a demoralised force into one that Wellington trusted to stand in line beside his own regiments, retraining its officers, restoring its discipline and brigading Portuguese regiments into British divisions. In 1811 he commanded the Allied army at the bloody battle of Albuera. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Lecor",
+        "bio": "Carlos Frederico Lecor commanded Portuguese brigades and divisions through the Peninsular War, rising to lead the 7th Division of Wellington's army in the final campaigns. In 1815 he was given command of the Royal Volunteers of the Prince, a division of Peninsular veterans sent to serve in Brazil. He conquered the Banda Oriental and took Montevideo in 1817, and after Brazil's independence he served the new Empire, ending his days in Rio de Janeiro as a Marshal of the Brazilian Army and Viscount of Laguna. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Silveira",
+        "bio": "Francisco da Silveira, later Count of Amarante, was a Portuguese general who led the resistance in the north of the country when Marshal Soult invaded in 1809. Commanding a mixture of regulars and militia, he fought the French at the bridge of Amarante and cut their communications as Soult fell back from Porto. He became one of Portugal's national heroes of the war. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "2nd Ca\u00e7adores",
+        "bio": "The Ca\u00e7adores, Portugal's light infantry hunters, were the elite of Beresford's reformed army, dressed in brown and trained as skirmishers to work alongside the British Light Division and riflemen. The 2nd Ca\u00e7adores served in Lecor's own brigade, and fought at Vitoria in 1813, the battle that drove the French from Spain. Wellington came to rate the Ca\u00e7adores among the best light troops in his army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "3rd Ca\u00e7adores",
+        "bio": "The 3rd Ca\u00e7adores served in the famous Light Division alongside the 95th Rifles, among the finest light troops in Wellington's army. At Bussaco in 1810 the Light Division waited in hiding on the ridge until the French columns were almost upon them, then rose and drove them back down the slope. The Portuguese light infantry fought beside the British riflemen through the rest of the war. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "1st Line Regiment (Lisbon)",
+        "bio": "The 1st Line Regiment was one of Lisbon's regiments and fought in Pack's Portuguese brigade at Bussaco in September 1810, the first great battle in which Beresford's retrained Portuguese stood beside the British in Wellington's line. Their steadiness on the ridge that day showed that the reforms had worked. Portuguese line infantry wore dark blue with regimental facings. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "16th Line Regiment",
+        "bio": "The 16th Line Regiment fought alongside the 1st Line in Pack's brigade at Bussaco in 1810, where Mass\u00e9na's columns broke against the Allied line on the ridge. The Portuguese brigades were mixed into British divisions, and by the end of the war a large share of Wellington's infantry was Portuguese. The 16th served on through the campaigns that followed. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "7th Line Regiment (Set\u00fabal)",
+        "bio": "The 7th Line Regiment, recruited around Set\u00fabal, served in Lecor's brigade during the later Peninsular campaigns. It marched with Wellington's army through Spain and into France in 1813 and 1814. Portuguese regiments like the 7th made up a large part of the army that ended the war on French soil. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "19th Line Regiment (Cascais)",
+        "bio": "The 19th Line Regiment, from Cascais near Lisbon, fought in Lecor's brigade at Vitoria in June 1813, when Wellington's army broke the French in Spain and captured King Joseph's baggage train. Through 1813 and 1814 Portuguese line regiments like the 19th fought in the Pyrenees and on into southern France, earning Wellington's praise as the fighting cocks of his army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "23rd Line Regiment (Almeida)",
+        "bio": "The 23rd Line Regiment was Carlos Frederico Lecor's first command as a colonel, in 1808, at the start of the war against the French. Lecor went on to command brigades and then a division in Wellington's army. Years later, after leading Portuguese veterans to Brazil, he died in Rio de Janeiro as a Marshal of the Brazilian Army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Royal Volunteers of the Prince",
+        "bio": "The Divis\u00e3o de Volunt\u00e1rios Reais do Pr\u00edncipe was formed in 1815 on the orders of the Prince Regent, Jo\u00e3o, from some 5,000 men, mostly veterans of the Peninsular War. Under Lecor it landed at Rio de Janeiro on 30 March 1816 and then marched south, occupying Montevideo in January 1817 and carrying Portugal's Brazilian frontier to the River Plate. Its veterans later held Montevideo as the last Portuguese stronghold in South America after Brazil declared independence. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "1st Cavalry (Alc\u00e2ntara)",
+        "bio": "The 1st Cavalry Regiment, Alc\u00e2ntara, was the senior regiment of the Portuguese cavalry. Portugal's horsemen were rebuilt under Beresford alongside the infantry, though horses were always scarce after the French invasions. The Portuguese cavalry served in brigades with the British dragoons through the later campaigns of the war. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "4th Cavalry (Mecklenburg)",
+        "bio": "The 4th Cavalry Regiment carried the name of its princely colonel-proprietor, a member of the house of Mecklenburg, in the old European fashion. Like the rest of Portugal's mounted arm it was reorganised under Beresford after 1809 and served with Wellington's army. Portuguese cavalry fought in support of the Allied army in the Peninsula through to 1814. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "6th Cavalry (Bragan\u00e7a)",
+        "bio": "The 6th Cavalry Regiment took the name of Bragan\u00e7a, the royal house of Portugal whose prince regent had sailed for Brazil in 1807 and ruled the empire from Rio de Janeiro. Raised in the north of the country, it served as light horse with the Allied army. Its riders scouted and screened for the infantry through the campaigns that drove the French out of Portugal. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "8th Cavalry (Elvas)",
+        "bio": "The 8th Cavalry Regiment was named after Elvas, the great frontier fortress facing Spanish Badajoz across the border. Raised in the Alentejo, the regiment served with the Allied cavalry through the years of fighting along the Portuguese frontier, where Wellington's army besieged Badajoz and Ciudad Rodrigo. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Battery of da Cunha Preto",
+        "bio": "The Portuguese Royal Artillery was reorganised under Beresford and served alongside the British and King's German Legion batteries in Wellington's army. Captain da Cunha Preto's battery was one of the Portuguese batteries in action at Bussaco in 1810, firing down from the ridge on Mass\u00e9na's columns as they toiled up the slope. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Battery of Freira",
+        "bio": "Freira's battery was the second of the Portuguese batteries engaged at Bussaco in September 1810, where the Allied army beat off Mass\u00e9na's assaults on the ridge. The Portuguese gunners proved themselves the equal of their British comrades, and the artillery served on with Wellington through the campaigns of 1811 to 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }

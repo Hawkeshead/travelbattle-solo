@@ -46,6 +46,9 @@ export const NATIONS = {
   spain:    { key: 'spain', name: 'Spain', adjective: 'Spanish', team: 'coalition', side: 'red', maxArmies: 1,
              colours: { main: '#b3261e', dim: '#6e1712', accent: '#e6b422' }, art: null,
              cockade: ['#c8191e', '#9a1216', '#c8191e'] },
+  portugal: { key: 'portugal', name: 'Portugal', adjective: 'Portuguese', team: 'coalition', side: 'red', maxArmies: 1,
+             colours: { main: '#1f4a8a', dim: '#132e57', accent: '#c8191e' }, art: null,
+             cockade: ['#1f4a8a', '#c8191e', '#1f4a8a'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };
