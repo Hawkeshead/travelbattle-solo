@@ -9,11 +9,16 @@
 
    Per nation: its key (also its key in data/unit-archive.json), the name
    shown to the player, the side it fights for, how many of its armies a
-   match may field (null: no limit set yet, left open for a second French
-   army), its UI colours, the folder its pixel art lives in, whether it has
+   match may field, its UI colours, the folder its pixel art lives in, whether it has
    classic icons (only Britain and France; the others draw as pixel figures
    under the Classic setting), and its cockade (the selection marker: outer
    folds, middle ring, button).
+
+   SECOND ARMIES (17 Oct 2026, all nations). Russia and France may field two
+   armies in one match. The second has a roster of its own, under its own key
+   ('russia_2', 'france_2', marked secondOf), so no name appears twice; it is
+   never offered on its own, only taken by a nation's second army
+   (armyKeysFor).
 
    A leaf module (no imports), so the campaign map's pure core and the tests
    can read it as well as the game.
@@ -22,7 +27,7 @@ export const NATIONS = {
   britain: { key: 'britain', name: 'Britain', adjective: 'British', team: 'coalition', side: 'red', maxArmies: 1,
              colours: { main: '#a3403a', dim: '#5c2825' }, art: 'british', classic: true,
              cockade: ['#151515', '#2b2b2b', '#d9dee4'] },
-  france:  { key: 'france', name: 'France', adjective: 'French', team: 'imperial', side: 'blue', maxArmies: null,
+  france:  { key: 'france', name: 'France', adjective: 'French', team: 'imperial', side: 'blue', maxArmies: 2,
              colours: { main: '#2e4566', dim: '#1c2a3d' }, art: 'french', classic: true,
              cockade: ['#c8191e', '#f6f3ea', '#1f3a8a'] },
   prussia: { key: 'prussia', name: 'Prussia', adjective: 'Prussian', team: 'coalition', side: 'red', maxArmies: 1,
@@ -40,5 +45,24 @@ export function nationKeyFor(nations, side){
   return NATIONS[k] ? k : DEFAULT_NATIONS[side];
 }
 export const nationFor = (nations, side) => NATIONS[nationKeyFor(nations, side)];
-/* The nations that may fight on a side (Coalition nations for red). */
-export const nationsForSide = side => Object.values(NATIONS).filter(n => n.team === TEAM_OF_SIDE[side]);
+/* The nations a player may pick for a side (Coalition nations for red); a
+   second army's own key is never offered. */
+export const nationsForSide = side => Object.values(NATIONS).filter(n => n.team === TEAM_OF_SIDE[side] && !n.secondOf);
+/* A nation's second-army key ('russia' -> 'russia_2'), or null. */
+export const secondArmyKey = key => (Object.values(NATIONS).find(n => n.secondOf === key) || {}).key || null;
+/* The base nation of any key ('france_2' -> 'france'). */
+export const baseNation = key => (NATIONS[key] && NATIONS[key].secondOf) || key;
+/* One side's armies, as picked (base nations, in army order), to the keys
+   they fight under: a nation's second army takes its second-army key. */
+export function armyKeysFor(picks){
+  const seen = {};
+  return picks.map(k => { const n = seen[k] = (seen[k] || 0) + 1; return n > 1 ? (secondArmyKey(k) || k) : k; });
+}
+/* Why a nation cannot take another army alongside those already picked for
+   its side (a short reason for a greyed-out choice), or null if it can. */
+export function cannotField(picks, key){
+  const n = NATIONS[key]; if(!n) return 'Unknown nation';
+  const have = picks.filter(k => k === key).length, max = n.maxArmies || 1;
+  if(have < max) return null;
+  return max === 1 ? `${n.name} fields one army` : `${n.name} fields at most ${max} armies`;
+}

@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
-import { DEFAULT_NATIONS, NATIONS, TEAM_OF_SIDE, nationFor, nationKeyFor, nationsForSide } from '../js/nations.js';
+import { DEFAULT_NATIONS, NATIONS, TEAM_OF_SIDE, armyKeysFor, baseNation, cannotField, nationFor, nationKeyFor, nationsForSide } from '../js/nations.js';
 
 const ARCHIVE = JSON.parse(fs.readFileSync(new URL('../data/unit-archive.json', import.meta.url), 'utf8'));
 const STANDARD = { BRIGADIER: 3, GUARD: 2, INFANTRY: 6, HEAVY_CAV: 2, LIGHT_CAV: 2, ARTILLERY: 2 };
@@ -41,7 +41,7 @@ test('the registry: teams, limits, and Britain against France by default', () =>
   assert.strictEqual(NATIONS.france.team, 'imperial');
   assert.strictEqual(NATIONS.britain.maxArmies, 1);
   assert.strictEqual(NATIONS.prussia.maxArmies, 1);
-  assert.strictEqual(NATIONS.france.maxArmies, null);
+  assert.strictEqual(NATIONS.france.maxArmies, 2);
   for(const n of Object.values(NATIONS)) assert.strictEqual(TEAM_OF_SIDE[n.side], n.team, `${n.key} fights on the wrong side`);
   // A Coalition nation never faces another: only Coalition nations can take red.
   assert.deepStrictEqual(nationsForSide('red').map(n => n.key).sort(), ['britain', 'prussia']);
@@ -53,4 +53,24 @@ test('a match saved before nations existed reads as Britain against France', () 
   assert.strictEqual(nationKeyFor({}, 'blue'), 'france');
   assert.strictEqual(nationKeyFor({ red: 'nowhere' }, 'red'), 'britain');
   assert.strictEqual(nationFor({ red: 'prussia', blue: 'france' }, 'red').name, 'Prussia');
+});
+
+test('second armies: a nation\'s second army takes its own roster, never offered alone', () => {
+  for(const n of Object.values(NATIONS).filter(n => n.secondOf)){
+    assert.ok(NATIONS[n.secondOf], `${n.key}: no ${n.secondOf}`);
+    assert.strictEqual(n.team, NATIONS[n.secondOf].team);
+    assert.ok((NATIONS[n.secondOf].maxArmies || 1) >= 2, `${n.secondOf} must allow a second army`);
+    assert.ok(!nationsForSide(n.side).some(x => x.key === n.key), `${n.key} offered on its own`);
+    assert.strictEqual(baseNation(n.key), n.secondOf);
+    assert.deepStrictEqual(armyKeysFor([n.secondOf, n.secondOf]), [n.secondOf, n.key]);
+  }
+  assert.deepStrictEqual(armyKeysFor(['britain', 'prussia']), ['britain', 'prussia']);
+});
+
+test('army limits: one per Coalition nation, more only where allowed', () => {
+  assert.strictEqual(cannotField([], 'britain'), null);
+  assert.ok(cannotField(['britain'], 'britain'));
+  assert.strictEqual(cannotField(['britain'], 'prussia'), null);
+  assert.strictEqual(cannotField(['france'], 'france'), null);
+  assert.ok(cannotField(['france', 'france'], 'france'));
 });
