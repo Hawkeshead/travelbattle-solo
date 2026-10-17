@@ -71,6 +71,7 @@ const TERMS = {
   cavalryPair: T('Horse support nearby', 'twoHorseshoes'),
   heavyPair: T('Heavy cavalry in pairs', 'twoHorses'),
   squareTrap: T('Enemy square nearby', 'squareOutline'),
+  cavStepBack: T('Stepping back after a winning charge', 'arrowBack'),
   squareHunt: T('Enemy square nearby', 'squareOutline'),
   boggedGun: T('Enemy gun stuck in a field', 'wheelMud'),
   gunRaid: T('Raid an enemy gun', 'horseCannon'),
