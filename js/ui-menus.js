@@ -10,7 +10,7 @@ import { operationBriefHTML, redrawOperation, setupOperation } from './operation
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline, sharedArmiesEnabled } from './online-session.js';
-import { humanOwns, statesOf, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
+import { brigadeNationOf, humanOwns, statesOf, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
@@ -172,6 +172,7 @@ function saveLastSetup(){
   try {
     localStorage.setItem(LAST_SETUP_KEY, JSON.stringify({
       aiSide: state.aiSide, difficulty: state.aiDifficulty, nations: state.nations,
+      brigadeNations: state.brigadeNations, friendlyAi: state.friendlyAi,
     }));
   } catch { /* private mode — the seal simply will not appear next time */ }
 }
@@ -202,6 +203,7 @@ export const GRAND_STRATEGY_ENABLED = false;
 export function showModeSelect(isSplash){
   // Back at the menus: the next match is Britain against France unless a nation is picked for it.
   state.nations = { ...DEFAULT_NATIONS };
+  state.brigadeNations = null; state.friendlyAi = null;   // nor a nation per Brigade, nor a friendly AI commander
   /* NO MENU MUSIC (removed by request): the menus play only the countryside
      ambience, birdsong and a soft wind. Set here, on the screen itself, so
      every route back to the menus (after a battle, from the campaign map) gets
@@ -347,6 +349,9 @@ export function showModeSelect(isSplash){
       state.mode = 'ai';
       state.aiSide = last.aiSide;
       state.nations = { red: nationKeyFor(last.nations, SIDES.RED), blue: nationKeyFor(last.nations, SIDES.BLUE) };
+      // The Brigades screen's choices too (a nation per Brigade, the friendly AI's Brigades).
+      state.brigadeNations = last.brigadeNations && typeof last.brigadeNations === 'object' ? last.brigadeNations : null;
+      state.friendlyAi = Array.isArray(last.friendlyAi) ? last.friendlyAi.filter(k => typeof k === 'string') : null;
       state.aiDifficulty = 'hard';      // one AI level for now (see showSideSelect)
       extra.style.display = 'none';
       document.getElementById('overlay').classList.remove('show');
@@ -684,9 +689,11 @@ export function showSideSelect(){
      screen readers. NATIONS (17 Oct 2026): the Coalition can be Britain or
      Prussia. Taking a Coalition flag gives the AI France; taking France asks
      which Coalition nation the AI commands, on a second row of flags. */
-  const go = (nations, aiSide) => {
+  const go = (nations, aiSide, brigades) => {
     state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
     state.nations = nations;
+    state.brigadeNations = brigades ? brigades.nations : null;
+    state.friendlyAi = brigades ? brigades.ai : null;
     saveLastSetup();
     extra.style.display = 'none';
     document.getElementById('overlay').classList.remove('show');
@@ -741,8 +748,69 @@ export function showSideSelect(){
     extra.innerHTML = '';
     const theirs = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
     extra.appendChild(group(theirs === SIDES.RED ? 'The Coalition' : 'The Imperial side', theirs,
-      key => go(mySide === SIDES.RED ? { red: myKey, blue: key } : { red: key, blue: myKey }, theirs)));
+      key => showBrigades(mySide, mySide === SIDES.RED ? { red: myKey, blue: key } : { red: key, blue: myKey })));
     back.onclick = showSides;
+    extra.appendChild(back);
+  };
+  /* YOUR BRIGADES (17 Oct 2026): each of the three Brigades on either side
+     may fight under any nation of its side's team (they start as the nations
+     just picked), and each of the player's own may be commanded by them or by
+     a friendly AI commander (js/friendly-ai.js). The opponent's are all the
+     AI's. To Battle with nothing changed is the battle as before. */
+  const showBrigades = (mySide, nations) => {
+    const theirs = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+    const pick = { [mySide]: [0, 1, 2].map(() => nations[mySide]), [theirs]: [0, 1, 2].map(() => nations[theirs]) };
+    const ai = [false, false, false];
+    document.getElementById('overlayTitle').textContent = 'Your Brigades';
+    extra.innerHTML = '';
+    const ORD = ['1st', '2nd', '3rd'];
+    const block = (side, mine) => {
+      const g = document.createElement('div');
+      g.className = 'side-group brig-setup';
+      g.innerHTML = `<div class="side-group-title">${mine ? 'Your army' : 'The enemy (AI)'}</div>`;
+      pick[side].forEach((key, i) => {
+        const row = document.createElement('div');
+        row.className = 'brig-row';
+        const label = document.createElement('span');
+        label.className = 'brig-label'; label.textContent = `${ORD[i]} Brigade`;
+        const sel = document.createElement('select');
+        sel.className = 'brig-nation'; sel.dataset.side = side; sel.dataset.brigade = i;
+        sel.setAttribute('aria-label', `${ORD[i]} Brigade nation`);
+        for(const n of nationsForSide(side)){
+          const o = document.createElement('option'); o.value = n.key; o.textContent = n.name;
+          if(n.key === key) o.selected = true;
+          sel.appendChild(o);
+        }
+        sel.onchange = () => { pick[side][i] = sel.value; };
+        row.appendChild(label); row.appendChild(sel);
+        if(mine){
+          const cmd = document.createElement('span');
+          cmd.className = 'mode-toggle brig-cmd';
+          const paint = () => { cmd.innerHTML =
+            `<button type="button" class="mode-btn${ai[i] ? '' : ' on'}" data-cmd="me">You</button>` +
+            `<button type="button" class="mode-btn${ai[i] ? ' on' : ''}" data-cmd="ai">AI</button>`;
+            cmd.querySelectorAll('button').forEach(b => b.onclick = (e) => { e.stopPropagation(); ai[i] = b.dataset.cmd === 'ai'; paint(); });
+          };
+          cmd.dataset.brigade = i;
+          paint();
+          row.appendChild(cmd);
+        }
+        g.appendChild(row);
+      });
+      return g;
+    };
+    // Side by side where the panel is wide (a phone held sideways), one above the other where not.
+    const cols = document.createElement('div');
+    cols.className = 'brig-cols';
+    cols.appendChild(block(mySide, true));
+    cols.appendChild(block(theirs, false));
+    extra.appendChild(cols);
+    const start = document.createElement('button');
+    start.type = 'button'; start.className = 'primary brig-go'; start.textContent = 'To Battle';
+    start.onclick = () => go({ ...nations, [mySide]: pick[mySide][0], [theirs]: pick[theirs][0] }, theirs,
+      { nations: pick, ai: ai.map((on, i) => on ? `${mySide}:${i}` : null).filter(Boolean) });
+    extra.appendChild(start);
+    back.onclick = () => showOpponents(mySide, nations[mySide]);
     extra.appendChild(back);
   };
   showSides();
@@ -886,7 +954,8 @@ export function showDifficultySelect(){
 export function beginBoardSetup(){
   // Not until the battle's art is loaded (asset-loader): at once when it is.
   // Online and Group matches start in step with the other phones, so never wait.
-  const art = artPrefixesFor([nationKeyFor(state.nations, SIDES.RED), nationKeyFor(state.nations, SIDES.BLUE)]);
+  const art = artPrefixesFor([nationKeyFor(state.nations, SIDES.RED), nationKeyFor(state.nations, SIDES.BLUE),
+    ...[SIDES.RED, SIDES.BLUE].flatMap(side => [0, 1, 2].map(i => brigadeNationOf(side, i)))]);
   if(!isOnline() && !state.group && !gateBattle(() => beginBoardSetup(), art)) return;
   prepareFiles(art);   // online: not waited for, but started at once
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
@@ -1294,6 +1363,29 @@ function showArmyPicker(side){
     if(!maybeShowArmyPicker()) showRosterIfNeeded();   // a second human (hotseat) gets their own choice
   };
   document.getElementById('armyPickerManualBtn').onclick = ()=> closeArmyPicker(true);
+  document.getElementById('armyPickerMapBtn').onclick = peekMap;
+}
+
+/* VIEW MAP: the picker steps aside to show the whole board, which can be
+   panned and zoomed (taps place nothing: onCellClick ignores them while
+   html.map-peek is set); Back to Armies returns to the same army. */
+function peekMap(){
+  document.documentElement.classList.add('map-peek');
+  let back = document.getElementById('armyPickerBackBtn');
+  if(!back){
+    back = document.createElement('button');
+    back.id = 'armyPickerBackBtn'; back.type = 'button'; back.className = 'primary';
+    back.textContent = 'Back to Armies';
+    document.body.appendChild(back);
+  }
+  back.style.display = '';
+  back.onclick = endMapPeek;
+  draw();
+}
+function endMapPeek(){
+  document.documentElement.classList.remove('map-peek');
+  const back = document.getElementById('armyPickerBackBtn');
+  if(back) back.style.display = 'none';
 }
 
 /* Each brigade as a short list of what is in it ("2 × Infantry"), in the order
@@ -1319,7 +1411,7 @@ function renderArmyPickerCard(){
   const nationKey = pickerGroupArmy ? pickerGroupArmy.nation : nationOf(side);
   const nation = NATIONS[nationKey];
   if(forEl){
-    forEl.innerHTML = (NATION_EMBLEM[nation.key] || '') + (pickerGroupArmy ? pickerGroupArmy.label : nation.name) + ' \u00b7 ';
+    forEl.innerHTML = (NATION_EMBLEM[nation.key] || '') + (pickerGroupArmy ? pickerGroupArmy.label : SIDE_LABEL[side]) + ' \u00b7 ';
     forEl.style.color = nation.colours.main;
   }
   const panel = document.getElementById('armyPickerPanel');
@@ -1334,8 +1426,10 @@ function renderArmyPickerCard(){
   sumEl.classList.toggle('refused', !!refusal);
   document.getElementById('armyPickerDeployBtn').disabled = !!refusal;
   const cardsEl = document.getElementById('armyPickerBrigadeCards');
+  // A side of more than one nation (the Quick Battle Brigades screen) says which nation each Brigade is.
+  const mixed = !pickerGroupArmy && new Set(army.brigades.map((_, i) => brigadeNationOf(side, i))).size > 1;
   cardsEl.innerHTML = army.brigades.map((b,i)=>
-    `<div class="apCard" style="border-top-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div><ul class="apUnits">${brigadeUnitLines(b).map(l=>`<li>${l}</li>`).join('')}</ul></div>`
+    `<div class="apCard" style="border-top-color:${ARMY_ZONE_COLORS[i]};"><div class="apName">${b.name}</div>${mixed ? `<div class="apNation">${NATIONS[brigadeNationOf(side, i)].adjective}</div>` : ''}<ul class="apUnits">${brigadeUnitLines(b).map(l=>`<li>${l}</li>`).join('')}</ul></div>`
   ).join('');
   const dotsEl = document.getElementById('armyPickerDots');
   dotsEl.innerHTML = TB_DATA.armyCompositions.map((_,i)=>
@@ -1397,6 +1491,7 @@ function drawArmyPreview(side, army){
 }
 
 function closeArmyPicker(manual){
+  endMapPeek();
   document.getElementById('armyPickerPanel').classList.add('hidden');
   /* Only "Deploy Manually" opens the roster: an army deployed from the
      picker is already on the board, and the roster would just squeeze it. */

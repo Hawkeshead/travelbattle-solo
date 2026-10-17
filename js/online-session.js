@@ -68,17 +68,33 @@ export function askRemote(kind, data, fallback, timeoutMs){
    - commanderNote(u): who commands this unit, for the unit card; null when
      there is nothing to say.
 ========================================================= */
-export function ownsUnit(u){ return !session || !session.ownsUnit || !u ? true : session.ownsUnit(u); }
-export function interceptOrder(kind, data){ return !!(session && session.interceptOrder && session.interceptOrder(kind, data)); }
+export function ownsUnit(u){
+  if(!session) return !local || !u || local.ownsUnit(u);
+  return !session.ownsUnit || !u ? true : session.ownsUnit(u);
+}
+export function interceptOrder(kind, data){
+  if(!session) return !!(local && local.interceptOrder(kind, data));
+  return !!(session.interceptOrder && session.interceptOrder(kind, data));
+}
 export function aiAllowedOnline(side){ return !session || (!!session.runsAi && session.runsAi(side)); }
 export function asksElsewhere(unit){
-  if(!session || !session.shared || !unit) return false;
+  if(!session) return !!(local && unit && local.asksElsewhere(unit));
+  if(!session.shared || !unit) return false;
   // Not this phone's person to decide: a partner's unit, or one the AI partner commands.
   if(session.asksElsewhere) return session.asksElsewhere(unit);
   return !!(session.isRemote && session.isRemote(unit.side, unit));
 }
+/* FRIENDLY AI ON THIS PHONE (js/friendly-ai.js): in a Quick Battle the player
+   may hand some of their own Brigades to an AI commander. With no online
+   session, ownsUnit, interceptOrder and asksElsewhere ask it instead; it
+   answers exactly as before when no Brigade is handed over. */
+let local = null;
+export function setLocalCommand(hooks){ local = hooks; }
 export function holdsAutoEnd(){ return !!(session && session.holdsAutoEnd && session.holdsAutoEnd()); }
-export function commanderNote(u){ return session && session.commanderNote ? session.commanderNote(u) : null; }
+export function commanderNote(u){
+  if(!session) return local && u ? local.commanderNote(u) : null;
+  return session.commanderNote ? session.commanderNote(u) : null;
+}
 export function partnerRing(u){ return session && session.partnerRing ? session.partnerRing(u) : null; }
 
 /* Shared armies (online-shared.js) are behind a flag while they are reviewed:

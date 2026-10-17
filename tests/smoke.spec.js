@@ -29,6 +29,8 @@ const faction = (page, side) =>
 async function playBritainAgainstFrance(page) {
   await faction(page, 'Britain').click();
   await faction(page, 'France').click();
+  // The Brigades screen (a nation and a commander per Brigade): as they are.
+  await page.locator('#modeChoices .brig-go').click();
 }
 /* Since 1 Oct 2026 there is one AI level (Marshal): choosing a side starts the
    match, and the rank screen is no longer shown. Kept as a no-op so the call

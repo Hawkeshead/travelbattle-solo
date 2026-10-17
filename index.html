@@ -446,6 +446,34 @@
     .apArrow{ width:32px;height:32px;font-size:20px; }
   }
   #armyPickerPanel.hidden{ display:none; }
+  /* VIEW MAP (17 Oct 2026): the picker steps aside so the whole board can be
+     looked at (panned and zoomed, nothing placed); one button brings it back. */
+  html.map-peek #armyPickerPanel{ display:none; }
+  #armyPickerBackBtn{ position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:39;
+    padding:9px 22px;font-size:14px;box-shadow:0 3px 10px rgba(0,0,0,.45); }
+  .apCard .apNation{ font-size:11px;font-style:italic;color:#5a4d33;margin-top:-1px; }
+  /* YOUR BRIGADES (Quick Battle setup): a row per Brigade, its nation and who commands it. */
+  #modeChoices.as-sides .brig-cols{ display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:6px 22px;width:100%; }
+  #modeChoices.as-sides .side-group.brig-setup{ display:flex;flex-direction:column;align-items:center;gap:5px;width:auto; }
+  #modeChoices.as-sides .brig-row{ display:flex;align-items:center;justify-content:center;gap:6px; }
+  #modeChoices.as-sides .brig-label{ font-family:'Cormorant Garamond',serif;font-weight:700;font-size:15px;color:#2e2010;width:82px;text-align:right;flex:none;white-space:nowrap; }
+  #modeChoices.as-sides select.brig-nation{ font-family:'Cormorant Garamond',serif;font-size:15px;color:#2e2010;background:#f6efd9;
+    border:1px solid #9a7a36;border-radius:4px;padding:3px 4px;width:132px;min-width:0; }
+  #modeChoices.as-sides .brig-cmd{ margin:0; gap:0; }
+  html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn{ font-family:'Cinzel',serif;font-size:11px;padding:4px 9px;min-width:0;width:auto;
+    background:#f6efd9;color:#2a1e14;border:1px solid #9a7a36;border-radius:0;box-shadow:none; }
+  html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn:first-child{ border-radius:4px 0 0 4px; }
+  html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn:last-child{ border-radius:0 4px 4px 0;border-left:none; }
+  html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn.on{ background:linear-gradient(180deg,#c8a24e,#9c7a2e);color:#2a1e14;border-color:#7a5a1e; }
+  #mapStyleToggle{ flex-wrap:wrap; row-gap:6px; }   /* Map and Victory on two lines where the panel is narrow */
+  html #overlay .box.as-sides-screen #modeChoices button.brig-go{ align-self:center;min-width:180px;margin-top:4px; }
+  @media (max-height:430px){
+    #modeChoices.as-sides .side-group.brig-setup{ gap:2px; }
+    #modeChoices.as-sides .brig-label{ font-size:13px;width:74px; }
+    #modeChoices.as-sides select.brig-nation{ font-size:13px;padding:1px 4px;width:118px; }
+    html #overlay .box.as-sides-screen #modeChoices .brig-cmd.brig-cmd button.mode-btn.mode-btn{ font-size:10px;padding:2px 7px; }
+    html #overlay .box.as-sides-screen #modeChoices button.brig-go.brig-go{ margin-top:0;padding:5px 14px; }
+  }
 
   /* Above the victory screen (#overlay, 50), which is where the export buttons are:
      at 40 the log opened behind it and only appeared once Watch Replay cleared it. */
@@ -1681,6 +1709,7 @@
         <div id="armyPickerBtnRow">
           <button id="armyPickerDeployBtn" class="primary">Deploy This Army</button>
           <button id="armyPickerManualBtn" class="apTextBtn">Deploy Manually</button>
+          <button id="armyPickerMapBtn" class="apTextBtn" type="button">View Map</button>
         </div>
       </div>
       <button id="armyPickerNext" class="apArrow" type="button" aria-label="Next army">&rsaquo;</button>

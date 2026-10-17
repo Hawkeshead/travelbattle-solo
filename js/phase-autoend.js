@@ -29,7 +29,7 @@
    leaves a breadcrumb trail behind it that the move animation reads —
    see the note on that function.
 ========================================================= */
-import { holdsAutoEnd } from './online-session.js';
+import { holdsAutoEnd, ownsUnit } from './online-session.js';
 import { saveSoon } from './match-save.js';
 import { state } from './data-core.js';
 import { artilleryTargets, hasAnyLegalMove, volleyTargets } from './engine-rules.js';
@@ -101,7 +101,7 @@ function isHumanTurn(){
 /* Every legal action in `phase` has been taken by the side whose turn it is. */
 export function phaseActionsComplete(phase){
   const side = state.turn;
-  const mine = state.units.filter(u => !u.removed && actsFor(u, side));
+  const mine = state.units.filter(u => !u.removed && actsFor(u, side) && ownsUnit(u));   // a friendly AI commander's units are not the player's to wait for
   if(phase === 'move')  return !mine.some(u => hasAnyLegalMove(u));
   /* The Firing phase is no longer artillery-only: infantry volley resolves here
      too, so a turn with no gun but an infantry unit in contact still has an

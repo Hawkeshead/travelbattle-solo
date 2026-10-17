@@ -1,7 +1,7 @@
 import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
 import { figuresOnEvent } from './render-figures.js';
 import { recFromReplay, recUndo } from './telemetry/recorder.js';
-import { NARRATION, archiveOf, nationOf, nextUid, state } from './data-core.js';
+import { NARRATION, archiveOf, brigadeNationOf, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 import { selectUnit, updateHeader } from './ui-battle.js';
@@ -93,7 +93,7 @@ export function updateUndoButtons(){
 export let historicalSlotCounters = {};
 export function resetHistoricalIdentities(){ historicalSlotCounters = {}; }
 export function newUnit(side, typeKey, x, y, brigadeId, nation){
-  const nationKey = nation || nationOf(side);
+  const nationKey = nation || brigadeNationOf(side, brigadeId);
   const counters = historicalSlotCounters[nationKey] || (historicalSlotCounters[nationKey] = {});
   const idx = counters[typeKey] || 0;
   counters[typeKey] = idx + 1;

@@ -23,6 +23,7 @@ import { BRIGADIER_PORTRAIT_KEY, gunPortraitSrc, unitPortraitHTML, REGIMENT_IMAG
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
+import { runFriendlyAi } from './friendly-ai.js';
 import { aiAllowedOnline, askRemote, asksElsewhere, commanderNote, interceptOrder, isRemoteSide, ownsUnit } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
@@ -576,6 +577,7 @@ export function beginMovePhase(){
     setTimeout(aiDoMovePhase, FAST_ANIMATION_MODE ? 0 : 500);
     return;
   }
+  if(runFriendlyAi('move')) return;   // Quick Battle: the player's AI-commanded Brigades move first (friendly-ai.js)
   maybeStartAutoEnd(); // a side with nothing that can move (all disconnected, all in Square) shouldn't need a button press
 }
 
@@ -621,6 +623,7 @@ export function beginFirePhase(){
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
   if(aiTurn){ if(!aiAllowedOnline(state.aiSide)) return; setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
+  if(runFriendlyAi('fire')) return;
   maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
@@ -653,7 +656,7 @@ export function beginFightPhase(){
     } else {
       log('No units in contact: skipping Fight phase.', 'system');
     }
-  }
+  } else if(runFriendlyAi('fight')) return;
   maybeStartAutoEnd();
 }
 // Woodland Ambush: an Infantry-class unit in woods, untouched by the enemy,
@@ -1219,6 +1222,7 @@ export function initBoardInput(){
 
 export function onCellClick(x,y){
   if(state.gameOver) return;
+  if(document.documentElement.classList.contains('map-peek')) return;   // View Map from the army picker: looking only
   if(state.phase==='orientation'){ handleOrientationClick(x); return; }
   if(state.phase==='deploy'){
     // Rearranging a complete deployment (deploy-rearrange.js) takes the tap first.

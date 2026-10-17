@@ -1,5 +1,5 @@
 import { AI_UNIT_VALUE, terrainSeekBonus } from './ai-tactics.js';
-import { COLS, ROWS, SIDES, TB_DATA, archiveOf, nationOf, state, statesOf } from './data-core.js';
+import { COLS, ROWS, SIDES, TB_DATA, archiveOf, brigadeNationOf, nationOf, state, statesOf } from './data-core.js';
 import { NATIONS } from './nations.js';
 import { layoutRefusal } from './brigade-rules.js';
 import { isRoadLike, terrainAt, unitsAt, seededRandom } from './engine-rules.js';
@@ -400,7 +400,7 @@ export function planArmyDeployment(side, armyId){
       for(const e of entries){
         const cell = chooseHardDeployCell(side, e.type, bIdx, e.forceBack, rng);
         const ghost = {
-          id:'ghost'+(n++), side, type:e.type, brigadeId:bIdx, brigadeIndex:i,
+          id:'ghost'+(n++), side, nation: brigadeNationOf(side, bIdx), type:e.type, brigadeId:bIdx, brigadeIndex:i,
           x:cell.x, y:cell.y, removed:false, formation:'line', ghost:true,
         };
         ghosts.push(ghost);

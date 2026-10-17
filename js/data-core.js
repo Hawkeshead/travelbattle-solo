@@ -356,7 +356,27 @@ export const SIDES = { RED: 'red', BLUE: 'blue' };
    Britain and France unless one was picked. Read live, so every log line,
    banner and menu that says SIDE_LABEL[side] names the right nation. In the
    four-army game a side is its two armies' nations ("Russia and Spain"). */
-const sideName = side => (state.group ? groupSideName(state.groupNations, side) : nationFor(state.nations, side).name);
+const sideName = side => (state.group ? groupSideName(state.groupNations, side) : brigadeSideName(side) || nationFor(state.nations, side).name);
+/* QUICK BATTLE BRIGADES (17 Oct 2026). Each Brigade of a side may fight under
+   its own nation (state.brigadeNations = { red: [k0, k1, k2], blue: [...] },
+   by Brigade number), always one of the side's own team. Where none is set
+   (every other mode, and a match saved before this) a Brigade is its side's
+   nation. A side of more than one nation is named for all of them, in Brigade
+   order ("Britain and Prussia"). */
+export function brigadeNationOf(side, brigadeId){
+  const list = state.brigadeNations && state.brigadeNations[side];
+  const k = list && list[brigadeId];
+  return NATIONS[k] && NATIONS[k].side === side && !NATIONS[k].secondOf ? k : nationOf(side);
+}
+function brigadeSideName(side){
+  const list = state.brigadeNations && state.brigadeNations[side];
+  if(!list || !list.length) return null;
+  const names = [...new Set(list.map((_, i) => NATIONS[brigadeNationOf(side, i)].name))];
+  return names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+/* Which of the player's own Brigades a friendly AI commander leads in a Quick
+   Battle (state.friendlyAi, keys 'red:1'; js/friendly-ai.js runs them). */
+export const friendlyAiCommands = u => !!(u && state.friendlyAi && state.friendlyAi.includes(`${u.side}:${u.brigadeId}`));
 export const SIDE_LABEL = {
   get red(){ return sideName('red'); },
   get blue(){ return sideName('blue'); },
@@ -453,6 +473,8 @@ export let state = {
   mode: 'hotseat',  // 'hotseat' | 'ai'
   nations: { red: 'britain', blue: 'france' },   // which nation fights on each side this match (js/nations.js)
   aiSide: null,     // side controlled by the AI, when mode==='ai'
+  brigadeNations: null,   // Quick Battle: a nation per Brigade, { red: [...], blue: [...] } (brigadeNationOf)
+  friendlyAi: null,       // Quick Battle: the player's Brigades a friendly AI commands, ['red:1', ...]
   aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
   scenario: null,   // active Operation, or null for a standard full-army battle
   campaign: null,   // active Campaign, or null when not playing one
