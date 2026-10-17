@@ -41,7 +41,7 @@
    flagged to Matthew as a design question.
 ========================================================= */
 import { gateBattle } from './asset-loader.js';
-import { SIDES, TB_DATA, assignBuildingStyles, assignGrassStyles, setBoardMode, state } from './data-core.js';
+import { SIDES, TB_DATA, archiveOf, assignBuildingStyles, assignGrassStyles, nationOf, setBoardMode, state } from './data-core.js';
 import { log, newUnit, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
 import { authoredTerrain, redrawOperation } from './operations.js';
 import { getCard } from './scenario-cards.js';
@@ -292,7 +292,7 @@ function rearguardCard(battle, town, retreatTown, rgSide, puSide, fighters, terr
   };
 }
 function bioFor(side, unit){
-  const list = (TB_DATA.unitArchive[side] && TB_DATA.unitArchive[side][unit.type]) || [];
+  const list = archiveOf(nationOf(side))[unit.type] || [];
   const hit = list.find(e => e.name === unit.name);
   return hit ? hit.bio : null;
 }

@@ -1,7 +1,7 @@
 import { FCT_AI_HOLD_MS, emitFloatingText } from './floating-text.js';
 import { figuresOnEvent } from './render-figures.js';
 import { recFromReplay, recUndo } from './telemetry/recorder.js';
-import { NARRATION, UNIT_ARCHIVE, nextUid, state } from './data-core.js';
+import { NARRATION, archiveOf, nationOf, nextUid, state } from './data-core.js';
 import { clearTransientRenderState, draw } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 import { selectUnit, updateHeader } from './ui-battle.js';
@@ -87,16 +87,20 @@ export function updateUndoButtons(){
   const b2 = document.getElementById('undoBtnBattle'); if(b2) b2.disabled = disabled;
 }
 
-export let historicalSlotCounters = { red:{}, blue:{} };
-export function resetHistoricalIdentities(){ historicalSlotCounters = { red:{}, blue:{} }; }
-export function newUnit(side, typeKey, x, y, brigadeId){
-  const counters = historicalSlotCounters[side];
+/* Names are handed out per NATION (js/nations.js), in list order. Two armies
+   of one nation on a side (the four-army mode) share one count, as they
+   shared the side's before. */
+export let historicalSlotCounters = {};
+export function resetHistoricalIdentities(){ historicalSlotCounters = {}; }
+export function newUnit(side, typeKey, x, y, brigadeId, nation){
+  const nationKey = nation || nationOf(side);
+  const counters = historicalSlotCounters[nationKey] || (historicalSlotCounters[nationKey] = {});
   const idx = counters[typeKey] || 0;
   counters[typeKey] = idx + 1;
-  const archiveList = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][typeKey]) || [];
+  const archiveList = archiveOf(nationKey)[typeKey] || [];
   const historical = archiveList.length ? archiveList[idx % archiveList.length] : null;
   return {
-    id: 'u'+nextUid(), side, type: typeKey, brigadeId,
+    id: 'u'+nextUid(), side, nation: nationKey, type: typeKey, brigadeId,
     x, y, removed:false, formation:'line', pushed:false,
     turnOnly:false, // true = can only turn around this coming turn
     rallying:false,

@@ -37,7 +37,8 @@
 export const CAMPAIGN_VERSION = 3;
 export const SIDES_CM = ['british', 'french'];
 export const otherSideCM = s => (s === 'british' ? 'french' : 'british');
-const ARCHIVE_SIDE = { british: 'red', french: 'blue' };
+// The campaign's sides, as keys of data/unit-archive.json (by nation since 17 Oct 2026).
+const ARCHIVE_SIDE = { british: 'britain', french: 'france' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /* ---------- reading the map data ---------- */

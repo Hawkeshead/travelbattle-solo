@@ -8,6 +8,7 @@
    immediately, exactly as it read inline literals before this change,
    with no restructuring of the game code itself.
 ========================================================= */
+import { NATIONS, nationFor, nationKeyFor } from './nations.js';
 export const TB_DATA = (function(){
   function loadJSON(path){
     const xhr = new XMLHttpRequest();
@@ -349,7 +350,25 @@ export const TERRAIN_STYLE = (() => {
   return 'v2';
 })();
 export const SIDES = { RED: 'red', BLUE: 'blue' };
-export const SIDE_LABEL = { red: 'Britain', blue: 'France' };
+/* The name of the nation fighting on each side THIS match (js/nations.js):
+   Britain and France unless one was picked. Read live, so every log line,
+   banner and menu that says SIDE_LABEL[side] names the right nation. */
+export const SIDE_LABEL = {
+  get red(){ return nationFor(state.nations, 'red').name; },
+  get blue(){ return nationFor(state.nations, 'blue').name; },
+};
+/* A side's or a unit's nation key ('britain', 'france', 'prussia'). A unit
+   carries its own (stamped by newUnit), which in the four-army mode can
+   differ between the two armies of a side. */
+export function nationOf(sideOrUnit){
+  if(sideOrUnit && typeof sideOrUnit === 'object'){
+    if(sideOrUnit.nation && NATIONS[sideOrUnit.nation]) return sideOrUnit.nation;
+    return nationKeyFor(state.nations, sideOrUnit.side);
+  }
+  return nationKeyFor(state.nations, sideOrUnit);
+}
+/* A nation's names and histories, from data/unit-archive.json. */
+export const archiveOf = nationKey => UNIT_ARCHIVE[nationKey] || {};
 export const SIDE_COLOR = { red: '#a3403a', blue: '#2e4566' };
 export const SIDE_COLOR_DIM = { red: '#5c2825', blue: '#1c2a3d' };
 
@@ -414,6 +433,7 @@ export function humanOwns(side){
 export let state = {
   gameOver: false,
   mode: 'hotseat',  // 'hotseat' | 'ai'
+  nations: { red: 'britain', blue: 'france' },   // which nation fights on each side this match (js/nations.js)
   aiSide: null,     // side controlled by the AI, when mode==='ai'
   aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
   scenario: null,   // active Operation, or null for a standard full-army battle

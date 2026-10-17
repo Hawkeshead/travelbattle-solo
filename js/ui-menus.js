@@ -1,4 +1,5 @@
 import { offerBeginBattle } from './ui-deployment.js';
+import { DEFAULT_NATIONS } from './nations.js';
 import { gateBattle } from './asset-loader.js';
 import { generateBoard } from './map-generator.js';
 import { abandonCampaign, aiChooses, applyBattleMap, campaignFinished, cardForStep, choose, chooserFor, flowById, flowReady, loadCampaign, startCampaign, tally } from './campaign-play.js';
@@ -7,7 +8,7 @@ import { operationBriefHTML, redrawOperation, setupOperation } from './operation
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline, sharedArmiesEnabled } from './online-session.js';
-import { humanOwns, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, UNIT_ARCHIVE } from './data-core.js';
+import { humanOwns, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
 import { rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
@@ -197,6 +198,8 @@ export const CAMPAIGNS_ENABLED = true;   // Campaigns: Flanders playable end to 
 export const GRAND_STRATEGY_ENABLED = false;
 
 export function showModeSelect(isSplash){
+  // Back at the menus: the next match is Britain against France unless a nation is picked for it.
+  state.nations = { ...DEFAULT_NATIONS };
   /* NO MENU MUSIC (removed by request): the menus play only the countryside
      ambience, birdsong and a soft wind. Set here, on the screen itself, so
      every route back to the menus (after a battle, from the campaign map) gets
@@ -1291,7 +1294,7 @@ function drawArmyPreview(side, army){
   if(!out || !state.terrain) return;
   const ghosts = pickerGroupArmy ? planGroupArmy(pickerGroupArmy, army.id) : planArmyDeployment(side, army.id);
   for(const g of ghosts){
-    const list = (UNIT_ARCHIVE[side] && UNIT_ARCHIVE[side][g.type]) || [];
+    const list = archiveOf(nationOf(side))[g.type] || [];
     g.historicalName = list.length ? list[0].name : null;
   }
   const off = document.createElement('canvas');

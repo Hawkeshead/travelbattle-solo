@@ -1,5 +1,5 @@
 {
-  "red": {
+  "britain": {
     "BRIGADIER": [
       {
         "name": "Wellington",
@@ -81,7 +81,7 @@
       }
     ]
   },
-  "blue": {
+  "france": {
     "BRIGADIER": [
       {
         "name": "Napoleon",
