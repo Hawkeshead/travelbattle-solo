@@ -55,6 +55,9 @@ export const NATIONS = {
   italy:    { key: 'italy', name: 'Italy & Naples', adjective: 'Italian', team: 'imperial', side: 'blue', maxArmies: 1,
              colours: { main: '#2e6b3a', dim: '#1b4123', accent: '#c8191e' }, art: null,
              cockade: ['#2e6b3a', '#f6f3ea', '#c8191e'] },
+  confederation: { key: 'confederation', name: 'Confederation of the Rhine', adjective: 'Confederation', team: 'imperial', side: 'blue', maxArmies: 1,
+             colours: { main: '#8a6d1a', dim: '#4e3e0f', accent: '#151515' }, art: null,
+             cockade: ['#151515', '#d4a92a', '#151515'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };

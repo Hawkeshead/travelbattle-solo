@@ -14,6 +14,7 @@ export const NATION_FLAG = {
   portugal: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="40" fill="#f6f3ea"/><path d="M22,9 h16 v14 q0,9 -8,10 q-8,-1 -8,-10 z" fill="#c8191e"/><path d="M25,12 h10 v11 q0,5 -5,6 q-5,-1 -5,-6 z" fill="#f6f3ea"/><g fill="#1f4a8a"><rect x="28.5" y="14" width="3" height="3"/><rect x="25.5" y="19" width="3" height="3"/><rect x="31.5" y="19" width="3" height="3"/><rect x="28.5" y="19" width="3" height="3"/><rect x="28.5" y="24" width="3" height="3"/></g></svg>',
   poland: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="20" fill="#f6f3ea"/><rect width="60" height="20" y="20" fill="#b3203c"/></svg>',
   italy: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="40" fill="#c8191e"/><path d="M30,4 L56,20 L30,36 L4,20 Z" fill="#f6f3ea"/><rect x="21" y="11" width="18" height="18" fill="#2e7a3e"/><circle cx="30" cy="20" r="3.5" fill="#e6b422"/></svg>',
+  confederation: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="40" fill="#d4a92a"/><rect width="20" height="40" fill="#151515"/><rect width="20" height="40" x="40" fill="#151515"/></svg>',
 };
 
 /* A small emblem beside a nation's name, used sparingly (the army preview).

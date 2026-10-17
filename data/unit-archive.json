@@ -818,5 +818,87 @@
         "bio": "The foot artillery of the Kingdom of Naples was reorganised on French lines after 1806, first under Joseph Bonaparte and then under Murat. In 1815 Murat took fifty-six guns north for the Neapolitan War. The Neapolitan gunners fought at Tolentino and in the string of rearguard actions that followed the defeat. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "confederation": {
+    "BRIGADIER": [
+      {
+        "name": "Wrede",
+        "bio": "Karl Philipp von Wrede was the leading Bavarian general of the Napoleonic Wars, commanding Bavaria's contingent at Wagram in 1809 and in the invasion of Russia in 1812. Bavaria's troops formed one of the largest German contingents in the Grande Arm\u00e9e, and Wrede became a count of the French Empire for his service. When Bavaria changed sides in 1813, he turned his army against his former ally and tried to block Napoleon's retreat at Hanau. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Thielmann",
+        "bio": "Johann von Thielmann commanded the Saxon heavy cavalry brigade in the invasion of Russia, leading the Garde du Corps and the Zastrow Cuirassiers in Latour-Maubourg's IV Cavalry Corps. At Borodino his brigade rode into the Great Redoubt in one of the most famous cavalry actions of the age. The campaign destroyed it: by mid-October 1812 he reported that his brigade could muster only fifty horses. He later left Saxon service to fight for the Allies. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Hochberg",
+        "bio": "Count Wilhelm von Hochberg, a young prince of the house of Baden, led the Baden brigade of some 8,000 men into Russia in 1812 as part of Marshal Victor's IX Corps. At the Berezina in November, Napoleon ordered his brigade back across the bridges, against the flow of the fleeing army, to reinforce Victor's rearguard on the far bank. There the Badeners fought until Hochberg had to report that they could fight no longer. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Saxon Leib-Grenadier-Garde",
+        "bio": "The Leib-Grenadier-Garde was the foot guard of the King of Saxony, Frederick Augustus, who stayed loyal to Napoleon longer than any other German prince. Its tall grenadiers served as the King's household troops and the elite of the Saxon infantry, which Napoleon's reforms had reorganised on the French model after 1806. Saxony remained France's ally until the Battle of Leipzig in 1813, when much of its army went over to the Allies on the field. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Westphalian Guard Grenadiers",
+        "bio": "The Kingdom of Westphalia was created by Napoleon in 1807 from Prussian, Hessian and Hanoverian lands and given to his youngest brother, J\u00e9r\u00f4me. Its Guard grenadiers were the showpiece of a new army built entirely on French lines, with French drill, French organisation and uniforms in the French style. Westphalian troops marched into Russia in 1812 in J\u00e9r\u00f4me's command and suffered terribly in the campaign. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "Bavarian Leib-Regiment",
+        "bio": "The Leib-Regiment was the senior infantry regiment of the Kingdom of Bavaria, which Napoleon raised from an electorate to a kingdom in 1806 as reward for its alliance. Bavarian infantry wore the light blue coats and crested leather Raupenhelm that made them unmistakable on any battlefield. They fought for Napoleon against Austria in 1809 and marched into Russia in 1812, where the Bavarian contingent was all but destroyed. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "W\u00fcrttemberg Kronprinz Regiment",
+        "bio": "The Kronprinz Regiment belonged to the army of the Kingdom of W\u00fcrttemberg, another of the German states raised to a kingdom by Napoleon in 1806. In 1812 the W\u00fcrttemberg division marched into Russia with Marshal Ney's III Corps and fought at Smolensk and Borodino. Of the thousands of W\u00fcrttembergers who crossed the Niemen, only a few hundred came home. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Baden Line Infantry",
+        "bio": "The Baden line infantry marched into Russia in 1812 as part of Hochberg's brigade in Victor's IX Corps, five battalions strong. At the Berezina, as the Grande Arm\u00e9e streamed across the bridges, Napoleon ordered the Baden brigade back to the eastern bank to help Victor hold off Wittgenstein's 30,000 Russians. Fighting against overwhelming numbers in the snow, the Badeners held long enough for much of the army to escape. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Hessian Leib-Regiment",
+        "bio": "The Leib-Regiment was the senior infantry of the Grand Duchy of Hesse-Darmstadt, raised to a grand duchy as a member of Napoleon's Confederation of the Rhine. The Confederation's states were obliged to provide troops for the Emperor's wars, and Hessian troops served him in Austria, Spain and Russia. Like the rest of the German contingents, they were among the steadiest of Napoleon's allied troops. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Berg 1st Infantry",
+        "bio": "The Grand Duchy of Berg on the lower Rhine was given first to Napoleon's brother-in-law Joachim Murat and later ruled by Napoleon himself. Its small army was built on the French model, and its infantry regiments served in Spain and in Russia. The Berg contingent was so reduced by the retreat from Moscow that it had to be rebuilt almost from nothing in 1813. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Nassau 2nd Regiment",
+        "bio": "The 2nd Nassau Regiment served the Duchy of Nassau, one of the founding members of the Confederation of the Rhine, and spent years in the bitter fighting of the Peninsular War. Its men gained a reputation among the French as hard, reliable soldiers in Spain. When news of Germany's turn against Napoleon reached them in December 1813, the Nassauers went over to Wellington's army. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Saxon Garde du Corps",
+        "bio": "The Garde du Corps was the most senior of Saxony's three cuirassier regiments, which many considered among the finest heavy cavalry in Europe. At Borodino the regiment rode in Thielmann's brigade of the 7th Heavy Cavalry Division, without its cuirasses, in the great charge that broke into the Raevsky Redoubt. Inside, the Russian infantry refused to yield, and horsemen and infantry fought a frenzied melee among the guns. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Westphalian 1st Cuirassiers",
+        "bio": "The 1st Cuirassiers of the Kingdom of Westphalia rode in Lorge's 7th Heavy Cavalry Division at Borodino, brigaded with the Saxon and Polish cuirassiers of Latour-Maubourg's IV Cavalry Corps. In the final assault on the Great Redoubt at two in the afternoon, Lorge's cuirassiers were the first into the fieldwork. Few of J\u00e9r\u00f4me's horsemen survived the winter retreat that followed. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "Baden Hussars",
+        "bio": "The Baden Hussars rode with Hochberg's brigade in Victor's IX Corps during the Russian campaign of 1812. At the Berezina they fought under Laroche on the eastern bank as the rearguard struggled to hold off Wittgenstein's army, where cavalry charges backed by French guns firing from across the river helped stop the Russian advance at the end of the day. Very few of the regiment returned home. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Berg Lancers",
+        "bio": "The light horse of the Grand Duchy of Berg were raised as chevau-l\u00e9gers and later armed with the lance, serving alongside the French cavalry in Spain and in Russia. Like the rest of Berg's army, the regiment was shattered in Russia and had to be rebuilt for the campaign of 1813. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "W\u00fcrttemberg Horse Artillery",
+        "bio": "The W\u00fcrttemberg horse artillery was the pride of a small but highly professional army, raised to support the Kingdom's cavalry and drilled to gallop into action with them. In 1812 it marched with the W\u00fcrttemberg contingent in Ney's III Corps and fought through Smolensk and Borodino. Like the rest of the contingent, it was destroyed in the retreat from Moscow. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Bavarian Foot Artillery",
+        "bio": "The Bavarian foot artillery was among the best of the German allied gunners, its batteries modernised alongside the rest of the Bavarian army in the years before 1809. It fought for Napoleon in the war against Austria that year and in the invasion of Russia in 1812. In 1813 its guns turned against the French when Bavaria joined the Allies. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
