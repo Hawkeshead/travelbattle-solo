@@ -1500,6 +1500,13 @@
   .htp-title .ti-art{ display:flex; align-items:center; justify-content:center; }
   .htp-title .htp-q{ font-family:'Cormorant Garamond', Georgia, serif; font-weight:700; font-size:clamp(28px,6vh,46px); color:#5a3d1a; text-shadow:0 1px 0 rgba(255,240,200,.6); }
   #menuPanel .htp-open{ font:inherit; font-weight:700; color:#2b1f14; background:linear-gradient(180deg,#f1d68a,#c9a24a); border:1px solid #6b4a24; border-radius:14px; padding:4px 14px; cursor:pointer; }
+
+  /* FEELS LIKE AN APP (17 Oct 2026): a long press on the game no longer selects
+     text, opens the save-image callout on art, or lets a picture be dragged
+     off. Typing fields (a name, a join code) still work as normal. */
+  html, body{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+  img, svg, canvas{ -webkit-user-drag:none; user-drag:none; -webkit-touch-callout:none; }
+  input, textarea, [contenteditable="true"]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
 </style>
 <!-- Opened by double-clicking the file rather than served over http? Say so
      plainly. This has never worked — the game loads data/*.json over XHR, which

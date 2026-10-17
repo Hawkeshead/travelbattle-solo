@@ -216,3 +216,12 @@ if(new URLSearchParams(location.search).has('fps')){
   };
   requestAnimationFrame(tick);
 }
+
+/* No browser menu on a long press or right click over the game (17 Oct 2026),
+   except in typing fields, where copy and paste are wanted; and no dragging
+   pictures off the page. */
+if(typeof document !== 'undefined'){
+  const typing = t => t && (t.closest && t.closest('input, textarea, [contenteditable="true"]'));
+  document.addEventListener('contextmenu', e => { if(!typing(e.target)) e.preventDefault(); });
+  document.addEventListener('dragstart', e => { if(e.target && e.target.tagName === 'IMG') e.preventDefault(); });
+}
