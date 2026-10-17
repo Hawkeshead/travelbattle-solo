@@ -44,8 +44,10 @@ test('the registry: teams, limits, and Britain against France by default', () =>
   assert.strictEqual(NATIONS.france.maxArmies, 2);
   for(const n of Object.values(NATIONS)) assert.strictEqual(TEAM_OF_SIDE[n.side], n.team, `${n.key} fights on the wrong side`);
   // A Coalition nation never faces another: only Coalition nations can take red.
-  assert.deepStrictEqual(nationsForSide('red').map(n => n.key).sort(), ['britain', 'prussia']);
-  assert.deepStrictEqual(nationsForSide('blue').map(n => n.key), ['france']);
+  for(const n of nationsForSide('red')) assert.strictEqual(n.team, 'coalition', n.key);
+  for(const n of nationsForSide('blue')) assert.strictEqual(n.team, 'imperial', n.key);
+  for(const k of ['britain', 'prussia']) assert.ok(nationsForSide('red').some(n => n.key === k), k);
+  assert.ok(nationsForSide('blue').some(n => n.key === 'france'));
 });
 
 test('a match saved before nations existed reads as Britain against France', () => {

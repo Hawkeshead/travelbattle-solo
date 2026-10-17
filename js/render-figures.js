@@ -37,7 +37,7 @@
 ========================================================= */
 import { sharedImage } from './image-store.js';
 import { CELL, SIDES, UNIT_TYPES, nationOf, state } from './data-core.js';
-import { NATIONS } from './nations.js';
+import { DEFAULT_NATIONS, NATIONS } from './nations.js';
 import { ensureAnimationLoopRunning, toScreen, unitMoveKind } from './render-board.js';
 import { imageFor } from './asset-loader.js';
 
@@ -84,7 +84,7 @@ export const figuresOn = u => !HEADLESS && (style !== 'classic' || (!!u && !hasC
    (figuresOn(u)); anyFiguresOn says whether any unit on the field does. */
 const CLASSIC_ART = new Set(Object.values(NATIONS).filter(n => n.classic).map(n => n.art));
 const hasClassicArt = u => CLASSIC_ART.has(artOf(u));
-const artOf = u => NATIONS[nationOf(u)].art;
+const artOf = u => NATIONS[nationOf(u)].art || NATIONS[DEFAULT_NATIONS[u.side]].art;   // no figures drawn yet: its side's default
 /* The British fought in two ranks; everyone else here, Prussia included (the
    1812 regulations), in three. */
 const twoRanks = u => nationOf(u) === 'britain';

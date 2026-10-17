@@ -244,5 +244,169 @@
         "bio": "L\u00fctzow's Free Corps was an army in miniature, with a full regiment of infantry, a mixed regiment of light cavalry and its own battery of nine guns. Like the rest of the corps its gunners went into action dressed in black, and no part of the corps carried standards. The battery supported the volunteers through the raids and the more regular fighting of 1813 in northern Germany. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "russia": {
+    "BRIGADIER": [
+      {
+        "name": "Kutuzov",
+        "bio": "Mikhail Kutuzov, one-eyed veteran of the Turkish wars and the defeat at Austerlitz, was given supreme command in August 1812 as Napoleon drove on Moscow. He chose to stand at Borodino, the bloodiest single day of the Napoleonic Wars, and then gave up Moscow rather than risk the army that would destroy the Grande Arm\u00e9e on its retreat. Patient and wily, he preferred to let hunger, winter and the Cossacks do his fighting for him. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Bagration",
+        "bio": "Prince Pyotr Bagration, a Georgian-born pupil of Suvorov, commanded the Second Western Army in 1812 and was the most aggressive fighting general in Russian service. At Borodino his men held the earthworks named after him, the Bagration fl\u00e8ches, which French and Russians stormed eight times in the course of the day. He was mortally wounded there, and officers of the Guard saluted him as he was carried from the field. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Platov",
+        "bio": "Matvei Platov, Ataman of the Don Cossacks, led Russia's irregular horse through the campaigns of 1812 to 1814. At Borodino he and Uvarov took some 12,000 Cossacks and regular cavalry across the Kalatsha to strike the French left, forcing Napoleon to postpone his great assault on the central redoubt. In the retreat that followed, his Cossacks harried the Grande Arm\u00e9e without rest all the way to the Niemen. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Preobrazhensky Life Guard Regiment",
+        "bio": "The Preobrazhensky Regiment grew out of the toy army of the young Peter the Great and was formed in 1690, making it the senior regiment of the Russian Guard. In 1700 it and the Semenovsky became the first regiments to carry the title of Life Guards. At Borodino its battalions stood in reserve under artillery fire, the last uncommitted infantry of the Russian centre. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Semenovsky Life Guard Regiment",
+        "bio": "The Semenovsky Regiment, named after the village near Moscow where it was first stationed, was the second of Peter the Great's original Guard regiments. For their stand against the Swedes its men wore red stockings for forty years, because, it was said, they had stood knee-deep in blood. At Borodino it was held in reserve until the French took the Raevsky battery, then fought the French heavy cavalry in the centre of the Russian line. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "Kiev Grenadier Regiment",
+        "bio": "The Kiev Grenadiers served in the 2nd Grenadier Division of Bagration's Second Western Army in 1812, part of the Moscow-based grenadier formations that were the backbone of Russia's line infantry. At Borodino the division built and held the right-hand work of the Bagration fl\u00e8ches under repeated French assault. Like so many Russian regiments that day, the grenadiers died where they stood rather than yield ground. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Moscow Grenadier Regiment",
+        "bio": "The Moscow Grenadiers fought beside the Kiev Grenadiers in the 2nd Grenadier Division, under the Prince of Mecklenburg, during the 1812 campaign. At Borodino they held the ground around the fl\u00e8ches and the burning village of Semenovskoye as Davout's and Ney's batteries pounded the Russian left. The division was all but destroyed in the fighting, yet the line did not break. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Astrakhan Grenadier Regiment",
+        "bio": "The Astrakhan Grenadiers formed part of the 2nd Brigade of the 2nd Grenadier Division in 1812, brigaded with the Fanagoria Grenadiers. At Borodino they moved up through the shattered village of Semenovskoye to meet the French attacks on the Russian left. They fought on there under massed artillery fire and repeated charges of French cuirassiers. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Fanagoria Grenadier Regiment",
+        "bio": "The Fanagoria Grenadiers carried one of the proudest traditions in the Russian army, having been shaped by Suvorov himself in the wars of the late eighteenth century. In 1812 they served in the 2nd Grenadier Division alongside the Astrakhan Grenadiers. At Borodino the regiment fought in the struggle for the fl\u00e8ches, among the most contested ground of the whole battle. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Kremenchug Infantry Regiment",
+        "bio": "The Kremenchug Infantry Regiment marched in Baggovut's 2nd Corps of the First Western Army in 1812, brigaded with the Minsk Regiment. Ordinary musketeers rather than grenadiers, they were the steady line infantry on whom the Russian army's famous stubbornness in defence depended. At Borodino Baggovut's corps was shifted from the right wing to shore up the hard-pressed Russian left. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Minsk Infantry Regiment",
+        "bio": "The Minsk Infantry Regiment served alongside the Kremenchug Regiment in Baggovut's 2nd Corps during the 1812 campaign. Recruited from the conscript peasantry that made up the bulk of the Tsar's army, its men were known across Europe for holding ground long after other troops would have broken. They fought through Borodino and the long pursuit of the Grande Arm\u00e9e that followed. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Chevalier Guard Regiment",
+        "bio": "The Chevalier Guard was the senior heavy cavalry of the Russian Guard, recruited from the nobility to protect the Tsar. At Austerlitz in 1805 it met Napoleon's Guard cavalry in a great melee and was broken by Rapp's chasseurs and Mamelukes, who captured its commander, Prince Repnin. Rebuilt, it stood behind Semenovskoye at Borodino and rode with the Guard cavalry into Paris in 1814. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Life Guard Horse Regiment",
+        "bio": "The Life Guard Horse Regiment was the second heavy regiment of the Russian Guard cavalry, brigaded with the Chevalier Guard. At Borodino the two regiments waited behind the houses of Semenovskoye as the French cavalry assaults crashed against the Russian centre and left. It went on to fight through the campaigns of 1813 and 1814 with the rest of the Guard. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "Akhtyrka Hussar Regiment",
+        "bio": "The Akhtyrka Hussars are forever linked to Denis Davydov, the hussar poet who joined them as a lieutenant colonel in April 1812. Days before Borodino, near the estate where he had grown up, Davydov persuaded Bagration to let him lead a partisan detachment behind French lines, and his raids became a model for the people's war against the invader. He later commanded the regiment in France in 1814, fighting at Brienne, La Rothi\u00e8re, Laon and Paris. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Don Cossacks",
+        "bio": "The Don Cossacks were Russia's irregular light horse, raised from the free warrior communities of the southern steppe and led in 1812 by their Ataman, Platov. Too loose to fight a set battle like regular cavalry, they excelled at raids, ambushes and the endless harassment of an army on the march. During the retreat from Moscow they picked off stragglers, foragers and supply trains until the Grande Arm\u00e9e was a ruin. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "26th Battery Company",
+        "bio": "The 26th Battery Company was the heavy artillery of Raevsky's corps at Borodino, sited on the great mound in the centre of the Russian line. Raevsky fortified the position into a redoubt, and twelve of its guns, with six from the 47th Light Company, fired canister into French columns that came on regardless. The Raevsky Redoubt changed hands in some of the fiercest fighting of the war before it finally fell. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "11th Battery Company",
+        "bio": "The 11th Battery Company was one of two heavy batteries that occupied the Bagration fl\u00e8ches at Borodino, earthworks built so that Russian guns could rake the French flank as well as their front. It held the position through the repeated assaults that made the fl\u00e8ches the most fought-over ground of the battle. Russia's artillery that day had many more heavy twelve-pounders than the French. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
+  },
+  "russia_2": {
+    "BRIGADIER": [
+      {
+        "name": "Barclay de Tolly",
+        "bio": "Michael Andreas Barclay de Tolly, a Baltic German of Scottish descent, commanded the First Western Army in 1812 and devised the long retreat that drew Napoleon deep into Russia. Reviled for it at the time, he fought with great courage at Borodino, where he twice narrowly escaped death in the cavalry fighting. Restored to high command in 1813, he led the Russian forces through Leipzig and into France, and was made a field marshal after the fall of Paris. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Ostermann-Tolstoy",
+        "bio": "Alexander Ostermann-Tolstoy commanded the Russian IV Corps in 1812, and at Borodino Kutuzov brought his whole corps across from the right wing to plug the gap between the Raevsky Redoubt and Semenovskoye. His men endured a devastating artillery barrage there without breaking. In 1813 he held the Guard against Vandamme's corps at Kulm, losing an arm in a stand that helped turn the autumn campaign. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Uvarov",
+        "bio": "Fyodor Uvarov was a cavalry general who had risen through the Guard horse, commanding the I Cavalry Corps in 1812. At Borodino he and Platov led some 12,000 regular cavalry and Cossacks across the Kalatsha in a raid on the French left that forced Napoleon to delay his main assault on the central redoubt. He served as a close adviser to Tsar Alexander through the campaigns that followed. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Izmailovsky Life Guard Regiment",
+        "bio": "The Izmailovsky Regiment was third in seniority of the Russian Guard infantry, after the Preobrazhensky and Semenovsky. At Borodino it stood beside Semenovskoye with the Lithuania Guard, forced to stay in square against masses of French cavalry while the French batteries across the stream tore into its ranks. Borodino was the day the Russian Guard came of age as elite troops whose commitment could turn a battle. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Lithuania Life Guard Regiment",
+        "bio": "The Lithuania (Litovsky) Life Guard Regiment was brigaded with the Izmailovsky in Ostermann-Tolstoy's command in 1812. At Borodino the two regiments held their squares near Semenovskoye for hours under cavalry charges and close-range artillery, which at times fired canister straight into the Guard's ranks. Their endurance there became one of the legends of the battle. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "Pavlov Grenadier Regiment",
+        "bio": "The Pavlov Grenadiers served in Stroganov's 1st Grenadier Division in 1812, brigaded with the Ekaterinoslav Grenadiers. The regiment was famous for keeping the tall brass mitre caps of an earlier age, an honour won for their conduct at Friedland in 1807, and they wore them into battle long after the rest of the army had changed. They fought at Borodino and through the campaigns that carried the Russian army to Paris. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Ekaterinoslav Grenadier Regiment",
+        "bio": "The Ekaterinoslav Grenadiers marched with the Pavlov Grenadiers in the 1st Grenadier Division under Stroganov in 1812. Raised from picked men, the grenadier regiments were the heavy infantry of the Tsar's army, sent where the fighting was hardest. They fought at Borodino and in the long campaigns that followed across Germany and into France. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Kexholm Grenadier Regiment",
+        "bio": "The Kexholm Regiment served in the 1st Grenadier Division, formed in 1811 when the Russian army gathered its grenadier regiments into dedicated divisions. It fought through the campaigns of 1812 to 1814, from the defence of Russia to the march on Paris. In the reorganisation of 1814 it passed to the newly formed 3rd Grenadier Division. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Pernov Grenadier Regiment",
+        "bio": "The Pernov Regiment, named after the Baltic port of Pernau, served alongside the Kexholm Regiment in the 1st Grenadier Division during the wars against Napoleon. It fought through the campaigns from 1812 to the fall of Paris. In April 1814 the two regiments were transferred together to the new 3rd Grenadier Division. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Moscow Opolchenie",
+        "bio": "The Moscow Opolchenie was a militia raised in 1812 from the serfs and townsmen of the Moscow region as Napoleon advanced on the old capital. Poorly armed and barely trained, its men dug many of the earthworks at Borodino, and their appearance on the Russian left gave Poniatowski's Poles cause to halt their advance. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Life Grenadier Regiment",
+        "bio": "The Life Grenadier Regiment served in the 1st Grenadier Division under Stroganov in 1812, brigaded with the Arakcheyev Grenadiers. Its title marked it out as a regiment of particular honour among the army's grenadiers. It fought at Borodino and through the foreign campaigns of 1813 and 1814. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Ekaterinoslav Cuirassier Regiment",
+        "bio": "The Ekaterinoslav Cuirassiers rode in Knorring's 2nd Cuirassier Division at Borodino, part of Bagration's wing on the Russian left. Russia had restored the breastplate to its heavy cavalry just before the 1812 campaign, and the cuirassiers were thrown in again and again against the French horse and infantry storming the fl\u00e8ches and Semenovskoye. The regiment fought on through the campaigns of 1813 and 1814. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Military Order Cuirassier Regiment",
+        "bio": "The Military Order Cuirassiers took their name from the Order of St George, Russia's highest military decoration, and were brigaded with the Ekaterinoslav Cuirassiers in Knorring's division in 1812. At Borodino they counter-charged the French cavalry that swept into the Russian line around Semenovskoye. They went on to fight through Germany and France. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "1st Bashkir Regiment",
+        "bio": "The 1st Bashkir Regiment came from the southern Urals, horsemen armed with lance, whip, sword and the bow, which earned them the French nickname the Cupids of the North. In November 1813, under Benckendorff, they were among the first troops to reach Amsterdam and The Hague, and built a bridge of boats across the IJssel that served the advance for two months. They rode on with the Allied armies all the way to Paris. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Life Guard Hussar Regiment",
+        "bio": "The Life Guard Hussars were the light cavalry of the Russian Guard, a regiment whose officers included the young Denis Davydov before he left to make his name with the Akhtyrka Hussars. They rode with the Guard cavalry through the campaigns of 1812 to 1814 and appear in paintings of Russian Guard officers in the German and French cities of the foreign campaigns. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "32nd Battery Company",
+        "bio": "The 32nd Battery Company was the second of the two heavy batteries placed in the Bagration fl\u00e8ches at Borodino. Pierced to let each battery's twelve guns fire on the attackers, the fl\u00e8ches were stormed eight times by the two sides. The battery fought through one of the most savage artillery duels of the war. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Guard Artillery Brigade",
+        "bio": "The Guard Artillery supported the Russian Guard infantry at Borodino, moving forward with the regiments around Semenovskoye. There it was smothered by the more numerous French guns and suffered very heavy casualties, its gunners standing to their pieces at murderous range. It went on to serve with the Guard through the campaigns of 1813 and 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }

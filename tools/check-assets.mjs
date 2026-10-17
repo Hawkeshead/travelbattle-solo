@@ -102,7 +102,7 @@ for (const name of ['partridge', 'goose', 'buzzard']) {
   const { readFile: rf } = await import('node:fs/promises');
   const { NATIONS } = await import(new URL('../js/nations.js', import.meta.url));
   const types = ['INFANTRY', 'GUARD', 'GUARD_BEARER', 'ARTILLERY', 'ARTILLERY_GUN', 'LIGHT_CAV', 'HEAVY_CAV', 'BRIGADIER'];
-  for (const nation of new Set(Object.values(NATIONS).map(n => n.art))) for (const t of types) {
+  for (const nation of new Set(Object.values(NATIONS).map(n => n.art).filter(Boolean))) for (const t of types) {
     const metaPath = `assets/units-pixel/${nation}/${t}/${t}.json`;
     let meta = null;
     try { meta = JSON.parse(await rf(join(root, metaPath), 'utf8')); } catch { missing.push({ src: 'js/render-figures.js (pixel sidecar)', path: metaPath }); continue; }

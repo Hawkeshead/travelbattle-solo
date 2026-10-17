@@ -11,7 +11,8 @@
    shown to the player, the side it fights for, how many of its armies a
    match may field, its UI colours, the folder its pixel art lives in, whether it has
    classic icons (only Britain and France; the others draw as pixel figures
-   under the Classic setting), and its cockade (the selection marker: outer
+   under the Classic setting; a nation with no 'art' yet borrows its side's
+   default figures), and its cockade (the selection marker: outer
    folds, middle ring, button).
 
    SECOND ARMIES (17 Oct 2026, all nations). Russia and France may field two
@@ -33,6 +34,12 @@ export const NATIONS = {
   prussia: { key: 'prussia', name: 'Prussia', adjective: 'Prussian', team: 'coalition', side: 'red', maxArmies: 1,
              colours: { main: '#1d1d1f', dim: '#0e0e0f', accent: '#f2f2ee' }, art: 'prussian',
              cockade: ['#151515', '#f2f2ee', '#151515'] },
+  russia:   { key: 'russia', name: 'Russia', adjective: 'Russian', team: 'coalition', side: 'red', maxArmies: 2,
+             colours: { main: '#2f4a2e', dim: '#1c2e1b', accent: '#f2f2ee' }, art: null,
+             cockade: ['#151515', '#e07a1a', '#151515'] },
+  russia_2: { key: 'russia_2', name: 'Russia (2nd Army)', adjective: 'Russian', team: 'coalition', side: 'red', maxArmies: 1, secondOf: 'russia',
+             colours: { main: '#2f4a2e', dim: '#1c2e1b', accent: '#f2f2ee' }, art: null,
+             cockade: ['#151515', '#e07a1a', '#151515'] },
 };
 /* Who fights where when nobody has chosen: today's game. */
 export const DEFAULT_NATIONS = { red: 'britain', blue: 'france' };
