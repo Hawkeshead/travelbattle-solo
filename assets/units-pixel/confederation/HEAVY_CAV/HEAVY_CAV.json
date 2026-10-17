@@ -1,0 +1,45 @@
+{
+ "frameWidth": 64,
+ "frameHeight": 64,
+ "displayScale": 0.64,
+ "anchorX": 0.5,
+ "anchorY": 1,
+ "pixelArt": true,
+ "variants": 5,
+ "facings": [
+  "toward",
+  "away"
+ ],
+ "anims": {
+  "idle": {
+   "frameCount": 4,
+   "fps": 2,
+   "loop": true
+  },
+  "march": {
+   "frameCount": 4,
+   "fps": 6,
+   "loop": true
+  },
+  "charge": {
+   "frameCount": 4,
+   "fps": 10,
+   "loop": true
+  },
+  "melee": {
+   "frameCount": 6,
+   "fps": 7,
+   "loop": true
+  },
+  "fall": {
+   "frameCount": 3,
+   "fps": 4,
+   "loop": false
+  },
+  "flee": {
+   "frameCount": 4,
+   "fps": 10,
+   "loop": true
+  }
+ }
+}

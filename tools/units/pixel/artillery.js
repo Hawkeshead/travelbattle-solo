@@ -10,7 +10,14 @@ const ART = (() => {
   const PAL = {
     british: { car: '#7a8892', iron: '#2b2b2d', bronze: '#bf9440' },   // grey carriage
     french:  { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' },   // olive green carriage
-    prussian: { car: '#4e5c6a', iron: '#2b2b2d', bronze: '#bf9440' }   // blue-grey carriage (colour to verify)
+    prussian: { car: '#4e5c6a', iron: '#2b2b2d', bronze: '#bf9440' },  // blue-grey carriage (colour to verify)
+    // 17 Oct 2026, the other nations (carriage colours to verify): Russian green, Austrian ochre yellow,
+    // Spanish and Portuguese a dark blue-grey, Polish and Italian olive like the French, the Confederation (Bavarian) blue-grey
+    russian: { car: '#4a5e36', iron: '#2b2b2d', bronze: '#bf9440' }, russian2: { car: '#4a5e36', iron: '#2b2b2d', bronze: '#bf9440' },
+    austrian: { car: '#b08a2a', iron: '#2b2b2d', bronze: '#bf9440' }, spanish: { car: '#5a6470', iron: '#2b2b2d', bronze: '#bf9440' },
+    portuguese: { car: '#4e5a68', iron: '#2b2b2d', bronze: '#bf9440' }, french2: { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' },
+    polish: { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' }, confederation: { car: '#6a82a0', iron: '#2b2b2d', bronze: '#bf9440' },
+    italian: { car: '#62703a', iron: '#2b2b2d', bronze: '#bf9440' }
   };
   const VIEW = {
     toward: { yaw: 50 * Math.PI / 180, k: 1.2, ox: 54, oy: 86 },

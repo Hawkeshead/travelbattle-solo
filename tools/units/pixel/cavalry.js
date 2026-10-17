@@ -37,6 +37,44 @@ const CAV = (() => {
        bicorne with a white-and-black plume, the silver-and-black sash. */
     pr_heavy: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1c1c1e', clothDk: '#0e0e10', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', horses: [1, 3, 1, 0, 3] },
     pr_light: { coat: '#1d1d1f', coatDk: '#0e0e10', fac: '#c8191e', breech: '#1d1d1f', breechDk: '#0e0e10', cloth: '#1c1c1e', clothDk: '#0e0e10', lace: '#c8191e', helm: 'shako', plume: ['#1f1f1f', '#1f1f1f'], badge: '#f6f3ea', hussar: '#f6f3ea', curved: true, horses: [0, 2, 3, 0, 2] },
+    /* THE OTHER NATIONS (17 Oct 2026), one look per type each; the colours to
+       verify are listed in the report. ru: Kutuzov's army (the Chevalier
+       Guard, Don Cossacks), ru2: Barclay's (army cuirassiers, Life Guard
+       Hussars), au: Austria (Kaiser Cuirassiers with the front-only black
+       cuirass, Szekler Hussars), sp: Spain (Carabineros, the Maria Luisa
+       Hussars), pt: Portugal, fr2: France's second army (Grenadiers a Cheval in
+       bearskins on black horses, the Guard Chasseurs a Cheval in colpacks),
+       pl: Poland (the Guard Light Horse with sabres, the Vistula Lancers), cf:
+       the Confederation (the Saxon Garde du Corps in buff without cuirasses,
+       the Berg Lancers), it: Italy & Naples (Italian dragoons, Neapolitan
+       Guard Hussars). */
+    ru_heavy: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#a3203a', clothDk: '#6e1424', lace: '#e6c54a', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', cuirass: true, cuirassCol: ['#2a2a2e', '#151517', '#4a4a50'], horses: [1, 3, 1, 3, 1] },
+    ru_light: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#1f2f63', breechDk: '#131d40', cloth: '#3a2a1e', clothDk: '#2a1e14', lace: '#c8191e', helm: 'cossack', top: '#c8191e', lance: [], horses: [2, 3, 0, 2, 3] },
+    ru_general: { coat: '#1f4a2a', coatDk: '#143320', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f4a2a', clothDk: '#143320', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#e07a1a'], general: true, sash: ['#d8dce2', '#e07a1a', '#151515'], horses: [3, 0, 5, 1, 2] },
+    ru2_heavy: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#1f4a2a', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1f4a2a', clothDk: '#143320', lace: '#e6c54a', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', cuirass: true, cuirassCol: ['#2a2a2e', '#151517', '#4a4a50'], horses: [0, 1, 3, 0, 1] },
+    ru2_light: { coat: '#c8191e', coatDk: '#8f1014', fac: '#1f2f63', breech: '#1f2f63', breechDk: '#131d40', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6b422', helm: 'shako', plume: ['#f6f3ea', '#f6f3ea'], hussar: '#e6b422', curved: true, horses: [2, 0, 2, 3, 0] },
+    ru2_general: { coat: '#1f4a2a', coatDk: '#143320', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f4a2a', clothDk: '#143320', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#151515'], general: true, sash: ['#d8dce2', '#e07a1a', '#151515'], horses: [0, 2, 3, 5, 1] },
+    au_heavy: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#151515', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#c8191e', clothDk: '#8f1014', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', cuirass: true, frontOnly: true, cuirassCol: ['#2a2a2e', '#151517', '#4a4a50'], horses: [1, 0, 3, 1, 0] },
+    au_light: { coat: '#2a3f73', coatDk: '#1a2a50', fac: '#e6b422', breech: '#a3203a', breechDk: '#6e1424', cloth: '#2a3f73', clothDk: '#1a2a50', lace: '#e6b422', helm: 'shako', plume: ['#1f1f1f', '#1f1f1f'], hussar: '#e6b422', curved: true, horses: [2, 0, 3, 2, 0] },
+    au_general: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#c8191e', breech: '#c8191e', breechDk: '#8f1014', cloth: '#c8191e', clothDk: '#8f1014', lace: '#e6c54a', helm: 'bicorne', plume: ['#2e7a3e', '#2e7a3e'], general: true, sash: ['#e6b422', '#151515', '#e6b422'], horses: [5, 0, 3, 5, 2] },
+    sp_heavy: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#d9c48a', breechDk: '#b8a46a', cloth: '#c8191e', clothDk: '#8f1014', lace: '#e6c54a', crest: '#151210', helm: 'dragoon', horses: [0, 3, 1, 0, 2] },
+    sp_light: { coat: '#6fa0d8', coatDk: '#4c7aa8', fac: '#f6f3ea', breech: '#1f2f63', breechDk: '#131d40', cloth: '#6fa0d8', clothDk: '#4c7aa8', lace: '#f6f3ea', helm: 'shako', plume: ['#c8191e', '#c8191e'], hussar: '#f6f3ea', curved: true, horses: [2, 0, 3, 2, 0] },
+    sp_general: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6c54a', helm: 'bicorne', plume: ['#c8191e', '#c8191e'], general: true, sash: ['#c8191e', '#a01418'], horses: [3, 5, 0, 2, 1] },
+    pt_heavy: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1f2f63', clothDk: '#131d40', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', horses: [0, 1, 3, 0, 2] },
+    pt_light: { coat: '#1f2f63', coatDk: '#131d40', fac: '#e6b422', breech: '#1f2f63', breechDk: '#131d40', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6b422', helm: 'shako', plume: ['#f6f3ea', '#c8191e'], curved: true, horses: [2, 3, 0, 2, 3] },
+    pt_general: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6c54a', helm: 'bicorne', plume: ['#1f4a8a', '#c8191e'], general: true, sash: ['#a3203a', '#6e1424'], horses: [0, 2, 3, 5, 1] },
+    fr2_heavy: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#f6f3ea', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bearskin', plume: ['#d0202a', '#d0202a'], horses: [1, 1, 1, 1, 1] },
+    fr2_light: { coat: '#1f5a32', coatDk: '#143c21', fac: '#d0202a', breech: '#d0202a', breechDk: '#931218', cloth: '#1f5a32', clothDk: '#143c21', lace: '#e6b422', helm: 'colpack', bag: '#d0202a', plume: ['#1f5a32', '#d0202a'], hussar: '#e6b422', curved: true, horses: [2, 0, 3, 2, 0] },
+    fr2_general: { coat: '#1c2a5a', coatDk: '#121b3c', fac: '#d0202a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1c2a5a', clothDk: '#121b3c', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#d0202a'], general: true, sash: ['#203a8a', '#f6f3ea', '#d0202a'], horses: [3, 0, 5, 2, 1] },
+    pl_heavy: { coat: '#1f2f63', coatDk: '#131d40', fac: '#a3203a', breech: '#a3203a', breechDk: '#6e1424', cloth: '#1f2f63', clothDk: '#131d40', lace: '#a3203a', helm: 'czapka', top: '#a3203a', plume: ['#f6f3ea'], curved: true, horses: [0, 3, 2, 0, 3] },
+    pl_light: { coat: '#1f2f63', coatDk: '#131d40', fac: '#e6b422', breech: '#1f2f63', breechDk: '#131d40', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6b422', helm: 'czapka', top: '#e6b422', plume: ['#f6f3ea'], lance: ['#f6f3ea', '#e6b422'], horses: [2, 0, 3, 2, 0] },
+    pl_general: { coat: '#1f2f63', coatDk: '#131d40', fac: '#a3203a', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#a3203a', clothDk: '#6e1424', lace: '#d8dce2', helm: 'bicorne', plume: ['#f6f3ea', '#f6f3ea'], general: true, sash: ['#d8dce2', '#a3203a'], horses: [5, 0, 3, 2, 1] },
+    cf_heavy: { coat: '#d9c48a', coatDk: '#b8a46a', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#c8191e', clothDk: '#8f1014', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', helmCol: '#232323', helmDk: '#101010', helmHi: '#e6b422', horses: [1, 0, 3, 1, 0] },
+    cf_light: { coat: '#ece8dc', coatDk: '#c8c3b6', fac: '#a3203a', breech: '#a3203a', breechDk: '#6e1424', cloth: '#a3203a', clothDk: '#6e1424', lace: '#ece8dc', helm: 'czapka', top: '#a3203a', plume: ['#f6f3ea'], lance: ['#a3203a', '#f6f3ea'], horses: [2, 3, 0, 2, 3] },
+    cf_general: { coat: '#1f2f63', coatDk: '#131d40', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f2f63', clothDk: '#131d40', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#3d7bc4'], general: true, sash: ['#d8dce2', '#3d7bc4'], horses: [0, 3, 5, 2, 1] },
+    it_heavy: { coat: '#1f5a32', coatDk: '#143c21', fac: '#c8191e', breech: '#e8e4d8', breechDk: '#c2bdb0', cloth: '#1f5a32', clothDk: '#143c21', lace: '#f6f3ea', crest: '#151210', helm: 'dragoon', horses: [0, 3, 1, 0, 2] },
+    it_light: { coat: '#9a1a40', coatDk: '#6a1029', fac: '#f6f3ea', breech: '#1f2f63', breechDk: '#131d40', cloth: '#9a1a40', clothDk: '#6a1029', lace: '#f6f3ea', helm: 'shako', plume: ['#f6f3ea', '#f6f3ea'], hussar: '#f6f3ea', curved: true, horses: [2, 0, 3, 2, 0] },
+    it_general: { coat: '#1f5a32', coatDk: '#143c21', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f5a32', clothDk: '#143c21', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#f6f3ea'], general: true, sash: ['#2e7a3e', '#f6f3ea', '#c8191e'], horses: [5, 3, 0, 2, 1] },
     pr_general: { coat: '#1f2a4a', coatDk: '#141c33', fac: '#c8191e', breech: '#ece8dc', breechDk: '#c8c3b6', cloth: '#1f2a4a', clothDk: '#141c33', lace: '#e6c54a', helm: 'bicorne', plume: ['#f6f3ea', '#151515'], general: true, sash: ['#d8dce2', '#151515', '#d8dce2'], horses: [1, 0, 3, 1, 2] }
   };
   // The generals' grey charger, a coat of its own (index 5; the troopers' coats are untouched).
@@ -121,6 +159,26 @@ const CAV = (() => {
       p(4, -3, C.B, 4, 4); p(5, -4, C.b, 2, 1);
       if (!back) { p(0, 5, '#b08a3c', 12, 1); p(1, 6, C.D, 10, 1); p(-1, 2, '#d0202a', 2, 6); p(7, -2, R.crest, 2, 3); }
       else { p(4, 0, R.crest, 4, 10); p(3, 2, R.crest, 6, 6); p(11, 2, '#d0202a', 2, 6); }
+    } else if (R.helm === 'colpack') {
+      // the fur colpack of hussars and chasseurs, its coloured bag hanging at the side, a plume in front
+      p(1, -2, '#3a2a1e', 10, 8); p(9, -2, '#2a1e14', 2, 8); p(2, -3, '#4a3826', 8, 1);
+      p(back ? 1 : 8, -3, R.bag || '#c8191e', 3, 3); if (R.plume) { p(back ? 8 : 2, -8, R.plume[0], 2, 4); p(back ? 8 : 2, -4, R.plume[1], 2, 2); }
+      if (!back) p(1, 5, C.D, 10, 1);
+    } else if (R.helm === 'czapka') {
+      // the lancer cap: skull, waist and the square top in the regiment's colour
+      p(2, 2, '#1f1f1f', 8, 4); p(3, 1, '#1f1f1f', 6, 1); p(0, -3, R.top, 12, 4); p(0, -3, '#f6f3ea', 12, 1); p(10, -2, '#00000033', 2, 3);
+      if (!back) { p(4, 3, '#d8dce2', 3, 2); p(1, 5, C.D, 10, 1); }
+      if (R.plume) p(back ? 1 : 9, -7, R.plume[0], 2, 4);
+    } else if (R.helm === 'bearskin') {
+      // the Grenadiers a Cheval: a tall bearskin, white cords, a red plume
+      p(1, -5, '#1f1f1f', 10, 11); p(9, -4, '#3c3c3c', 2, 10); p(2, -6, '#1f1f1f', 8, 1);
+      for (const [x, y] of [[3, -3], [6, 0], [4, 3], [7, -2]]) p(x, y, '#3c3c3c', 1, 1);
+      if (!back) p(1, 4, '#f6f3ea', 10, 1);
+      if (R.plume) p(back ? 0 : 10, -7, R.plume[0], 2, 6);
+    } else if (R.helm === 'cossack') {
+      // a Cossack's tall cap, its coloured top
+      p(1, -4, '#151515', 10, 10); p(9, -4, '#2a2a2a', 2, 10); p(2, -5, R.top || '#c8191e', 8, 2);
+      if (!back) p(1, 5, C.D, 10, 1);
     } else if (R.helm === 'bicorne') {
       // a general's bicorne worn athwart: wide black wings, gold edge and
       // loop, a national cockade, and a plume standing from the top
@@ -166,11 +224,11 @@ const CAV = (() => {
       p(0, 22, C.W, 12, 2); p(5, 22, C.B, 2, 2);                           // waist belt and buckle
       for (let i = 0; i < 3; i++) p(6, 16 + i * 2, C.B, 1, 1);
       if (R.helm === 'shako') { p(2, 15, R.fac, 1, 7); p(9, 15, R.fac, 1, 7); }   // facing-coloured plastron edges
-      if (R.cuirass) { p(0, 15, '#c9ced6', 12, 8); p(8, 15, '#8a9098', 4, 8); p(1, 15, '#eef1f5', 2, 6); p(0, 15, '#b08a3c', 12, 1); p(1, 17, C.B, 1, 1); p(10, 17, C.B, 1, 1); p(0, 22, C.W, 12, 2); } // breastplate
+      if (R.cuirass) { const cu = R.cuirassCol || ['#c9ced6', '#8a9098', '#eef1f5']; p(0, 15, cu[0], 12, 8); p(8, 15, cu[1], 4, 8); p(1, 15, cu[2], 2, 6); p(0, 15, '#b08a3c', 12, 1); p(1, 17, C.B, 1, 1); p(10, 17, C.B, 1, 1); p(0, 22, C.W, 12, 2); } // breastplate
     } else {
       p(3, 14, R.fac, 6, 1); for (let i = 0; i < 9; i++) p(10 - i, 15 + i, C.W, 2, 1); p(0, 22, C.W, 12, 2);
       p(2, 24, R.coat, 3, 3); p(7, 24, R.coatDk, 3, 3);                     // coat skirts over the saddle
-      if (R.cuirass) { p(0, 15, '#b9bec6', 12, 8); p(8, 15, '#80868e', 4, 8); p(0, 15, '#b08a3c', 12, 1); p(0, 22, C.W, 12, 2); } // backplate
+      if (R.cuirass && !R.frontOnly) { const cu = R.cuirassCol || ['#b9bec6', '#80868e']; p(0, 15, cu[0], 12, 8); p(8, 15, cu[1], 4, 8); p(0, 15, '#b08a3c', 12, 1); p(0, 22, C.W, 12, 2); } // backplate
     }
     // head and helmet (brass dragoon helmet with a black horsehair crest)
     if (!back) {
@@ -186,10 +244,22 @@ const CAV = (() => {
       headgear(p, true);
     }
     // arms and sabre
-    const sab = (x0, y0, x1, y1) => {
+    let sab = (x0, y0, x1, y1) => {
       if (R.curved) { const mx = x0 + (x1 - x0) * .65, my = y0 + (y1 - y0) * .65, k = (y1 - y0) > 0 ? 1 : -1; o.line(bx + x0, by + y0, bx + mx, by + my, C.I, 2); o.line(bx + mx, by + my, bx + x1 + k, by + y1 + k, C.I, 2); }
       else o.line(bx + x0, by + y0, bx + x1, by + y1, C.I, 2);
       o.px(bx + x1, by + y1, '#ffffff', 1, 1); o.px(bx + x0 - 1, by + y0 - 1, C.B, 3, 2); };
+    /* A lancer's lance (R.lance: its pennon's two colours, or null for none):
+       the same line as the sabre's, run on past the hand and far beyond the
+       point, a steel head and the pennon just below it. */
+    const lanceOf = (x0, y0, x1, y1) => {
+      const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      const sx = x0 - ux * 8, sy = y0 - uy * 8, ex = x0 + ux * 34, ey = y0 + uy * 34;
+      o.line(bx + sx, by + sy, bx + ex, by + ey, '#6a4a2a', 1);
+      o.px(bx + ex - 1, by + ey - 1, C.I, 2, 2);
+      if (R.lance[0]) { const qx = ex - ux * 5, qy = ey - uy * 5; o.px(bx + qx, by + qy, R.lance[0], 4, 2); o.px(bx + qx, by + qy + 2, R.lance[1], 4, 2); }
+      o.px(bx + x0 - 1, by + y0 - 1, '#5a3a22', 2, 2);
+    };
+    if (R.lance) { const s0 = sab; sab = (x0, y0, x1, y1) => (R.general ? s0 : lanceOf)(x0, y0, x1, y1); }
     const RA = back ? -2 : 12, LA = back ? 12 : -2;                      // RA: sword arm side
     if (pose.startsWith('gallop')) {
       // charge: sabre held out at the point, arm extended
@@ -247,7 +317,8 @@ const CAV = (() => {
   const cache = new Map();
   function get(nation, view, pose, v, type = 'heavy') {
     const vv = view === 'away' ? 'away' : 'toward';
-    const sk = ({ british: 'gb_', french: 'fr_', prussian: 'pr_' }[nation] || 'gb_') + type;
+    const sk = ({ british: 'gb_', french: 'fr_', prussian: 'pr_', russian: 'ru_', russian2: 'ru2_', austrian: 'au_', spanish: 'sp_', portuguese: 'pt_',
+      french2: 'fr2_', polish: 'pl_', confederation: 'cf_', italian: 'it_' }[nation] || 'gb_') + type;
     const key = `${sk}:${vv}:${pose}:${v}`; let c = cache.get(key); if (c) return c;
     R = SPECS[sk];
     if (pose === 'hit') c = fallen(vv, v, 0); else if (pose === 'kneel') c = fallen(vv, v, 1); else if (pose === 'down') c = fallen(vv, v, 2);
