@@ -162,5 +162,87 @@
         "bio": "French gunners were widely regarded as the best-drilled artillery arm in Europe, a legacy of the technical, mathematically-minded training culture Napoleon himself had come up through as a young officer. Batteries like this one were expected to move forward aggressively to support an infantry advance, unlimbering close to the enemy line to fire canister at point-blank range, a far riskier doctrine than the more static defensive gunnery favoured by British batteries. This aggression made French artillery devastating when it worked, but exposed the guns and their crews to heavy losses when a charge or advance stalled. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "prussia": {
+    "BRIGADIER": [
+      {
+        "name": "Bl\u00fccher",
+        "bio": "Gebhard Leberecht von Bl\u00fccher was past seventy when he led the Army of Silesia through the War of Liberation, a hard-riding old hussar whose men called him Marshal Forwards. At Haynau in May 1813 he sprang an ambush with some twenty squadrons of Landwehr cavalry that rode over Maison's division and restored the confidence of Prussia's raw horsemen. That August he turned on Macdonald at the Katzbach, where rain soaked the muskets and the fight was settled with cold steel. In 1815 he kept his word to Wellington, marching his battered army to Waterloo in time to strike the French right at Plancenoit. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "B\u00fclow",
+        "bio": "Friedrich Wilhelm von B\u00fclow commanded the Prussian III Corps in the Army of the North in 1813, and twice turned back French drives on Berlin. His victory at Dennewitz in September 1813 routed Ney's army and earned him the title Graf B\u00fclow von Dennewitz. In 1815 his IV Corps led the Prussian arrival at Waterloo, fighting house by house through Plancenoit against Napoleon's Young and Old Guard. A blunt and independent commander, he was known to act first and explain himself afterwards. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "L\u00fctzow",
+        "bio": "Ludwig Adolf Wilhelm von L\u00fctzow served with Schill's free corps before Scharnhorst gave him permission in 1813 to raise his own: a volunteer force of infantry, cavalry and Tyrolean riflemen meant to strike the French rear and rally the smaller German states. Its students, poets and gymnasts made it the most celebrated volunteer unit of the war, immortalised in Theodor K\u00f6rner's song of L\u00fctzow's wild, daring hunt. L\u00fctzow himself wore a black hussar uniform and was badly wounded twice at the head of his cavalry, the second time at the G\u00f6hrde. The black, red and gold of his corps later became the colours of Germany. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "1st Foot Guards",
+        "bio": "Formed in 1806 from Prussia's older foot guard regiments, the Foot Guard Regiment was the senior infantry of the Prussian crown, and every Prince of Prussia was commissioned into its ranks on his tenth birthday. In the spring campaign of 1813 it fought at Grossg\u00f6rschen and then at Bautzen, where it supported the Coalition positions around Bliskowitz and Preititz. During the summer armistice a second Guard regiment was raised beside it and it took the name 1st Foot Guards. Volunteers fighting in its ranks followed it through the winter campaign of 1814 into France. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd Foot Guards",
+        "bio": "The 2nd Foot Guards were created on 20 June 1813, during the Truce of Pl\u00e4switz, around the Normal Infantry Battalion, the model battalion that had been attached to the Foot Guard Regiment to set the standard for the rest of the Prussian infantry. Raised to strengthen the Guard as Prussia rebuilt its army for the autumn campaign, the regiment marched with the Guard into the battles of 1813 and the advance into France in 1814. Its founding marked how far the army broken at Jena had been remade in seven years. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "9th (Colberg) Infantry Regiment",
+        "bio": "The Colberg Regiment carried the memory of Prussia's one success of the disastrous war of 1806 to 1807: the defence of the Pomeranian fortress of Colberg under Gneisenau, with Schill and the citizen Nettelbeck, which held out against the French until the Peace of Tilsit. When the army was rebuilt in 1808, two regiments were raised from the garrison to honour the siege, and this one took the fortress's name. Its men fought the War of Liberation in the plain 1813 field dress of covered shakos and greatcoats rolled across the shoulder. The battle honour Colberg 1807 was later worn on the regiment's helmets. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "8th Leib-Regiment",
+        "bio": "The Leib-Regiment was the second of the two regiments formed in 1808 from the defenders of Colberg, taking the honoured title of the sovereign's own regiment. Renumbered the 8th when the Guard was reorganised in the summer of 1813, it fought as Brandenburg line infantry through the War of Liberation. Its veterans were men of the one garrison that had not surrendered when the rest of Prussia fell to Napoleon. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "L\u00fctzow Free Corps Infantry",
+        "bio": "The infantry of the L\u00fctzow Free Corps were volunteers from across Germany, many of them university students, who joined the Royal Prussian Free Corps von L\u00fctzow after it was founded in February 1813. Equipment was scarce, so civilian clothes, old uniforms and even captured enemy coats were dyed black and finished with red facings and brass buttons, earning them the name Black Hunters. The poet Theodor K\u00f6rner served in the corps and fell at Gadebusch in August 1813. Their black, red and gold became the colours of the modern German flag. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "1st East Prussian Infantry Regiment",
+        "bio": "Descended from the Old Prussian Infantry Regiment No. 2, one of the oldest in the army, the 1st East Prussian Infantry Regiment drew its men from the province that set the example for all Prussia when the Landwehr was raised in 1813. Battalions of the regiment had marched into Russia in 1812 with the Prussian auxiliary corps of the Grande Arm\u00e9e. Reunited after L\u00fctzen, they fought at the Combat of Goldberg, where the East Prussians were briefly surrounded by French cavalry in bloody street fighting until Prussian horsemen charged and secured the field. The regiment received its formal title in October 1813. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "2nd East Prussian Infantry Regiment",
+        "bio": "The 2nd East Prussian Infantry Regiment shared its recruiting grounds and its history with the 1st, and in 1812 its 1st Battalion served alongside East Prussian comrades in the auxiliary corps sent into Russia under French command. That corps, led by Yorck, broke with the French at Tauroggen in December 1812, the defection that pushed Prussia into the War of Liberation. The East Prussian battalions then fought on in Yorck's corps through the campaigns of 1813. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Silesian Landwehr",
+        "bio": "The Silesian Landwehr was raised in the spring of 1813 after the King's appeal To My People, a militia of ordinary Prussians called up to fight alongside the regular army. Muskets were scarce at first, and many young Silesians were uniformed simply by sewing a yellow collar onto their blue peasant smocks. At the Katzbach in August 1813 heavy rain soaked the powder and the fight was decided with cold steel and clubbed muskets; one battalion is said to have fought with muskets whose touchholes had never been drilled. The Landwehr became part of the legend of Prussian resolve in the War of Liberation. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Gardes du Corps",
+        "bio": "The Regiment der Gardes du Corps was the King of Prussia's own cuirassier guard, raised in 1740 and one of the most prestigious cavalry regiments in the Prussian army. In the autumn of 1806 its officers famously sharpened their swords on the steps of the French embassy in Berlin, eager for the war that would end at Jena. Rebuilt after the defeat, it rode again in the War of Liberation, a living link to the cavalry of Frederick the Great. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Brandenburg Cuirassiers",
+        "bio": "The Brandenburg Cuirassiers were formed in 1807 as Prussia began rebuilding its heavy cavalry after the collapse at Jena and Auerstedt. Mounted on heavy horses, they fought through the War of the Sixth Coalition in 1813 and 1814, part of the new army that drove Napoleon out of Germany. The regiment would serve Prussia for more than a century before it was finally disbanded in 1919. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "1st Leib-Hussars",
+        "bio": "The 1st Leib-Hussars descended from the Prittwitz Hussars, who had worn the Totenkopf, the death's head badge, since the days of Frederick the Great and still wore it at Jena in 1806. After that defeat the regiment was split in 1808 into the 1st and 2nd Leib-Hussars, both keeping the skull as their emblem. On campaign the badge was painted onto the shako cover. They became some of the most recognisable light horsemen of the War of Liberation. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "L\u00fctzow Free Corps Uhlans",
+        "bio": "The mounted arm of the L\u00fctzow Free Corps combined uhlans, hussars and mounted j\u00e4gers, the uhlans riding with red and black pennons on their lances. Raiding behind French lines during the armistice of 1813, the corps was cornered by Confederation of the Rhine troops and almost wiped out, yet its reputation was such that volunteers soon brought it back to full strength. L\u00fctzow led his horsemen in person and was wounded at their head at the G\u00f6hrde. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Army of Silesia Foot Battery",
+        "bio": "The foot batteries of Bl\u00fccher's Army of Silesia belonged to an artillery arm rebuilt almost from nothing after the losses of 1806, and they served through the whole War of Liberation. At the Katzbach in August 1813 the storm left the infantry unable to fire, giving free rein to the Allied guns and cavalry as Macdonald's army was driven back into the flooded river. The victory gave rise to the German saying for anyone charging forward hard: he goes in like Bl\u00fccher at the Katzbach. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "L\u00fctzow Free Corps Battery",
+        "bio": "L\u00fctzow's Free Corps was an army in miniature, with a full regiment of infantry, a mixed regiment of light cavalry and its own battery of nine guns. Like the rest of the corps its gunners went into action dressed in black, and no part of the corps carried standards. The battery supported the volunteers through the raids and the more regular fighting of 1813 in northern Germany. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
