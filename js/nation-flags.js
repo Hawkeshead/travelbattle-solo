@@ -10,6 +10,7 @@ export const NATION_FLAG = {
   prussia: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="20" fill="#f2f2ee"/><rect width="60" height="20" y="20" fill="#151515"/><g transform="translate(30 20)"><path d="M-3,-3 L-5,-11 L5,-11 L3,-3 L11,-5 L11,5 L3,3 L5,11 L-5,11 L-3,3 L-11,5 L-11,-5 Z" fill="#151515" stroke="#f2f2ee" stroke-width="1.6" stroke-linejoin="round"/></g></svg>',
   russia: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="40" fill="#f6f3ea"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#1f4fa0" stroke-width="7"/></svg>',
   austria: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="20" fill="#151515"/><rect width="60" height="20" y="20" fill="#f2c230"/></svg>',
+  spain: '<svg viewBox="0 0 60 40" preserveAspectRatio="none" aria-hidden="true"><rect width="60" height="40" fill="#c8191e"/><rect width="60" height="20" y="10" fill="#f2c230"/></svg>',
 };
 
 /* A small emblem beside a nation's name, used sparingly (the army preview).

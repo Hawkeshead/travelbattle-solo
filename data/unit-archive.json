@@ -490,5 +490,87 @@
         "bio": "The Austrian cavalry batteries supported the mounted arm with light guns, their gunners riding on the gun carriages and a padded ammunition wagon known as the sausage rather than on horses of their own. The arrangement kept the batteries cheap and fast enough to follow the cavalry into action. They served with the reserve cavalry from 1805 through to the campaigns of 1813 and 1814. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
       }
     ]
+  },
+  "spain": {
+    "BRIGADIER": [
+      {
+        "name": "Casta\u00f1os",
+        "bio": "Francisco Javier Casta\u00f1os commanded the Spanish Army of Andalusia in the summer of 1808, when Spain rose against Napoleon's attempt to put his brother Joseph on its throne. At Bail\u00e9n in July his army surrounded General Dupont's corps and forced it to surrender, the first time a French army in the field had laid down its arms to an enemy. The victory shocked Europe and showed that the Emperor's armies could be beaten. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "Palafox",
+        "bio": "Jos\u00e9 de Palafox was the young captain-general who led the defence of Zaragoza through its two great sieges of 1808 and 1809. With a garrison of regulars, volunteers and armed townspeople he fought the French street by street and house by house, refusing every summons to surrender. Zaragoza fell only in February 1809, after disease and bombardment had killed much of the city, and its defence became a symbol of Spanish resistance. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      },
+      {
+        "name": "La Serna",
+        "bio": "Jos\u00e9 de la Serna joined the defence of Zaragoza in 1808 as a lieutenant colonel and commanded batteries during the second siege, wearing the defenders' medal for the rest of his life as his favourite distinction. Captured when the city fell, he soon escaped. Sent to South America in 1816, he became the last Viceroy of Peru in 1821, and fought his final battle at Ayacucho in December 1824, where he was wounded and captured as the patriot army of Sucre sealed the independence of Peru. Holds one Leadership Roll for the match, a single guaranteed Rally save for a unit under his command."
+      }
+    ],
+    "GUARD": [
+      {
+        "name": "Reales Guardias Espa\u00f1olas",
+        "bio": "The Royal Spanish Guards were the senior infantry regiment of the Spanish Royal Household, the foot guard of the Bourbon kings since the early eighteenth century. When Napoleon seized the Spanish royal family in 1808, the Guards were among the regular troops who joined the national rising. They fought through the Peninsular War as the elite of Spain's regular infantry. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Guardias Valonas",
+        "bio": "The Walloon Guards were the second regiment of the Spanish Royal Guard infantry, originally raised in the Spanish Netherlands and long recruited from Walloons and other Catholic foreigners. They fought against the French throughout the Peninsular War. Among the young officers who began their careers in the regiment was Jos\u00e9 de Canterac, who later served as La Serna's chief of staff in Peru and signed the capitulation after Ayacucho in 1824. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "INFANTRY": [
+      {
+        "name": "Voluntarios de Arag\u00f3n",
+        "bio": "The Volunteers of Aragon were raised by Palafox in 1808 from the men of Zaragoza and the surrounding countryside when the city rose against the French. Half-trained and poorly equipped, they fought in the defence of their own streets and convents through both sieges, alongside regulars, priests and townspeople. Among the officers who fought at Zaragoza was Jos\u00e9 de la Mar, who would later become President of Peru. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Regimiento de Sevilla",
+        "bio": "The Seville Regiment was one of the long-established line regiments of the Spanish army, recruited from Andalusia. In 1808 the Andalusian regulars formed the core of Casta\u00f1os's army, the force that won Spain's greatest victory of the war at Bail\u00e9n. Spanish line infantry wore white coats with regimental facings, much like the old Bourbon armies of the eighteenth century. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Regimiento de Zamora",
+        "bio": "The Zamora Regiment was a Spanish line regiment of the old royal army, which went into the war of 1808 with a long history behind it. Spain's regular regiments bore the brunt of the war's pitched battles, often outnumbered and poorly supplied, while the guerrillas harried the French behind the lines. The regiment fought on through the long years of the Peninsular War. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Regimiento de Soria",
+        "bio": "The Soria Regiment was one of the old line regiments of the Spanish army, its traditions stretching back to the tercios of the sixteenth century. In the Peninsular War Spain's line regiments were repeatedly broken and rebuilt, but kept returning to the field year after year. Their persistence tied down hundreds of thousands of French troops that Napoleon badly needed elsewhere. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Regimiento de Irlanda",
+        "bio": "The Irlanda Regiment was one of Spain's Irish regiments, raised from Irish exiles who had served the Spanish crown since the seventeenth century, and still officered by men of Irish descent in 1808. With the Hibernia and Ultonia regiments it carried on the tradition of the Wild Geese in Spanish service. In the Peninsular War it fought for Spain against the French. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      },
+      {
+        "name": "Regimiento de Catalu\u00f1a",
+        "bio": "The Catalonia Regiment was a Spanish line regiment from the principality where some of the war's longest and most bitter fighting took place. In Catalonia regular troops, the local miquelets and somat\u00e9n militias fought the French in sieges and mountain warfare from 1808 until the end of the war. Many of the Empire's Italian and German troops were sent there to fight them. Can stack with another Infantry unit to form an Attack Column, and may Lay Ambush if holding an unwatched wood instead of moving."
+      }
+    ],
+    "HEAVY_CAV": [
+      {
+        "name": "Carabineros Reales",
+        "bio": "The Royal Carabiniers were the heavy cavalry of the Spanish Royal Household, the senior mounted regiment of the Bourbon army. Mounted on big Andalusian horses, they fought as battle cavalry through the Peninsular War. Spain's cavalry suffered badly for want of horses after the first campaigns, making regiments like the Carabiniers precious. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Regimiento de Borb\u00f3n",
+        "bio": "The Borb\u00f3n Regiment was a Spanish cavalry regiment that fought in the campaign of Bail\u00e9n in 1808. Among its officers was a young captain, Jos\u00e9 de San Mart\u00edn, promoted for his conduct at Arjonilla shortly before the battle. San Mart\u00edn later sailed for South America, crossed the Andes to free Chile, and in 1821 proclaimed the independence of Peru and became its Protector. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "LIGHT_CAV": [
+      {
+        "name": "H\u00fasares de Mar\u00eda Luisa",
+        "bio": "The Mar\u00eda Luisa Hussars, named after the Queen of Spain, were one of the hussar regiments of the regular Spanish army. Like hussars everywhere they wore braided dolmans and pelisses and served as scouts, raiders and skirmishers. In the long war against the French they fought alongside the guerrilla bands that made every road in Spain dangerous for an enemy courier. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      },
+      {
+        "name": "Cazadores de Olivenza",
+        "bio": "The Olivenza Chasseurs were one of Spain's regular light cavalry regiments, named after the frontier town of Olivenza that Spain had taken from Portugal in 1801. Mounted light horsemen trained for scouting and outpost work, they served through the Peninsular War. Spain's light cavalry often fought in small detachments supporting the regular armies and the guerrillas. Can declare a Charge across open ground, winning any tie on the first round of the resulting fight."
+      }
+    ],
+    "ARTILLERY": [
+      {
+        "name": "Battery of Bail\u00e9n",
+        "bio": "The Spanish Royal Artillery Corps was a professional, well-trained arm, and its guns played a vital part in the victory at Bail\u00e9n in July 1808. In the summer heat the Spanish artillery outgunned Dupont's batteries as the French tried to break out of the trap Casta\u00f1os had closed around them. Dupont's surrender was the first capitulation of a French army in the field. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      },
+      {
+        "name": "Battery of C\u00e1diz",
+        "bio": "The guns of C\u00e1diz held the city through the great French siege from 1810 to 1812, when the port became the seat of Spain's free government and its parliament wrote the liberal Constitution of 1812. Protected by the sea and supplied by the Royal Navy, the defenders never let the French close in. Spanish gunners manned the city's batteries throughout the siege. If brigaded entirely with Cavalry, fights as Horse Artillery at Cavalry speed, except when crossing a ploughed field."
+      }
+    ]
   }
 }
