@@ -13,6 +13,7 @@ import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
+import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
 import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
@@ -1165,7 +1166,7 @@ export function renderUnitInfo(u){
   if(u.formation==='square'){
     sqBtn.disabled = !(baseOk && !state.moved.has(u.id));
   } else {
-    sqBtn.disabled = !(baseOk && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1);
+    sqBtn.disabled = !(baseOk && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1 && !squareBlockedByWater(u));   // not on a bridge, nor straight after a ford
   }
 
   if(u.hidden){
@@ -1374,6 +1375,27 @@ export function onCellClick(x,y){
   }
 }
 
+/* A hit landing on a bridge square counts against the bridge, whatever it does
+   to a unit standing there (Matthew, 18 Oct 2026). The fifth breaks it: any
+   unit on its squares falls back one square onto its own bank, turned around,
+   and from then on it is crossed like a ford. */
+export function hitBridge(x, y){
+  const before = bridgeAtSquare(x, y);
+  const broke = recordBridgeHit(x, y);
+  if(before && !broke) log(`The bridge is hit (${before.hits} of ${BRIDGE_HITS_TO_BREAK}).`, 'combat');
+  if(!broke) return;
+  log('The bridge collapses into the river.', 'combat');
+  logReplay('bridge', { bridgeId: broke.id, broken: true, x, y });
+  for(const [here, other] of [[broke.a, broke.b], [broke.b, broke.a]]){
+    const back = { x: here.x + (here.x - other.x), y: here.y + (here.y - other.y) };
+    for(const u of state.units.filter(o => !o.removed && o.x === here.x && o.y === here.y)){
+      if(inBounds(back.x, back.y) && !unitsAt(back.x, back.y).some(o => o.side !== u.side)) animateUnitTo(u, back.x, back.y, 'pushback');
+      setTurnedAround(u);
+      log(`${unitLabel(u)} falls back off the broken bridge.`, u.side);
+    }
+  }
+  draw();
+}
 export function fireArtillery(gun, target, onComplete){
   onComplete = onComplete || function(){};
   const dist = chebyshev(gun,target);
@@ -1418,6 +1440,7 @@ export function fireArtillery(gun, target, onComplete){
     // Zeroing adds to the kept die; a kept 1 always misses (Matthew, 13 Oct 2026).
     const hit = roll > 1 && roll + zero >= needed;
     recordZeroing(gun, target);   // engine-rules: the zeroing house rule
+    if(hit) hitBridge(target.x, target.y);   // a hit on a bridge square damages the bridge (engine-water.js)
     /* W6.2, CRACK SHOT, HOUSE RULE: a KEPT hit die of 6 adds +1 to the effect.
        Deliberately the kept die, not "either die shows a 6", so canister raises
        the chance of triggering it without making it automatic. */

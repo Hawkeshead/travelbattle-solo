@@ -25,6 +25,7 @@
    Not in this first version: regiments keeping their names from one step to
    the next, and carrying a campaign across devices.
 ========================================================= */
+import { buildWater } from './engine-water.js';
 import { SIDES, SIDE_LABEL, TB_DATA, setBoardMode, assignBuildingStyles, assignGrassStyles, state } from './data-core.js';
 import { getCard } from './scenario-cards.js';
 import { authoredRoads, authoredTerrain } from './operations.js';
@@ -128,7 +129,7 @@ export function applyBattleMap(card){
     setBoardMode(t[0].length === 10 ? 'single' : 'standard');
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = t;
-    state.roads = authoredRoads(m, t); state.mapSeeds = null;   // the Battle's own road layer
+    state.roads = authoredRoads(m, t); state.mapSeeds = null; state.water = buildWater(m.river);   // the Battle's own road layer
     state.grassStyles = assignGrassStyles(t);
     state.buildingStyles = assignBuildingStyles(t);
     state.excludedRoadEdges = new Set();

@@ -83,7 +83,7 @@ export function prepareTitleBoard(){
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-  state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
+  state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -981,6 +981,7 @@ export function beginBoardSetup(){
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = left.terrain.map((row, y) => [...row, ...right.terrain[y]]);
     state.roads = left.road.map((row, y) => [...row, ...right.road[y]]);
+    state.water = null;   // random boards carry no river yet
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = new Set();
@@ -998,7 +999,7 @@ export function beginBoardSetup(){
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-  state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
+  state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -1105,7 +1106,7 @@ function runRotationPicks(eligibleSides, i){
     const chosen = Math.floor(seededRandom()*4);
     state.boardRotation[side] = chosen;
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-    state.roads = null; state.mapSeeds = null;   // a classic map: no road layer
+    state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -1238,7 +1239,7 @@ export function beginGrandBoardSetup(){
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
-  state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
+  state.roads = null; state.mapSeeds = null; state.water = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSetGrand(quadrants);

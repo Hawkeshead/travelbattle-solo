@@ -29,6 +29,7 @@
    its whole move and leaves the board, removed and escaped. Not a casualty:
    no skull, not counted by DESTROY or in losses.
 ========================================================= */
+import { buildWater } from './engine-water.js';
 import { ROWS, SIDES, SIDE_LABEL, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, setBoardMode, state } from './data-core.js';
 import { getCard } from './scenario-cards.js';
 import { log, logReplay, newUnit, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
@@ -67,7 +68,7 @@ export function applyLockedMap(card){
     state.boardAssignment = null;
     state.boardRotation = null;
     state.terrain = t;
-    state.roads = authoredRoads(m, t); state.mapSeeds = null;   // its own road layer (tools/maps/add-roads.mjs), buildings as road
+    state.roads = authoredRoads(m, t); state.mapSeeds = null; state.water = buildWater(m.river);   // its own road layer (tools/maps/add-roads.mjs), buildings as road
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = new Set();
@@ -79,7 +80,7 @@ export function applyLockedMap(card){
   const t = buildTerrainMap(state.boardAssignment, state.boardRotation);
   for(const o of (m.overrides || [])) if(t[o.y]) t[o.y][o.x] = o.terrain;
   state.terrain = t;
-  state.roads = null; state.mapSeeds = null;   // a fixed map: roads are its ROAD squares (no road layer)
+  state.roads = null; state.mapSeeds = null; state.water = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
