@@ -150,6 +150,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     scenario: process.env.SIM_SCENARIO || null,
     rounds: state.scenarioResult ? state.scenarioResult.round : (state.scenario ? Math.ceil((state.turnNumber || 1) / 2) : null),
     reason: state.scenarioResult ? state.scenarioResult.reason.replace(/, round \d+.*$/, '') : null,
+    achieved: state.scenarioResult && state.scenarioResult.achieved ? { ...state.scenarioResult.achieved } : null,   // campaign battles: each side's objective
     turns: state.turnNumber,
     wallMs: Date.now() - t0,
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
@@ -520,6 +521,13 @@ export function summarise(results) {
   lines.push(`hung               ${results.filter(r => r.finished === 'hung').length}`);
   lines.push(`crashed            ${results.filter(r => r.finished === 'crashed').length}`);
   lines.push('');
+  /* Campaign battles are judged independently: report how often EACH side met
+     its own objective, which is the balance measure (target 50 to 60% each). */
+  const judged = results.filter(r => r.achieved);
+  if (judged.length){
+    const n = judged.length, red = judged.filter(r => r.achieved.red).length, blue = judged.filter(r => r.achieved.blue).length;
+    lines.push(`objective met    Coalition (red) ${red} of ${n} (${Math.round(100 * red / n)}%)   France (blue) ${blue} of ${n} (${Math.round(100 * blue / n)}%)`);
+  }
   lines.push(`Britain (red) wins ${wins.red} (${pct(wins.red)}%)`);
   lines.push(`France (blue) wins ${wins.blue} (${pct(wins.blue)}%)`);
   if (wins.none) lines.push(`no winner recorded ${wins.none}`);

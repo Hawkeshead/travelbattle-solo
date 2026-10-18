@@ -22,13 +22,19 @@
 ========================================================= */
 import { SIDES, TB_DATA } from './data-core.js';
 import { validateCard } from './scenario-validate.js';
+import { storyToCard } from './story.js';
 
 export const SIDE_OF = { british: SIDES.RED, french: SIDES.BLUE };
 export { CARD_SIDES, CONDITION_TYPES, SPECIAL_RULES_ALLOWED, UNIT_TYPES_ALLOWED, validateCard } from './scenario-validate.js';
 
 /* ---------- loading ---------- */
 const FILE = TB_DATA.scenarioCards || { cards: [] };
-const CARDS = Array.isArray(FILE.cards) ? FILE.cards : [];
+const CARDS = Array.isArray(FILE.cards) ? FILE.cards.slice() : [];
+/* The story campaigns' battles, one card per battle per nation that fought in
+   it ('waterloo-ligny-prussia'), built by js/story.js. */
+for(const [campaign, file] of Object.entries(TB_DATA.story || {})){
+  for(const b of ((file && file.battles) || [])) for(const nation of Object.keys(b.sides)) CARDS.push(storyToCard(b, nation, campaign));
+}
 const FAULTS = new Map();
 for(const c of CARDS){
   const errs = validateCard(c);

@@ -98,7 +98,7 @@ export function setupOperation(cardOrId, playerSide){
   });
   state.campaign = null;
   state.mapBattle = null;   // an Operation is never a campaign map battle
-  state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {};
+  state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {}; state.scenarioAchieved = {};
   state.gameOver = false; state.winner = null;
   state.turnNumber = 1;
   if(playerSide){ state.mode = 'ai'; state.spectate = false; state.aiSide = playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED; }
@@ -110,6 +110,7 @@ export function setupOperation(cardOrId, playerSide){
   for(const p of planOperationPlacement(card, state.terrain)){
     const u = newUnit(p.side, p.type, p.x, p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
+    if(p.tag) u.storyTag = p.tag;   // a campaign Brigade's tag, for its objectives (objective-core.js)
     state.units.push(u);
   }
   state.phase = 'deploy';

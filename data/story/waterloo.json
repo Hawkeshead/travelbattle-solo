@@ -162,14 +162,452 @@
       9.55,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "ligny": [
+      [
+       9,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ]
+     ],
+     "prussian_start": [
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Rows 6 to 10; may start in the villages",
      "objective": {
       "text": "At the end of round 10, two Brigades unbroken and Blücher (Zieten's Brigadier) in play.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
+        "atRound": 10
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "blucher",
+        "atRound": 10
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -182,7 +620,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       },
+       "tag": "blucher"
       },
       {
        "name": "Pirch",
@@ -194,7 +637,11 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry"
+       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       },
       {
        "name": "Thielmann",
@@ -206,7 +653,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery"
+       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       }
      ]
     },
@@ -214,7 +665,19 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Hold three of Ligny's five village squares (J6, L6, J7 to L7) at the end of round 10, or break one Prussian Brigade.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "ligny",
+        "count": 3,
+        "atRound": 10
+       },
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 1
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -227,7 +690,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Gérard",
@@ -239,7 +705,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery"
+       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Imperial Guard",
@@ -251,13 +720,20 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Guard x3, Artillery"
+       "note": "Brigadier, Guard x3, Artillery",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "guard"
       }
      ]
     }
    },
    "special": "The Imperial Guard cannot move before round 5.",
-   "balance": "France has the Guard and 3 more points, but must cross the brook (one bridge, two fords) into villages, and its Guard only has six rounds. Prussia only has to survive in shape, which a careful player can do, so its margin is thin troops spread over three villages. Target 50 to 60% each."
+   "balance": "France has the Guard and 3 more points, but must cross the brook (one bridge, two fords) into villages, and its Guard only has six rounds. Prussia only has to survive in shape, which a careful player can do, so its margin is thin troops spread over three villages. Target 50 to 60% each.",
+   "needs": [
+    "locked Brigade (Guard until round 5)"
+   ]
   },
   {
    "id": "saint-amand",
@@ -410,14 +886,582 @@
       9.55,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "st_amand": [
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ]
+     ],
+     "la_haye": [
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ]
+     ],
+     "wagnelee": [
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ]
+     ],
+     "prussian_start": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
       "text": "Hold Wagnelée, or two squares of Saint-Amand-la-Haye, at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "wagnelee",
+        "count": 1,
+        "atRound": 8
+       },
+       {
+        "type": "HOLD_COUNT",
+        "area": "la_haye",
+        "count": 2,
+        "atRound": 8
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -430,7 +1474,11 @@
         "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4"
+       "note": "Brigadier, Infantry x4",
+       "placement": {
+        "type": "area",
+        "area": "st_amand"
+       }
       },
       {
        "name": "Tippelskirch",
@@ -442,7 +1490,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       }
      ]
     },
@@ -450,7 +1502,21 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Hold four squares of Saint-Amand and one of Saint-Amand-la-Haye at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "st_amand",
+        "count": 4,
+        "atRound": 8
+       },
+       {
+        "type": "HOLD_COUNT",
+        "area": "la_haye",
+        "count": 1,
+        "atRound": 8
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -463,7 +1529,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Young Guard (Duhesme), arrives round 4 on row 1",
@@ -474,13 +1543,20 @@
         "GUARD"
        ],
        "protect": false,
-       "note": "Brigadier, Guard x2, Infantry"
+       "note": "Brigadier, Guard x2, Infantry",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "young_guard"
       }
      ]
     }
    },
    "special": "None beyond the brook.",
-   "balance": "Even on points. France faces houses behind water but gets the Young Guard as a second wave once Saint-Amand is softened; Prussia can fall back village by village and only needs to keep the rear one. Target 50 to 60% each."
+   "balance": "Even on points. France faces houses behind water but gets the Young Guard as a second wave once Saint-Amand is softened; Prussia can fall back village by village and only needs to keep the rear one. Target 50 to 60% each.",
+   "needs": [
+    "reinforcement (Young Guard, round 4)"
+   ]
   },
   {
    "id": "blucher",
@@ -599,14 +1675,274 @@
       0.4,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "blucher_start": [
+      [
+       4,
+       5
+      ]
+     ],
+     "heights": [
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ]
+     ],
+     "french_start": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       0
+      ],
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ]
+     ]
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Blücher at E6; the rest rows 8 to 10",
      "objective": {
       "text": "Blücher in play and in rows 8 to 10 at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "blucher",
+        "area": "heights",
+        "atRound": 8
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -619,7 +1955,21 @@
         "LIGHT_CAV"
        ],
        "protect": true,
-       "note": "Blücher (to protect), Light Cavalry x2, Infantry x2"
+       "note": "Blücher (to protect), Light Cavalry x2, Infantry x2",
+       "placement": {
+        "type": "area",
+        "split": [
+         {
+          "area": "blucher_start",
+          "count": 1
+         },
+         {
+          "area": "heights",
+          "count": 4
+         }
+        ]
+       },
+       "tag": "blucher"
       }
      ]
     },
@@ -627,7 +1977,19 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Remove Blücher, or have three units in rows 8 to 10, at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "COMMANDER_REMOVED",
+        "tag": "blucher"
+       },
+       {
+        "type": "IN_AREA",
+        "area": "heights",
+        "count": 3,
+        "atRound": 8
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -639,13 +2001,20 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x2, Guard"
+       "note": "Brigadier, Heavy Cavalry x2, Guard",
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       }
       }
      ]
     }
    },
    "special": "Blücher is pinned for rounds 1 and 2, then moves as cavalry and cannot attack.",
-   "balance": "Even on points. The cuirassiers reach him by round 2, so the Prussian lancers must screen him and then race him four squares home; France can also win by pushing through, which pulls Prussia two ways. Target 50 to 60% each."
+   "balance": "Even on points. The cuirassiers reach him by round 2, so the Prussian lancers must screen him and then race him four squares home; France can also win by pushing through, which pulls Prussia two ways. Target 50 to 60% each.",
+   "needs": [
+    "pinned commander (rounds 1 and 2)"
+   ]
   },
   {
    "id": "quatre-bras",
@@ -792,14 +2161,357 @@
       4.42,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "crossroads": [
+      [
+       15,
+       4
+      ]
+     ],
+     "gemioncourt": [
+      [
+       9,
+       5
+      ]
+     ],
+     "allied_start": [
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "Perponcher in columns I to P; Picton arrives round 3 and Brunswick round 5 on column T",
      "objective": {
       "text": "An Allied unit on the crossroads (P5) and no French unit on it, at the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "CONTROL_AREA",
+        "area": "crossroads",
+        "atRound": 10
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -812,7 +2524,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "tag": "perponcher"
       },
       {
        "name": "Picton, round 3",
@@ -824,7 +2541,11 @@
         "GUARD"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Guard"
+       "note": "Brigadier, Infantry x3, Guard",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "picton"
       },
       {
        "name": "Brunswick, round 5",
@@ -835,7 +2556,11 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Light Cavalry"
+       "note": "Brigadier, Infantry x2, Light Cavalry",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "brunswick"
       }
      ]
     },
@@ -843,7 +2568,19 @@
      "start": "Columns A and B; Kellermann arrives round 4 on column A",
      "objective": {
       "text": "Hold Gemioncourt (J6) and have removed four Allied units, at the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "gemioncourt",
+        "atRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -856,7 +2593,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Foy",
@@ -868,7 +2608,10 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry"
+       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Kellermann, round 4",
@@ -879,13 +2622,21 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x3"
+       "note": "Brigadier, Heavy Cavalry x3",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "kellermann"
       }
      ]
     }
    },
    "special": "Reinforcements enter on their own end at the start of the round shown.",
-   "balance": "France has 28 points against Perponcher's 14 for the first two rounds and should take Gemioncourt; the Allies catch up to 40 against 42 as reinforcements arrive near the crossroads. Both objectives were met on the day. Target 50 to 60% each."
+   "balance": "France has 28 points against Perponcher's 14 for the first two rounds and should take Gemioncourt; the Allies catch up to 40 against 42 as reinforcements arrive near the crossroads. Both objectives were met on the day. Target 50 to 60% each.",
+   "needs": [
+    "corridor deployment",
+    "reinforcements (rounds 3, 4 and 5)"
+   ]
   },
   {
    "id": "kellermann",
@@ -953,14 +2704,160 @@
       9.6,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "crossroads": [
+      [
+       5,
+       8
+      ]
+     ],
+     "allied": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "Rows 5 to 7, in and around the rye",
      "objective": {
       "text": "Remove two French cavalry units by the end of round 6, with no French unit on the crossroads (F9) at the end of round 6.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [
+         "HEAVY_CAV",
+         "LIGHT_CAV"
+        ],
+        "count": 2,
+        "byRound": 6
+       },
+       {
+        "type": "CLEAR_AREA",
+        "area": "crossroads",
+        "atRound": 6
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -974,7 +2871,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4 (the 69th starts in line), Artillery"
+       "note": "Brigadier, Infantry x4 (the 69th starts in line), Artillery",
+       "placement": {
+        "type": "area",
+        "area": "allied"
+       },
+       "tag": "halkett"
       }
      ]
     },
@@ -982,7 +2884,22 @@
      "start": "Rows 1 and 2",
      "objective": {
       "text": "Remove two Allied infantry units, or end a turn with a cavalry unit on the crossroads (F9), by the end of round 6.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [
+         "INFANTRY"
+        ],
+        "count": 2,
+        "byRound": 6
+       },
+       {
+        "type": "ENTERED",
+        "area": "crossroads",
+        "byRound": 6
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -995,13 +2912,20 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x3, Light Cavalry"
+       "note": "Brigadier, Heavy Cavalry x3, Light Cavalry",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "kellermann"
       }
      ]
     }
    },
    "special": "Tall rye: a unit in farmland is hidden from enemies more than two squares away.",
-   "balance": "Even on points. Cavalry beat infantry in line but lose to squares and guns; the rye decides who is caught out. Short and sharp. Target 50 to 60% each."
+   "balance": "Even on points. Cavalry beat infantry in line but lose to squares and guns; the rye decides who is caught out. Short and sharp. Target 50 to 60% each.",
+   "needs": [
+    "tall rye"
+   ]
   },
   {
    "id": "narrow-escape",
@@ -1063,35 +2987,178 @@
       0.42,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "wellington_start": [
+      [
+       2,
+       3
+      ]
+     ],
+     "square92": [
+      [
+       6,
+       7
+      ]
+     ],
+     "near92": [
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ]
+     ],
+     "brunswick_start": [
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "Wellington at C4; the 92nd in square at G8; Brunswick rows 5 and 6",
      "objective": {
       "text": "Wellington ends a turn on or next to the 92nd's square by the end of round 3, and is in play at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "wellington",
+        "area": "near92",
+        "atRound": 3
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "wellington",
+        "atRound": 8
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
        "name": "Wellington and the 92nd",
        "units": [
         "BRIGADIER",
+        "INFANTRY",
         "INFANTRY"
        ],
        "protect": true,
-       "note": "Wellington (to protect), Infantry (the 92nd, in square)"
+       "note": "Wellington (to protect), Infantry (the 92nd, in square), Infantry (a Brunswick battalion)",
+       "placement": {
+        "type": "area",
+        "split": [
+         {
+          "area": "wellington_start",
+          "count": 1
+         },
+         {
+          "area": "square92",
+          "count": 1
+         },
+         {
+          "area": "brunswick_start",
+          "count": 1
+         }
+        ]
+       },
+       "tag": "wellington",
+       "formation": [
+        "line",
+        "square",
+        "line"
+       ]
       },
       {
        "name": "The Duke of Brunswick",
        "units": [
         "BRIGADIER",
         "INFANTRY",
-        "INFANTRY",
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Light Cavalry"
+       "note": "Brigadier, Infantry, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "brunswick_start"
+       },
+       "tag": "brunswick"
       }
      ]
     },
@@ -1099,7 +3166,19 @@
      "start": "Rows 1 and 2",
      "objective": {
       "text": "Remove Wellington or the Duke of Brunswick by the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "COMMANDER_REMOVED",
+        "tag": "wellington",
+        "byRound": 8
+       },
+       {
+        "type": "COMMANDER_REMOVED",
+        "tag": "brunswick",
+        "byRound": 8
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1112,13 +3191,19 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x3, Infantry"
+       "note": "Brigadier, Light Cavalry x3, Infantry",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it.",
-   "balance": "Britain has 2 more points but two commanders to keep alive, and Wellington starts three squares from safety with lancers two moves away. Target 50 to 60% each."
+   "balance": "Britain has 2 more points but two commanders to keep alive, and Wellington starts three squares from safety with lancers two moves away. Target 50 to 60% each.",
+   "needs": [
+    "a square sheltering a commander"
+   ]
   },
   {
    "id": "genappe-17",
@@ -1245,14 +3330,318 @@
       3.6,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "rearguard_start": [
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ]
+     ],
+     "heights": [
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ]
+     ]
+    },
+    "exits": {
+     "british": "britishEdge"
+    }
    },
    "sides": {
     "Britain": {
      "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
      "objective": {
       "text": "Five units leave by column T by the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 5,
+        "byRound": 10
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1264,7 +3653,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Artillery"
+       "note": "Brigadier, Infantry x2, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "rearguard_start"
+       }
       },
       {
        "name": "Uxbridge",
@@ -1276,7 +3669,11 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x2, Light Cavalry x2 (one is the 7th Hussars)"
+       "note": "Brigadier, Heavy Cavalry x2, Light Cavalry x2 (one is the 7th Hussars)",
+       "placement": {
+        "type": "area",
+        "area": "heights"
+       }
       }
      ]
     },
@@ -1284,7 +3681,15 @@
      "start": "Columns A and B",
      "objective": {
       "text": "Remove three Allied units by the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 3,
+        "byRound": 10
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1297,7 +3702,10 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x3, Heavy Cavalry"
+       "note": "Brigadier, Light Cavalry x3, Heavy Cavalry",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Advance guard",
@@ -1308,13 +3716,20 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Artillery"
+       "note": "Brigadier, Infantry x2, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "Thunderstorm: no artillery fire in rounds 1 to 4, and all ground but roads costs one extra move. The Dyle is crossed at the bridge or the ford.",
-   "balance": "Even on points. The Allies must squeeze through one bridge with French cavalry behind them; the Life Guards on the heights are there to counter-charge and buy the time. Target 50 to 60% each."
+   "balance": "Even on points. The Allies must squeeze through one bridge with French cavalry behind them; the Life Guards on the heights are there to counter-charge and buy the time. Target 50 to 60% each.",
+   "needs": [
+    "corridor deployment",
+    "thunderstorm"
+   ]
   },
   {
    "id": "wavre",
@@ -1474,14 +3889,550 @@
       0.45,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "wavre": [
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ]
+     ],
+     "bridgeheads": [
+      [
+       2,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       15,
+       4
+      ]
+     ],
+     "prussian_start": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Rows 5 to 10",
      "objective": {
       "text": "Hold three squares of Wavre (N5 to Q6) at the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "wavre",
+        "count": 3,
+        "atRound": 8
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1494,7 +4445,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       },
       {
        "name": "Stulpnagel",
@@ -1505,7 +4460,11 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Light Cavalry"
+       "note": "Brigadier, Infantry x2, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       }
      ]
     },
@@ -1513,7 +4472,15 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "At the end of round 12, units on two of the three bridges (C4 and C5, I4 and I5, P4 and P5), each with a unit beside it on the Prussian bank.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "bridgeheads",
+        "count": 2,
+        "atRound": 12
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1527,7 +4494,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery"
+       "note": "Brigadier, Infantry x4, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Gérard",
@@ -1539,7 +4509,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Pajol",
@@ -1550,13 +4523,17 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry"
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "The Dyle is crossed only at bridges. Five artillery hits destroy a bridge.",
-   "balance": "France has 43 points against 25, but every attack goes over a two-square bridge, Prussia can blow a bridge with its guns, and Prussia's clock stops at round 8. Limale (the wooden bridge, furthest from Wavre) is the weak point, as it was. Target 50 to 60% each."
+   "balance": "France has 43 points against 25, but every attack goes over a two-square bridge, Prussia can blow a bridge with its guns, and Prussia's clock stops at round 8. Limale (the wooden bridge, furthest from Wavre) is the weak point, as it was. Target 50 to 60% each.",
+   "needs": []
   },
   {
    "id": "hougoumont",
@@ -1630,14 +4607,84 @@
       8.0,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "chateau": [
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ]
+     ],
+     "outworks": [
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "In the chateau (D5 to E6), the garden and the orchard; the guns on the ridge (rows 8 and 9)",
      "objective": {
       "text": "Hold all four chateau squares (D5, E5, D6, E6) at the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "chateau",
+        "count": 3,
+        "atRound": 12
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1650,7 +4697,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Guard x2, Infantry (Nassau), Artillery"
+       "note": "Brigadier, Guard x2, Infantry (Nassau), Artillery",
+       "placement": {
+        "type": "area",
+        "area": "outworks"
+       },
+       "tag": "macdonell"
       }
      ]
     },
@@ -1658,7 +4710,18 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Enter a chateau square at least once, and remove two Allied units, by the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "chateau"
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 2
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -1672,13 +4735,19 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery"
+       "note": "Brigadier, Infantry x4, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "French waves: a lost French Infantry unit returns on row 1 two rounds later, up to four times.",
-   "balance": "France has 17 points plus up to 12 more in waves against 16 in stone buildings. The garden and orchard are the outworks France must take first. Target 50 to 60% each."
+   "balance": "France has 17 points plus up to 12 more in waves against 16 in stone buildings. The garden and orchard are the outworks France must take first. Target 50 to 60% each.",
+   "needs": [
+    "French waves"
+   ]
   },
   {
    "id": "la-haye-sainte",
@@ -1752,14 +4821,139 @@
       0.42,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "farm": [
+      [
+       5,
+       4
+      ],
+      [
+       5,
+       5
+      ]
+     ],
+     "baring_start": [
+      [
+       5,
+       4
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       4,
+       5
+      ]
+     ],
+     "kempt_start": [
+      [
+       7,
+       4
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "Baring in the farm (F5, F6); the 95th in the sandpit (H5); the rest on the ridge (rows 8 and 9)",
      "objective": {
       "text": "Hold a farm square until the end of round 8, and have Baring in play at the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "farm",
+        "count": 1,
+        "atRound": 8
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "baring",
+        "atRound": 12
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -1770,7 +4964,12 @@
         "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2"
+       "note": "Brigadier, Infantry x2",
+       "placement": {
+        "type": "area",
+        "area": "baring_start"
+       },
+       "tag": "baring"
       },
       {
        "name": "Kempt",
@@ -1781,7 +4980,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Artillery"
+       "note": "Brigadier, Infantry x2, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "kempt_start"
+       },
+       "tag": "kempt"
       }
      ]
     },
@@ -1789,7 +4993,15 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Hold both farm squares (F5, F6) at the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "farm",
+        "mode": "all",
+        "atRound": 12
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1803,7 +5015,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery"
+       "note": "Brigadier, Infantry x4, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Travers",
@@ -1813,13 +5028,19 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x2"
+       "note": "Brigadier, Heavy Cavalry x2",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "From round 7 the units in the farm cannot volley (their rifle ammunition is gone).",
-   "balance": "France has 27 points against 19, but the farm is stone and the sandpit flanks the road. The ammunition rule tips it to France late, which is the history: the farm holds for hours, then falls. Target 50 to 60% each."
+   "balance": "France has 27 points against 19, but the farm is stone and the sandpit flanks the road. The ammunition rule tips it to France late, which is the history: the farm holds for hours, then falls. Target 50 to 60% each.",
+   "needs": [
+    "ammunition running out (round 7)"
+   ]
   },
   {
    "id": "papelotte",
@@ -1938,14 +5159,138 @@
       9.5,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "papelotte": [
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       5,
+       5
+      ]
+     ],
+     "la_haye": [
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       10,
+       6
+      ]
+     ],
+     "smohain": [
+      [
+       17,
+       4
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       17,
+       6
+      ]
+     ],
+     "hamlets": [
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       17,
+       6
+      ]
+     ],
+     "east_edge": [
+      [
+       19,
+       4
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       18,
+       6
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "In the hamlets (Papelotte F5 to G6, La Haye K6 to L7, Smohain R5 to S7)",
      "objective": {
       "text": "Hold two of the three hamlets at the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREAS",
+        "areas": [
+         "papelotte",
+         "la_haye",
+         "smohain"
+        ],
+        "count": 2,
+        "atRound": 10
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1958,7 +5303,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "hamlets"
+       },
+       "tag": "nassau"
       }
      ]
     },
@@ -1966,7 +5316,16 @@
      "start": "Arrives round 6 on column T, rows 5 to 7",
      "objective": {
       "text": "Three units next to Nassau units at the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "NEXT_TO",
+        "tag": "zieten",
+        "nextTo": "nassau",
+        "count": 3,
+        "atRound": 10
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1978,7 +5337,12 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Light Cavalry"
+       "note": "Brigadier, Infantry x2, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "east_edge"
+       },
+       "tag": "zieten"
       }
      ]
     },
@@ -1986,7 +5350,19 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "Hold any one hamlet at the end of round 5.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREAS",
+        "areas": [
+         "papelotte",
+         "la_haye",
+         "smohain"
+        ],
+        "count": 1,
+        "atRound": 5
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2000,7 +5376,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery"
+       "note": "Brigadier, Infantry x4, Artillery",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Jacquinot",
@@ -2010,13 +5389,20 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2"
+       "note": "Brigadier, Light Cavalry x2",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     }
    },
    "special": "Mistaken identity: on the round they arrive, Prussian units cannot attack and cannot be supported by Nassau units. From Britain's route the AI commands Zieten; from Prussia's, Saxe-Weimar.",
-   "balance": "France has 25 against 14 for five rounds and only needs one hamlet briefly; the Allies need two at the end, which the Prussians make possible from round 6. Target 50 to 60% for each side."
+   "balance": "France has 25 against 14 for five rounds and only needs one hamlet briefly; the Allies need two at the end, which the Prussians make possible from round 6. Target 50 to 60% for each side.",
+   "needs": [
+    "reinforcement on a side edge (round 6)",
+    "mistaken identity"
+   ]
   },
   {
    "id": "plancenoit",
@@ -2084,14 +5470,323 @@
       0.45,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "church": [
+      [
+       10,
+       4
+      ]
+     ],
+     "village": [
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ]
+     ],
+     "prussian_start": [
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Rows 8 to 10, out of the Bois de Paris",
      "objective": {
       "text": "Hold the church (K5) and two other village squares at the end of round 10.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "church",
+        "atRound": 10
+       },
+       {
+        "type": "HOLD_COUNT",
+        "area": "village",
+        "count": 3,
+        "atRound": 10
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -2104,7 +5799,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery"
+       "note": "Brigadier, Infantry x3, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       },
       {
        "name": "Ryssel",
@@ -2116,7 +5815,11 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry"
+       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "prussian_start"
+       }
       }
      ]
     },
@@ -2124,7 +5827,14 @@
      "start": "Lobau in the village; Duhesme rows 1 to 3; the Old Guard joins Duhesme on row 1 in round 6",
      "objective": {
       "text": "Hold the church (K5) at the end of round 6.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "church",
+        "atRound": 6
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2136,7 +5846,11 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Artillery"
+       "note": "Brigadier, Infantry x2, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "village"
+       }
       },
       {
        "name": "Duhesme (Young Guard)",
@@ -2144,25 +5858,35 @@
         "BRIGADIER",
         "INFANTRY",
         "GUARD",
-        "GUARD"
-       ],
-       "protect": false,
-       "note": "Brigadier, Guard x2, Infantry"
-      },
-      {
-       "name": "Old Guard, round 6",
-       "units": [
+        "GUARD",
         "GUARD",
         "GUARD"
        ],
        "protect": false,
-       "note": "Guard x2"
+       "note": "Brigadier, Guard x2, Infantry; the two Old Guard battalions (Guard x2) join in round 6",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "young_guard",
+       "arrivals": [
+        {
+         "units": [
+          "GUARD",
+          "GUARD"
+         ],
+         "round": 6,
+         "edge": "frenchEdge"
+        }
+       ]
       }
      ]
     }
    },
    "special": "None.",
-   "balance": "France has 32 against 28 and starts in the houses, but its clock ends at round 6; Prussia must still be in the village at round 10 after the Old Guard arrives. Target 50 to 60% each."
+   "balance": "France has 32 against 28 and starts in the houses, but its clock ends at round 6; Prussia must still be in the village at round 10 after the Old Guard arrives. Target 50 to 60% each.",
+   "needs": [
+    "reinforcement (Old Guard, round 6)"
+   ]
   },
   {
    "id": "waterloo",
@@ -2254,14 +5978,697 @@
       9.55,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "ridge": [
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ]
+     ],
+     "lba": [
+      [
+       10,
+       0
+      ]
+     ],
+     "french_rear": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       0
+      ],
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       16,
+       0
+      ],
+      [
+       17,
+       0
+      ],
+      [
+       18,
+       0
+      ],
+      [
+       19,
+       0
+      ],
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       19,
+       2
+      ]
+     ],
+     "allied_start": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ]
+     ],
+     "east_edge": [
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       4
+      ]
+     ]
+    }
    },
    "sides": {
     "Britain": {
      "start": "Rows 7 to 10, with one unit each in Hougoumont (B6, C6), La Haye Sainte (K6) and Papelotte (Q6, R6)",
      "objective": {
       "text": "No French unit on Wellington's ridge (row 7) at the end of round 12, or break two French Brigades.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "ridge",
+        "atRound": 12
+       },
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 2
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2275,7 +6682,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Guard x2, Infantry x2, Artillery"
+       "note": "Brigadier, Guard x2, Infantry x2, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "tag": "maitland"
       },
       {
        "name": "Picton and Ponsonby",
@@ -2288,7 +6700,12 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Heavy Cavalry x2, Artillery"
+       "note": "Brigadier, Infantry x2, Heavy Cavalry x2, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "tag": "picton"
       }
      ]
     },
@@ -2296,7 +6713,16 @@
      "start": "Arrives round 6 on column T, rows 3 to 5",
      "objective": {
       "text": "Three units in rows 1 to 3 at the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "french_rear",
+        "tag": "bulow",
+        "count": 3,
+        "atRound": 12
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2309,7 +6735,12 @@
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry"
+       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "placement": {
+        "type": "area",
+        "area": "east_edge"
+       },
+       "tag": "bulow"
       }
      ]
     },
@@ -2317,7 +6748,19 @@
      "start": "Rows 1 to 3",
      "objective": {
       "text": "La Belle Alliance (K1) still French at the end of round 9, and Napoleon in play at the end of round 12.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "CONTROL_AREA",
+        "area": "lba",
+        "atRound": 9
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "napoleon",
+        "atRound": 12
+       }
+      ],
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -2331,7 +6774,10 @@
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery x2"
+       "note": "Brigadier, Infantry x3, Artillery x2",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "d'Erlon and Milhaud",
@@ -2344,7 +6790,10 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Heavy Cavalry x2"
+       "note": "Brigadier, Infantry x3, Heavy Cavalry x2",
+       "placement": {
+        "type": "edge"
+       }
       },
       {
        "name": "Imperial Guard",
@@ -2356,13 +6805,21 @@
         "ARTILLERY"
        ],
        "protect": true,
-       "note": "Napoleon (to protect), Guard x3, Artillery"
+       "note": "Napoleon (to protect), Guard x3, Artillery",
+       "placement": {
+        "type": "edge"
+       },
+       "tag": "napoleon"
       }
      ]
     }
    },
    "special": "The Imperial Guard cannot move before round 7. From Britain's route the AI commands Bülow; from Prussia's, the two British Brigades.",
-   "balance": "Coalition 52 (38 from the start) against France 53. France can win outright by taking the ridge, but its own objective is to hold its centre and get Napoleon out, which becomes hard once Bülow arrives. Target 50 to 60% each."
+   "balance": "Coalition 52 (38 from the start) against France 53. France can win outright by taking the ridge, but its own objective is to hold its centre and get Napoleon out, which becomes hard once Bülow arrives. Target 50 to 60% each.",
+   "needs": [
+    "reinforcement on a side edge (round 6)",
+    "locked Brigade (Guard until round 7)"
+   ]
   },
   {
    "id": "pursuit",
@@ -2489,14 +6946,314 @@
       3.6,
       "feature"
      ]
-    ]
+    ],
+    "areas": {
+     "carriage": [
+      [
+       7,
+       4
+      ]
+     ],
+     "french_start": [
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ]
+     ]
+    },
+    "exits": {
+     "french": "frenchEdge"
+    }
    },
    "sides": {
     "Prussia": {
      "start": "Columns S and T",
      "objective": {
       "text": "End a turn with a unit on the carriage square (H5) by the end of round 8.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "carriage",
+        "byRound": 8
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2509,7 +7266,10 @@
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)"
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)",
+       "placement": {
+        "type": "edge"
+       }
       }
      ]
     },
@@ -2517,7 +7277,15 @@
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
       "text": "Napoleon leaves by column A by the end of round 6.",
-      "conditions": []
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 0,
+        "mustIncludeTag": "napoleon",
+        "byRound": 6
+       }
+      ],
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2530,13 +7298,23 @@
         "ARTILLERY"
        ],
        "protect": true,
-       "note": "Napoleon (to protect), Guard x2, Infantry, Artillery"
+       "note": "Napoleon (to protect), Guard x2, Infantry, Artillery",
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "tag": "napoleon"
       }
      ]
     }
    },
    "special": "Night: artillery fires only at targets within two squares. The jammed road: road squares give no extra move in columns F to L.",
-   "balance": "Prussia has 15 against 16. Napoleon has a head start of five squares but must cross the bridge; the rearguard must either cover him or the carriage, not both. Target 50 to 60% each."
+   "balance": "Prussia has 15 against 16. Napoleon has a head start of five squares but must cross the bridge; the rearguard must either cover him or the carriage, not both. Target 50 to 60% each.",
+   "needs": [
+    "corridor deployment",
+    "night",
+    "jammed road"
+   ]
   }
  ]
 }

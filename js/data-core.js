@@ -27,6 +27,8 @@ export const TB_DATA = (function(){
       /* Scenario Cards: the one source of Battles and Operations (js/scenario-cards.js).
          The old data/scenarios.json is kept in data/legacy/ and not loaded. */
       scenarioCards: loadJSON('data/scenario-cards.json'),
+      /* The story campaigns' battles (js/story.js turns them into cards). */
+      story: { waterloo: loadJSON('data/story/waterloo.json') },
       terrainLayouts: loadJSON('data/terrain-layouts.json'),
       unitTypes: loadJSON('data/unit-types.json'),
       armyCompositions: loadJSON('data/army-compositions.json'),

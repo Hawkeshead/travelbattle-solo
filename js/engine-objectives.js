@@ -1,7 +1,7 @@
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
 import { campaignContext, campaignFinished, recordResult } from './campaign-play.js';
 import { clearSave } from './match-save.js';
-import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
+import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listLatched as coreListLatched, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
@@ -82,9 +82,46 @@ function wipedOut(){
   return null;
 }
 
+/* INDEPENDENT JUDGING (campaign battles, card.judging = 'independent').
+   Each side's objective is what that side achieved historically, so both can
+   be met in one game. Each side's objective is LATCHED the moment it is met
+   (an instant condition at once, an end-of-round one at that round's end);
+   the battle runs to its turn limit (or until one side has no units left),
+   and then both results are shown. Ordinary Operations are unchanged. */
+const independent = () => state.scenario && state.scenario.judging === 'independent';
+function latchAchieved(ctx){
+  const got = state.scenarioAchieved = state.scenarioAchieved || {};
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    world();
+    if(got[side] || !coreListLatched(side, ctx)) continue;
+    got[side] = ctx.round;
+    log(`${SIDE_LABEL[side]} achieves its objective (round ${ctx.round}).`, 'system');
+    logReplay('objectiveMet', { side, round: ctx.round });
+  }
+}
+function finishIndependent(round, how){
+  const got = state.scenarioAchieved || {};
+  const words = side => `${SIDE_LABEL[side]} ${got[side] ? 'achieved its objective (round ' + got[side] + ')' : 'did not achieve its objective'}`;
+  const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : ''}`;
+  // The banner names a side: the one that met its objective while the other did
+  // not; if both or neither did, the human player's side (or red) is named and
+  // the result line says what happened to each.
+  const human = state.aiSide ? otherSide(state.aiSide) : SIDES.RED;
+  const winner = got[SIDES.RED] && !got[SIDES.BLUE] ? SIDES.RED : got[SIDES.BLUE] && !got[SIDES.RED] ? SIDES.BLUE : human;
+  state.scenarioResult = { winner, reason, round, achieved: { red: !!got[SIDES.RED], blue: !!got[SIDES.BLUE] } };
+  log(reason + '.', 'system');
+  logReplay('scenarioResult', { winner, reason, round, achieved: state.scenarioResult.achieved });
+  endGame(winner);
+}
+
 /* After a removal or a march off. */
 export function checkScenarioObjective(){
   if(!state.scenario || state.gameOver || state.replaying) return;
+  if(independent()){
+    latchAchieved({ endOfRound: false, round: currentRound() });
+    if(wipedOut()) finishIndependent(currentRound(), 'wiped');
+    return;
+  }
   const ctx = { endOfRound: false, round: currentRound() };
   const met = [SIDES.RED, SIDES.BLUE].filter(s => listMet(s, ctx));
   if(met.length === 1) return decide(met[0], reasonFor(met[0], ctx), ctx.round);
@@ -100,6 +137,13 @@ export function checkScenarioObjective(){
 export function scenarioRoundEnded(round){
   if(!state.scenario || state.gameOver) return;
   const ctx = { endOfRound: true, round, countRound: true };
+  if(independent()){
+    latchAchieved(ctx);
+    recordRoundStatus(round);
+    if(wipedOut()) return finishIndependent(round, 'wiped');
+    if(state.scenario.turnLimit && round >= state.scenario.turnLimit) return finishIndependent(round, 'time');
+    return;
+  }
   const met = [SIDES.RED, SIDES.BLUE].filter(s => listMet(s, ctx));
   recordRoundStatus(round);
   const r = resolveEndOfRound(state.scenario, met, round, wipedOut());

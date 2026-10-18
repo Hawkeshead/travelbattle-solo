@@ -14,7 +14,7 @@ export function useWorld(w){ W = w; }
 const SIDE_KEY = { red: 'british', blue: 'french' };
 const otherSide = side => (side === 'red' ? 'blue' : 'red');
 export const CONDITION_TABLE = () => CONDITIONS;
-export const INSTANT = new Set(['DESTROY', 'MARCH_OFF']);
+export const INSTANT = new Set(['DESTROY', 'MARCH_OFF', 'COMMANDER_REMOVED', 'BREAK_BRIGADES', 'ENTERED']);
 const areaSquares = name => ((W.card && W.card.map && W.card.map.areas && W.card.map.areas[name]) || []);
 const inArea = (u, name) => areaSquares(name).some(([x, y]) => u.x === x && u.y === y);
 const onBoard = u => !u.removed;
@@ -52,7 +52,14 @@ const CONDITIONS = {
   },
   CLEAR_AREA(side, c, ctx){
     if(!ctx.endOfRound) return false;
-    return !W.units.some(u => onBoard(u) && u.side === otherSide(side) && inArea(u, c.area));
+    return roundGate(side, c, ctx, !W.units.some(u => onBoard(u) && u.side === otherSide(side) && inArea(u, c.area)));
+  },
+  // At least `count` of several areas each held (a fighting unit of this side in it, none of the enemy's).
+  HOLD_AREAS(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const held = (c.areas || []).filter(a => W.units.some(u => onBoard(u) && u.side === side && u.type !== 'BRIGADIER' && inArea(u, a)) &&
+      !W.units.some(u => onBoard(u) && u.side === otherSide(side) && inArea(u, a))).length;
+    return roundGate(side, c, ctx, held >= (c.count || 1));
   },
   CONTROL_AREA(side, c, ctx){
     if(!ctx.endOfRound) return false;
@@ -71,9 +78,70 @@ const CONDITIONS = {
     const goneFighters = gone.filter(u => u.type !== 'BRIGADIER').length;
     const need = c.count != null ? c.count : Math.ceil((c.fraction || 0) * startingFighters(side));
     const types = c.mustInclude || [];
-    return goneFighters >= need && types.every(t => gone.some(u => u.type === t));
+    const tags = c.mustIncludeTag ? [c.mustIncludeTag] : [];
+    return goneFighters >= need && types.every(t => gone.some(u => u.type === t)) && tags.every(t => gone.some(u => u.storyTag === t));
+  },
+  /* CAMPAIGN CONDITIONS (18 Oct 2026, the Waterloo battles). */
+  // At least `count` squares of an area held by this side's fighting units.
+  HOLD_COUNT(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const held = new Set(W.units.filter(u => onBoard(u) && u.side === side && u.type !== 'BRIGADIER' && inArea(u, c.area)).map(u => u.x + ',' + u.y));
+    return roundGate(side, c, ctx, held.size >= c.count);
+  },
+  // At least `count` of this side's units (Brigadiers too if c.anyUnit) in an area.
+  IN_AREA(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const n = W.units.filter(u => onBoard(u) && u.side === side && (c.anyUnit || u.type !== 'BRIGADIER') && inArea(u, c.area) && (!c.tag || u.storyTag === c.tag)).length;
+    return roundGate(side, c, ctx, n >= (c.count || 1));
+  },
+  // At least `count` units tagged `tag` next to a unit tagged `nextTo` (two allied Brigades joining up).
+  NEXT_TO(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const mine = W.units.filter(u => onBoard(u) && u.side === side && u.storyTag === c.tag && u.type !== 'BRIGADIER');
+    const them = W.units.filter(u => onBoard(u) && u.side === side && u.storyTag === c.nextTo);
+    const n = mine.filter(u => them.some(o => Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y)) === 1)).length;
+    return roundGate(side, c, ctx, n >= (c.count || 1));
+  },
+  // A named commander (tagged unit) still in play, optionally inside an area.
+  COMMANDER(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const u = W.units.find(o => o.storyTag === c.tag && o.type === 'BRIGADIER');
+    return roundGate(side, c, ctx, !!u && onBoard(u) && (!c.area || inArea(u, c.area)));
+  },
+  // The enemy's named commander removed (killed or captured, not marched off).
+  COMMANDER_REMOVED(side, c, ctx){
+    if(c.byRound && ctx.round > c.byRound) return false;
+    const u = W.units.find(o => o.storyTag === c.tag && o.type === 'BRIGADIER');
+    return !!u && u.removed && !u.escaped;
+  },
+  // At least `count` of this side's Brigades with a fighting unit left.
+  BRIGADES_UNBROKEN(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    return roundGate(side, c, ctx, brigadeStates(side).filter(b => b.alive).length >= c.count);
+  },
+  // At least `count` enemy Brigades broken (every fighting unit gone).
+  BREAK_BRIGADES(side, c, ctx){
+    if(c.byRound && ctx.round > c.byRound) return false;
+    return brigadeStates(otherSide(side)).filter(b => !b.alive).length >= c.count;
+  },
+  // This side has had a fighting unit in the area at least once (latched).
+  ENTERED(side, c, ctx){
+    if(c.byRound && ctx.round > c.byRound) return false;
+    const key = SIDE_KEY[side] + ':ENTERED:' + c.area;
+    if(W.units.some(u => onBoard(u) && u.side === side && u.type !== 'BRIGADIER' && inArea(u, c.area))) W.streaks[key] = 1;
+    return !!W.streaks[key];
   },
 };
+/* A side's Brigades: alive while any fighting unit of it is still on the field. */
+function brigadeStates(side){
+  const by = new Map();
+  for(const u of W.units.filter(o => o.side === side && o.type !== 'BRIGADIER' && !o.escaped)){
+    const b = by.get(u.brigadeId) || { id: u.brigadeId, alive: false };
+    if(onBoard(u)) b.alive = true;
+    by.set(u.brigadeId, b);
+  }
+  return [...by.values()];
+}
 /* atRound: only at the end of that round. forRounds: consecutive end-of-round
    checks, counted once per round (however many units fell that round). */
 function roundGate(side, c, ctx, here){
@@ -85,6 +153,20 @@ function roundGate(side, c, ctx, here){
     return (streaks[key] || 0) >= c.forRounds;
   }
   return here;
+}
+/* Per-condition latching, for independently judged campaign battles: each
+   condition counts once it has been true at any check, so an objective can be
+   "hold the farm at round 8 AND have Baring in play at round 12". */
+export function listLatched(side, ctx){
+  const w = W.card.win && W.card.win[SIDE_KEY[side]];
+  if(!w) return false;
+  const conds = w.conditions || [];
+  const done = conds.map((c, i) => {
+    const key = SIDE_KEY[side] + ':L:' + i;
+    if(!W.streaks[key] && (ctx.endOfRound || INSTANT.has(c.type)) && CONDITIONS[c.type](side, c, ctx)) W.streaks[key] = ctx.round || 1;
+    return !!W.streaks[key];
+  });
+  return w.combinator === 'all' ? done.every(Boolean) && done.length > 0 : done.some(Boolean);
 }
 export function listMet(side, ctx){
   const w = W.card.win && W.card.win[SIDE_KEY[side]];

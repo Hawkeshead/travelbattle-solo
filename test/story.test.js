@@ -33,3 +33,18 @@ test('Waterloo: fourteen battles, each a complete board with forces and objectiv
     assert.ok(b.turnLimit > 0 && ['standard', 'corridor', 'single'].includes(b.layout), `${b.id}: layout or turn limit`);
   }
 });
+
+import { storyToCard } from '../js/story.js';
+import { validateCard } from '../js/scenario-validate.js';
+
+test('every Waterloo battle makes a valid battle card for every nation that fought in it', () => {
+  for(const b of story.battles){
+    for(const nation of Object.keys(b.sides)){
+      const card = storyToCard(b, nation, 'waterloo');
+      const errs = validateCard(card);
+      assert.deepEqual(errs, [], `${b.id} as ${nation}: ${errs.join('; ')}`);
+      assert.equal(card.judging, 'independent');
+      for(const side of ['british', 'french']) assert.ok(card.win[side].conditions.length > 0, `${b.id}: ${side} has no conditions`);
+    }
+  }
+});
