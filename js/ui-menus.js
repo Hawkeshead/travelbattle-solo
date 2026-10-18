@@ -85,7 +85,7 @@ export function prepareTitleBoard(){
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(Math.random()*4), blue: Math.floor(Math.random()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-  state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
+  state.roads = null; state.mapSeeds = null; state.water = null; state.places = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -986,6 +986,7 @@ export function beginBoardSetup(){
     /* A river on some random maps (river-generator.js), entering and leaving
        each board at the centre gap of its edges. Its seed comes from the two
        board seeds, so the match's own random sequence is untouched. */
+    state.places = null;
     state.water = buildWater(generateRiver(state.terrain, state.roads, (seeds[0] ^ Math.imul(seeds[1], 31)) >>> 0));
     if(state.water) log(`A river crosses the field (${state.water.bridges.length} bridge${state.water.bridges.length === 1 ? '' : 's'}).`, 'system');
     state.grassStyles = assignGrassStyles(state.terrain);
@@ -1005,7 +1006,7 @@ export function beginBoardSetup(){
   state.boardAssignment = { red: keys[0], blue: keys[1] };
   state.boardRotation = { red: Math.floor(seededRandom()*4), blue: Math.floor(seededRandom()*4) };
   state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-  state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
+  state.roads = null; state.mapSeeds = null; state.water = null; state.places = null;   // a classic map: no road layer
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -1112,7 +1113,7 @@ function runRotationPicks(eligibleSides, i){
     const chosen = Math.floor(seededRandom()*4);
     state.boardRotation[side] = chosen;
     state.terrain = buildTerrainMap(state.boardAssignment, state.boardRotation);
-    state.roads = null; state.mapSeeds = null; state.water = null;   // a classic map: no road layer
+    state.roads = null; state.mapSeeds = null; state.water = null; state.places = null;   // a classic map: no road layer
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = buildExcludedRoadEdgeSet(state.boardAssignment, state.boardRotation);
@@ -1245,7 +1246,7 @@ export function beginGrandBoardSetup(){
   const quadrants = generateGrandQuadrants();
   state.grandQuadrants = quadrants;
   state.terrain = buildTerrainMapGrand(quadrants);
-  state.roads = null; state.mapSeeds = null; state.water = null;   // a fixed map: roads are its ROAD squares (no road layer)
+  state.roads = null; state.mapSeeds = null; state.water = null; state.places = null;   // a fixed map: roads are its ROAD squares (no road layer)
   state.grassStyles = assignGrassStyles(state.terrain);
   state.buildingStyles = assignBuildingStyles(state.terrain);
   state.excludedRoadEdges = buildExcludedRoadEdgeSetGrand(quadrants);

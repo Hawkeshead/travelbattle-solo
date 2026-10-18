@@ -1,0 +1,2542 @@
+{
+ "$comment": "The Waterloo campaign's battles (designed 17 to 18 Oct 2026; see the Grognards Campaign Design doc). Maps use the authored glyphs (. open, : farmland, * woods, ^ hill, # buildings; roads as '='), river specs as js/water-core.js reads them, and place names as [name, x, y, kind] in board cell units. Objectives are text for now; their machine conditions come with the objective engine.",
+ "schemaVersion": 1,
+ "campaign": "waterloo",
+ "name": "The Waterloo Campaign",
+ "years": "1815",
+ "battles": [
+  {
+   "id": "ligny",
+   "name": "Ligny",
+   "date": "16 June 1815",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Napoleon attacked Blücher's three corps strung along the Ligny brook, and the villages of Saint-Amand and Ligny changed hands all afternoon. At dusk the Imperial Guard broke the Prussian centre at Ligny, but Gneisenau led the army away north in good order, which let it march to Waterloo two days later.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Ligny",
+   "map": {
+    "terrain": [
+     "....................",
+     "......::.......::...",
+     "...................:",
+     "....::..............",
+     "....................",
+     ".###.....#.#....##..",
+     ".##......###....##..",
+     "...^^^^^^^^^^^......",
+     ".....#......^^......",
+     "...................."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "===================="
+    ],
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       20.2,
+       5
+      ]
+     ],
+     "fords": [
+      [
+       5.2,
+       7.8,
+       3.6,
+       4.4
+      ],
+      [
+       11.2,
+       13.8,
+       4.6,
+       5.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         10,
+         4
+        ],
+        [
+         10,
+         5
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Saint-Amand",
+      2,
+      7.5,
+      "town"
+     ],
+     [
+      "Ligny",
+      10.5,
+      7.5,
+      "town"
+     ],
+     [
+      "Tongrinne",
+      16.5,
+      7.5,
+      "town"
+     ],
+     [
+      "Brye",
+      5.5,
+      9.35,
+      "town"
+     ],
+     [
+      "Brye heights",
+      5.6,
+      7.42,
+      "feature"
+     ],
+     [
+      "Bussy mill",
+      12.6,
+      8.55,
+      "feature"
+     ],
+     [
+      "Ligny brook",
+      2.6,
+      4.62,
+      "water"
+     ],
+     [
+      "Namur road",
+      15.2,
+      9.55,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Rows 6 to 10; may start in the villages",
+     "objective": {
+      "text": "At the end of round 10, two Brigades unbroken and Blücher (Zieten's Brigadier) in play.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Zieten, under Blücher",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Pirch",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Light Cavalry"
+      },
+      {
+       "name": "Thielmann",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "HEAVY_CAV",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Hold three of Ligny's five village squares (J6, L6, J7 to L7) at the end of round 10, or break one Prussian Brigade.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Vandamme",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Gérard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "HEAVY_CAV",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery"
+      },
+      {
+       "name": "Imperial Guard",
+       "units": [
+        "BRIGADIER",
+        "GUARD",
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Guard x3, Artillery"
+      }
+     ]
+    }
+   },
+   "special": "The Imperial Guard cannot move before round 5.",
+   "balance": "France has the Guard and 3 more points, but must cross the brook (one bridge, two fords) into villages, and its Guard only has six rounds. Prussia only has to survive in shape, which a careful player can do, so its margin is thin troops spread over three villages. Target 50 to 60% each."
+  },
+  {
+   "id": "saint-amand",
+   "name": "Saint-Amand",
+   "date": "16 June 1815",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 8,
+   "history": "On the French left, Vandamme's corps and later the Young Guard fought Zieten's and Pirch's Prussians for the three villages of Saint-Amand, Saint-Amand-la-Haye and Wagnelée. The French ended the day holding Saint-Amand, while the Prussians kept Wagnelée.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Ligny",
+   "map": {
+    "terrain": [
+     "....................",
+     "....::.......::.....",
+     "......:::...........",
+     "....................",
+     ".........###........",
+     "........####........",
+     "....###.............",
+     "....##.........^^^..",
+     "##...........^^^^^..",
+     "##.................."
+    ],
+    "roads": [
+     "............=.......",
+     "............=.......",
+     "............=.......",
+     "............=.......",
+     "............=.......",
+     ".......======.......",
+     ".......=....=.......",
+     "............==......",
+     "..===........==.....",
+     "..............======"
+    ],
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       20.2,
+       4
+      ]
+     ],
+     "fords": [
+      [
+       3.2,
+       5.8,
+       2.6,
+       3.4
+      ],
+      [
+       15.2,
+       17.8,
+       2.6,
+       3.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         12,
+         3
+        ],
+        [
+         12,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Saint-Amand",
+      10,
+      6.42,
+      "town"
+     ],
+     [
+      "Saint-Amand-la-Haye",
+      5.2,
+      8.42,
+      "town"
+     ],
+     [
+      "Wagnelée",
+      2.6,
+      9.55,
+      "town"
+     ],
+     [
+      "Brye heights",
+      16.2,
+      6.55,
+      "feature"
+     ],
+     [
+      "Ligny brook",
+      9,
+      3.62,
+      "water"
+     ],
+     [
+      "to Fleurus",
+      12.9,
+      0.45,
+      "feature"
+     ],
+     [
+      "to Brye",
+      17.5,
+      9.55,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
+     "objective": {
+      "text": "Hold Wagnelée, or two squares of Saint-Amand-la-Haye, at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Steinmetz",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4"
+      },
+      {
+       "name": "Tippelskirch",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Hold four squares of Saint-Amand and one of Saint-Amand-la-Haye at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Vandamme",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Young Guard (Duhesme), arrives round 4 on row 1",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+       ],
+       "protect": false,
+       "note": "Brigadier, Guard x2, Infantry"
+      }
+     ]
+    }
+   },
+   "special": "None beyond the brook.",
+   "balance": "Even on points. France faces houses behind water but gets the Young Guard as a second wave once Saint-Amand is softened; Prussia can fall back village by village and only needs to keep the rear one. Target 50 to 60% each."
+  },
+  {
+   "id": "blucher",
+   "name": "Blücher Unhorsed",
+   "date": "16 June 1815, evening",
+   "kind": "Operation",
+   "layout": "single",
+   "turnLimit": 8,
+   "history": "As the Guard broke through at Ligny, the 73-year-old Blücher led a cavalry counter-charge in person. His horse was shot and fell on him, and French cuirassiers rode past him twice in the dusk while his aide Nostitz stood guard, before Prussian lancers drove them off and he was carried away.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Gebhard_Leberecht_von_Bl%C3%BCcher",
+   "map": {
+    "terrain": [
+     "...##.##..",
+     "....#.#...",
+     "..::......",
+     "......::..",
+     "..........",
+     "...:......",
+     "..........",
+     ".....^^^..",
+     "#...^^^^..",
+     "#........."
+    ],
+    "roads": [
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".=====...."
+    ],
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       2
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       2,
+       1.0
+      ],
+      [
+       8,
+       1.0
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       10.2,
+       2
+      ]
+     ],
+     "fords": [
+      [
+       2.2,
+       4.6,
+       0.6,
+       1.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         5,
+         0
+        ],
+        [
+         5,
+         1
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Ligny, burning",
+      8.4,
+      0.5,
+      "town"
+     ],
+     [
+      "Ligny brook",
+      8.9,
+      2.42,
+      "water"
+     ],
+     [
+      "Bussy mill",
+      6.6,
+      6.62,
+      "feature"
+     ],
+     [
+      "Brye",
+      1.5,
+      8.6,
+      "town"
+     ],
+     [
+      "to Fleurus",
+      6.1,
+      0.4,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Blücher at E6; the rest rows 8 to 10",
+     "objective": {
+      "text": "Blücher in play and in rows 8 to 10 at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Blücher's escort",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "protect": true,
+       "note": "Blücher (to protect), Light Cavalry x2, Infantry x2"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Remove Blücher, or have three units in rows 8 to 10, at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Milhaud",
+       "units": [
+        "BRIGADIER",
+        "GUARD",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Heavy Cavalry x2, Guard"
+      }
+     ]
+    }
+   },
+   "special": "Blücher is pinned for rounds 1 and 2, then moves as cavalry and cannot attack.",
+   "balance": "Even on points. The cuirassiers reach him by round 2, so the Prussian lancers must screen him and then race him four squares home; France can also win by pushing through, which pulls Prussia two ways. Target 50 to 60% each."
+  },
+  {
+   "id": "quatre-bras",
+   "name": "Quatre Bras",
+   "date": "16 June 1815",
+   "kind": "Major battle",
+   "layout": "corridor",
+   "turnLimit": 10,
+   "history": "Ney attacked the Quatre Bras crossroads, held at first only by Dutch-Belgian troops, while Wellington fed in Picton's division, the Brunswickers and finally the Guards as they arrived. By nightfall the Allies still held the crossroads, but Ney had kept Wellington from helping Blücher at Ligny.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Quatre_Bras",
+   "map": {
+    "terrain": [
+     "...:.....*****......",
+     "...#.....******.....",
+     "..::.....*****.:....",
+     "......::......#.#...",
+     "....................",
+     "....::...#......#...",
+     "..:::.......:::.....",
+     "........::..........",
+     "....::.........##...",
+     ".................:.."
+    ],
+    "roads": [
+     "...............=....",
+     "...............=....",
+     "...............=....",
+     "...............=....",
+     "====================",
+     "...............=....",
+     "...............=....",
+     "...............=....",
+     "...............=....",
+     "...............=...."
+    ],
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       8,
+       -0.2
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       9,
+       10.2
+      ]
+     ],
+     "fords": [
+      [
+       7.6,
+       8.4,
+       0.3,
+       2.7
+      ],
+      [
+       8.6,
+       9.4,
+       7.0,
+       9.6
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         7,
+         4
+        ],
+        [
+         8,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Quatre Bras",
+      17.6,
+      2.42,
+      "town"
+     ],
+     [
+      "Bossu Wood",
+      11.6,
+      1.5,
+      "feature"
+     ],
+     [
+      "Gemioncourt",
+      9.6,
+      6.45,
+      "town"
+     ],
+     [
+      "Pierrepont",
+      3.6,
+      2.42,
+      "town"
+     ],
+     [
+      "Piraumont",
+      15.9,
+      9.45,
+      "town"
+     ],
+     [
+      "Gemioncourt brook",
+      6.4,
+      8.5,
+      "water"
+     ],
+     [
+      "to Nivelles",
+      16.9,
+      0.45,
+      "feature"
+     ],
+     [
+      "to Namur",
+      16.8,
+      7.55,
+      "feature"
+     ],
+     [
+      "to Charleroi",
+      1.4,
+      3.6,
+      "feature"
+     ],
+     [
+      "to Brussels",
+      18.6,
+      4.42,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Perponcher in columns I to P; Picton arrives round 3 and Brunswick round 5 on column T",
+     "objective": {
+      "text": "An Allied unit on the crossroads (P5) and no French unit on it, at the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Perponcher (Dutch-Belgians)",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Picton, round 3",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Guard"
+      },
+      {
+       "name": "Brunswick, round 5",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Columns A and B; Kellermann arrives round 4 on column A",
+     "objective": {
+      "text": "Hold Gemioncourt (J6) and have removed four Allied units, at the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Bachelu",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Foy",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Light Cavalry"
+      },
+      {
+       "name": "Kellermann, round 4",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Heavy Cavalry x3"
+      }
+     ]
+    }
+   },
+   "special": "Reinforcements enter on their own end at the start of the round shown.",
+   "balance": "France has 28 points against Perponcher's 14 for the first two rounds and should take Gemioncourt; the Allies catch up to 40 against 42 as reinforcements arrive near the crossroads. Both objectives were met on the day. Target 50 to 60% each."
+  },
+  {
+   "id": "kellermann",
+   "name": "Kellermann's Charge",
+   "date": "16 June 1815",
+   "kind": "Operation",
+   "layout": "single",
+   "turnLimit": 6,
+   "history": "Late in the afternoon Kellermann led his cuirassiers through the tall rye at Halkett's brigade. The 69th Foot, ordered out of square into line, was ridden down and lost a colour; the cuirassiers reached the crossroads before artillery and musketry broke them.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Quatre_Bras",
+   "map": {
+    "terrain": [
+     "..........",
+     "..:::.:::.",
+     "..:::.:::.",
+     "*.........",
+     "**.::::...",
+     "**.::::...",
+     "*.........",
+     "....#.....",
+     "......#...",
+     ".........."
+    ],
+    "roads": [
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     ".....=....",
+     "==========",
+     ".....=...."
+    ],
+    "river": null,
+    "places": [
+     [
+      "Quatre Bras",
+      7.9,
+      7.5,
+      "town"
+     ],
+     [
+      "Bossu Wood",
+      1.3,
+      7.5,
+      "feature"
+     ],
+     [
+      "tall rye",
+      4.0,
+      0.5,
+      "feature"
+     ],
+     [
+      "to Charleroi",
+      6.6,
+      0.42,
+      "feature"
+     ],
+     [
+      "to Brussels",
+      6.5,
+      9.6,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Rows 5 to 7, in and around the rye",
+     "objective": {
+      "text": "Remove two French cavalry units by the end of round 6, with no French unit on the crossroads (F9) at the end of round 6.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Halkett",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4 (the 69th starts in line), Artillery"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 and 2",
+     "objective": {
+      "text": "Remove two Allied infantry units, or end a turn with a cavalry unit on the crossroads (F9), by the end of round 6.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Kellermann",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Heavy Cavalry x3, Light Cavalry"
+      }
+     ]
+    }
+   },
+   "special": "Tall rye: a unit in farmland is hidden from enemies more than two squares away.",
+   "balance": "Even on points. Cavalry beat infantry in line but lose to squares and guns; the rye decides who is caught out. Short and sharp. Target 50 to 60% each."
+  },
+  {
+   "id": "narrow-escape",
+   "name": "The Duke's Narrow Escape",
+   "date": "16 June 1815",
+   "kind": "Operation",
+   "layout": "single",
+   "turnLimit": 8,
+   "history": "Riding forward to watch the Brunswickers, Wellington and his staff were caught by French lancers and chasseurs. He galloped for the 92nd Highlanders, told them to lie down, and jumped his horse over their bayonets into the square. Close by, the Duke of Brunswick was shot leading his men and died that evening.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/92nd_(Gordon_Highlanders)_Regiment_of_Foot",
+   "map": {
+    "terrain": [
+     "..........",
+     "....::....",
+     "*.....::..",
+     "**........",
+     "**...::...",
+     "*.........",
+     "..........",
+     ".....#....",
+     ".......#..",
+     ".........."
+    ],
+    "roads": [
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "==========",
+     "......=..."
+    ],
+    "river": null,
+    "places": [
+     [
+      "Quatre Bras",
+      8.6,
+      7.45,
+      "town"
+     ],
+     [
+      "Bossu Wood",
+      1.5,
+      6.5,
+      "feature"
+     ],
+     [
+      "the 92nd's ditch",
+      4.6,
+      6.55,
+      "feature"
+     ],
+     [
+      "to Charleroi",
+      7.6,
+      0.42,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Wellington at C4; the 92nd in square at G8; Brunswick rows 5 and 6",
+     "objective": {
+      "text": "Wellington ends a turn on or next to the 92nd's square by the end of round 3, and is in play at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Wellington and the 92nd",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY"
+       ],
+       "protect": true,
+       "note": "Wellington (to protect), Infantry (the 92nd, in square)"
+      },
+      {
+       "name": "The Duke of Brunswick",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 and 2",
+     "objective": {
+      "text": "Remove Wellington or the Duke of Brunswick by the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Piré",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Light Cavalry x3, Infantry"
+      }
+     ]
+    }
+   },
+   "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it.",
+   "balance": "Britain has 2 more points but two commanders to keep alive, and Wellington starts three squares from safety with lancers two moves away. Target 50 to 60% each."
+  },
+  {
+   "id": "genappe-17",
+   "name": "The Cavalry at Genappe",
+   "date": "17 June 1815",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 10,
+   "history": "Wellington fell back from Quatre Bras in a thunderstorm, Uxbridge's cavalry covering the retreat. In Genappe's narrow street the 7th Hussars charged the French lancers and were thrown back; then the 1st Life Guards came down the hill and drove the lancers through the town, and the pursuit slowed.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Genappe",
+   "map": {
+    "terrain": [
+     "...::...............",
+     "............^^^.....",
+     ".....:......^^^^....",
+     ".......##.#.^^^^....",
+     "....................",
+     ".......#.##..^^^....",
+     "....::.......^^^....",
+     "............^^......",
+     "..:::...............",
+     "................::.."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       9,
+       -0.2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       10,
+       10.2
+      ]
+     ],
+     "fords": [
+      [
+       9.6,
+       10.4,
+       7.6,
+       9.8
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         8,
+         4
+        ],
+        [
+         9,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Genappe",
+      8.5,
+      6.5,
+      "town"
+     ],
+     [
+      "the Dyle",
+      10.7,
+      1.0,
+      "water"
+     ],
+     [
+      "Heights of Genappe",
+      13.9,
+      8.5,
+      "feature"
+     ],
+     [
+      "to Quatre Bras",
+      1.6,
+      3.6,
+      "feature"
+     ],
+     [
+      "to Brussels",
+      18.6,
+      3.6,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
+     "objective": {
+      "text": "Five units leave by column T by the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Rearguard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Artillery"
+      },
+      {
+       "name": "Uxbridge",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Heavy Cavalry x2, Light Cavalry x2 (one is the 7th Hussars)"
+      }
+     ]
+    },
+    "France": {
+     "start": "Columns A and B",
+     "objective": {
+      "text": "Remove three Allied units by the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Subervie",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Light Cavalry x3, Heavy Cavalry"
+      },
+      {
+       "name": "Advance guard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Artillery"
+      }
+     ]
+    }
+   },
+   "special": "Thunderstorm: no artillery fire in rounds 1 to 4, and all ground but roads costs one extra move. The Dyle is crossed at the bridge or the ford.",
+   "balance": "Even on points. The Allies must squeeze through one bridge with French cavalry behind them; the Life Guards on the heights are there to counter-charge and buy the time. Target 50 to 60% each."
+  },
+  {
+   "id": "wavre",
+   "name": "Wavre",
+   "date": "18 to 19 June 1815",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 12,
+   "history": "While the rest of the Prussian army marched to Waterloo, Thielmann's single corps held the line of the Dyle at Wavre, Bierges and Limale against Grouchy's far larger force. Grouchy forced a crossing at Limale and drove Thielmann back on the 19th, but by then Waterloo was lost, and his 33,000 men had spent the battle away from it.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Wavre",
+   "map": {
+    "terrain": [
+     "....................",
+     "...::.........::....",
+     "..............#.#...",
+     "....................",
+     "...#.....#...##.#...",
+     ".##......#...####...",
+     "....^^^^^^^^^^^^....",
+     "...^^^^^^^^^^^^^^...",
+     "....................",
+     "...................."
+    ],
+    "roads": [
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..=.....=......=....",
+     "..==============....",
+     "..........=........."
+    ],
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       -0.2,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       5,
+       3.0
+      ],
+      [
+       7,
+       3.0
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       12,
+       3.0
+      ],
+      [
+       13,
+       3.0
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       20.2,
+       4
+      ]
+     ],
+     "fords": [],
+     "bridges": [
+      {
+       "squares": [
+        [
+         2,
+         3
+        ],
+        [
+         2,
+         4
+        ]
+       ],
+       "art": "wooden"
+      },
+      {
+       "squares": [
+        [
+         8,
+         3
+        ],
+        [
+         8,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      },
+      {
+       "squares": [
+        [
+         15,
+         3
+        ],
+        [
+         15,
+         4
+        ]
+       ],
+       "art": "three-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Limale",
+      2.1,
+      6.45,
+      "town"
+     ],
+     [
+      "Bierges mill",
+      9.6,
+      6.45,
+      "town"
+     ],
+     [
+      "Wavre",
+      14.6,
+      6.45,
+      "town"
+     ],
+     [
+      "the Dyle",
+      5.9,
+      2.4,
+      "water"
+     ],
+     [
+      "to Waterloo",
+      11.6,
+      9.55,
+      "feature"
+     ],
+     [
+      "Grouchy's approach",
+      8.5,
+      0.45,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Rows 5 to 10",
+     "objective": {
+      "text": "Hold three squares of Wavre (N5 to Q6) at the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Thielmann",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Stulpnagel",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "At the end of round 12, units on two of the three bridges (C4 and C5, I4 and I5, P4 and P5), each with a unit beside it on the Prussian bank.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Vandamme",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4, Artillery"
+      },
+      {
+       "name": "Gérard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Pajol",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry"
+      }
+     ]
+    }
+   },
+   "special": "The Dyle is crossed only at bridges. Five artillery hits destroy a bridge.",
+   "balance": "France has 43 points against 25, but every attack goes over a two-square bridge, Prussia can blow a bridge with its guns, and Prussia's clock stops at round 8. Limale (the wooden bridge, furthest from Wavre) is the weak point, as it was. Target 50 to 60% each."
+  },
+  {
+   "id": "hougoumont",
+   "name": "Hougoumont",
+   "date": "18 June 1815",
+   "kind": "Operation",
+   "layout": "single",
+   "turnLimit": 12,
+   "history": "The walled chateau-farm of Hougoumont, in front of Wellington's right, was held all day by the Guards' light companies, Nassauers and Hanoverians against Prince Jérôme's and later Foy's divisions. Once, the French broke in at the north gate, and were killed to a man after Macdonell and a handful of Guardsmen forced it shut.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Hougoumont",
+   "map": {
+    "terrain": [
+     "..........",
+     "..******..",
+     ".*******..",
+     "..***.....",
+     "...##:**..",
+     "...##:**..",
+     "..........",
+     "..........",
+     ".^^^^^^^^.",
+     ".........."
+    ],
+    "roads": [
+     ".=.=......",
+     ".=.=......",
+     ".=.=......",
+     ".=.=......",
+     ".=........",
+     ".=........",
+     ".=..=.....",
+     ".=..=.....",
+     ".=..=.....",
+     ".====....."
+    ],
+    "river": null,
+    "places": [
+     [
+      "Hougoumont",
+      4.0,
+      6.45,
+      "town"
+     ],
+     [
+      "Hougoumont wood",
+      5.0,
+      0.45,
+      "feature"
+     ],
+     [
+      "the orchard",
+      7.6,
+      6.45,
+      "feature"
+     ],
+     [
+      "the garden",
+      5.5,
+      3.6,
+      "feature"
+     ],
+     [
+      "Mont-Saint-Jean ridge",
+      6.0,
+      9.55,
+      "feature"
+     ],
+     [
+      "Nivelles road",
+      2.3,
+      8.0,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "In the chateau (D5 to E6), the garden and the orchard; the guns on the ridge (rows 8 and 9)",
+     "objective": {
+      "text": "Hold all four chateau squares (D5, E5, D6, E6) at the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Macdonell",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Guard x2, Infantry (Nassau), Artillery"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Enter a chateau square at least once, and remove two Allied units, by the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Jérôme",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4, Artillery"
+      }
+     ]
+    }
+   },
+   "special": "French waves: a lost French Infantry unit returns on row 1 two rounds later, up to four times.",
+   "balance": "France has 17 points plus up to 12 more in waves against 16 in stone buildings. The garden and orchard are the outworks France must take first. Target 50 to 60% each."
+  },
+  {
+   "id": "la-haye-sainte",
+   "name": "La Haye Sainte",
+   "date": "18 June 1815",
+   "kind": "Operation",
+   "layout": "single",
+   "turnLimit": 12,
+   "history": "Major Baring's 2nd Light Battalion of the King's German Legion held the farm of La Haye Sainte on the Brussels road all afternoon, with the 95th Rifles in the sandpit opposite. Their Baker rifles needed special ammunition that never arrived, and at about six the French took the farm; 42 of nearly 400 defenders got back to the ridge.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/La_Haye_Sainte",
+   "map": {
+    "terrain": [
+     "..........",
+     ".....:....",
+     "...:::....",
+     "....**....",
+     ".....#.^..",
+     "....:#....",
+     "..........",
+     "^^^^^^^^^^",
+     ".^^^^^^^^.",
+     ".........."
+    ],
+    "roads": [
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "......=...",
+     "==========",
+     "......=...",
+     "......=..."
+    ],
+    "river": null,
+    "places": [
+     [
+      "La Haye Sainte",
+      3.4,
+      6.45,
+      "town"
+     ],
+     [
+      "the sandpit",
+      8.1,
+      3.55,
+      "feature"
+     ],
+     [
+      "the orchard",
+      3.0,
+      3.55,
+      "feature"
+     ],
+     [
+      "Ohain road",
+      2.0,
+      7.55,
+      "feature"
+     ],
+     [
+      "to Brussels",
+      7.6,
+      9.6,
+      "feature"
+     ],
+     [
+      "to Charleroi",
+      7.6,
+      0.42,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Baring in the farm (F5, F6); the 95th in the sandpit (H5); the rest on the ridge (rows 8 and 9)",
+     "objective": {
+      "text": "Hold a farm square until the end of round 8, and have Baring in play at the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Baring (King's German Legion)",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2"
+      },
+      {
+       "name": "Kempt",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Artillery"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Hold both farm squares (F5, F6) at the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Donzelot",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4, Artillery"
+      },
+      {
+       "name": "Travers",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Heavy Cavalry x2"
+      }
+     ]
+    }
+   },
+   "special": "From round 7 the units in the farm cannot volley (their rifle ammunition is gone).",
+   "balance": "France has 27 points against 19, but the farm is stone and the sandpit flanks the road. The ammunition rule tips it to France late, which is the history: the farm holds for hours, then falls. Target 50 to 60% each."
+  },
+  {
+   "id": "papelotte",
+   "name": "Papelotte",
+   "date": "18 June 1815",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "On Wellington's far left, Prince Bernhard of Saxe-Weimar's Nassauers held the hamlets of Papelotte, La Haye and Smohain against Durutte's division all day. In the evening Zieten's Prussians arrived from the east and, seeing the Nassauers' dark uniforms, at first fired on them, before the two joined up and the French were driven off.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Waterloo",
+   "map": {
+    "terrain": [
+     "....................",
+     "...::.........::....",
+     "....................",
+     "..............**....",
+     ".....##.......***#..",
+     ".....#....##.....##.",
+     "..........#......#..",
+     "^^^^^...............",
+     "^^^^......::........",
+     "...................."
+    ],
+    "roads": [
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     "....................",
+     "......==============",
+     "......=.....=.......",
+     "=======.....=.......",
+     "......=.....=.......",
+     "......=.....=......."
+    ],
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       7,
+       10.2
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       20.2,
+       7
+      ]
+     ],
+     "fords": [
+      [
+       14.2,
+       16.8,
+       6.6,
+       7.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         12,
+         6
+        ],
+        [
+         12,
+         7
+        ]
+       ],
+       "art": "wooden"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Papelotte",
+      3.3,
+      4.55,
+      "town"
+     ],
+     [
+      "La Haye",
+      11.0,
+      7.5,
+      "town"
+     ],
+     [
+      "Smohain",
+      18.0,
+      7.5,
+      "town"
+     ],
+     [
+      "Frichermont",
+      15.6,
+      2.42,
+      "town"
+     ],
+     [
+      "Smohain brook",
+      14.5,
+      8.4,
+      "water"
+     ],
+     [
+      "to Lasne",
+      18.8,
+      4.45,
+      "feature"
+     ],
+     [
+      "Wellington's ridge",
+      2.4,
+      9.5,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "In the hamlets (Papelotte F5 to G6, La Haye K6 to L7, Smohain R5 to S7)",
+     "objective": {
+      "text": "Hold two of the three hamlets at the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Saxe-Weimar (Nassau)",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      }
+     ]
+    },
+    "Prussia": {
+     "start": "Arrives round 6 on column T, rows 5 to 7",
+     "objective": {
+      "text": "Three units next to Nassau units at the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Zieten",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "Hold any one hamlet at the end of round 5.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Durutte",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x4, Artillery"
+      },
+      {
+       "name": "Jacquinot",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Light Cavalry x2"
+      }
+     ]
+    }
+   },
+   "special": "Mistaken identity: on the round they arrive, Prussian units cannot attack and cannot be supported by Nassau units. From Britain's route the AI commands Zieten; from Prussia's, Saxe-Weimar.",
+   "balance": "France has 25 against 14 for five rounds and only needs one hamlet briefly; the Allies need two at the end, which the Prussians make possible from round 6. Target 50 to 60% for each side."
+  },
+  {
+   "id": "plancenoit",
+   "name": "Plancenoit",
+   "date": "18 June 1815",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "From half past four, Bülow's Prussians came out of the Bois de Paris and attacked Plancenoit, behind the French right. Lobau's corps, then the Young Guard and finally two battalions of the Old Guard retook the village in turn, and the fighting around its walled churchyard went on until the Prussians took it for good at about half past eight.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Plancenoit",
+   "map": {
+    "terrain": [
+     "....................",
+     "....::........::....",
+     "....................",
+     ".........###........",
+     "........#####.......",
+     ".........###........",
+     "....................",
+     ".....::.......***...",
+     "...........*****....",
+     "..........******...."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "......=====.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=====.....",
+     "..............======"
+    ],
+    "river": null,
+    "places": [
+     [
+      "Plancenoit",
+      10.5,
+      6.45,
+      "town"
+     ],
+     [
+      "the church",
+      13.8,
+      4.5,
+      "feature"
+     ],
+     [
+      "Bois de Paris",
+      13.0,
+      9.55,
+      "feature"
+     ],
+     [
+      "to La Belle Alliance",
+      3.4,
+      4.45,
+      "feature"
+     ],
+     [
+      "to Rossomme",
+      12.0,
+      0.45,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Rows 8 to 10, out of the Bois de Paris",
+     "objective": {
+      "text": "Hold the church (K5) and two other village squares at the end of round 10.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Hiller",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery"
+      },
+      {
+       "name": "Ryssel",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Lobau in the village; Duhesme rows 1 to 3; the Old Guard joins Duhesme on row 1 in round 6",
+     "objective": {
+      "text": "Hold the church (K5) at the end of round 6.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Lobau",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Artillery"
+      },
+      {
+       "name": "Duhesme (Young Guard)",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "GUARD",
+        "GUARD"
+       ],
+       "protect": false,
+       "note": "Brigadier, Guard x2, Infantry"
+      },
+      {
+       "name": "Old Guard, round 6",
+       "units": [
+        "GUARD",
+        "GUARD"
+       ],
+       "protect": false,
+       "note": "Guard x2"
+      }
+     ]
+    }
+   },
+   "special": "None.",
+   "balance": "France has 32 against 28 and starts in the houses, but its clock ends at round 6; Prussia must still be in the village at round 10 after the Old Guard arrives. Target 50 to 60% each."
+  },
+  {
+   "id": "waterloo",
+   "name": "Waterloo",
+   "date": "18 June 1815",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 12,
+   "history": "Wellington held the ridge of Mont-Saint-Jean all day, with Hougoumont and La Haye Sainte in front of it, through the grand battery, d'Erlon's attack and Ney's massed cavalry charges. As the Prussians broke into the French right at Plancenoit, the Imperial Guard's final attack was thrown back, and the French army fell apart.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Waterloo",
+   "map": {
+    "terrain": [
+     "..........#.........",
+     "..^^^^^^^^^^^^^.....",
+     ".........:::.....*##",
+     ".**...:::.......::.*",
+     ".**..::.......::..#.",
+     ".##.......#.....##..",
+     "...^^^^^^^^^^^^^^...",
+     "....................",
+     "*........#.........*",
+     "**................**"
+    ],
+    "roads": [
+     "...=......=.........",
+     "...=......=.........",
+     "...=......=.........",
+     "...=......=.........",
+     "...=......=.........",
+     "...=......=.........",
+     "...==============...",
+     "...=......=.........",
+     "...========.........",
+     "..........=........."
+    ],
+    "river": null,
+    "places": [
+     [
+      "La Belle Alliance",
+      13.0,
+      0.45,
+      "town"
+     ],
+     [
+      "Hougoumont",
+      1.6,
+      6.55,
+      "town"
+     ],
+     [
+      "La Haye Sainte",
+      12.5,
+      5.5,
+      "town"
+     ],
+     [
+      "Papelotte",
+      17.1,
+      6.45,
+      "town"
+     ],
+     [
+      "Plancenoit",
+      18.3,
+      1.42,
+      "town"
+     ],
+     [
+      "Mont-Saint-Jean",
+      7.2,
+      9.55,
+      "town"
+     ],
+     [
+      "Wellington's ridge",
+      6.8,
+      6.42,
+      "feature"
+     ],
+     [
+      "the French ridge",
+      5.0,
+      1.42,
+      "feature"
+     ],
+     [
+      "Forest of Soignes",
+      3.2,
+      9.55,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Britain": {
+     "start": "Rows 7 to 10, with one unit each in Hougoumont (B6, C6), La Haye Sainte (K6) and Papelotte (Q6, R6)",
+     "objective": {
+      "text": "No French unit on Wellington's ridge (row 7) at the end of round 12, or break two French Brigades.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Maitland and Halkett",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Guard x2, Infantry x2, Artillery"
+      },
+      {
+       "name": "Picton and Ponsonby",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x2, Heavy Cavalry x2, Artillery"
+      }
+     ]
+    },
+    "Prussia": {
+     "start": "Arrives round 6 on column T, rows 3 to 5",
+     "objective": {
+      "text": "Three units in rows 1 to 3 at the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Bülow",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Light Cavalry"
+      }
+     ]
+    },
+    "France": {
+     "start": "Rows 1 to 3",
+     "objective": {
+      "text": "La Belle Alliance (K1) still French at the end of round 9, and Napoleon in play at the end of round 12.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Reille",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY",
+        "ARTILLERY"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Artillery x2"
+      },
+      {
+       "name": "d'Erlon and Milhaud",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Infantry x3, Heavy Cavalry x2"
+      },
+      {
+       "name": "Imperial Guard",
+       "units": [
+        "BRIGADIER",
+        "GUARD",
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "protect": true,
+       "note": "Napoleon (to protect), Guard x3, Artillery"
+      }
+     ]
+    }
+   },
+   "special": "The Imperial Guard cannot move before round 7. From Britain's route the AI commands Bülow; from Prussia's, the two British Brigades.",
+   "balance": "Coalition 52 (38 from the start) against France 53. France can win outright by taking the ridge, but its own objective is to hold its centre and get Napoleon out, which becomes hard once Bülow arrives. Target 50 to 60% each."
+  },
+  {
+   "id": "pursuit",
+   "name": "The Pursuit to Genappe",
+   "date": "night of 18 to 19 June 1815",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 8,
+   "history": "Gneisenau drove the Prussian cavalry and every infantryman who could still march after the beaten French through the night. At Genappe the road jammed with guns and wagons; Prussian fusiliers took Napoleon's own carriage, and the Emperor escaped on horseback minutes before.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/August_Neidhardt_von_Gneisenau",
+   "map": {
+    "terrain": [
+     "...::...............",
+     "............^^^.....",
+     ".....:......^^^^....",
+     ".......##.#.^^^^....",
+     "....................",
+     ".......#.##..^^^....",
+     "....::.......^^^....",
+     "............^^......",
+     "..:::...............",
+     "................::.."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       9,
+       -0.2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       10,
+       10.2
+      ]
+     ],
+     "fords": [
+      [
+       9.6,
+       10.4,
+       7.6,
+       9.8
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         8,
+         4
+        ],
+        [
+         9,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "places": [
+     [
+      "Genappe",
+      8.5,
+      6.5,
+      "town"
+     ],
+     [
+      "the Dyle",
+      10.7,
+      1.0,
+      "water"
+     ],
+     [
+      "the Emperor's carriage",
+      6.9,
+      2.42,
+      "feature"
+     ],
+     [
+      "to Charleroi",
+      1.6,
+      3.6,
+      "feature"
+     ],
+     [
+      "to Waterloo",
+      18.6,
+      3.6,
+      "feature"
+     ]
+    ]
+   },
+   "sides": {
+    "Prussia": {
+     "start": "Columns S and T",
+     "objective": {
+      "text": "End a turn with a unit on the carriage square (H5) by the end of round 8.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Gneisenau",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "HEAVY_CAV"
+       ],
+       "protect": false,
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)"
+      }
+     ]
+    },
+    "France": {
+     "start": "Columns E to K; Napoleon at J5",
+     "objective": {
+      "text": "Napoleon leaves by column A by the end of round 6.",
+      "conditions": []
+     },
+     "brigades": [
+      {
+       "name": "Rearguard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "GUARD",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "protect": true,
+       "note": "Napoleon (to protect), Guard x2, Infantry, Artillery"
+      }
+     ]
+    }
+   },
+   "special": "Night: artillery fires only at targets within two squares. The jammed road: road squares give no extra move in columns F to L.",
+   "balance": "Prussia has 15 against 16. Napoleon has a head start of five squares but must cross the bridge; the rearguard must either cover him or the carriage, not both. Target 50 to 60% each."
+  }
+ ]
+}

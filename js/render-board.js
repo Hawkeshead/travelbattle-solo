@@ -1733,7 +1733,8 @@ function drawRoadsV2(lay){
    layout, viewpoint, cell size, village styles or the set of loaded tiles
    changes. Craters, units and everything else still draw fresh each frame. */
 const v2BoardCache = new WeakMap();
-const waterKey = () => state.water ? (state.water.version || 0) + ':' + bridgeArtLoaded + ':' + JSON.stringify(state.water.spec && state.water.spec.course) : 'dry';
+const fontsReady = () => (typeof document !== 'undefined' && document.fonts && document.fonts.status === 'loaded') ? 'f' : 'nf';
+const waterKey = () => (state.places ? 'p' + state.places.length + fontsReady() : '') + (state.water ? (state.water.version || 0) + ':' + bridgeArtLoaded + ':' + JSON.stringify(state.water.spec && state.water.spec.course) : 'dry');
 const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 2;   // + crater and death skull   // every v2 image: derived, so a new art set cannot leave it stale
 function drawTerrainV2(){
   const lay = v2Layout();
@@ -1922,6 +1923,8 @@ function drawTerrainV2Board(){
   // 5. the river (engine-water.js), over the roads and the village edges, then its bridges
   drawWaterV2();
   drawBridgesV2();
+  // 6. place names (hand-drawn maps), on top of the ground, under the units
+  drawPlacesV2();
 }
 
 /* =========================================================
@@ -2028,6 +2031,28 @@ function drawWaterV2(){
 }
 /* Bridges: Matthew's art (assets/terrain/bridges), spanning both bridge
    squares, turned to the road, with a cracked-stone mark for every hit taken. */
+/* PLACE NAMES (Matthew, 18 Oct 2026): a hand-drawn map's villages, hills,
+   roads and rivers named on the board in IM Fell English, the menus' face,
+   parchment on a soft dark halo. Towns upright, features in smaller italics,
+   water in pale green. Positions are board cell units ([name, x, y, kind]);
+   the text stays upright whichever way the board is viewed. */
+function drawPlacesV2(){
+  const places = state.places; if(!places || !places.length) return;
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(const [name, x, y, kind] of places){
+    const [sx, sy] = lineToScreen(x, y);
+    const town = kind === 'town';
+    ctx.font = `${town ? '' : 'italic '}${Math.round(CELL * (town ? 0.30 : 0.25))}px "IM Fell English", Georgia, serif`;
+    ctx.shadowColor = 'rgba(20,16,8,0.95)'; ctx.shadowBlur = CELL * 0.08;
+    ctx.lineWidth = CELL * 0.05; ctx.strokeStyle = 'rgba(20,16,8,0.75)'; ctx.lineJoin = 'round';
+    ctx.strokeText(name, sx * CELL, sy * CELL);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = kind === 'water' ? 'rgb(214,230,214)' : 'rgb(246,236,206)';
+    ctx.fillText(name, sx * CELL, sy * CELL);
+  }
+  ctx.restore();
+}
+if(typeof document !== 'undefined' && document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());   // names redraw once IM Fell has loaded
 const BRIDGE_ART = {};
 let bridgeArtLoaded = 0;
 function bridgeArt(name){

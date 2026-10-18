@@ -129,7 +129,7 @@ export function applyBattleMap(card){
     setBoardMode(t[0].length === 10 ? 'single' : 'standard');
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = t;
-    state.roads = authoredRoads(m, t); state.mapSeeds = null; state.water = buildWater(m.river);   // the Battle's own road layer
+    state.roads = authoredRoads(m, t); state.mapSeeds = null; state.water = buildWater(m.river); state.places = Array.isArray(m.places) ? m.places : null;   // the Battle's own road layer
     state.grassStyles = assignGrassStyles(t);
     state.buildingStyles = assignBuildingStyles(t);
     state.excludedRoadEdges = new Set();
