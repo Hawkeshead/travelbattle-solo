@@ -1,3 +1,5 @@
+import { generateRiver } from './river-generator.js';
+import { buildWater } from './engine-water.js';
 import { offerBeginBattle } from './ui-deployment.js';
 import { DEFAULT_NATIONS, NATIONS, artPrefixesFor, nationFor, nationKeyFor, nationsForSide } from './nations.js';
 import { NATION_EMBLEM, NATION_FLAG } from './nation-flags.js';
@@ -981,7 +983,11 @@ export function beginBoardSetup(){
     state.boardAssignment = null; state.boardRotation = null;
     state.terrain = left.terrain.map((row, y) => [...row, ...right.terrain[y]]);
     state.roads = left.road.map((row, y) => [...row, ...right.road[y]]);
-    state.water = null;   // random boards carry no river yet
+    /* A river on some random maps (river-generator.js), entering and leaving
+       each board at the centre gap of its edges. Its seed comes from the two
+       board seeds, so the match's own random sequence is untouched. */
+    state.water = buildWater(generateRiver(state.terrain, state.roads, (seeds[0] ^ Math.imul(seeds[1], 31)) >>> 0));
+    if(state.water) log(`A river crosses the field (${state.water.bridges.length} bridge${state.water.bridges.length === 1 ? '' : 's'}).`, 'system');
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);
     state.excludedRoadEdges = new Set();

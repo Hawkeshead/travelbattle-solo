@@ -1,4 +1,4 @@
-import { squareBlockedByWater } from './engine-water.js';
+import { squareBlockedByWater, waterDistance } from './engine-water.js';
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
@@ -2398,7 +2398,7 @@ export function missionMoveBonus(u, side, pos, mission, plan){
   const targetBrigade = objTargetId!=null
     ? state.units.filter(o=>!o.removed && o.side===otherSide(side) && o.brigadeId===objTargetId)
     : [];
-  const nearestTargetDist = targetBrigade.length ? Math.min(...targetBrigade.map(o=>chebyshev(pos,o))) : null;
+  const nearestTargetDist = targetBrigade.length ? Math.min(...targetBrigade.map(o=>waterDistance(pos,o))) : null;   // around any river
 
   /* BRIGADE-LEVEL: pull to the Brigade's waypoint instead of at the enemy, so
      the formation moves together and closing does not mean leaving the chain.
@@ -2406,9 +2406,9 @@ export function missionMoveBonus(u, side, pos, mission, plan){
      and a waypoint behind it must not drag it out of the melee. */
   const waypoint = brigadeWaypoint(side, u.brigadeId, mission, plan);
   if(waypoint && !ARMY_PLAN_EXEMPT.has(mission)){
-    const inContact = state.units.some(o=>!o.removed && o.side!==side && chebyshev(pos, o) <= 1);
+    const inContact = state.units.some(o=>!o.removed && o.side!==side && waterDistance(pos, o) <= 1);   // not across open water
     if(!inContact){
-      const d = chebyshev(pos, waypoint);
+      const d = waterDistance(pos, waypoint);
       return -d * BRIGADE_WAYPOINT_PULL + Math.max(0, 3 - d) * 0.25;
     }
   }
@@ -2666,7 +2666,7 @@ export function nearestEnemyDist(pos, side){
   let best = 999;
   for(const e of state.units){
     if(e.removed || e.side!==enemy || isConcealedFromEnemy(e)) continue;
-    const d = chebyshev(pos, e);
+    const d = waterDistance(pos, e);   // around any river, by its crossings (engine-water.js)
     if(d<best) best = d;
   }
   return best;

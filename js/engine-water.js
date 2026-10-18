@@ -109,3 +109,35 @@ export function recordBridgeHit(x, y){
   if(br.hits >= BRIDGE_HITS_TO_BREAK){ br.broken = true; return br; }
   return null;
 }
+
+/* DISTANCE AROUND THE WATER, for the AI. Squares apart counting only steps a
+   unit can take across the ground (fords and bridges, not open river); with no
+   river it is the plain square distance. One distance field per target square,
+   cached until the water changes. A target the river cuts off entirely (it
+   cannot happen on a generated map, which always has crossings) reads 99. */
+const fields = new Map();
+let fieldsFor = null;
+export function waterDistance(a, b){
+  const w = W();
+  if(!w) return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  const stamp = w.version + ':' + COLS + 'x' + ROWS;
+  if(fieldsFor !== w || fields.stamp !== stamp){ fields.clear(); fieldsFor = w; fields.stamp = stamp; }
+  const key = b.x + ',' + b.y;
+  let f = fields.get(key);
+  if(!f){
+    f = new Int16Array(COLS * ROWS).fill(99);
+    const q = [[b.x, b.y]]; f[b.y * COLS + b.x] = 0;
+    for(let i = 0; i < q.length; i++){
+      const [x, y] = q[i], d = f[y * COLS + x];
+      for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+        if(!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if(nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || f[ny * COLS + nx] <= d + 1) continue;
+        if(stepWaterIn(w, { x, y }, { x: nx, y: ny }) === 'river') continue;
+        f[ny * COLS + nx] = d + 1; q.push([nx, ny]);
+      }
+    }
+    fields.set(key, f);
+  }
+  return f[a.y * COLS + a.x];
+}
