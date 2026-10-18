@@ -824,6 +824,15 @@ function finishRoleFor(u, startX, startY){
   if(u.type==='BRIGADIER') return null;
   const hunts = currentFinishing(u.side);
   if(!hunts.length) return null;
+  /* A unit that cannot act next turn is never committed (export review, seed
+     3534034529: the 5e Cuirassiers, kept on the field by a Leadership save
+     after a failed rally, were committed and never moved). Rallying, turned
+     around, or out of command. */
+  if(u.rallying || u.turnOnly || (u._turnedExtra || 0) > 0 || !movableUnitsForSide(u.side).has(u.id)){
+    if(hunts.some(f => chebyshev(u, f.unit) <= tune(u.side, 'FINISH_RADIUS', FINISH_CAV_RADIUS)))
+      finishNote(u.side, `FINISHING: excluded ${u.historicalName || u.type} (${u.rallying ? 'rallying' : u.turnOnly || u._turnedExtra ? 'turned around' : 'out of command'})`);
+    return null;
+  }
   const ut = UNIT_TYPES[u.type];
   const ox = u.x, oy = u.y;
   try {
@@ -1671,7 +1680,13 @@ export function updateArmyPlan(side){
     const allowed = ARMY_REVIEW_CHANGES && strikeTriggers.length > 0 && state.turnNumber - prev.changed >= ownTurns(ARMY_ROLE_MIN_TURNS);
     const why = strikeTriggers.length ? `trigger=${strikeTriggers.join('; ')}` : triggers.length ? 'mission review' : 'periodic';
     if(!differs || !allowed){
-      armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}, no change${differs && !allowed ? ' (held: last change under ' + ARMY_ROLE_MIN_TURNS + ' turns ago)' : ''}`);
+      /* Says WHY nothing changed. It used to print "held: last change under 4
+         turns ago" whenever a change was not allowed, including when role
+         changes were simply switched off (ARMY_REVIEW_CHANGES), which read as a
+         broken hold timer (export review, seed 3534034529). */
+      const reason = !differs ? '' : !ARMY_REVIEW_CHANGES ? ' (role changes switched off: reviews log only)'
+        : !strikeTriggers.length ? ' (no STRIKE trigger)' : ` (held: last change under ${ARMY_ROLE_MIN_TURNS} turns ago)`;
+      armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}, no change${reason} (last role change: T${prev.changed})`);
       return prev.plan;
     }
     const was = Object.entries(prev.plan.roles).map(([bId, r]) => `${r.role}=Bde${Number(bId)}`).join(' ');
@@ -1708,7 +1723,7 @@ export function updateArmyPlan(side){
     armyPlanLog(side, `            enemy Bde ${r.id}: units ${r.parts.units}, heavy ${r.parts.heavy}, ` +
       `guard ${r.parts.guard}, art ${r.parts.art} -> toughness ${r.toughness.toFixed(1)}; ` +
       `our Bde ${r.ourBest} superiority numbers ${r.supNumbers.toFixed(1)} + type ${r.supType.toFixed(1)} ` +
-      `= ${r.superiority.toFixed(1)}; diff ${r.difficulty.toFixed(1)}`);
+      `= ${r.superiority.toFixed(1)}; approach +${(r.approach || 0).toFixed(1)}; diff ${r.difficulty.toFixed(1)}`);
   }
   return plan;
 }
