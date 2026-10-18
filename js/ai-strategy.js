@@ -1,3 +1,4 @@
+import { squareBlockedByWater } from './engine-water.js';
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
@@ -5078,7 +5079,7 @@ export function aiDecideAndExecuteMove(u){
   decisionForLog = decision;
   traceScored = scored;
 
-  const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1;
+  const canSquare = t.canFormSquare && terrainAt(u.x,u.y).key!=='WOODS' && terrainAt(u.x,u.y).key!=='BUILDING' && unitsAt(u.x,u.y).length<=1 && !squareBlockedByWater(u);
   // Square is gated on an actual cavalry unit able to reach this square, not on
   // a generic threat count. It is the only thing Square is good against, and
   // against infantry or artillery forming one is strictly worse than staying in
@@ -5292,7 +5293,7 @@ export function aiDecideAndExecuteMove(u){
   /* THE SQUARE TRAP, second half: having moved next to enemy cavalry where
      the trap holds, form square now (the rules allow it after a move), so the
      volley in the Fire phase rolls two dice and the fight is on level terms. */
-  if(best && !best.stay && (t.key==='INFANTRY' || t.key==='GUARD') && u.formation !== 'square' && !u.turnOnly &&
+  if(best && !best.stay && (t.key==='INFANTRY' || t.key==='GUARD') && u.formation !== 'square' && !u.turnOnly && !squareBlockedByWater(u) &&
      state.aiDifficulty === 'hard' && squareTrapAt(u, side, { x: u.x, y: u.y })){
     u.formation = 'square';
     u.squareNoCavTurns = 0;

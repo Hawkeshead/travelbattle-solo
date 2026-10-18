@@ -1,4 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
+import { backsToWater, canCross, crossedFordThisTurn, isBridgeSquare, meleeBlocked, retreatIntoRiver, stepWater } from './engine-water.js';
 import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state, unitNationName } from './data-core.js';
@@ -142,7 +143,11 @@ export function pursuitDicePenalty(unit, defending){
   return (p && p.dicePenalty && !defending && unit.side === p.side) ? p.dicePenalty : 0;
 }
 
-export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
+/* In contact for hand-to-hand: next to each other, and not across open water
+   (a river with no bridge or ford between them; engine-water.js). Volleys use
+   isAdjacentRaw, since muskets fire across a river. */
+export function isAdjacent(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1 && !meleeBlocked(a, b); }
+export function isAdjacentRaw(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(a.y-b.y)) === 1; }
 
 // Woods physically conceal whoever's standing in them (the tree-cluster piece
 // acts as a lid on the real board) — this is automatic for ANY unit in a Woods
@@ -437,16 +442,24 @@ export function legalMoves(u){
   const startKey = u.x+','+u.y;
   dist.set(startKey, 0);
   const queue = [{x:u.x,y:u.y,d:0}];
+  const horse = UNIT_TYPES[u.type].isCavalry || UNIT_TYPES[u.type].key === 'BRIGADIER';
   const results = [];
   const maxSteps = allowance + (startRoad?1:0); // optimistic cap; road bonus validated per-destination below
 
   while(queue.length){
     const cur = queue.shift();
-    if(cur.d >= maxSteps) continue;
+    if(cur.d >= maxSteps || cur.stop) continue;
     for(const n of neighbors8(cur.x, cur.y)){
       const key = n.x+','+n.y;
       const nd = cur.d + 1;
       if(dist.has(key) && dist.get(key) <= nd) continue;
+      /* WATER (engine-water.js): no crossing the river except at a bridge or a
+         ford, never diagonally, and never a gun at a ford. Cavalry and
+         Brigadiers wading a ford move one square only: the crossing has to be
+         their first step and they stop on the far bank. */
+      if(!canCross(u, cur, n)) continue;
+      const wading = stepWater(cur, n) === 'ford';
+      if(wading && horse && cur.d > 0) continue;
       const terr = terrainAt(n.x,n.y);
       const t = UNIT_TYPES[u.type];
       if(terr.restrictTo && !terr.restrictTo.includes(t.key)) continue;
@@ -469,12 +482,12 @@ export function legalMoves(u){
         
            Closed here rather than in the Square button, so the rule holds
            whoever arrives second. */
-        const canDouble = terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.every(o=>o.formation!=='square') && occ.length<2;
+        const canDouble = !isBridgeSquare(n.x, n.y) && terr.allowDouble && (t.key==='INFANTRY'||t.key==='GUARD') && occ.every(o=>UNIT_TYPES[o.type].key==='INFANTRY'||UNIT_TYPES[o.type].key==='GUARD') && occ.every(o=>o.formation!=='square') && occ.length<2;
         if(!canDouble) continue;
       }
       dist.set(key, nd);
       cameFrom.set(key, cur.x+','+cur.y);
-      queue.push({x:n.x,y:n.y,d:nd});
+      queue.push({x:n.x,y:n.y,d:nd, stop: wading && horse});
     }
   }
 
@@ -640,6 +653,7 @@ export function volleyTargets(u){
      ambush is. */
   if(u.hidden) return [];
   if(u._leftAmbushTurn === state.turnNumber) return [];        // just left an ambush this turn (clearAmbushIfOutOfWoods)
+  if(crossedFordThisTurn(u)) return [];                        // waded a ford this turn: no volley (engine-water.js)
   if(state.volleyed && state.volleyed.has(u.id)) return [];    // one volley per Firing phase
   return state.units.filter(o=>!o.removed && o.side!==u.side &&
     o.type!=='BRIGADIER' &&                                    // never a valid target, as with artillery
@@ -657,7 +671,7 @@ export function volleyTargets(u){
        something you cannot shoot at because you do not know it is there;
        ordinary infantry in a wood is something you shoot at badly. */
     !o.hidden &&
-    isAdjacent(u, o));
+    isAdjacentRaw(u, o));                                      // across water too: muskets fire over a river
 }
 
 /* Two dice ONLY for a square receiving cavalry, and that is the whole of the
@@ -928,6 +942,14 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   // the totals. The FIRST source grants a second die and every further source
   // grants +1 to the value instead, so a duplicated entry is invisible in the
   // totals and obvious in the list.
+  /* WATER (engine-water.js). Infantry and cavalry attacking across a ford get
+     -1; the unit defending a bridge square gets +1. Direct, never a die. */
+  if(!defending && (t.key==='INFANTRY' || t.key==='GUARD' || t.isCavalry) && stepWater(unit, opponent) === 'ford'){
+    valueBonusDirect -= 1; directReasons.push('Attacking across a ford: -1 to roll');
+  }
+  if(defending && isBridgeSquare(unit.x, unit.y)){
+    valueBonusDirect += 1; directReasons.push('Defending a bridge: +1 to roll');
+  }
   valueBonus += valueBonusDirect;
   for(const r of directReasons) reasons.push(r);
   const footPenalty = pursuitDicePenalty(unit, defending);
@@ -1036,6 +1058,12 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
      cannot leak into a later, unambushed engagement. Read by combatBonuses,
      which is called for both sides a few lines down. */
   if(ambushMode) defender.ambushedThisFight = true;
+  /* No charge across water (engine-water.js): cavalry attacking over a ford or
+     a bridge, or that waded a ford this turn, fight without the charge. */
+  if(attacker.charged && (stepWater(attacker, defender) || crossedFordThisTurn(attacker))){
+    attacker.charged = false;
+    log(`${unitLabel(attacker)} cannot charge across the water.`, 'combat');
+  }
   const aBonus = combatBonuses(attacker, defender, false, aExtra);
   const dBonus = combatBonuses(defender, attacker, true, []);
   let aDice = aBonus.dice, dDice = dBonus.dice;
@@ -1073,8 +1101,11 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
   // a tie-win note to aReasons/dReasons each time it's called.
   function computeFightResult(aVal, dVal){
     const isTie = aVal === dVal;
+    /* Ties go to the defender on higher ground, and to infantry or Guard
+       fighting with the river at their backs (engine-water.js), who have
+       nowhere to go but the water. */
     const defenderHillTieWin = isTie &&
-      terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation;
+      (terrainAt(defender.x,defender.y).elevation > terrainAt(attacker.x,attacker.y).elevation || backsToWater(defender, attacker));
     const attackerChargeTieWin = isTie && !defenderHillTieWin && attacker.charged &&
       UNIT_TYPES[attacker.type].isCavalry && defender.formation!=='square' &&
       terrainAt(defender.x,defender.y).elevation <= terrainAt(attacker.x,attacker.y).elevation;
@@ -1097,7 +1128,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
     let resultText, resultCls;
     if(genuineDraw){ resultText = 'Drawn, continues next turn'; resultCls = 'draw'; }
     // A tie-win is always a pushback: the margin is zero by definition.
-    else if(defenderHillTieWin){ resultText = `${dName} holds the high ground: ${aName} pushed back`; resultCls = 'win'; }
+    else if(defenderHillTieWin){ resultText = backsToWater(defender, attacker) ? `${dName} fights with the river at its back: ${aName} pushed back` : `${dName} holds the high ground: ${aName} pushed back`; resultCls = 'win'; }
     else if(attackerChargeTieWin){ resultText = `${aName}'s charge carries the tie: ${dName} pushed back`; resultCls = 'win'; }
     else if(attackerColumnTieWin){ resultText = `${aName}'s Column carries the tie: ${dName} pushed back`; resultCls = 'win'; }
     else {
@@ -1287,7 +1318,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         return;
       }
       if(defenderHillTieWin){
-        log(`${dType.label} holds the high ground against ${aType.label}: ${finalA}-${finalD} tie goes to the defender.`, 'combat');
+        log(backsToWater(defender, attacker) ? `${dType.label}, with the river at its back, holds against ${aType.label}: ${finalA}-${finalD} tie goes to the defender.` : `${dType.label} holds the high ground against ${aType.label}: ${finalA}-${finalD} tie goes to the defender.`, 'combat');
         logNarration('melee_pushback', 'loss');
         pushBack(attacker, defender);
         onComplete();
@@ -1387,6 +1418,21 @@ export function pushBack(loser, winner){
   const dx = Math.sign(loser.x - winner.x) || 0;
   const dy = Math.sign(loser.y - winner.y) || 0;
   const nx = loser.x + dx, ny = loser.y + dy;
+  /* BACKS TO THE WATER (Matthew, 18 Oct 2026). Pushed back across open water:
+     infantry and Guard drown; cavalry, guns and Brigadiers stay where they are,
+     turned around. */
+  if(inBounds(nx,ny) && retreatIntoRiver(loser, winner)){
+    const k = UNIT_TYPES[loser.type].key;
+    if(k === 'INFANTRY' || k === 'GUARD'){
+      log(`${unitLabel(loser)} is driven into the river and drowns.`, 'combat');
+      logReplay('status', { unitId:loser.id, side:loser.side, x:loser.x, y:loser.y, newStatus:'Drowned' });
+      removeUnit(loser, 'drowned');
+      return;
+    }
+    setTurnedAround(loser);
+    log(`${unitLabel(loser)} is pinned against the river and turned around.`, 'combat');
+    return;
+  }
   if(inBounds(nx,ny) && !unitsAt(nx,ny).some(o=>o.side!==loser.side)){
     // shove any friendly unit already standing in the landing square one further step back
     const blocker = unitsAt(nx,ny).find(o=>o.side===loser.side && o.id!==loser.id);
@@ -1410,7 +1456,7 @@ export function pushBack(loser, winner){
     }
     if(blocker){
       const bx = nx+dx, by = ny+dy;
-      if(inBounds(bx,by) && unitsAt(bx,by).length===0){
+      if(inBounds(bx,by) && unitsAt(bx,by).length===0 && stepWater({x:nx,y:ny},{x:bx,y:by}) !== 'river'){
         animateUnitTo(blocker, bx, by, 'pushback');   // shoved aside by the unit being pushed into it
         playMovementAudio(blocker, Math.max(Math.abs(bx-blocker.x), Math.abs(by-blocker.y)) || 1, 'pushback');
         setTurnedAround(blocker);

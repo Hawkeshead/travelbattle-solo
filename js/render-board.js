@@ -6,7 +6,8 @@ import { anyFiguresOn, clashActive, figuresOn, drawFigureBodies, figuresAnimatin
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
-import { brigadierDisplacementCell, clearAmbushIfOutOfWoods, inBounds, isVip, removeUnit, isRoadLike, movableUnitsForSide, neighbors8, terrainAt } from './engine-rules.js';
+import { brigadierDisplacementCell, clearAmbushIfOutOfWoods, inBounds, isVip, removeUnit, isRoadLike, movableUnitsForSide, neighbors8, reconstructPath, terrainAt } from './engine-rules.js';
+import { pathCrossesFord } from './engine-water.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
 import { renderAiDebugPanel } from './ui-battle.js';
@@ -616,6 +617,13 @@ export function animateUnitTo(u, newX, newY, kind, opts){
      because this is the one place every move passes through, so no caller can
      forget it. */
   clearAmbushIfOutOfWoods(u);
+  /* Waded a ford on the way (engine-water.js): no volley, no square and no
+     charge for the rest of this turn. Read from the route the move search
+     took; a push-back is never a wade. */
+  if(kind !== 'pushback'){
+    const route = reconstructPath(u, newX, newY) || [{ x: fromX, y: fromY }, { x: newX, y: newY }];
+    if(pathCrossesFord(route)) u._fordTurn = state.turnNumber;
+  }
   const connectedAfter = movableUnitsForSide(u.side).has(u.id);
   logReplay('move', {
     unitId:u.id, side:u.side, from:{x:fromX,y:fromY}, to:{x:newX,y:newY},
@@ -1725,10 +1733,11 @@ function drawRoadsV2(lay){
    layout, viewpoint, cell size, village styles or the set of loaded tiles
    changes. Craters, units and everything else still draw fresh each frame. */
 const v2BoardCache = new WeakMap();
+const waterKey = () => state.water ? (state.water.version || 0) + ':' + bridgeArtLoaded + ':' + JSON.stringify(state.water.spec && state.water.spec.course) : 'dry';
 const V2_EXPECTED = 6 + GRASS_DETAIL_COUNT + HILL_COUNT + FARM_COUNT + WOODS_COUNT + 6 + 2;   // + crater and death skull   // every v2 image: derived, so a new art set cannot leave it stale
 function drawTerrainV2(){
   const lay = v2Layout();
-  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted()].join('|');
+  const key = [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted(), waterKey()].join('|');
   let entry = v2BoardCache.get(canvas);
   // While tiles are still arriving, rebuild at most every 400 ms rather than once per tile.
   const onlyMoreTiles = entry && entry.lay === lay && entry.styles === state.buildingStyles &&
@@ -1745,7 +1754,7 @@ function drawTerrainV2(){
     try { drawTerrainV2Board(); } finally { ctx = liveCtx; }
     v2LastBuildMs = performance.now() - t0;
     if(entry && entry.image && entry.image.close) entry.image.close();
-    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted()].join('|'), lay, styles: state.buildingStyles, image: off, built: Date.now() };
+    entry = { key: [viewEdge(), CELL, canvas.width, canvas.height, v2LoadedCount, V2_EXPECTED, v2HiVersion, hiWanted(), waterKey()].join('|'), lay, styles: state.buildingStyles, image: off, built: Date.now() };
     v2BoardCache.set(canvas, entry);
     if(typeof createImageBitmap === 'function'){
       const mine = entry;
@@ -1909,6 +1918,152 @@ function drawTerrainV2Board(){
       const img = style ? v2Tile('v2_building_' + style) : null;
       if(img) drawV2Tile(img, x, y, 1.125);
     }
+  }
+  // 5. the river (engine-water.js), over the roads and the village edges, then its bridges
+  drawWaterV2();
+  drawBridgesV2();
+}
+
+/* =========================================================
+   THE RIVER (Matthew's narrow river, 17 to 18 Oct 2026). Painted like the
+   roads: a layered stroke along the course, which runs between squares on the
+   grid lines, with ripples and reeds, and the fords as paler shallows with
+   sand bars and riffles. Deterministic (no Math.random), so every draw and
+   every viewpoint matches. Part of the cached board.
+========================================================= */
+const RIVER = {
+  STROKES: [[0.40, 'rgba(72,58,34,0.80)'], [0.32, 'rgba(98,86,52,1)'], [0.24, 'rgba(58,74,58,1)'], [0.16, 'rgba(72,92,72,1)'], [0.07, 'rgba(96,118,92,1)']],
+};
+function waterRng(seed){ let s = seed >>> 0 || 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+/* A point in board line coordinates, to screen cell units (any viewpoint). */
+function lineToScreen(x, y){ const s = toScreen(x - 0.5, y - 0.5); return [s.x + 0.5, s.y + 0.5]; }
+function riverPoints(course){
+  let pts = [];
+  for(let i = 0; i < course.length - 1; i++){
+    const [a, b] = [course[i], course[i + 1]];
+    const n = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) * 12));
+    for(let k = 0; k < n; k++) pts.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
+  }
+  pts.push(course[course.length - 1].slice());
+  for(let pass = 0; pass < 2; pass++){
+    const Wn = 4;
+    pts = pts.map((p, i) => {
+      if(i < Wn || i > pts.length - 1 - Wn) return p;
+      let sx = 0, sy = 0; for(let k = -Wn; k <= Wn; k++){ sx += pts[i + k][0]; sy += pts[i + k][1]; }
+      return [sx / (2 * Wn + 1), sy / (2 * Wn + 1)];
+    });
+  }
+  const ch = p => { const o = [p[0]]; for(let i = 0; i < p.length - 1; i++){ const [a, b] = [p[i], p[i + 1]]; o.push([a[0]*.75 + b[0]*.25, a[1]*.75 + b[1]*.25], [a[0]*.25 + b[0]*.75, a[1]*.25 + b[1]*.75]); } o.push(p[p.length - 1]); return o; };
+  pts = ch(ch(pts));
+  const L = pts.length;
+  return pts.map(([x, y], i) => {
+    const t = i / (L - 1), ramp = Math.min(1, Math.min(t, 1 - t) / 0.05);
+    const w = 0.05 * ramp * (Math.sin(t * Math.PI * 13) * 0.6 + Math.sin(t * Math.PI * 29 + 1.3) * 0.4);
+    const j = Math.min(L - 1, i + 1), k = Math.max(0, i - 1);
+    const dx = pts[j][0] - pts[k][0], dy = pts[j][1] - pts[k][1], d = Math.hypot(dx, dy) || 1;
+    return [x - dy / d * w, y + dx / d * w];
+  });
+}
+function drawWaterV2(){
+  const w = state.water; if(!w || !w.spec) return;
+  const spec = w.spec, rnd = waterRng(11);
+  const board = riverPoints(spec.course);                 // board line coordinates
+  const pts = board.map(([x, y]) => lineToScreen(x, y));  // screen cell units
+  const L = pts.length;
+  const path = () => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x * CELL, y * CELL) : ctx.moveTo(x * CELL, y * CELL)); };
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for(const [wd, col] of RIVER.STROKES){ path(); ctx.lineWidth = wd * CELL; ctx.strokeStyle = col; ctx.stroke(); }
+  for(let i = 4; i < L - 4; i += 2){
+    if(rnd() < 0.55) continue;
+    const [x, y] = pts[i], [x2, y2] = pts[i + 2]; const dx = x2 - x, dy = y2 - y, d = Math.hypot(dx, dy) || 1;
+    const off = (rnd() - .5) * 0.17, cx = (x - dy / d * off) * CELL, cy = (y + dx / d * off) * CELL, len = CELL * (0.04 + rnd() * 0.05);
+    ctx.strokeStyle = rnd() < 0.5 ? 'rgba(206,214,178,0.22)' : 'rgba(32,44,34,0.25)'; ctx.lineWidth = Math.max(1.2, CELL * 0.012);
+    ctx.beginPath(); ctx.moveTo(cx - dx / d * len / 2, cy - dy / d * len / 2); ctx.lineTo(cx + dx / d * len / 2, cy + dy / d * len / 2); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(64,74,30,0.85)'; ctx.lineWidth = Math.max(1.5, CELL * 0.012);
+  for(let i = 8; i < L - 8; i += 9){
+    if(rnd() < 0.45) continue;
+    const [x, y] = pts[i], j = pts[i + 1]; const dx = j[0] - x, dy = j[1] - y, d = Math.hypot(dx, dy) || 1; const side = rnd() < .5 ? 1 : -1;
+    const bx = (x - dy / d * side * 0.2) * CELL, by = (y + dx / d * side * 0.2) * CELL;
+    for(let q = 0; q < 3; q++){ ctx.beginPath(); ctx.moveTo(bx + (q - 1) * CELL * 0.012, by); ctx.lineTo(bx + (q - 1) * CELL * 0.03 + (rnd() - .5) * CELL * 0.02, by - CELL * (0.05 + rnd() * 0.04)); ctx.stroke(); }
+  }
+  // fords: the stretches of the course inside each ford box, plus every broken bridge's crossing
+  const fordRuns = (spec.fords || []).map(([x0, x1, y0, y1]) => board.map((p, i) => [p, i]).filter(([p]) => p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1).map(([, i]) => pts[i]));
+  for(const br of w.bridges.filter(b => b.broken)){
+    const mx = (br.a.x + br.b.x) / 2 + 0.5, my = (br.a.y + br.b.y) / 2 + 0.5;
+    fordRuns.push(board.map((p, i) => [p, i]).filter(([p]) => Math.abs(p[0] - mx) <= 0.6 && Math.abs(p[1] - my) <= 0.6).map(([, i]) => pts[i]));
+  }
+  for(const seg of fordRuns){
+    if(seg.length < 6) continue;
+    for(let k = 0; k < seg.length - 1; k++){
+      const a = Math.sin(Math.PI * k / (seg.length - 1)) ** 0.6; const [x, y] = seg[k], [x2, y2] = seg[k + 1];
+      ctx.strokeStyle = `rgba(118,132,92,${0.85 * a})`; ctx.lineWidth = CELL * 0.23; ctx.beginPath(); ctx.moveTo(x * CELL, y * CELL); ctx.lineTo(x2 * CELL, y2 * CELL); ctx.stroke();
+      ctx.strokeStyle = `rgba(146,150,104,${0.5 * a})`; ctx.lineWidth = CELL * 0.11; ctx.beginPath(); ctx.moveTo(x * CELL, y * CELL); ctx.lineTo(x2 * CELL, y2 * CELL); ctx.stroke();
+    }
+    let side = 1; const bars = 4, bank = 0.15;
+    for(let bI = 0; bI < bars; bI++){
+      const c0 = Math.floor(seg.length * (0.12 + 0.78 * bI / bars)), c1 = Math.min(seg.length - 1, c0 + Math.floor(seg.length * 0.24));
+      const outer = [], inner = [];
+      for(let k = c0; k <= c1; k++){
+        const [x, y] = seg[k], [x2, y2] = seg[Math.min(seg.length - 1, k + 1)]; const dx = (x2 - x) || 1e-6, dy = y2 - y, d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d;
+        const depth = 0.12 * Math.sin(Math.PI * (k - c0) / Math.max(1, c1 - c0)) ** 0.8 * (0.8 + 0.4 * rnd());
+        outer.push([(x + nx * side * bank) * CELL, (y + ny * side * bank) * CELL]); inner.push([(x + nx * side * (bank - depth)) * CELL, (y + ny * side * (bank - depth)) * CELL]);
+      }
+      const poly = [...outer, ...inner.reverse()];
+      ctx.save(); ctx.shadowColor = 'rgba(170,146,96,0.9)'; ctx.shadowBlur = CELL * 0.03; ctx.fillStyle = 'rgba(166,142,94,0.95)';
+      ctx.beginPath(); poly.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill(); ctx.restore();
+      for(let q = 0; q < 26; q++){
+        const [px, py] = outer[Math.floor(rnd() * outer.length)], [ix, iy] = inner[Math.floor(rnd() * inner.length)]; const f = rnd() * 0.8;
+        ctx.fillStyle = rnd() < .5 ? 'rgba(96,86,66,0.75)' : 'rgba(214,200,164,0.8)'; ctx.beginPath(); ctx.arc(px + (ix - px) * f, py + (iy - py) * f, Math.max(1, CELL * 0.006), 0, Math.PI * 2); ctx.fill();
+      }
+      side = -side;
+    }
+    ctx.strokeStyle = 'rgba(232,232,206,0.55)'; ctx.lineWidth = Math.max(1, CELL * 0.008);
+    for(let k = 2; k < seg.length - 2; k += 3){
+      const [x, y] = seg[k], [x2, y2] = seg[k + 1]; const dx = x2 - x, dy = y2 - y, d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d; const o = (rnd() - .5) * 0.08, len = 0.03 + rnd() * 0.04;
+      ctx.beginPath(); ctx.moveTo((x + nx * (o - len)) * CELL, (y + ny * (o - len)) * CELL); ctx.quadraticCurveTo((x + nx * o + dx / d * 0.015) * CELL, (y + ny * o + dy / d * 0.015) * CELL, (x + nx * (o + len)) * CELL, (y + ny * (o + len)) * CELL); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+/* Bridges: Matthew's art (assets/terrain/bridges), spanning both bridge
+   squares, turned to the road, with a cracked-stone mark for every hit taken. */
+const BRIDGE_ART = {};
+let bridgeArtLoaded = 0;
+function bridgeArt(name){
+  if(BRIDGE_ART[name]) return BRIDGE_ART[name].complete && BRIDGE_ART[name].naturalWidth ? BRIDGE_ART[name] : null;
+  if(typeof Image === 'undefined') return null;
+  const img = new Image();
+  img.onload = () => { bridgeArtLoaded++; draw(); };
+  img.src = `assets/terrain/bridges/${name}.webp`;
+  BRIDGE_ART[name] = img;
+  return null;
+}
+function drawBridgesV2(){
+  const w = state.water; if(!w || !w.bridges || !w.bridges.length) return;
+  for(const br of w.bridges){
+    const img = bridgeArt(br.broken ? 'destroyed' : br.art);
+    const sa = toScreen(br.a.x, br.a.y), sb = toScreen(br.b.x, br.b.y);
+    const cx = ((sa.x + sb.x) / 2 + 0.5) * CELL, cy = ((sa.y + sb.y) / 2 + 0.5) * CELL;
+    const upright = sa.x === sb.x;          // the road runs up and down the screen: turn the bridge
+    ctx.save(); ctx.translate(cx, cy); if(upright) ctx.rotate(Math.PI / 2);
+    if(img){
+      const len = 1.55 * CELL, h = len * img.naturalHeight / img.naturalWidth;
+      ctx.save(); ctx.globalAlpha = 0.38; ctx.filter = `blur(${Math.max(1, CELL * 0.03)}px) brightness(0)`;
+      ctx.drawImage(img, -len / 2 + CELL * 0.04 * (upright ? 1 : 1), -h / 2 + CELL * 0.07, len, h); ctx.restore();
+      ctx.drawImage(img, -len / 2, -h / 2, len, h);
+    }
+    // damage: one cracked stone per hit, in a row along the deck's downstream side
+    if(!br.broken && br.hits > 0){
+      for(let i = 0; i < 5; i++){
+        const x = (i - 2) * CELL * 0.12, y = CELL * 0.11, r = CELL * 0.045;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = i < br.hits ? 'rgba(52,40,26,0.92)' : 'rgba(190,176,144,0.55)'; ctx.fill();
+        ctx.lineWidth = Math.max(1, CELL * 0.01); ctx.strokeStyle = 'rgba(30,22,12,0.9)'; ctx.stroke();
+        if(i < br.hits){ ctx.strokeStyle = 'rgba(214,196,150,0.9)'; ctx.beginPath(); ctx.moveTo(x - r * 0.5, y - r * 0.6); ctx.lineTo(x + r * 0.1, y); ctx.lineTo(x - r * 0.2, y + r * 0.6); ctx.stroke(); }
+      }
+    }
+    ctx.restore();
   }
 }
 

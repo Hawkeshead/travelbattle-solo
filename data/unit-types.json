@@ -111,7 +111,8 @@
       "elevation": 0,
       "restrictTo": [
         "INFANTRY",
-        "GUARD"
+        "GUARD",
+        "BRIGADIER"
       ],
       "allowDouble": false,
       "blocksLOS": true,
@@ -123,7 +124,8 @@
       "restrictTo": [
         "INFANTRY",
         "GUARD",
-        "ARTILLERY"
+        "ARTILLERY",
+        "BRIGADIER"
       ],
       "allowDouble": false,
       "blocksLOS": true,
