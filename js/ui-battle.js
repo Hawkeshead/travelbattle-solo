@@ -16,7 +16,7 @@ import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, nationOf, s
 import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
-import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor } from './engine-rules.js';
+import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -1047,7 +1047,7 @@ export function selectUnit(id){
       setHighlightCells(moves.map(m=>({x:m.x,y:m.y,kind:'move'})));
     } else if(state.phase==='fire' && UNIT_TYPES[u.type].isArtillery){
       const targets = artilleryTargets(u);
-      setHighlightCells(targets.map(t=>({x:t.x,y:t.y,kind:'target'})));
+      setHighlightCells([...targets, ...bridgeTargets(u)].map(t=>({x:t.x,y:t.y,kind:'target'})));   // and empty bridge squares
     } else if(state.phase==='fire' && isFootInfantry(u)){
       // Volley: adjacent only, so this highlight is always the ring around the
       // unit rather than an arc. Same 'target' kind as artillery and melee, so
@@ -1306,6 +1306,12 @@ export function onCellClick(x,y){
   } else if(state.phase==='fire'){
     if(sel && UNIT_TYPES[sel.type].isArtillery && highlightCells.some(c=>c.x===x&&c.y===y&&c.kind==='target')){
       const target = pickUnitAtCell(x,y);
+      if(!target){                         // an empty bridge square: a shot at the bridge itself
+        pushUndoSnapshot();
+        selectUnit(null);
+        fireAtBridge(sel, { x, y }, maybeStartAutoEnd);
+        return;
+      }
       pushUndoSnapshot();
       selectUnit(null);
       fireArtillery(sel, target, maybeStartAutoEnd);
@@ -1395,6 +1401,30 @@ export function hitBridge(x, y){
     }
   }
   draw();
+}
+/* A SHOT AT AN EMPTY BRIDGE SQUARE (Matthew, 18 Oct 2026). The ordinary
+   to-hit roll (range, canister at 2, a kept 1 always misses); a hit counts
+   against the bridge (hitBridge above) and there is no effect roll, since
+   nobody is there. */
+export function fireAtBridge(gun, sq, onComplete){
+  onComplete = onComplete || function(){};
+  const dist = chebyshev(gun, sq), canister = dist <= 2, needed = dist;
+  recordGunfire('cannon', gun, sq);
+  showActionLine(gun, sq, '#ff2a20', 5800, true);
+  const notes = [`Need ${Math.min(6, needed)}+ to hit the bridge`];
+  if(canister) notes.push('Canister Shot: extra die');
+  presentRollTrigger([{label:'To Hit', side:gun.side, diceCount: canister ? 2 : 1, notes, at:{x:gun.x,y:gun.y}, also:sq}], gun.side, ()=>{
+    const rolls = canister ? [rollD6(), rollD6()] : [rollD6()];
+    const roll = Math.max(...rolls), hit = roll > 1 && roll >= needed;
+    showDice([{label:'To Hit', side:gun.side, rolls, keptValue:roll, notes, at:{x:gun.x,y:gun.y}, also:sq}], hit ? 'Hit!' : 'Miss', hit ? 'win' : 'lose', ()=>{
+      logReplay('fire', { targetId: null, bridge: true, x: sq.x, y: sq.y, hit, gunId: gun.id, gunSide: gun.side, hitRolls: rolls.slice(), hitKept: roll, hitNeeded: needed, canister });
+      if(hit) hitBridge(sq.x, sq.y); else log('The shot falls short of the bridge.', 'combat');
+      state.fired.add(gun.id);
+      selectUnit(null);
+      draw();
+      onComplete();
+    });
+  });
 }
 export function fireArtillery(gun, target, onComplete){
   onComplete = onComplete || function(){};

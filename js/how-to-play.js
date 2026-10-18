@@ -1,7 +1,7 @@
 /* =========================================================
    HOW TO PLAY (Matthew, 16 Oct 2026)
 
-   A swipe-through deck of fourteen cards, each a short clip recorded in the
+   A swipe-through deck of fifteen cards, each a short clip recorded in the
    game itself (assets/tutorial/*.webp) with two or three lines of rules and a
    tip. Opened from "How to Play" on the title screen and from the battle
    menu. Swipe, tap Next or Back, tap a dot to jump, Skip goes to the last card;
@@ -22,6 +22,7 @@ const CARDS = [
   ['card10_ambush', 'Woods and ambush', 'Infantry in woods are harder to beat and can lie hidden. The first enemy to walk next to them is ambushed, and you choose how to spring it.', 'Caught cavalry lose their extra die. Hidden units cannot volley, and nor can a unit in the turn it leaves its wood.'],
   ['card11_village', 'Villages', 'Infantry defending a village roll an extra die, cavalry can never attack it, and shots against it are weaker.', 'A gun in a village is safe from horse. Villages also count as road.'],
   ['card12_hill', 'Hills', 'A unit on a hill wins a drawn fight against attackers below it, and cavalry cannot charge up at it.', 'A gun on a hill fires over everything in front of it. Put one there early.'],
+  ['card14_rivers', 'Rivers and bridges', 'Rivers are crossed only at bridges and fords (the sandy shallows). Guns use bridges only; cavalry wading a ford stop on the far bank, and infantry that wade cannot fire or form square that turn.', 'Defending a bridge is +1; attacking across a ford is -1. Infantry with the river at their backs win ties but drown if beaten. Five gun hits break a bridge.'],
   ['card13_rally', 'Rally and victory', 'A unit that runs must rally: 4 or more, or 3 for Guard and heavy cavalry. If it fails, its Brigadier can spend his one Leadership Roll to keep it in the field.', 'A Brigade breaks when all its fighting units are gone. Break two enemy Brigades to win.'],
 ];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

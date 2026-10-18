@@ -708,6 +708,24 @@ export function artilleryTargets(gun){
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
   return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
 }
+/* EMPTY BRIDGE SQUARES a gun may shoot at, to wreck the bridge (Matthew,
+   18 Oct 2026): the same gun conditions as artilleryTargets, an intact bridge
+   square with nobody on it, not adjacent, in line of sight. A bridge square
+   with an enemy on it is already an ordinary target, and its hits count too. */
+export function bridgeTargets(gun){
+  if(!state.water || !UNIT_TYPES[gun.type].isArtillery) return [];
+  if(gun.turnOnly || (state.fired && state.fired.has(gun.id)) || (state.moved && state.moved.has(gun.id)) || isInActiveFight(gun)) return [];
+  const out = [];
+  for(const br of state.water.bridges){
+    if(br.broken) continue;
+    for(const sq of [br.a, br.b]){
+      if(unitsAt(sq.x, sq.y).length) continue;
+      if(chebyshev(gun, sq) <= 1 || !hasLOS(gun, sq)) continue;
+      out.push({ x: sq.x, y: sq.y, bridge: br });
+    }
+  }
+  return out;
+}
 export function isInActiveFight(u){
   return state.units.some(o=>!o.removed && o.side!==u.side && isAdjacent(o,u));
 }
