@@ -1555,6 +1555,19 @@ export function computeArmyPlan(side){
       : { role: 'SUPPORT', target: secondary.id, converted: 'FIX -> SUPPORT (no non-target remaining)' };
   }
 
+  /* ONE-BRIGADE VICTORY (export review, 18 Oct 2026; three matches lost this
+     way). When one broken Brigade loses the match, the weakest Brigade is
+     never FIX: it goes to RESERVE (the PRESERVE mission: out of contact, out
+     of the guns' reach), and FIX passes to the next weakest. */
+  if(state.winBrigades === 1 && own.length >= 3){
+    const weakest = own[own.length - 1];
+    if(roles[weakest.id] && roles[weakest.id].role === 'FIX'){
+      const fixTarget = roles[weakest.id].target;
+      const next = own.slice(0, -1).reverse().find(b => roles[b.id] && roles[b.id].role !== 'STRIKE');
+      roles[weakest.id] = { role: 'RESERVE', converted: 'FIX -> RESERVE (weakest Brigade, one-Brigade victory)' };
+      if(next) roles[next.id] = { role: 'FIX', target: fixTarget, converted: `${roles[next.id].role} -> FIX (one-Brigade victory)` };
+    }
+  }
   return { turn: state.turnNumber, targets: targets.map(t=>t.id), nonTarget: nonTarget ? nonTarget.id : null,
            ranked, roles, own };
 }
@@ -1591,7 +1604,7 @@ function armyPlanSignature(side){
    unless a trigger fires with them. Every review is logged, with its trigger and outcome.
 ========================================================= */
 export const ARMY_REVIEW_EVERY = 5;
-export let ARMY_REVIEW_CHANGES = false;   // see the measurement note at the role-change test
+export let ARMY_REVIEW_CHANGES = true;    // ON by Matthew's decision (18 Oct 2026), despite the simulator: his matches are the test
 export const STRIKE_CONTACT_TURNS = 8;
 export const ARMY_ROLE_MIN_TURNS = 4;
 export const MISSION_REVIEW_TURNS = 10;
@@ -1677,7 +1690,21 @@ export function updateArmyPlan(side){
        differed cost wins against Alexander: 7 of 19 where the live build won
        11 of 20. The plan's own ranking drifts turn to turn; a stalled STRIKE is
        the reason to change, not the drift.) */
-    const allowed = ARMY_REVIEW_CHANGES && strikeTriggers.length > 0 && state.turnNumber - prev.changed >= ownTurns(ARMY_ROLE_MIN_TURNS);
+    /* WHEN A REVIEW MAY CHANGE ROLES (export review, 18 Oct 2026):
+       - a soft trigger firing for the FIRST time since the last role change
+         re-plans at once, whatever the hold. A trigger that stays true (the
+         target's difficulty having risen) forces one re-plan, not one a turn;
+       - otherwise a periodic review re-plans only if the last role change
+         was ARMY_ROLE_MIN_TURNS of this side's turns ago (the thrash guard).
+       Simulator note, kept for the record: every way of changing roles
+       mid-battle lost ground against Alexander (7 of 19, 8 of 18, 8 of 17).
+       Switched on anyway at Matthew's call; his matches are the real test. */
+    const kindOf = t => /below 50%/.test(t) ? 'weak' : /turned/.test(t) ? 'turned' : /not fought/.test(t) ? 'noContact' : /difficulty/.test(t) ? 'difficulty' : t;
+    prev.fired = prev.fired || [];
+    const freshTriggers = strikeTriggers.filter(t => !prev.fired.includes(kindOf(t)));
+    for(const t of strikeTriggers) if(!prev.fired.includes(kindOf(t))) prev.fired.push(kindOf(t));
+    const allowed = ARMY_REVIEW_CHANGES && (freshTriggers.length > 0 ||
+      (periodic && state.turnNumber - prev.changed >= ownTurns(ARMY_ROLE_MIN_TURNS)));
     const why = strikeTriggers.length ? `trigger=${strikeTriggers.join('; ')}` : triggers.length ? 'mission review' : 'periodic';
     if(!differs || !allowed){
       /* Says WHY nothing changed. It used to print "held: last change under 4
@@ -1685,7 +1712,7 @@ export function updateArmyPlan(side){
          changes were simply switched off (ARMY_REVIEW_CHANGES), which read as a
          broken hold timer (export review, seed 3534034529). */
       const reason = !differs ? '' : !ARMY_REVIEW_CHANGES ? ' (role changes switched off: reviews log only)'
-        : !strikeTriggers.length ? ' (no STRIKE trigger)' : ` (held: last change under ${ARMY_ROLE_MIN_TURNS} turns ago)`;
+        : ` (held: no new trigger, last change under ${ARMY_ROLE_MIN_TURNS} turns ago)`;
       armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}, no change${reason} (last role change: T${prev.changed})`);
       return prev.plan;
     }
@@ -1694,7 +1721,7 @@ export function updateArmyPlan(side){
     const t = fresh.ranked.find(r => r.id === b.target);
     armyPlanLog(side, `ARMY PLAN REVIEW (T${state.turnNumber}): ${why}\n   result: ${was} -> ${now}\n   target: enemy Bde ${b.target}` +
       (t ? ` (diff ${(t.difficulty - (t.approach || 0)).toFixed(1)} + approach ${(t.approach || 0).toFixed(1)} = ${t.difficulty.toFixed(1)})` : ''));
-    state._aiArmyPlan[side] = { signature: sig, plan: fresh, assigned: state.turnNumber, reviewed: state.turnNumber, changed: state.turnNumber,
+    state._aiArmyPlan[side] = { signature: sig, plan: fresh, assigned: state.turnNumber, reviewed: state.turnNumber, changed: state.turnNumber, fired: [],
       start: Object.fromEntries(Object.keys(fresh.roles).map(id => [id, brigadeFighters(side, Number(id)).length])), missionSince: prev.missionSince };
     return fresh;
   }
@@ -1709,7 +1736,7 @@ export function updateArmyPlan(side){
   const tgt = plan.ranked.filter(r=>plan.targets.includes(r.id))
     .map(r=>`enemy Bde ${r.id} (diff ${r.difficulty.toFixed(1)}, ${r.units} units)`).join(', ');
   const roles = Object.entries(plan.roles).map(([bId, r]) =>
-    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}${r.cols != null ? `, ${Math.round(r.cols)} cols from target` : ''}) -> enemy Bde ${r.target}` +
+    `${r.role}=Bde${Number(bId)} (str ${effectiveStrength(side, Number(bId)).toFixed(1)}${r.cols != null ? `, ${Math.round(r.cols)} cols from target` : ''})` + (r.target != null ? ` -> enemy Bde ${r.target}` : ' held back out of contact') +
     (r.converted ? ` [${r.converted}]` : '')).join('; ');
   armyPlanLog(side, `ARMY PLAN ${prev ? 'REVISED' : `(T${state.turnNumber})`}: targets=[${tgt}]` +
     `  non-target=${plan.nonTarget!=null ? `enemy Bde ${plan.nonTarget}` : 'none'}`);
@@ -1772,7 +1799,7 @@ export const ATTACK_MISSIONS = new Set(['MAIN_ATTACK','FLANK','SUPPORT','FIX','C
 
 export function armyPlanActs(side){ return tune(side, 'ARMY_PLAN_ACTS', 1) > 0; }
 
-const ARMY_PLAN_ROLE_MISSION = { STRIKE: 'MAIN_ATTACK', SUPPORT: 'SUPPORT', FIX: 'FIX' };
+const ARMY_PLAN_ROLE_MISSION = { STRIKE: 'MAIN_ATTACK', SUPPORT: 'SUPPORT', FIX: 'FIX', RESERVE: 'PRESERVE' };
 const ARMY_PLAN_EXEMPT = new Set(['PRESERVE','SHELTER','WITHDRAW','REUNITE','FETCH']);
 
 export function applyArmyPlan(side, missions, plan){

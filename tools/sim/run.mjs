@@ -133,6 +133,9 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     state.terrain.reverse();
   }
 
+  /* SIM_WIN_BRIGADES=1: play under the one-Brigade victory rule (Quick Battle's
+     Victory toggle), which the AI plans for differently (army plan, FIX 5). */
+  if (process.env.SIM_WIN_BRIGADES) state.winBrigades = Number(process.env.SIM_WIN_BRIGADES);
   const finished = await waitForEnd(state, MATCH_TIMEOUT_MS);
   const living = side => state.units.filter(u => !u.removed && u.side === side).length;
 
