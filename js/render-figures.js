@@ -202,11 +202,16 @@ function facingOf(u, fleeing){
 /* ---------- formations: slot positions in cell units, screen space ----------
    x across, y down from the cell centre, at the FEET. front = the rank nearest
    the enemy; for 'toward' that is the rank nearest the viewer. */
+/* LINE (18 Oct 2026, Matthew: line and square looked alike). A line is wide
+   and shallow, its ranks spread across the whole square and close behind one
+   another, where the square stays a deep block four men wide. The ranks of 3
+   stand in the gaps of the rank of 4 in front. */
 function ranks(counts, facing){
-  const ys = counts.length === 2 ? [0.30, 0.12] : [0.34, 0.20, 0.06];
+  const ys = counts.length === 2 ? [0.32, 0.22] : [0.34, 0.26, 0.18];
   const order = facing === 'away' ? [...ys].reverse() : ys;
   const out = [];
-  counts.forEach((n, r) => { for(let i = 0; i < n; i++) out.push({ x: (i - (n - 1) / 2) * 0.18, y: order[r], f: facing }); });
+  counts.forEach((n, r) => { const gap = n === 5 ? 0.20 : 0.25;
+    for(let i = 0; i < n; i++) out.push({ x: (i - (n - 1) / 2) * gap, y: order[r], f: facing }); });
   return out;
 }
 function layoutFor(u, facing, partner){
@@ -228,7 +233,7 @@ function layoutFor(u, facing, partner){
     return twoRanks(u) ? ranks([5, 5], facing) : ranks([4, 3, 3], facing);
   }
   if(k === 'LIGHT_CAV' || k === 'HEAVY_CAV') return [{ x: -0.27, y: 0.32, f: facing }, { x: 0, y: 0.21, f: facing }, { x: 0.27, y: 0.32, f: facing }];
-  if(k === 'BRIGADIER') return [{ x: 0.04, y: 0.30, f: facing }];   // the general, alone, a little right of centre (his portrait sits top left)
+  if(k === 'BRIGADIER') return [{ x: 0, y: 0.30, f: facing }];   // the general, alone, in the middle of his square
   if(k === 'ARTILLERY'){
     // Crew behind the gun (the pixel gun is deep, so they stand well back).
     const back = facing === 'away' ? 0.36 : (PIXEL() ? 0.04 : 0.06);
@@ -368,11 +373,17 @@ function collectMen(men, u, s, places, anim, facing){
    a position and size rounded to whole device pixels so every sprite pixel
    stays a crisp block (the board's transform is a plain scale: zoom times
    device pixel ratio). */
+/* FIGURE_SCALE (18 Oct 2026, Matthew): every figure a quarter larger than
+   its sheet's displayScale, men, horses, guns and Brigadiers alike. The
+   extra height rises up the square, so every figure also stands FIGURE_DROP
+   of a square lower than its place: the rear riders and rear rank of the
+   board's top row would otherwise lose their heads at the board's edge. */
+const FIGURE_SCALE = 1.25, FIGURE_DROP = 0.08;
 function blit(c, sh, frame, fx, fy){
   const { img, meta, f } = sh;
   const ay = meta.anchorYByFacing && meta.anchorYByFacing[f] != null ? meta.anchorYByFacing[f] : meta.anchorY;
-  const h = CELL * meta.displayScale, w = h * meta.frameWidth / meta.frameHeight;
-  const x = fx - w * meta.anchorX, y = fy - h * ay;
+  const h = CELL * meta.displayScale * FIGURE_SCALE, w = h * meta.frameWidth / meta.frameHeight;
+  const x = fx - w * meta.anchorX, y = fy + CELL * FIGURE_DROP - h * ay;
   const sx = frame * meta.frameWidth;
   if(meta.pixelArt){
     const t = c.getTransform();
