@@ -12,7 +12,7 @@ import * as AI_MODULE from './ai-strategy.js';
 import { showPanelPrompt } from './prompt-panel.js';
 const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
-import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
+import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, friendlyAiCommands, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
 import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
 import { presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded } from './engine-objectives.js';
@@ -24,7 +24,7 @@ import { BRIGADIER_PORTRAIT_KEY, gunPortraitSrc, unitPortraitHTML, REGIMENT_IMAG
 import { handleOrientationClick, showModeSelect } from './ui-menus.js';
 import { AudioManager } from './audio-manager.js';
 import { showSash } from './ui-sash.js';
-import { runFriendlyAi } from './friendly-ai.js';
+import { canHandOver, runFriendlyAi, toggleCommand } from './friendly-ai.js';
 import { aiAllowedOnline, askRemote, asksElsewhere, commanderNote, interceptOrder, isRemoteSide, ownsUnit } from './online-session.js';
 import { confirmCurrentBrigade, handleDeployClick, restartDeployment } from './ui-deployment.js';
 import { AmbientLayer, AmbientPref } from './ambient-layer.js';
@@ -1204,6 +1204,15 @@ export function renderUnitInfo(u){
     sqBtn.disabled = true; ambBtn.style.display = 'none'; chargeBtn.style.display = 'none';
     if(marchBtn) marchBtn.style.display = 'none';
   }
+  /* Quick Battle: hand this unit's Brigade to the AI commander, or take it
+     back (friendly-ai.js), whenever it is not in the middle of acting. */
+  const cmdBtn = document.getElementById('commandBtn');
+  if(cmdBtn){
+    const can = canHandOver(u);
+    cmdBtn.style.display = can ? 'inline-block' : 'none';
+    cmdBtn.textContent = friendlyAiCommands(u) ? 'Take Command' : 'Hand to AI';
+    cmdBtn.disabled = !can || !!state._aiPartnerActing;
+  }
 }
 
 // Registered from boot.js rather than at load time. `canvas` belongs to
@@ -2037,6 +2046,11 @@ export function initBattleControls(){
     draw();
   };
 
+  document.getElementById('commandBtn').onclick = (e)=>{
+    e.stopPropagation();
+    const u = state.units.find(x=>x.id===state.selectedUnitId);
+    if(u) toggleCommand(u);
+  };
   document.getElementById('marchOffBtn').onclick = ()=>{
     const u = state.units.find(x=>x.id===state.selectedUnitId);
     if(!u || !ownsUnit(u)) return;

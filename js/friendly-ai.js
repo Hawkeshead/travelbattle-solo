@@ -13,10 +13,11 @@
    With no Brigade handed over (every other game) nothing here does anything.
 ========================================================= */
 import { friendlyAiCommands, state } from './data-core.js';
-import { setLocalCommand } from './online-session.js';
+import { isOnline, setLocalCommand } from './online-session.js';
 import { startAiPartner } from './ai-strategy.js';
 import { cameraRestorePlayerView, draw } from './render-board.js';
 import { selectUnit, updateHeader } from './ui-battle.js';
+import { log } from './engine-state.js';
 import { maybeStartAutoEnd } from './phase-autoend.js';
 
 const acting = () => !!state._aiPartnerActing;
@@ -53,6 +54,35 @@ export function runFriendlyAi(phase){
     }
   }), 400);
   return true;
+}
+
+/* HANDING OVER MID-BATTLE (19 Oct 2026, Matthew). Any of the player's
+   Brigades can be passed to the AI commander, or taken back, from a unit's
+   card at any time in a Quick Battle against the AI (not while the AI
+   commander is acting). Handed over during one of the player's own phases,
+   the AI acts with it at once, with whatever of that Brigade has not yet
+   acted this phase; taken back, its units are the player's to order
+   straight away. */
+const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
+export function brigadeName(u){
+  const br = state.units.find(o => !o.removed && o.side === u.side && o.brigadeId === u.brigadeId && o.type === 'BRIGADIER');
+  return br && br.historicalName ? `${br.historicalName}'s Brigade` : `${ORD[u.brigadeId] || 'The'} Brigade`;
+}
+export function canHandOver(u){
+  return !!u && !u.removed && state.mode === 'ai' && u.side !== state.aiSide && !state.spectate && !state.group &&
+    !state.gameOver && ['move', 'fire', 'fight', 'rally'].includes(state.phase) && !isOnline();
+}
+export function toggleCommand(u){
+  if(!canHandOver(u) || acting()) return;
+  const key = `${u.side}:${u.brigadeId}`;
+  const list = state.friendlyAi ? [...state.friendlyAi] : [];
+  const toAi = !list.includes(key);
+  state.friendlyAi = toAi ? [...list, key] : list.filter(k => k !== key);
+  log(toAi ? `${brigadeName(u)} is handed to your AI commander.` : `You take command of ${brigadeName(u)}.`, 'system');
+  note(toAi ? `${brigadeName(u)}: AI commander` : `${brigadeName(u)}: yours`);
+  selectUnit(null);
+  if(toAi && state.turn === u.side && ['move', 'fire', 'fight'].includes(state.phase)) runFriendlyAi(state.phase);
+  else { updateHeader(); draw(); maybeStartAutoEnd(); }
 }
 
 /* The phase's End button is off while the AI commander acts. */
