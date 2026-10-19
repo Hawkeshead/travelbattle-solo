@@ -391,6 +391,11 @@ const nearest = (pos, sqs) => sqs.length ? Math.min(...sqs.map(q => waterDistanc
 function storyMoveBonus(mover, side, pos){
   const sc = state.scenario, key = OP_SIDE_KEY[side], foeKey = OP_SIDE_KEY[side === 'red' ? 'blue' : 'red'];
   const t = UNIT_TYPES[mover.type], brig = t.key === 'BRIGADIER';
+  /* The ATTACKING side pulls much harder (Ligny, AI against AI: the French
+     never crossed the brook in ten rounds; the modest pull lost to keeping out
+     of the guns' reach). Defenders keep the gentler pull. */
+  const attacking = sc.aiRoles && sc.aiRoles[key] === 'attack';
+  const reach = attacking ? 14 : 8, per = attacking ? 0.55 : 0.30, inPlace = attacking ? 3.0 : 2.0;
   let s = 0;
   for(const c of ((sc.win[key] || {}).conditions || [])){
     const k = urgency(c);
@@ -399,10 +404,10 @@ function storyMoveBonus(mover, side, pos){
       if(brig && c.type !== 'IN_AREA') continue;
       const sqs = sqOf(c.area), d = nearest(pos, sqs);
       const taken = sqs.some(q => q.x === pos.x && q.y === pos.y);
-      s += taken ? 2.0 * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, 8 - d) * 0.30 * k;
+      s += taken ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
     } else if(c.type === 'HOLD_AREAS' && !brig){
       const sqs = (c.areas || []).flatMap(sqOf), d = nearest(pos, sqs);
-      s += d === 0 ? 2.0 * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, 8 - d) * 0.30 * k;
+      s += d === 0 ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
     } else if(c.type === 'NEXT_TO' && mover.storyTag === c.tag && !brig){
       const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
       const d = friends.length ? Math.min(...friends.map(o => waterDistance(pos, o))) : 99;
@@ -414,7 +419,7 @@ function storyMoveBonus(mover, side, pos){
       if(state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1)) s -= 3.0;
     } else if(c.type === 'COMMANDER_REMOVED' && !brig){
       const prey = state.units.find(o => !o.removed && o.side !== side && o.type === 'BRIGADIER' && o.storyTag === c.tag);
-      if(prey){ const d = waterDistance(pos, prey); s += Math.max(0, 8 - d) * (t.isCavalry ? 0.45 : 0.25) * k; }
+      if(prey){ const d = waterDistance(pos, prey); s += Math.max(0, reach - d) * (t.isCavalry ? per + 0.15 : per) * k; }
     } else if(c.type === 'MARCH_OFF'){
       const ex = sc.map.exits && sc.map.exits[key];
       if(!ex) continue;
