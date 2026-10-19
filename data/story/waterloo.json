@@ -665,12 +665,12 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold two of Ligny's village squares at the end of round 12, or break one Prussian Brigade.",
+      "text": "Hold one of Ligny's village squares at the end of round 12, or break one Prussian Brigade.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "ligny",
-        "count": 2,
+        "count": 1,
         "atRound": 12
        },
        {
@@ -727,8 +727,7 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "guard",
-       "lockedUntil": 3
+       "tag": "guard"
       }
      ],
      "role": "attack"
@@ -2619,7 +2618,7 @@
        },
        "tag": "picton",
        "arrives": {
-        "round": 3
+        "round": 4
        }
       },
       {
@@ -5913,11 +5912,10 @@
        "units": [
         "BRIGADIER",
         "INFANTRY",
-        "INFANTRY",
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Artillery",
+       "note": "Brigadier, Infantry, Artillery (one battalion fewer for balance)",
        "placement": {
         "type": "area",
         "area": "village"
@@ -7017,8 +7015,8 @@
      ],
      [
       "the Emperor's carriage",
-      6.9,
-      2.42,
+      10.5,
+      3.4,
       "feature"
      ],
      [
@@ -7037,7 +7035,7 @@
     "areas": {
      "carriage": [
       [
-       7,
+       10,
        4
       ]
      ],
@@ -7329,15 +7327,7 @@
        0
       ],
       [
-       1,
-       0
-      ],
-      [
        0,
-       1
-      ],
-      [
-       1,
        1
       ],
       [
@@ -7345,15 +7335,7 @@
        2
       ],
       [
-       1,
-       2
-      ],
-      [
        0,
-       3
-      ],
-      [
-       1,
        3
       ],
       [
@@ -7361,15 +7343,7 @@
        4
       ],
       [
-       1,
-       4
-      ],
-      [
        0,
-       5
-      ],
-      [
-       1,
        5
       ],
       [
@@ -7377,15 +7351,7 @@
        6
       ],
       [
-       1,
-       6
-      ],
-      [
        0,
-       7
-      ],
-      [
-       1,
        7
       ],
       [
@@ -7393,15 +7359,7 @@
        8
       ],
       [
-       1,
-       8
-      ],
-      [
        0,
-       9
-      ],
-      [
-       1,
        9
       ]
      ],
@@ -7858,7 +7816,7 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (H5) by the end of round 10.",
+      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 10.",
       "conditions": [
        {
         "type": "ENTERED",
@@ -7893,13 +7851,13 @@
     "France": {
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
-      "text": "Napoleon in the last two columns at the south end at the end of round 5.",
+      "text": "Napoleon on the south edge (column A) at the end of round 4.",
       "conditions": [
        {
         "type": "COMMANDER",
         "tag": "napoleon",
         "area": "escape",
-        "atRound": 5
+        "atRound": 4
        }
       ],
       "combinator": "any"
