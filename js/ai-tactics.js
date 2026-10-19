@@ -422,9 +422,12 @@ function storyMoveBonus(mover, side, pos){
   const late = c => attacking && urgency(c) >= 1.4 ? 1.8 : 1;
   /* Getting closer must never be worth more than being there: next to the
      Bierges bridge the approach reward (14.3) beat standing on the bridgehead
-     (10.8), and the unit stopped a square short for the rest of the battle.
-     The approach is capped at 60% of the in-place value, so stepping in wins. */
-  const approach = (d, k, c) => Math.min(inPlace * k * late(c) * 0.6, Math.max(0, reach - d) * per * k);
+     (10.8), and the unit stopped a square short. A cap on the approach fixed
+     that but flattened the pull far away (Quatre Bras: 1.8 at five squares).
+     So the approach keeps its full slope, and being there is worth the whole
+     slope PLUS the in-place value: always more than any square short of it. */
+  const approach = (d, k) => Math.max(0, reach - d) * per * k;
+  const there = (k, c) => (reach * per + inPlace) * k * late(c);
   for(const c of ((sc.win[key] || {}).conditions || [])){
     const k = urgency(c);
     if(['HOLD_AREA', 'HOLD_COUNT', 'CONTROL_AREA', 'IN_AREA', 'ENTERED', 'CLEAR_AREA'].includes(c.type) && c.area){
@@ -432,11 +435,11 @@ function storyMoveBonus(mover, side, pos){
       if(brig && c.type !== 'IN_AREA') continue;
       const sqs = sqOf(c.area), d = nearest(pos, sqs);
       const taken = sqs.some(q => q.x === pos.x && q.y === pos.y);
-      s += taken ? inPlace * k * late(c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k, c);
+      s += taken ? there(k, c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k);
       if(attacking && !brig) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'HOLD_AREAS' && !brig){
       const sqs = (c.areas || []).flatMap(sqOf), d = nearest(pos, sqs);
-      s += d === 0 ? inPlace * k * late(c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k, c);
+      s += d === 0 ? there(k, c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k);
       if(attacking) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'NEXT_TO' && mover.storyTag === c.tag && !brig){
       const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
