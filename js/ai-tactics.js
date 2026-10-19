@@ -1,4 +1,4 @@
-import { meleeBlocked, waterDistance } from './engine-water.js';
+import { isBridgeSquare, meleeBlocked, waterDistance } from './engine-water.js';
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { brigadeCavalryCount, canAttackTarget, chebyshev, combatBonuses, hasLOS, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
@@ -412,6 +412,19 @@ function storyMoveBonus(mover, side, pos){
   const attacking = sc.aiRoles && sc.aiRoles[key] === 'attack';
   const reach = attacking ? 14 : 8, per = attacking ? 0.55 : 0.30, inPlace = attacking ? 3.0 : 2.0;
   let s = 0;
+  /* A Brigadier on a bridge square blocks it (one unit per bridge square):
+     at Wavre the French Brigadier parked on the bridge and his own infantry
+     could not cross. Brigadiers keep off them. */
+  if(brig && isBridgeSquare(pos.x, pos.y)) s -= 4;
+  /* Late on, an objective square the attacker can simply walk into counts
+     for more again: at Wavre the infantry stood at the bridge with the far
+     bank empty and never stepped over. */
+  const late = c => attacking && urgency(c) >= 1.4 ? 1.8 : 1;
+  /* Getting closer must never be worth more than being there: next to the
+     Bierges bridge the approach reward (14.3) beat standing on the bridgehead
+     (10.8), and the unit stopped a square short for the rest of the battle.
+     The approach is capped at 60% of the in-place value, so stepping in wins. */
+  const approach = (d, k, c) => Math.min(inPlace * k * late(c) * 0.6, Math.max(0, reach - d) * per * k);
   for(const c of ((sc.win[key] || {}).conditions || [])){
     const k = urgency(c);
     if(['HOLD_AREA', 'HOLD_COUNT', 'CONTROL_AREA', 'IN_AREA', 'ENTERED', 'CLEAR_AREA'].includes(c.type) && c.area){
@@ -419,11 +432,11 @@ function storyMoveBonus(mover, side, pos){
       if(brig && c.type !== 'IN_AREA') continue;
       const sqs = sqOf(c.area), d = nearest(pos, sqs);
       const taken = sqs.some(q => q.x === pos.x && q.y === pos.y);
-      s += taken ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
+      s += taken ? inPlace * k * late(c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k, c);
       if(attacking && !brig) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'HOLD_AREAS' && !brig){
       const sqs = (c.areas || []).flatMap(sqOf), d = nearest(pos, sqs);
-      s += d === 0 ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
+      s += d === 0 ? inPlace * k * late(c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : approach(d, k, c);
       if(attacking) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'NEXT_TO' && mover.storyTag === c.tag && !brig){
       const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
