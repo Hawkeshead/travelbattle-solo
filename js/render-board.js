@@ -58,6 +58,11 @@ export function fromScreen(sx_, sy_){
     default:  return { x: sx_, y: sy_ };
   }
 }
+/* The board's size AS SHOWN: a side view (edge E or W, the corridor battles)
+   shows ROWS across and COLS down. */
+const sideView = () => { const e = viewEdge(); return e === 'E' || e === 'W'; };
+export const SCOLS = () => sideView() ? ROWS : COLS;
+export const SROWS = () => sideView() ? COLS : ROWS;
 const SX = (x, y) => toScreen(x, y).x;
 /* Something drawn on the ground under the units, registered from outside
    (the Spyglass, js/spyglass.js) so this module imports nothing of it. */
@@ -933,10 +938,10 @@ export function endDiagramMode(){
    either. Returns the UNFLIPPED screen row; callers apply sy() themselves. */
 export function cellFromClient(clientX, clientY){
   const rect = canvas.getBoundingClientRect();
-  const cellPxX = rect.width / COLS, cellPxY = rect.height / ROWS;
+  const cellPxX = rect.width / SCOLS(), cellPxY = rect.height / SROWS();
   const x = Math.floor((clientX - rect.left) / cellPxX);
   const screenY = Math.floor((clientY - rect.top) / cellPxY);
-  if(x < 0 || x >= COLS || screenY < 0 || screenY >= ROWS) return null;
+  if(x < 0 || x >= SCOLS() || screenY < 0 || screenY >= SROWS()) return null;
   return { x, screenY };
 }
 
@@ -959,12 +964,12 @@ export function computeCellSize(){
   const viewportW = document.documentElement.clientWidth || window.innerWidth;
   const availW = Math.max(200, Math.min(wrap.clientWidth, viewportW) - padX);
   const availH = Math.max(200, wrap.clientHeight - padY);
-  const byHeight = Math.min(Math.floor(availH / ROWS), MAX_CELL);
-  const byWidth = Math.floor(availW / COLS);
+  const byHeight = Math.min(Math.floor(availH / SROWS()), MAX_CELL);
+  const byWidth = Math.floor(availW / SCOLS());
   /* Keep the strip for the dials and seal only if the board is no smaller for
      it. Otherwise the board uses the full width and the dials sit over its
      right-hand edge, as they always did. */
-  const byWidthWithGutter = Math.floor((availW - HUD_GUTTER) / COLS);
+  const byWidthWithGutter = Math.floor((availW - HUD_GUTTER) / SCOLS());
   /* With the dials in the camera strip (safe-area.js) the board side has no
      dials to make room for. */
   const dialsOffBoard = document.documentElement.classList.contains('island-left')
@@ -1041,8 +1046,8 @@ export function syncFctLayer(){
   if(!el || !canvas) return;
   el.style.left   = canvas.offsetLeft + 'px';
   el.style.top    = canvas.offsetTop + 'px';
-  el.style.width  = (COLS*CELL) + 'px';
-  el.style.height = (ROWS*CELL) + 'px';
+  el.style.width  = (SCOLS()*CELL) + 'px';
+  el.style.height = (SROWS()*CELL) + 'px';
   el.style.transform = canvas.style.transform;
   el.style.setProperty('--fct-scale', CELL + 'px');
 }
@@ -1087,7 +1092,7 @@ let backingLimit = MAX_BACKING_PX;
 export let renderScale = window.devicePixelRatio || 1;
 export function targetRenderScale(zoom = mapZoom){
   const dpr = window.devicePixelRatio || 1;
-  const cap = Math.sqrt(backingLimit / Math.max(1, COLS * CELL * ROWS * CELL));
+  const cap = Math.sqrt(backingLimit / Math.max(1, SCOLS() * CELL * SROWS() * CELL));
   return Math.min(dpr * Math.max(1, zoom), cap);
 }
 /* Sets the backing store to a scale, checking the browser really gave it the
@@ -1095,11 +1100,11 @@ export function targetRenderScale(zoom = mapZoom){
    the lower limit if not. Returns the scale in use. */
 function applyRenderScale(scale){
   const set = sc => {
-    canvas.width = Math.round(COLS * CELL * sc);
-    canvas.height = Math.round(ROWS * CELL * sc);
+    canvas.width = Math.round(SCOLS() * CELL * sc);
+    canvas.height = Math.round(SROWS() * CELL * sc);
     ctx.setTransform(sc, 0, 0, sc, 0, 0);
     ctx.getImageData(0, 0, 1, 1);          // throws if the backing store was not allocated
-    return canvas.width === Math.round(COLS * CELL * sc);
+    return canvas.width === Math.round(SCOLS() * CELL * sc);
   };
   try { if(set(scale)){ renderScale = scale; return scale; } } catch { /* too big for this device */ }
   backingLimit = MAX_BACKING_PX_FALLBACK;
@@ -1125,8 +1130,8 @@ function scheduleBackingUpdate(){
 
 export function sizeCanvas(){
   setCell(computeCellSize());
-  canvas.style.width = (COLS*CELL) + 'px';
-  canvas.style.height = (ROWS*CELL) + 'px';
+  canvas.style.width = (SCOLS()*CELL) + 'px';
+  canvas.style.height = (SROWS()*CELL) + 'px';
   applyRenderScale(targetRenderScale(1));   // a new board starts at zoom 1 (resetMapView below)
   resetMapView(); // board dimensions just changed (new match, resize, mode switch) — any prior zoom/pan is stale
   resizingBoard = true;
@@ -1228,7 +1233,7 @@ export function cameraTo(cellX, cellY, opts = {}){
   const zoom = opts.zoom != null ? opts.zoom : CAMERA_ZOOM;
   // The canvas is laid out at its CSS size; CELL is in canvas-internal units, so
   // scale between them before working out where the cell lands on screen.
-  const scale = canvas.offsetWidth / (COLS * CELL);
+  const scale = canvas.offsetWidth / (SCOLS() * CELL);
   const tp = toScreen(cellX, cellY);
   const targetX = (tp.x + 0.5) * CELL * scale * zoom;
   const targetY = (tp.y + 0.5) * CELL * scale * zoom;
@@ -1291,7 +1296,7 @@ export function cameraToAction(units, opts = {}){
   // +1 so the box covers the full squares at each end, not just their centres.
   const spanX = (maxX - minX) + 1, spanY = (maxY - minY) + 1;
 
-  const scale = canvas.offsetWidth / (COLS * CELL);
+  const scale = canvas.offsetWidth / (SCOLS() * CELL);
   const fitX = (wrap.clientWidth  * CAMERA_ACTION_MARGIN) / (spanX * CELL * scale);
   const fitY = (wrap.clientHeight * CAMERA_ACTION_MARGIN) / (spanY * CELL * scale);
   const zoom = Math.max(MAP_MIN_ZOOM, Math.min(CAMERA_ACTION_ZOOM, Math.min(fitX, fitY)));
@@ -1853,9 +1858,9 @@ function introV2(onComplete){
   };
   function tick(){
     const now = performance.now(), el = now - startTime;
-    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.clearRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
     ctx.fillStyle = TERRAIN_V2_BG;
-    ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.fillRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
     let all = true;
     for(const row of rows){
       const live = [];
@@ -1894,7 +1899,7 @@ function drawTerrainV2Board(){
   const terrain = state.terrain;
   const lay = v2Layout();
   ctx.fillStyle = TERRAIN_V2_BG;
-  ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+  ctx.fillRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
   const rows = new Map();
   for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
     const r = SY(x, y);
@@ -2326,7 +2331,7 @@ export function draw(){
   }
   ctx.clip();
   ctx.fillStyle = getGrassTexturePattern();
-  ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+  ctx.fillRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
   ctx.restore();
   }
 
@@ -2616,8 +2621,8 @@ export function draw(){
   if(showFullGrid){
     ctx.strokeStyle = 'rgba(184,147,79,0.18)';
     ctx.lineWidth = 1;
-    for(let x=0;x<=COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
-    for(let y=0;y<=ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
+    for(let x=0;x<=SCOLS();x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,SROWS()*CELL); ctx.stroke(); }
+    for(let y=0;y<=SROWS();y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(SCOLS()*CELL,y*CELL); ctx.stroke(); }
   } else if(showSelectionGrid){
     /* A double stroke, dark under light. A single light outline disappears
        against the pale parts of the grass art and a single dark one disappears
@@ -2643,7 +2648,7 @@ export function draw(){
     ctx.strokeStyle = 'rgba(233,228,214,0.35)';
     ctx.lineWidth = 2;
     ctx.setLineDash([6,4]);
-    ctx.beginPath(); ctx.moveTo(HALF_COLS*CELL,0); ctx.lineTo(HALF_COLS*CELL,ROWS*CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(HALF_COLS*CELL,0); ctx.lineTo(HALF_COLS*CELL,SROWS()*CELL); ctx.stroke();
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
   }
@@ -2652,12 +2657,11 @@ export function draw(){
   // depth is 2 for a standard match, 3 for Grand Strategy — see attemptDeployAt)
   if(state.phase==='deploy'){
     const deployRows = state.boardMode==='grand' ? 3 : 2;
-    const blueTop = Math.min(sy(0), sy(deployRows-1));
     ctx.fillStyle = 'rgba(46,69,102,0.14)';
-    ctx.fillRect(0, blueTop*CELL, COLS*CELL, deployRows*CELL);
-    const redTop = Math.min(sy(ROWS-deployRows), sy(ROWS-1));
+    for(let x = 0; x < COLS; x++) for(let y = 0; y < deployRows; y++){ const p = toScreen(x, y); ctx.fillRect(p.x*CELL, p.y*CELL, CELL, CELL); }
+    // (red: the bottom rows, by cells as well)
     ctx.fillStyle = 'rgba(163,64,58,0.10)';
-    ctx.fillRect(0, redTop*CELL, COLS*CELL, deployRows*CELL);
+    for(let x = 0; x < COLS; x++) for(let y = ROWS - deployRows; y < ROWS; y++){ const p = toScreen(x, y); ctx.fillRect(p.x*CELL, p.y*CELL, CELL, CELL); }
   }
 
   /* Movement and target highlights.
@@ -2864,7 +2868,7 @@ export function draw(){
 
   // vignette: a soft darkening toward the board's outer edge, so the map reads
   // as a physical object sitting on a table rather than a flat filled rectangle
-  const vw = COLS*CELL, vh = ROWS*CELL;
+  const vw = SCOLS()*CELL, vh = SROWS()*CELL;
   ctx.fillStyle = getParchmentTexturePattern();
   ctx.fillRect(0, 0, vw, vh);
   const vignette = ctx.createRadialGradient(vw/2, vh/2, Math.min(vw,vh)*0.35, vw/2, vh/2, Math.hypot(vw,vh)*0.62);
@@ -2910,8 +2914,8 @@ export function playBoardIntroAnimation(onComplete){
   if(FAST_ANIMATION_MODE){ draw(); if(onComplete) onComplete(); return; }
   if(V2){
     // Start from the bare board colour while the art finishes preparing.
-    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
-    ctx.fillStyle = TERRAIN_V2_BG; ctx.fillRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.clearRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
+    ctx.fillStyle = TERRAIN_V2_BG; ctx.fillRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
     v2IntroActive = true;
     v2Ready().then(() => introV2(() => { v2IntroActive = false; if(onComplete) onComplete(); }));
     return;
@@ -2959,7 +2963,7 @@ export function playBoardIntroAnimation(onComplete){
   function tick(){
     const now = performance.now();
     const elapsedGlobal = now - startTime;
-    ctx.clearRect(0, 0, COLS*CELL, ROWS*CELL);
+    ctx.clearRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
 
     let allSettled = true;
     for(const tile of tiles){

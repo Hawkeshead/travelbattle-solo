@@ -64,7 +64,7 @@ export function applyLockedMap(card){
   const m = card.map;
   if(m.type === 'authored'){
     const t = authoredTerrain(m.terrain);
-    setBoardMode(t[0].length === 10 && t.length === 10 ? 'single' : 'standard');
+    setBoardMode(t[0].length === 10 && t.length === 10 ? 'single' : t[0].length === 10 && t.length === 20 ? 'corridor' : 'standard');
     state.boardAssignment = null;
     state.boardRotation = null;
     state.terrain = t;

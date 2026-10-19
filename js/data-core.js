@@ -83,8 +83,13 @@ export let CELL = 68; // recomputed responsively at runtime, see computeCellSize
 // those all read ROWS live rather than caching it.
 export function setBoardMode(mode){
   state.boardMode = mode;
-  ROWS = (mode === 'grand') ? HALF_COLS*2 : HALF_COLS;
-  COLS = (mode === 'single') ? HALF_COLS : HALF_COLS*2;
+  ROWS = (mode === 'grand' || mode === 'corridor') ? HALF_COLS*2 : HALF_COLS;
+  COLS = (mode === 'single' || mode === 'corridor') ? HALF_COLS : HALF_COLS*2;
+  /* CORRIDOR (campaign battles): 10 wide by 20 deep, shown from the side (the
+     W edge) so it reads as a long landscape board. Any other board drops that
+     view again, unless something else (Online Group) set its own. */
+  if(mode === 'corridor'){ state.viewEdge = 'W'; state._corridorView = true; }
+  else if(state._corridorView){ state.viewEdge = null; state._corridorView = false; }
 }
 
 // Board A — exact terrain from Matthew's annotated spreadsheet (Aug 2026).

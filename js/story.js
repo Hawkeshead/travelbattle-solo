@@ -28,6 +28,29 @@ function cardBrigade(b, nation, ally){
   return out;
 }
 
+/* CORRIDOR BATTLES (Matthew, 18 Oct 2026): designed as 20 wide by 10 deep
+   with France at the left end and the Coalition at the right. The game plays
+   them as a board 10 wide by 20 deep (France at the top, the Coalition at the
+   bottom), so every rule that reads "forward" as up or down works unchanged,
+   and shows it from the side (view edge W) so it looks as designed. Design
+   square (col, row) becomes game square (9 - row, col); line coordinates
+   (X, Y) become (10 - Y, X). */
+export function corridorMap(m){
+  const W = m.terrain[0].length, H = m.terrain.length;           // 20 x 10 as designed
+  const grid = rows => Array.from({ length: W }, (_, gy) => Array.from({ length: H }, (_, gx) => rows[H - 1 - gx][gy]).join(''));
+  const sq = ([x, y]) => [H - 1 - y, x];
+  const line = ([x, y]) => [H - y, x];
+  const out = Object.assign({}, m, { terrain: grid(m.terrain), roads: grid(m.roads) });
+  if(m.river) out.river = Object.assign({}, m.river, {
+    course: m.river.course.map(line),
+    fords: (m.river.fords || []).map(([x0, x1, y0, y1]) => [H - y1, H - y0, x0, x1]),
+    bridges: (m.river.bridges || []).map(b => Object.assign({}, b, { squares: b.squares.map(sq) })),
+  });
+  if(m.places) out.places = m.places.map(([n, x, y, k]) => [n, H - y, x, k]);
+  if(m.areas) out.areas = Object.fromEntries(Object.entries(m.areas).map(([k, v]) => [k, v.map(sq)]));
+  out.corridor = true;
+  return out;
+}
 export function storyToCard(battle, playerNation, campaign = 'story'){
   const coalition = Object.keys(battle.sides).filter(n => !FRENCH_SIDE.has(n));
   const french = Object.keys(battle.sides).filter(n => FRENCH_SIDE.has(n));
@@ -44,7 +67,7 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
     name: battle.name, date: battle.date, archetype: null, intro: battle.history,
     sourceUrl: battle.sourceUrl || '', historicalResult: '',
     firstPlayer: 'french',
-    map: Object.assign({ type: 'authored' }, battle.map),
+    map: Object.assign({ type: 'authored' }, battle.layout === 'corridor' ? corridorMap(battle.map) : battle.map),
     turnLimit: battle.turnLimit,
     forces: { british: forcesFor(coalition), french: forcesFor(french) },
     win: { british: winFor(lead), french: winFor(french[0]) },

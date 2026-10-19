@@ -48,3 +48,13 @@ test('every Waterloo battle makes a valid battle card for every nation that foug
     }
   }
 });
+
+import { corridorMap } from '../js/story.js';
+test('a corridor map turns into a 10 by 20 board with France at the top', () => {
+  const qb = story.battles.find(b => b.id === 'quatre-bras');
+  const m = corridorMap(qb.map);
+  assert.equal(m.terrain.length, 20); assert.equal(m.terrain[0].length, 10);
+  // design square (col 9, row 5) is Gemioncourt; in the game it is (9 - 5, 9) = (4, 9)
+  assert.equal(qb.map.terrain[5][9], '#'); assert.equal(m.terrain[9][4], '#');
+  assert.deepEqual(m.areas.crossroads, [[5, 15]]);   // design (15, 4)
+});

@@ -47,12 +47,12 @@ export function validateCard(card){
   COLS = 20; ROWS = 10;
   if(map && map.type === 'authored'){
     /* A map drawn for the card: rows of . : * ^ # = (open, farmland, woods,
-       hill, buildings, road), 10 x 10 (a single board) or 20 x 10. */
+       hill, buildings, road), 10 x 10 (a single board), 20 x 10, or 10 x 20 for a corridor battle (map.corridor). */
     const rows = map.terrain;
     if(!Array.isArray(rows) || !rows.length) where('an authored map needs terrain rows');
     else {
       ROWS = rows.length; COLS = rows[0].length;
-      if(!((COLS === 10 && ROWS === 10) || (COLS === 20 && ROWS === 10))) where(`authored map is ${COLS} x ${ROWS}; it must be 10 x 10 or 20 x 10`);
+      if(!((COLS === 10 && ROWS === 10) || (COLS === 20 && ROWS === 10) || (COLS === 10 && ROWS === 20 && map.corridor))) where(`authored map is ${COLS} x ${ROWS}; it must be 10 x 10, 20 x 10, or a 10 x 20 corridor`);
       rows.forEach((r, i) => {
         if(r.length !== COLS) where(`authored map row ${i} is ${r.length} wide, not ${COLS}`);
         for(const ch of r) if(!MAP_GLYPHS.has(ch)){ where(`authored map row ${i} has an unknown square "${ch}"`); break; }
