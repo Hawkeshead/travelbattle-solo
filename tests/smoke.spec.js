@@ -24,11 +24,10 @@ import { test, expect } from '@playwright/test';
    and vice versa. */
 const faction = (page, side) =>
   page.locator(`#modeChoices .side-flag[aria-label="${side}"]`);
-/* Since all nations (17 Oct 2026) the side screen asks for your nation, then
-   your opponent's: Britain, then France, is the old one-tap Britain. */
+/* Since 19 Oct 2026 the side screen is two flags again, Coalition (Britain)
+   and Imperial (France); the Brigades screen follows. */
 async function playBritainAgainstFrance(page) {
-  await faction(page, 'Britain').click();
-  await faction(page, 'France').click();
+  await faction(page, 'Coalition').click();
   // The Brigades screen (a nation and a commander per Brigade): as they are.
   await page.locator('#modeChoices .brig-go').click();
 }

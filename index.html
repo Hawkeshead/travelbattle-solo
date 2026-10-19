@@ -465,7 +465,9 @@
   html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn:first-child{ border-radius:4px 0 0 4px; }
   html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn:last-child{ border-radius:0 4px 4px 0;border-left:none; }
   html #overlay .box.as-sides-screen #modeChoices .brig-cmd button.mode-btn.on{ background:linear-gradient(180deg,#c8a24e,#9c7a2e);color:#2a1e14;border-color:#7a5a1e; }
-  #mapStyleToggle{ flex-wrap:wrap; row-gap:6px; }   /* Map and Victory on two lines where the panel is narrow */
+  #mapStyleToggle{ flex-wrap:wrap; row-gap:6px; column-gap:14px; }
+  #modeChoices.as-sides:not(.many) .side-pick.side-pick{ width:auto; }   /* the two big flags (Coalition, Imperial) keep their own width */
+  #mapStyleToggle .mode-group{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }   /* Map and Victory on two lines where the panel is narrow */
   html #overlay .box.as-sides-screen #modeChoices button.brig-go{ align-self:center;min-width:180px;margin-top:4px; }
   @media (max-height:430px){
     #modeChoices.as-sides .side-group.brig-setup{ gap:2px; }

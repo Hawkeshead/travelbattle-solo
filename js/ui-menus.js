@@ -1,4 +1,4 @@
-import { RIVER_CHANCE, generateRiver } from './river-generator.js';
+import { generateRiver } from './river-generator.js';
 import { buildWater } from './engine-water.js';
 import { offerBeginBattle } from './ui-deployment.js';
 import { DEFAULT_NATIONS, NATIONS, artPrefixesFor, nationFor, nationKeyFor, nationsForSide } from './nations.js';
@@ -345,7 +345,7 @@ export function showModeSelect(isSplash){
   const last = loadLastSetup();
   if(last){
     // The player's nation (a setup saved before nations existed reads as Britain against France).
-    const side = nationFor(last.nations, last.aiSide === SIDES.BLUE ? SIDES.RED : SIDES.BLUE).name;
+    const side = last.aiSide === SIDES.BLUE ? 'Coalition' : 'Imperial';   // the side's name, as on Choose Your Side
     const again = document.createElement('button');
     again.textContent = 'Same Again \u00B7 ' + side;
     menuItem(again, 'again');
@@ -723,40 +723,33 @@ export function showSideSelect(){
     wrap.appendChild(b); wrap.appendChild(cap);
     return wrap;
   };
-  const group = (title, side, onPick) => {
-    const g = document.createElement('div');
-    g.className = 'side-group';
-    g.innerHTML = `<div class="side-group-title">${title}</div>`;
-    const row = document.createElement('div');
-    row.className = 'side-group-flags';
-    for(const n of nationsForSide(side)) row.appendChild(flag(n.key, () => onPick(n.key)));
-    g.appendChild(row);
-    return g;
-  };
+
   const back = document.createElement('button');
   back.type = 'button'; back.className = 'op-back'; back.textContent = 'Back';
-  /* ALL NATIONS (17 Oct 2026): first your own nation, from either side, then
-     your opponent from the other side's nations; the AI commands that one.
-     Same Again on the title screen repeats the last pairing in one tap. */
+  /* TWO SIDES AGAIN (19 Oct 2026, Matthew): the Coalition (Britain's flag)
+     or the Imperial side (France's). Each army starts as Britain against
+     France; the Brigades screen next is where any Brigade can take another
+     nation of its side. */
+  const BASE = { red: 'britain', blue: 'france' };
   const showSides = () => {
     document.getElementById('overlayTitle').textContent = 'Choose Your Side';
     extra.innerHTML = '';
-    extra.classList.add('many');
-    extra.appendChild(group('The Coalition', SIDES.RED, key => showOpponents(SIDES.RED, key)));
-    extra.appendChild(group('The Imperial side', SIDES.BLUE, key => showOpponents(SIDES.BLUE, key)));
+    extra.classList.remove('many');
+    const row = document.createElement('div');
+    row.className = 'side-group-flags';
+    row.style.width = '100%';   // the flags on one line, Back under them
+    for(const [side, label] of [[SIDES.RED, 'Coalition'], [SIDES.BLUE, 'Imperial']]){
+      const f = flag(BASE[side], () => showBrigades(side, { ...BASE }));
+      f.querySelector('.side-flag').setAttribute('aria-label', label);
+      f.querySelector('.side-cap').textContent = label;
+      row.appendChild(f);
+    }
+    extra.appendChild(row);
     // Back to the title screen (the menu is no longer a panel to fall back to).
     back.onclick = ()=> showModeSelect();
     extra.appendChild(back);
   };
-  const showOpponents = (mySide, myKey) => {
-    document.getElementById('overlayTitle').textContent = 'Choose Your Opponent';
-    extra.innerHTML = '';
-    const theirs = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
-    extra.appendChild(group(theirs === SIDES.RED ? 'The Coalition' : 'The Imperial side', theirs,
-      key => showBrigades(mySide, mySide === SIDES.RED ? { red: myKey, blue: key } : { red: key, blue: myKey })));
-    back.onclick = showSides;
-    extra.appendChild(back);
-  };
+
   /* YOUR BRIGADES (17 Oct 2026): each of the three Brigades on either side
      may fight under any nation of its side's team (they start as the nations
      just picked), and each of the player's own may be commanded by them or by
@@ -829,7 +822,7 @@ export function showSideSelect(){
     start.onclick = () => go({ ...nations, [mySide]: pick[mySide][0], [theirs]: pick[theirs][0] }, theirs,
       { nations: pick, ai: ai.map((on, i) => on ? `${mySide}:${i}` : null).filter(Boolean), flags: nations });
     extra.appendChild(start);
-    back.onclick = () => showOpponents(mySide, nations[mySide]);
+    back.onclick = showSides;
     extra.appendChild(back);
   };
   showSides();
@@ -883,12 +876,12 @@ export function mapStyle(){ try { return localStorage.getItem(MAP_STYLE_KEY) ===
    their own rules. The AI is not retuned for it. */
 const WIN_KEY = 'fc_win_brigades';
 export function winBrigadesPref(){ try { return localStorage.getItem(WIN_KEY) === '1' ? 1 : 2; } catch { return 2; } }
-/* RIVER (19 Oct 2026, Matthew: to test river battles on demand): on a Random
-   map, a river Sometimes (river-generator.js RIVER_CHANCE, the default),
-   Always or Never. Remembered on this phone; Classic maps never have one. */
+/* RIVER (19 Oct 2026, Matthew): On or Off. On, every Random map has a river
+   (river-generator.js picks its shape and crossings); Off, none. On by
+   default; remembered on this phone. Classic maps never have one. */
 const RIVER_KEY = 'fc_river';
-export function riverPref(){ try { const v = localStorage.getItem(RIVER_KEY); return v === 'always' || v === 'never' ? v : 'sometimes'; } catch { return 'sometimes'; } }
-const riverChance = () => ({ always: 1, never: 0 })[riverPref()] ?? RIVER_CHANCE;
+export function riverPref(){ try { return localStorage.getItem(RIVER_KEY) === 'off' ? 'off' : 'on'; } catch { return 'on'; } }
+const riverChance = () => (riverPref() === 'on' ? 1 : 0);
 function mapToggleHtml(){
   const cur = mapStyle();
   const b = (v, l) => `<button type="button" class="mode-btn${cur === v ? ' on' : ''}" data-map="${v}">${l}</button>`;
@@ -896,9 +889,11 @@ function mapToggleHtml(){
   const v = (n, l) => `<button type="button" class="mode-btn${w === n ? ' on' : ''}" data-win="${n}">${l}</button>`;
   const rv = riverPref();
   const r = (k, l) => `<button type="button" class="mode-btn${rv === k ? ' on' : ''}" data-river="${k}">${l}</button>`;
-  return `<span id="mapStyleToggle" class="mode-toggle"><span class="mode-label">Map</span>${b('random', 'Random')}${b('classic', 'Classic')}`
-    + `<span class="mode-label" style="margin-left:10px">Victory</span>${v(1, '1 Brigade')}${v(2, '2 Brigades')}`
-    + (cur === 'random' ? `<span class="mode-label" style="margin-left:10px">River</span>${r('sometimes', 'Sometimes')}${r('always', 'Always')}${r('never', 'Never')}` : '')
+  // Each setting with its buttons stays together when the row wraps.
+  const g = (label, btns) => `<span class="mode-group"><span class="mode-label">${label}</span>${btns}</span>`;
+  return `<span id="mapStyleToggle" class="mode-toggle">${g('Map', b('random', 'Random') + b('classic', 'Classic'))}`
+    + g('Victory', v(1, '1 Brigade') + v(2, '2 Brigades'))
+    + (cur === 'random' ? g('River', r('on', 'On') + r('off', 'Off')) : '')
     + `</span>`;
 }
 function wireMapToggle(){
