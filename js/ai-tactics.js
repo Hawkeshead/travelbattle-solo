@@ -1,4 +1,4 @@
-import { waterDistance } from './engine-water.js';
+import { meleeBlocked, waterDistance } from './engine-water.js';
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { brigadeCavalryCount, canAttackTarget, chebyshev, combatBonuses, hasLOS, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
@@ -388,6 +388,21 @@ function urgency(c){
 }
 const sqOf = name => (((state.scenario.map || {}).areas || {})[name] || []).map(([x, y]) => ({ x, y }));
 const nearest = (pos, sqs) => sqs.length ? Math.min(...sqs.map(q => waterDistance(pos, q))) : 99;
+/* THE ASSAULT (19 Oct 2026). The attacking AI closed up on a defended village
+   and stopped: stepping next to its defenders scores as a bad fight, and in
+   contact a fight is owed. A real commander commits when the clock runs out.
+   Standing next to an enemy unit that holds one of the objective's squares
+   (not across open water) is worth ASSAULT_PULL, times the deadline urgency:
+   1.0 early, up to 2.5 at the deadline, enough by then to outweigh a bad
+   fight estimate. Infantry and Guard lead (cavalry at half, guns not at all). */
+export const ASSAULT_PULL = 1.6;
+function assaultPull(mover, side, pos, sqs, k){
+  const t = UNIT_TYPES[mover.type];
+  if(t.isArtillery) return 0;
+  const held = state.units.filter(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && sqs.some(q => q.x === o.x && q.y === o.y));
+  if(!held.some(o => Math.max(Math.abs(o.x - pos.x), Math.abs(o.y - pos.y)) === 1 && !meleeBlocked(pos, o))) return 0;
+  return ASSAULT_PULL * k * (t.isCavalry ? 0.5 : 1);
+}
 function storyMoveBonus(mover, side, pos){
   const sc = state.scenario, key = OP_SIDE_KEY[side], foeKey = OP_SIDE_KEY[side === 'red' ? 'blue' : 'red'];
   const t = UNIT_TYPES[mover.type], brig = t.key === 'BRIGADIER';
@@ -405,9 +420,11 @@ function storyMoveBonus(mover, side, pos){
       const sqs = sqOf(c.area), d = nearest(pos, sqs);
       const taken = sqs.some(q => q.x === pos.x && q.y === pos.y);
       s += taken ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
+      if(attacking && !brig) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'HOLD_AREAS' && !brig){
       const sqs = (c.areas || []).flatMap(sqOf), d = nearest(pos, sqs);
       s += d === 0 ? inPlace * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, reach - d) * per * k;
+      if(attacking) s += assaultPull(mover, side, pos, sqs, k);
     } else if(c.type === 'NEXT_TO' && mover.storyTag === c.tag && !brig){
       const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
       const d = friends.length ? Math.min(...friends.map(o => waterDistance(pos, o))) : 99;
