@@ -1,4 +1,4 @@
-import { generateRiver } from './river-generator.js';
+import { RIVER_CHANCE, generateRiver } from './river-generator.js';
 import { buildWater } from './engine-water.js';
 import { offerBeginBattle } from './ui-deployment.js';
 import { DEFAULT_NATIONS, NATIONS, artPrefixesFor, nationFor, nationKeyFor, nationsForSide } from './nations.js';
@@ -170,11 +170,12 @@ export function ensureModeChoices(){
 // the tenth. Stored under the fc: prefix used by the other display preferences.
 const LAST_SETUP_KEY = 'fc:lastSetup';
 
-function saveLastSetup(){
+function saveLastSetup(flags){
   try {
     localStorage.setItem(LAST_SETUP_KEY, JSON.stringify({
       aiSide: state.aiSide, difficulty: state.aiDifficulty, nations: state.nations,
       brigadeNations: state.brigadeNations, friendlyAi: state.friendlyAi,
+      flags: flags || null,   // the two flags picked before the Brigades screen (it comes back with these)
     }));
   } catch { /* private mode — the seal simply will not appear next time */ }
 }
@@ -698,7 +699,7 @@ export function showSideSelect(){
     state.nations = nations;
     state.brigadeNations = brigades ? brigades.nations : null;
     state.friendlyAi = brigades ? brigades.ai : null;
-    saveLastSetup();
+    saveLastSetup(brigades && brigades.flags);
     extra.style.display = 'none';
     document.getElementById('overlay').classList.remove('show');
     if(battleMode === 'rts'){ import('./rts/launch.js').then(m => m.launchRealTime()); return; }
@@ -765,6 +766,20 @@ export function showSideSelect(){
     const theirs = mySide === SIDES.RED ? SIDES.BLUE : SIDES.RED;
     const pick = { [mySide]: [0, 1, 2].map(() => nations[mySide]), [theirs]: [0, 1, 2].map(() => nations[theirs]) };
     const ai = [false, false, false];
+    /* The last Quick Battle's choices come back (19 Oct 2026), side by side:
+       a side's Brigade nations when the flag just picked for it is the one
+       picked last time, and the AI commanders when you take the same side. */
+    const last = loadLastSetup();
+    const lastFlags = last && (last.flags || last.nations);
+    if(last && last.brigadeNations && lastFlags){
+      for(const side of [mySide, theirs]){
+        const prev = last.brigadeNations[side];
+        if(Array.isArray(prev) && prev.length === 3 && lastFlags[side] === nations[side] &&
+           prev.every(k => NATIONS[k] && NATIONS[k].side === side && !NATIONS[k].secondOf)) pick[side] = [...prev];
+      }
+      if(last.aiSide === theirs && Array.isArray(last.friendlyAi))
+        for(let i = 0; i < 3; i++) ai[i] = last.friendlyAi.includes(`${mySide}:${i}`);
+    }
     document.getElementById('overlayTitle').textContent = 'Your Brigades';
     extra.innerHTML = '';
     const ORD = ['1st', '2nd', '3rd'];
@@ -812,7 +827,7 @@ export function showSideSelect(){
     const start = document.createElement('button');
     start.type = 'button'; start.className = 'primary brig-go'; start.textContent = 'To Battle';
     start.onclick = () => go({ ...nations, [mySide]: pick[mySide][0], [theirs]: pick[theirs][0] }, theirs,
-      { nations: pick, ai: ai.map((on, i) => on ? `${mySide}:${i}` : null).filter(Boolean) });
+      { nations: pick, ai: ai.map((on, i) => on ? `${mySide}:${i}` : null).filter(Boolean), flags: nations });
     extra.appendChild(start);
     back.onclick = () => showOpponents(mySide, nations[mySide]);
     extra.appendChild(back);
@@ -868,19 +883,34 @@ export function mapStyle(){ try { return localStorage.getItem(MAP_STYLE_KEY) ===
    their own rules. The AI is not retuned for it. */
 const WIN_KEY = 'fc_win_brigades';
 export function winBrigadesPref(){ try { return localStorage.getItem(WIN_KEY) === '1' ? 1 : 2; } catch { return 2; } }
+/* RIVER (19 Oct 2026, Matthew: to test river battles on demand): on a Random
+   map, a river Sometimes (river-generator.js RIVER_CHANCE, the default),
+   Always or Never. Remembered on this phone; Classic maps never have one. */
+const RIVER_KEY = 'fc_river';
+export function riverPref(){ try { const v = localStorage.getItem(RIVER_KEY); return v === 'always' || v === 'never' ? v : 'sometimes'; } catch { return 'sometimes'; } }
+const riverChance = () => ({ always: 1, never: 0 })[riverPref()] ?? RIVER_CHANCE;
 function mapToggleHtml(){
   const cur = mapStyle();
   const b = (v, l) => `<button type="button" class="mode-btn${cur === v ? ' on' : ''}" data-map="${v}">${l}</button>`;
   const w = winBrigadesPref();
   const v = (n, l) => `<button type="button" class="mode-btn${w === n ? ' on' : ''}" data-win="${n}">${l}</button>`;
+  const rv = riverPref();
+  const r = (k, l) => `<button type="button" class="mode-btn${rv === k ? ' on' : ''}" data-river="${k}">${l}</button>`;
   return `<span id="mapStyleToggle" class="mode-toggle"><span class="mode-label">Map</span>${b('random', 'Random')}${b('classic', 'Classic')}`
-    + `<span class="mode-label" style="margin-left:10px">Victory</span>${v(1, '1 Brigade')}${v(2, '2 Brigades')}</span>`;
+    + `<span class="mode-label" style="margin-left:10px">Victory</span>${v(1, '1 Brigade')}${v(2, '2 Brigades')}`
+    + (cur === 'random' ? `<span class="mode-label" style="margin-left:10px">River</span>${r('sometimes', 'Sometimes')}${r('always', 'Always')}${r('never', 'Never')}` : '')
+    + `</span>`;
 }
 function wireMapToggle(){
   const redraw = () => { document.getElementById('mapStyleToggle').outerHTML = mapToggleHtml(); wireMapToggle(); };
   document.querySelectorAll('#mapStyleToggle [data-map]').forEach(btn => {
     btn.onclick = (e)=>{ e.stopPropagation();
       try { localStorage.setItem(MAP_STYLE_KEY, btn.dataset.map); } catch { /* not remembered */ }
+      redraw(); };
+  });
+  document.querySelectorAll('#mapStyleToggle [data-river]').forEach(btn => {
+    btn.onclick = (e)=>{ e.stopPropagation();
+      try { localStorage.setItem(RIVER_KEY, btn.dataset.river); } catch { /* not remembered */ }
       redraw(); };
   });
   document.querySelectorAll('#mapStyleToggle [data-win]').forEach(btn => {
@@ -989,7 +1019,7 @@ export function beginBoardSetup(){
        each board at the centre gap of its edges. Its seed comes from the two
        board seeds, so the match's own random sequence is untouched. */
     state.places = null;
-    state.water = buildWater(generateRiver(state.terrain, state.roads, (seeds[0] ^ Math.imul(seeds[1], 31)) >>> 0));
+    state.water = buildWater(generateRiver(state.terrain, state.roads, (seeds[0] ^ Math.imul(seeds[1], 31)) >>> 0, riverChance()));   // the River setting
     if(state.water) log(`A river crosses the field (${state.water.bridges.length} bridge${state.water.bridges.length === 1 ? '' : 's'}).`, 'system');
     state.grassStyles = assignGrassStyles(state.terrain);
     state.buildingStyles = assignBuildingStyles(state.terrain);

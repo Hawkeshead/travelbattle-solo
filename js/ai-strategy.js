@@ -4,7 +4,7 @@ import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
 import { stepGate, traceDecision, traceOn, traceTurn } from './ai-trace.js';
 import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
-import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state, unitNationName } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { zeroedSquares, homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
 import { log, logReplay } from './engine-state.js';
@@ -3897,7 +3897,7 @@ export function aiDecideAndExecuteMove(u){
       logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'line', by:'ai' });
       u.squareNoCavTurns = 0;
       state.moved.add(u.id);
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) reforms Line, no longer threatened.`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) reforms Line, no longer threatened.`, side);
       recordMove('Reform Line');
     } else {
       recordMove('Hold (Square)');
@@ -3952,7 +3952,7 @@ export function aiDecideAndExecuteMove(u){
       u.ambushCooldown = AMBUSH_COOLDOWN_TURNS;
       logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'standDown',
         reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) breaks cover, the ambush unsprung.`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) breaks cover, the ambush unsprung.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Stand Down',
         reason:`no enemy within ${AMBUSH_STANDDOWN_RANGE} for ${AMBUSH_STANDDOWN_TURNS} turns` });
       // Falls through to normal move scoring this turn rather than idling again.
@@ -3987,7 +3987,7 @@ export function aiDecideAndExecuteMove(u){
       u.ambushAge = 0;
       logReplay('ambush', { unitId:u.id, side:u.side, x:u.x, y:u.y, phase:'set', by:'ai' });
       state.moved.add(u.id);
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) lies in ambush, sensing the enemy closing in.`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) lies in ambush, sensing the enemy closing in.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Lay Ambush', reason:`nearest enemy ${near} squares away` });
       recordMove('Lay Ambush');
       return;
@@ -5247,7 +5247,7 @@ export function aiDecideAndExecuteMove(u){
       logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
       u.squareNoCavTurns = 0;
       state.moved.add(u.id);
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square, sensing cavalry nearby.`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) forms Square, sensing cavalry nearby.`, side);
       logAiDebugMove(side, { unit: unitLabel(u), mission: missionFor(u), action:'Form Square', reason:`squareScore ${squareScore.toFixed(2)} beat best move ${bestScore.toFixed(2)}` });
       recordMove('Form Square');
       return;
@@ -5309,9 +5309,9 @@ export function aiDecideAndExecuteMove(u){
     }
     if(isCharge){
       u.charged = true;
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) charges to engage!`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) charges to engage!`, side);
     } else {
-      log(`${unitLabel(u)} (${SIDE_LABEL[side]}) advances to (${best.x},${best.y}).`, side);
+      log(`${unitLabel(u)} (${unitNationName(u)}) advances to (${best.x},${best.y}).`, side);
     }
     if(seekTactics && (t.key==='INFANTRY'||t.key==='GUARD')){
       const stacked = unitsAt(best.x,best.y).some(o=>!o.removed && o.id!==u.id && o.side===side && (o.type==='INFANTRY'||o.type==='GUARD'));
@@ -5340,7 +5340,7 @@ export function aiDecideAndExecuteMove(u){
     u.formation = 'square';
     u.squareNoCavTurns = 0;
     logReplay('formation', { unitId:u.id, side:u.side, x:u.x, y:u.y, to:'square', by:'ai' });
-    log(`${unitLabel(u)} (${SIDE_LABEL[side]}) forms Square beside the enemy horse.`, side);
+    log(`${unitLabel(u)} (${unitNationName(u)}) forms Square beside the enemy horse.`, side);
     recordMove('Form Square');
   }
 }

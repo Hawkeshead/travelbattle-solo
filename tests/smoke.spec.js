@@ -302,7 +302,7 @@ test('an old-format saved campaign does not auto-resume', async ({ page }) => {
   // would have kept passing while testing nothing at all.
   expect(labels).toContain('Quick Battle');
   expect(labels).toContain('Operations');      // Operations are back (step 2): the ready Scenario Cards
-  expect(labels).toContain('Campaigns');       // Campaigns are back (4 Oct 2026), entered from the menu only
+  expect(labels).toContain('Campaign');        // Campaigns are back (4 Oct 2026), entered from the menu only; the button reads 'Campaign' since the Campaign menu (940a8e8)
 
   // The save itself is deliberately left in storage — it is the player's
   // progress and must still be there when Campaigns return.

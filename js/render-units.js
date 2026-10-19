@@ -152,7 +152,7 @@ export const REGIMENT_PORTRAIT_KEY = {
   '3rd Regiment of Foot Guards': 'b-inf-3rdfg',
   'Brunswick Oels Jägers': 'b-inf-brunswick',
   'Scots Greys': 'b-hcav-greys',
-  'Royal Horse Guards – The Blues': 'b-hcav-blues',
+  'Royal Horse Guards (The Blues)': 'b-hcav-blues',
   '10th Hussars': 'b-lcav-10th',
   '15th Hussars': 'b-lcav-15th',
   '1er Grenadiers à Pied': 'f-guard-1er',

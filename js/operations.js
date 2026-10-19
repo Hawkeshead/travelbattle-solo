@@ -30,7 +30,7 @@
    no skull, not counted by DESTROY or in losses.
 ========================================================= */
 import { buildWater } from './engine-water.js';
-import { ROWS, SIDES, SIDE_LABEL, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, setBoardMode, state } from './data-core.js';
+import { ROWS, SIDES, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, setBoardMode, state, unitNationName } from './data-core.js';
 import { getCard } from './scenario-cards.js';
 import { log, logReplay, newUnit, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
 import { movableUnitsForSide, seededRandom } from './engine-rules.js';
@@ -205,7 +205,7 @@ export function marchOff(u){
   u.removedTurn = state.turnNumber;
   if(state.moved) state.moved.add(u.id);
   logReplay('status', { unitId: u.id, side: u.side, x: u.x, y: u.y, newStatus: 'MarchedOff', reason: 'marched off the field' });
-  log(`${u.historicalName || u.type} (${SIDE_LABEL[u.side]}) marches off the field.`, 'system');
+  log(`${u.historicalName || u.type} (${unitNationName(u)}) marches off the field.`, 'system');
   try { draw(); } catch { /* headless */ }
   checkScenarioObjective();
   return true;
