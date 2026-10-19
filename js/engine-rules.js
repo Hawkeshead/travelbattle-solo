@@ -5,7 +5,7 @@ import { AudioManager } from './audio-manager.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, TERRAIN, UNIT_TYPES, humanOwns, nationOf, state, unitNationName } from './data-core.js';
 import { armBattleBed, FAST_DICE_MODE, finishDice, presentRollTrigger, refreshDiceFrame, showDice, showDiceRerollButton } from './dice.js';
 import { checkScenarioObjective, endGame } from './engine-objectives.js';
-import { log, logNarration, logReplay } from './engine-state.js';
+import { log, logNarration, logReplay, newUnit } from './engine-state.js';
 import { GROUP_ARMIES, armyBrokenCount, armyOf, homeEdgeCells } from './group.js';
 import { addDeathEffect, animateUnitTo, FAST_ANIMATION_MODE, MOVE_PROFILES, moveAnimationMs, showActionLine } from './render-board.js';
 import { unitPortraitHTML } from './render-units.js';
@@ -64,6 +64,9 @@ export function pickUnitAtCell(x,y){
 export function isLocked(u){ return !!u._lockedUntil && Math.ceil((state.turnNumber || 1) / 2) < u._lockedUntil; }
 export function canAttackTarget(attacker, defender){
   if(isLocked(attacker)) return false;
+  if(storyRule('mistaken') && attacker._arrivedRound === battleRound()) return false;   // just arrived: not sure who is who
+  if(storyRule('shelter') && defender.type === 'BRIGADIER' &&
+     state.units.some(o => !o.removed && o.side === defender.side && o.id !== defender.id && o.x === defender.x && o.y === defender.y && o.formation === 'square')) return false;
   /* Every Brigadier, an Operation VIP included. A VIP is not fought: he is
      taken by a unit ending its move in his square (see isVip and
      displaceBrigadierIfPresent), so he is a charge DESTINATION, never a melee
@@ -159,8 +162,37 @@ export function isAdjacentRaw(a,b){ return Math.max(Math.abs(a.x-b.x), Math.abs(
 // is a separate, additional layer: same base concealment, plus the spring/bonus
 // mechanics. Concealment only affects ranged targeting and AI awareness — an
 // adjacent enemy can always see and fight a unit normally, concealed or not.
+/* =========================================================
+   CAMPAIGN SPECIAL RULES (Waterloo, 19 Oct 2026). A battle switches them on
+   in its data (data/story: rules), carried on the card as storyRules.rules.
+     rye        tall crops: a unit in farmland is hidden from enemy units more
+                than two squares away (Kellermann's Charge)
+     shelter    a commander standing with a friendly unit in square cannot be
+                attacked (the Duke's Narrow Escape)
+     storm      until round N: no artillery fire, and moving off the roads
+                costs a square (the Cavalry at Genappe)
+     waves      a lost unit of the named side and type returns on its home row
+                two rounds later, up to N times (Hougoumont)
+     ammo       from round N the named side's units in an area cannot volley
+                (La Haye Sainte)
+     mistaken   units cannot attack on the round they arrive (Papelotte)
+     night      artillery fires only at targets within two squares (the
+                Pursuit)
+     jam        road squares in an area give no extra move (the Pursuit)
+========================================================= */
+export function storyRule(k){
+  const r = state.scenario && state.scenario.storyRules && state.scenario.storyRules.rules;
+  return (r && r[k]) || null;
+}
+export const battleRound = () => Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
+const inStoryArea = (name, x, y) => {
+  const a = state.scenario && state.scenario.map && state.scenario.map.areas && state.scenario.map.areas[name];
+  return !!a && a.some(([ax, ay]) => ax === x && ay === y);
+};
 export function isConcealedFromEnemy(unit){
   if(unit.hidden) return true;
+  if(storyRule('rye') && terrainAt(unit.x, unit.y).key === 'PLOUGHED_FIELD' &&
+     !state.units.some(o => !o.removed && o.side !== unit.side && Math.max(Math.abs(o.x - unit.x), Math.abs(o.y - unit.y)) <= 2)) return true;
   return terrainAt(unit.x, unit.y).key === 'WOODS';
 }
 // Ambush status is only meaningful while standing in the Woods that conceal it —
@@ -433,7 +465,10 @@ export function legalMoves(u){
   if(!connected.has(u.id)) return [];
 
   let allowance = unitBaseMove(u);
-  const startRoad = isRoadLike(terrainAt(u.x,u.y));
+  const jam = storyRule('jam');
+  const startRoad = isRoadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y));
+  const storm = storyRule('storm');
+  if(storm && battleRound() <= storm.untilRound) allowance = Math.max(1, allowance - 1);   // mud: a square less, the road bonus still counts
   const cavOrHorseArty = isCavalryOrHorseArtillery(u);
   const isFootArtillery = UNIT_TYPES[u.type].isArtillery && !isHorseArtillery(u);
   const hasEscort = isFootArtillery ? brigadeHasCavalryEscort(u) : false;
@@ -502,7 +537,7 @@ export function legalMoves(u){
   for(const [key,d] of dist){
     if(key===startKey) continue;
     const [x,y] = key.split(',').map(Number);
-    const endRoad = isRoadLike(terrainAt(x,y));
+    const endRoad = isRoadLike(terrainAt(x,y)) && !(jam && inStoryArea(jam.area, x, y));
     let effAllowance = (startRoad && endRoad) ? allowance+1 : allowance;
     const endPlough = terrainAt(x,y).plough;
     if(cavOrHorseArty && (startPlough || endPlough)) effAllowance = Math.min(effAllowance, 1); // hard going for horses starting or ending on a ploughed field
@@ -648,6 +683,8 @@ export function playMovementAudio(u, steps, profile){
 }
 
 export function volleyTargets(u){
+  const ammo = storyRule('ammo');
+  if(ammo && u.side === ammo.side && battleRound() >= ammo.fromRound && inStoryArea(ammo.area, u.x, u.y)) return [];   // rifle rounds gone
   if(isLocked(u)) return [];
   if(u.removed || !isFootInfantry(u)) return [];
   if(u.turnOnly) return [];                                   // turned around: cannot fire
@@ -708,12 +745,15 @@ export function volleyModifiers(target){
 }
 
 export function artilleryTargets(gun){
+  const storm = storyRule('storm');
+  if(storm && battleRound() <= storm.untilRound) return [];   // wet powder
   if(isLocked(gun)) return [];
   if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
-  return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t));
+  const night = storyRule('night');   // at night a gun can only see two squares
+  return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t) && (!night || chebyshev(gun, t) <= 2));
 }
 /* EMPTY BRIDGE SQUARES a gun may shoot at, to wreck the bridge (Matthew,
    18 Oct 2026): the same gun conditions as artilleryTargets, an intact bridge
@@ -1795,6 +1835,16 @@ export function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 export function removeUnit(u, reason){
   u.removed = true;
+  /* Waves (storyRule): the lost unit's place is taken by a fresh one on its
+     home row two rounds later, up to the rule's limit. */
+  const waves = storyRule('waves');
+  if(waves && u.side === waves.side && u.type === waves.type && (state._wavesSent || 0) < waves.max && Array.isArray(state.reserves)){
+    state._wavesSent = (state._wavesSent || 0) + 1;
+    const fresh = newUnit(u.side, u.type, -1, -1, u.brigadeId);
+    fresh.storyTag = u.storyTag;
+    state.reserves.push({ unit: fresh, round: battleRound() + 2, area: null });
+    log(`Another battalion forms up to take its place (wave ${state._wavesSent} of ${waves.max}).`, u.side);
+  }
   /* The turn it went, on the unit itself. Lets the simulator measure how long a
      Brigade survives at its last unit exactly, from events rather than from a
      poll that misses turns. */

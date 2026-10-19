@@ -2662,9 +2662,7 @@
    },
    "special": "Reinforcements enter on their own end at the start of the round shown.",
    "balance": "France has 28 points against Perponcher's 14 for the first two rounds and should take Gemioncourt; the Allies catch up to 40 against 42 as reinforcements arrive near the crossroads. Both objectives were met on the day. Target 50 to 60% each.",
-   "needs": [
-    "corridor deployment"
-   ]
+   "needs": []
   },
   {
    "id": "kellermann",
@@ -2953,9 +2951,10 @@
    },
    "special": "Tall rye: a unit in farmland is hidden from enemies more than two squares away.",
    "balance": "Even on points. Cavalry beat infantry in line but lose to squares and guns; the rye decides who is caught out. Short and sharp. Target 50 to 60% each.",
-   "needs": [
-    "tall rye"
-   ]
+   "needs": [],
+   "rules": {
+    "rye": true
+   }
   },
   {
    "id": "narrow-escape",
@@ -3233,9 +3232,10 @@
    },
    "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it.",
    "balance": "Britain has 2 more points but two commanders to keep alive, and Wellington starts three squares from safety with lancers two moves away. Target 50 to 60% each.",
-   "needs": [
-    "a square sheltering a commander"
-   ]
+   "needs": [],
+   "rules": {
+    "shelter": true
+   }
   },
   {
    "id": "genappe-17",
@@ -3760,10 +3760,12 @@
    },
    "special": "Thunderstorm: no artillery fire in rounds 1 to 4, and all ground but roads costs one extra move. The Dyle is crossed at the bridge or the ford.",
    "balance": "Even on points. The Allies must squeeze through one bridge with French cavalry behind them; the Life Guards on the heights are there to counter-charge and buy the time. Target 50 to 60% each.",
-   "needs": [
-    "corridor deployment",
-    "thunderstorm"
-   ]
+   "needs": [],
+   "rules": {
+    "storm": {
+     "untilRound": 4
+    }
+   }
   },
   {
    "id": "wavre",
@@ -4783,9 +4785,14 @@
    },
    "special": "French waves: a lost French Infantry unit returns on row 1 two rounds later, up to four times.",
    "balance": "France has 17 points plus up to 12 more in waves against 16 in stone buildings. The garden and orchard are the outworks France must take first. Target 50 to 60% each.",
-   "needs": [
-    "French waves"
-   ]
+   "needs": [],
+   "rules": {
+    "waves": {
+     "side": "blue",
+     "type": "INFANTRY",
+     "max": 4
+    }
+   }
   },
   {
    "id": "la-haye-sainte",
@@ -5078,9 +5085,14 @@
    },
    "special": "From round 7 the units in the farm cannot volley (their rifle ammunition is gone).",
    "balance": "France has 27 points against 19, but the farm is stone and the sandpit flanks the road. The ammunition rule tips it to France late, which is the history: the farm holds for hours, then falls. Target 50 to 60% each.",
-   "needs": [
-    "ammunition running out (round 7)"
-   ]
+   "needs": [],
+   "rules": {
+    "ammo": {
+     "side": "red",
+     "fromRound": 7,
+     "area": "farm"
+    }
+   }
   },
   {
    "id": "papelotte",
@@ -5441,9 +5453,10 @@
    },
    "special": "Mistaken identity: on the round they arrive, Prussian units cannot attack and cannot be supported by Nassau units. From Britain's route the AI commands Zieten; from Prussia's, Saxe-Weimar.",
    "balance": "France has 25 against 14 for five rounds and only needs one hamlet briefly; the Allies need two at the end, which the Prussians make possible from round 6. Target 50 to 60% for each side.",
-   "needs": [
-    "mistaken identity"
-   ]
+   "needs": [],
+   "rules": {
+    "mistaken": true
+   }
   },
   {
    "id": "plancenoit",
@@ -7374,6 +7387,288 @@
        1,
        9
       ]
+     ],
+     "jam": [
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ]
      ]
     },
     "exits": {
@@ -7451,11 +7746,13 @@
    },
    "special": "Night: artillery fires only at targets within two squares. The jammed road: road squares give no extra move in columns F to L.",
    "balance": "Prussia has 15 against 16. Napoleon has a head start of five squares but must cross the bridge; the rearguard must either cover him or the carriage, not both. Target 50 to 60% each.",
-   "needs": [
-    "corridor deployment",
-    "night",
-    "jammed road"
-   ]
+   "needs": [],
+   "rules": {
+    "night": true,
+    "jam": {
+     "area": "jam"
+    }
+   }
   }
  ],
  "routes": {

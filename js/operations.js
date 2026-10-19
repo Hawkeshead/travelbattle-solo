@@ -121,6 +121,7 @@ export function setupOperation(cardOrId, playerSide){
   }
   state.units = [];
   state.reserves = [];
+  state._wavesSent = 0;
   for(const p of planOperationPlacement(card, state.terrain)){
     const u = newUnit(p.side, p.type, p.reserve ? -1 : p.x, p.reserve ? -1 : p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
@@ -154,6 +155,7 @@ export function bringReinforcements(side){
       .filter(c => free(c.x, c.y)).sort((a, b) => Math.abs(a.x - cols / 2) - Math.abs(b.x - cols / 2));
     if(!cells.length) continue;
     r.unit.x = cells[0].x; r.unit.y = cells[0].y;
+    r.unit._arrivedRound = round;   // the round it came on (mistaken identity, engine-rules)
     state.units.push(r.unit);
     state.reserves.splice(state.reserves.indexOf(r), 1);
     logReplay('arrive', { unitId: r.unit.id, side, x: r.unit.x, y: r.unit.y, round });

@@ -72,7 +72,7 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
     forces: { british: forcesFor(coalition), french: forcesFor(french) },
     win: { british: winFor(lead), french: winFor(french[0]) },
     specialRules: {},
-    storyRules: { layout: battle.layout, needs: battle.needs || [], notes: battle.special || '' },   // the campaign's own rules, applied as the engine gains them
+    storyRules: { layout: battle.layout, needs: battle.needs || [], notes: battle.special || '', rules: battle.rules || {} },   // the campaign's own rules, applied as the engine gains them
     ifBothMet: null, ifTimeExpires: null,
     aiRoles: { british: battle.sides[lead].role || (holds(lead) ? 'hold' : 'attack'), french: battle.sides[french[0]].role || (holds(french[0]) ? 'hold' : 'attack') },   // the battle's own attacker and defender
     outcomes: { britishWin: '', frenchWin: '' },
