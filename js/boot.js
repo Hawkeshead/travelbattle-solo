@@ -223,5 +223,10 @@ if(new URLSearchParams(location.search).has('fps')){
 if(typeof document !== 'undefined'){
   const typing = t => t && (t.closest && t.closest('input, textarea, [contenteditable="true"]'));
   document.addEventListener('contextmenu', e => { if(!typing(e.target)) e.preventDefault(); });
-  document.addEventListener('dragstart', e => { if(e.target && e.target.tagName === 'IMG') e.preventDefault(); });
+  // Nothing is dragged off the page: not pictures, links, drawings or the board (the game's own drags are pointer events, not this).
+  document.addEventListener('dragstart', e => { if(!typing(e.target)) e.preventDefault(); });
+  /* iPhone Safari pinch-zooms the page whatever touch-action says; its own
+     gesture events stop that. The board's pinch-to-zoom is pointer events
+     (render-board.js), so it is not affected. */
+  for(const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
 }

@@ -73,7 +73,7 @@
   html.despatch-on.island-left #hudIcons, html.despatch-on.island-right #hudIcons{ padding-bottom:24px; box-sizing:border-box; }
   html.despatch-on.island-left #undoBtnBattle, html.despatch-on.island-right #undoBtnBattle{ margin-top:auto; }
   html.despatch-on.island-left #resetViewBtn, html.despatch-on.island-right #resetViewBtn{ margin-top:0; }
-  #despatch{ position:fixed; z-index:31; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; outline:none; }
+  #despatch{ position:fixed; z-index:31; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:pan-x pan-y; outline:none; }
   #despatch .dp-stage{ position:absolute; top:0; left:0; perspective:1600px; }
   #despatch[data-side="right"] .dp-stage, #despatch[data-side="board"] .dp-stage{ left:auto; right:0; }
   #despatch .dp-stage img{ display:block; width:100%; height:100%; user-select:none; -webkit-user-drag:none; pointer-events:none; }
@@ -237,7 +237,7 @@
      gesture starts on the board — map-zoom.js (in render-board.js) handles pinch/pan itself,
      scoped to just this element, so the rest of the page still pinch-zooms normally. */
   #board{transform-origin:0 0;touch-action:none;}
-  canvas{image-rendering:crisp-edges;touch-action:manipulation;border-radius:2px;max-width:100%;height:auto;}
+  canvas{image-rendering:crisp-edges;touch-action:pan-x pan-y;border-radius:2px;max-width:100%;height:auto;}
 
   /* Persistent icon buttons — Undo + Field Report — pinned to a corner, always reachable */
   #hudIcons{
@@ -1509,6 +1509,18 @@
   html, body{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
   img, svg, canvas{ -webkit-user-drag:none; user-drag:none; -webkit-touch-callout:none; }
   input, textarea, [contenteditable="true"]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  /* TOUCH (19 Oct 2026, Matthew): the browser never zooms the page on a
+     double-tap or a pinch; scrolling still works everywhere it did. Set on
+     every element because touch-action is not inherited (and a scrolling
+     list would otherwise let the page zoom from inside it). Anything with its
+     own rule keeps it: the board's touch-action:none (its own pinch and pan,
+     render-board.js), the roster chips' drag, the How to Play swipe. The
+     margin round the board is play area too: no browser gestures there. */
+  *{ touch-action:pan-x pan-y; }
+  #boardWrap{ touch-action:none; }
+  input[type="range"]{ touch-action:pan-y; }   /* a slider takes sideways drags itself; the panel still scrolls up and down over it */
+  /* The title menu's buttons reset every style (all:unset), these included. */
+  .title-item, #titleMenu .resume-drop{ touch-action:pan-x pan-y; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 
   /* Campaign route (story-ui.js) */
   .story-route{ list-style:none; margin:10px 0 4px; padding:0; display:flex; flex-wrap:wrap; gap:6px 14px; }
