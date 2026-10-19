@@ -30,6 +30,8 @@ export { CARD_SIDES, CONDITION_TYPES, SPECIAL_RULES_ALLOWED, UNIT_TYPES_ALLOWED,
 /* ---------- loading ---------- */
 const FILE = TB_DATA.scenarioCards || { cards: [] };
 const CARDS = Array.isArray(FILE.cards) ? FILE.cards.slice() : [];
+/* A card made at run time (tools: the sparring server's Quick Battle). */
+export function registerCard(card){ CARDS.push(card); return card.id; }
 /* The story campaigns' battles, one card per battle per nation that fought in
    it ('waterloo-ligny-prussia'), built by js/story.js. */
 for(const [campaign, file] of Object.entries(TB_DATA.story || {})){

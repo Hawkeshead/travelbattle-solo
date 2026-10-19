@@ -25,7 +25,7 @@
 import http from 'node:http';
 import { loadGame, collapseTimers } from '../sim/headless-env.mjs';
 
-const CARD = process.env.SPAR_CARD, SIDE = process.env.SPAR_SIDE || 'blue', SEED = Number(process.env.SPAR_SEED || 701);
+const CARD = process.env.SPAR_CARD || null, SIDE = process.env.SPAR_SIDE || 'blue', SEED = Number(process.env.SPAR_SEED || 701);
 await loadGame();
 collapseTimers();
 const { state } = await import('../../js/data-core.js');
@@ -37,7 +37,34 @@ const ru = await import('../../js/render-units.js');
 if(render.setFastAnimationMode) render.setFastAnimationMode(true);
 if(rules.seedRng) rules.seedRng(SEED);
 
-ops.setupOperation(CARD, SIDE);
+/* SPAR_QUICK=<seed>: a Quick Battle as a card. A random board (two generated
+   boards, a river on some), three full Brigades a side, first to break two
+   enemy Brigades wins. */
+let cardId = CARD;
+if(process.env.SPAR_QUICK){
+  const gen = await import('../../js/map-generator.js');
+  const rg = await import('../../js/river-generator.js');
+  const sc = await import('../../js/scenario-cards.js');
+  const sd = Number(process.env.SPAR_QUICK);
+  const L = gen.generateBoard(sd * 7919), R = gen.generateBoard(sd * 104729);
+  const GL = { OPEN: '.', FIELD: '.', PLOUGHED_FIELD: ':', WOODS: '*', HILL: '^', BUILDING: '#', ROAD: '.' };
+  const terr = L.terrain.map((row, y) => [...row, ...R.terrain[y]]);
+  const road = L.road.map((row, y) => [...row, ...R.road[y]]);
+  const river = rg.generateRiver(terr, road, sd, 0);   // no river: a plain field for the first test
+  const brigades = () => [
+    { units: ['BRIGADIER', 'INFANTRY', 'INFANTRY', 'INFANTRY', 'ARTILLERY'], placement: { type: 'edge' } },
+    { units: ['BRIGADIER', 'INFANTRY', 'INFANTRY', 'HEAVY_CAV', 'LIGHT_CAV'], placement: { type: 'edge' } },
+    { units: ['BRIGADIER', 'GUARD', 'GUARD', 'INFANTRY', 'ARTILLERY'], placement: { type: 'edge' } },
+  ];
+  const win = { text: 'Break two enemy Brigades.', combinator: 'any', conditions: [{ type: 'BREAK_BRIGADES', count: 2 }] };
+  cardId = sc.registerCard({ id: 'spar-quick-' + sd, kind: 'operation', campaign: 'spar', status: 'ready', name: 'Quick Battle (sparring)',
+    date: '', archetype: null, intro: '', sourceUrl: '', historicalResult: '', firstPlayer: 'french',
+    map: { type: 'authored', terrain: terr.map(r => r.map(t => GL[t] || '.').join('')), roads: road.map(r => r.map(v => v ? '=' : '.').join('')), river: river || undefined },
+    turnLimit: 40, forces: { british: { brigades: brigades() }, french: { brigades: brigades() } },
+    win: { british: win, french: win }, specialRules: {}, ifBothMet: null, ifTimeExpires: null,
+    aiRoles: { british: 'attack', french: 'attack' }, outcomes: { britishWin: '', frenchWin: '' } });
+}
+ops.setupOperation(cardId, SIDE);
 state.mode = 'ai'; state.aiSide = SIDE === 'red' ? 'blue' : 'red'; state.spectate = false;
 ui.startBattle();
 
@@ -133,6 +160,17 @@ const server = http.createServer(async (req, res) => {
       const os = await import('../../js/online-session.js'); const grp = await import('../../js/group.js');
       const u = state.units.find(o => !o.removed && o.x === Number(q('x')) && o.y === Number(q('y')));
       out = JSON.stringify({ id: u && u.id, acting: grp.isActing(u), owns: os.ownsUnit(u), legal: u ? rules.legalMoves(u).length : null, moved: u && state.moved && state.moved.has(u.id), movable: u ? rules.movableUnitsForSide(u.side).has(u.id) : null });
+    }
+    else if(url.pathname === '/batch'){
+      const notes = [];
+      for(const cmd of (q('c') || '').split(';').filter(Boolean)){
+        const [op, a, b] = cmd.split(',');
+        if(op === 'tap'){ ui.onCellClick(Number(a), Number(b)); await settle(); }
+        else if(op === 'end'){ if(state.phase === 'move') ui.endMovePhase(); else if(state.phase === 'fire') ui.endFirePhase(); else if(state.phase === 'fight') ui.endFightPhase(); await settle(); }
+        else if(op === 'order'){ const id = { square: 'squareBtn', ambush: 'ambushBtn', charge: 'chargeBtn' }[a]; const el = id && doc.getElementById(id); if(el && !el.disabled) el.click(); else notes.push('no ' + a); await settle(); }
+        if(state.gameOver) break;
+      }
+      out = (notes.length ? notes.join(' ') + '\n' : '') + snapshot();
     }
     else if(url.pathname === '/log') out = logTail(Number(q('n') || 40)).join('\n');
     else out = 'endpoints: /state /moves?x=&y= /tap?x=&y= /order?name= /end /log?n=';
