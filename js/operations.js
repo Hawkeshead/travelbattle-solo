@@ -106,6 +106,19 @@ export function setupOperation(cardOrId, playerSide){
   applyLockedMap(card);
   resetHistoricalIdentities();
   resetUndoStack();
+  /* A nation per Brigade, and the player's allied Brigades handed to a
+     friendly AI commander (campaign battles: brigade.nation, brigade.ai; the
+     Quick Battle machinery in friendly-ai.js runs them). Cleared otherwise. */
+  const SIDE_OF_KEY = { british: SIDES.RED, french: SIDES.BLUE };
+  const nationKey = n => n ? String(n).toLowerCase() : null;
+  const anyNation = ['british', 'french'].some(k => card.forces[k].brigades.some(b => b.nation));
+  state.brigadeNations = anyNation ? { red: card.forces.british.brigades.map(b => nationKey(b.nation)), blue: card.forces.french.brigades.map(b => nationKey(b.nation)) } : null;
+  state.friendlyAi = null;
+  if(playerSide){
+    const key = playerSide === SIDES.RED ? 'british' : 'french';
+    const ai = card.forces[key].brigades.map((b, i) => b.ai ? `${SIDE_OF_KEY[key]}:${i}` : null).filter(Boolean);
+    state.friendlyAi = ai.length ? ai : null;
+  }
   state.units = [];
   state.reserves = [];
   for(const p of planOperationPlacement(card, state.terrain)){

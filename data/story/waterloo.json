@@ -7457,5 +7457,53 @@
     "jammed road"
    ]
   }
- ]
+ ],
+ "routes": {
+  "Britain": [
+   "quatre-bras",
+   [
+    "kellermann",
+    "narrow-escape"
+   ],
+   "genappe-17",
+   [
+    "hougoumont",
+    "papelotte"
+   ],
+   "la-haye-sainte",
+   "waterloo"
+  ],
+  "Prussia": [
+   "ligny",
+   [
+    "saint-amand",
+    "blucher"
+   ],
+   "wavre",
+   [
+    "plancenoit",
+    "papelotte"
+   ],
+   "waterloo",
+   "pursuit"
+  ],
+  "France": [
+   "ligny",
+   [
+    "saint-amand",
+    "blucher"
+   ],
+   "quatre-bras",
+   "genappe-17",
+   [
+    "hougoumont",
+    "la-haye-sainte",
+    "papelotte"
+   ],
+   "plancenoit",
+   "waterloo",
+   "wavre"
+  ]
+ },
+ "intro": "June 1815. Napoleon is back from Elba and has marched north into Belgium to strike Wellington's Anglo-Allied army and Blücher's Prussians before they can join. Four days decide the fate of Europe."
 }

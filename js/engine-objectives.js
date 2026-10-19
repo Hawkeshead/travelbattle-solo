@@ -255,7 +255,14 @@ export function endGame(winner){
   const modeChoices = document.getElementById('modeChoices');
   if(modeChoices) modeChoices.style.display = 'none';
   document.getElementById('overlayBtn').style.display = 'inline-block';
-  if(state.campaign){
+  if(state.storyRun){
+    /* A story campaign battle (story-ui.js): passed if the player's nation met
+       its objective; the button goes back to the campaign's route. */
+    const story = import('./story-ui.js');
+    story.then(m => { const r = m.recordStoryResult(); if(r) document.getElementById('overlayText').textContent += ' ' + r.text; });
+    document.getElementById('overlayBtn').textContent = 'Back to the Campaign';
+    document.getElementById('overlayBtn').onclick = ()=> story.then(m => m.showTheatre());
+  } else if(state.campaign){
     state.campaignLastWinner = winner;
     state.campaignRecord.push(winner);
     document.getElementById('overlayBtn').textContent = 'Continue Campaign';

@@ -267,8 +267,10 @@ export function showModeSelect(isSplash){
   opsBtn.textContent = 'Operations';
   opsBtn.onclick = ()=>{ state.campaign=null; state.spectate=false; extra.style.display='none'; showOperationsMenu(); };
   const campBtn = document.createElement('button');
-  campBtn.textContent = 'Campaigns';
-  campBtn.onclick = ()=>{ state.spectate=false; showCampaignsList(); };
+  /* CAMPAIGN (19 Oct 2026): the story campaigns (story-ui.js). The old
+     Campaigns list (showCampaignsList) is shelved, still exported. */
+  campBtn.textContent = 'Campaign';
+  campBtn.onclick = ()=>{ state.spectate=false; import('./story-ui.js').then(m => m.showStoryCampaign()); };
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
   grandBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showGrandMatchTypeSelect(); };
