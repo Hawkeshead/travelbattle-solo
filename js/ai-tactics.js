@@ -403,6 +403,65 @@ function assaultPull(mover, side, pos, sqs, k){
   if(!held.some(o => Math.max(Math.abs(o.x - pos.x), Math.abs(o.y - pos.y)) === 1 && !meleeBlocked(pos, o))) return 0;
   return ASSAULT_PULL * k * (t.isCavalry ? 0.5 : 1);
 }
+/* CROSSINGS (19 Oct 2026). Every bridge and every ford edge is a crossing
+   with a square on each bank. In the brook battles (Ligny, Saint-Amand,
+   Quatre Bras) the attackers queued at one bridge, one unit a turn, while the
+   defenders plugged its far end, and the fords on the flanks went unused.
+     attacker  heads for the crossing that is nearest, least crowded with its
+               own units and least held by the enemy; standing on its far
+               (enemy-side) square is a bridgehead, worth a lot
+     defender  holds the crossing squares on its own bank (the chokepoints),
+               more where the enemy is close
+   A side's bank is the one nearer its home row. */
+export const CROSSING = { APPROACH: 0.35, BRIDGEHEAD: 2.5, NEAR: 0.8, CROWD: 1.2, HELD: 1.5, HOLD: 1.6, HOLD_THREAT: 1.0 };
+function crossings(){
+  const w = state.water; if(!w) return [];
+  if(w._crossings && w._crossings.v === w.version) return w._crossings.list;
+  const list = [];
+  for(const [k, t] of Object.entries(w.edges)){
+    if(t === 'river') continue;
+    const [a, b] = k.split('|').map(q => q.split(',').map(Number)).map(([x, y]) => ({ x, y }));
+    if(t === 'bridge'){ const br = w.bridges.find(o => o.key === k); if(br && br.broken){ /* a ford now */ } }
+    list.push({ a, b });
+  }
+  w._crossings = { v: w.version, list };
+  return list;
+}
+function crossingTerm(mover, side, pos, attacking, k){
+  const list = crossings(); if(!list.length) return 0;
+  const rows = state.terrain.length, home = side === 'red' ? rows - 1 : 0;
+  const t = UNIT_TYPES[mover.type];
+  if(t.isArtillery || t.key === 'BRIGADIER') return 0;
+  const mineFirst = c => Math.abs(c.a.y - home) <= Math.abs(c.b.y - home) ? [c.a, c.b] : [c.b, c.a];
+  const at = (q, p) => q.x === p.x && q.y === p.y;
+  const friends = state.units.filter(o => !o.removed && o.side === side && o.id !== mover.id);
+  const foes = state.units.filter(o => !o.removed && o.side !== side);
+  let s = 0;
+  if(attacking){
+    let best = null;
+    for(const c of list){
+      const [near, far] = mineFirst(c);
+      if(at(far, pos)) return CROSSING.BRIDGEHEAD * k;   // on the far bank of a crossing: the bridgehead
+      const crowd = friends.filter(o => Math.max(Math.abs(o.x - near.x), Math.abs(o.y - near.y)) <= 1).length;
+      const held = foes.some(o => at(o, far)) ? 1 : 0;
+      const cost = waterDistance(pos, near) + crowd * CROSSING.CROWD + held * CROSSING.HELD;
+      if(!best || cost < best.cost) best = { cost, near };
+    }
+    if(best){
+      if(at(best.near, pos)) s += CROSSING.NEAR * k;
+      else s += Math.max(0, 8 - best.cost) * CROSSING.APPROACH * k;
+    }
+  } else {
+    for(const c of list){
+      const [mine] = mineFirst(c);
+      if(!at(mine, pos)) continue;
+      const threat = foes.some(o => Math.max(Math.abs(o.x - mine.x), Math.abs(o.y - mine.y)) <= 3) ? CROSSING.HOLD_THREAT : 0;
+      s += CROSSING.HOLD + threat;
+      break;
+    }
+  }
+  return s;
+}
 function storyMoveBonus(mover, side, pos){
   const sc = state.scenario, key = OP_SIDE_KEY[side], foeKey = OP_SIDE_KEY[side === 'red' ? 'blue' : 'red'];
   const t = UNIT_TYPES[mover.type], brig = t.key === 'BRIGADIER';
@@ -461,6 +520,8 @@ function storyMoveBonus(mover, side, pos){
       s += c.mustIncludeTag ? (mover.storyTag === c.mustIncludeTag && brig ? pull * 2 : pull * 0.4) : pull;
     }
   }
+  // Crossings: the attacker spreads over them and seizes their far ends; the defender holds its own.
+  s += crossingTerm(mover, side, pos, attacking, Math.max(1, ...((sc.win[key] || {}).conditions || []).map(urgency)));
   // Stand where the enemy must go: its places are ours to deny.
   if(!brig){
     for(const c of ((sc.win[foeKey] || {}).conditions || [])){
