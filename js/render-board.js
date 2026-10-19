@@ -517,7 +517,12 @@ export function getUnitVisualPos(u){
 export function displaceBrigadierIfPresent(x, y, fromX, fromY){
   const occupant = state.units.find(o=>!o.removed && o.x===x && o.y===y && (o.type==='BRIGADIER' || isVip(o)));
   if(!occupant) return;
-  if(isVip(occupant)){
+  /* ESCORTED (campaign battles): a commander with one of his own fighting units
+     beside him is not taken but pushed aside, as Nostitz and the lancers saved
+     Blucher and the 92nd sheltered Wellington. */
+  const escorted = isVip(occupant) && state.scenario && state.scenario.judging === 'independent' &&
+    state.units.some(o => !o.removed && o.side === occupant.side && o.type !== 'BRIGADIER' && Math.max(Math.abs(o.x - occupant.x), Math.abs(o.y - occupant.y)) <= 1);
+  if(isVip(occupant) && !escorted){
     log(`${occupant.historicalName || SIDE_LABEL[occupant.side]+"'s VIP"} is captured!`, 'combat');
     removeUnit(occupant, 'captured');
     return;

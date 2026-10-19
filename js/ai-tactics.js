@@ -504,6 +504,18 @@ function storyMoveBonus(mover, side, pos){
       const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
       const d = friends.length ? Math.min(...friends.map(o => waterDistance(pos, o))) : 99;
       s += d === 1 ? 2.5 * k : Math.max(0, 10 - d) * 0.30 * k;
+    } else if(c.type === 'COMMANDER' && !brig){
+      /* ESCORT: a side that must keep a commander alive guards him. Standing
+         beside him is worth a good deal (one escort is enough to stop his
+         capture: render-board displaceBrigadierIfPresent); Blucher's lancers
+         used to ride off and leave him to be taken in round 2. */
+      const cmd = state.units.find(o => !o.removed && o.side === side && o.type === 'BRIGADIER' && o.storyTag === c.tag);
+      if(cmd){
+        const d = chebyshev(pos, cmd);
+        const others = state.units.filter(o => !o.removed && o.side === side && o.id !== mover.id && o.type !== 'BRIGADIER' && chebyshev(o, cmd) <= 1).length;
+        if(d <= 1) s += (others ? 1.0 : 3.0) * k;          // the first escort matters most
+        else if(!others) s += Math.max(0, 6 - d) * 0.4 * k;   // nobody with him: close up
+      }
     } else if(c.type === 'COMMANDER' && brig && mover.storyTag === c.tag){
       if(c.area){
         const far = sc.aiRoles && sc.aiRoles[key] === 'escape';   // an escaping commander pulls over a whole corridor (the Pursuit)
