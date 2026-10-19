@@ -528,8 +528,9 @@ function storyMoveBonus(mover, side, pos){
   // Crossings: the attacker spreads over them and seizes their far ends; the defender holds its own.
   if(!(sc.aiRoles && sc.aiRoles[key] === 'escape'))   // a retreating side does not stop to hold crossings
     s += crossingTerm(mover, side, pos, attacking, Math.max(1, ...((sc.win[key] || {}).conditions || []).map(urgency)));
-  // Stand where the enemy must go: its places are ours to deny.
-  if(!brig){
+  // Stand where the enemy must go: its places are ours to deny (not for a side
+  // that is escaping: the Pursuit's rearguard sat on the carriage instead of fleeing).
+  if(!brig && !(sc.aiRoles && sc.aiRoles[key] === 'escape')){
     for(const c of ((sc.win[foeKey] || {}).conditions || [])){
       const names = c.areas || (c.area ? [c.area] : []);
       if(!names.length || !['HOLD_AREA', 'HOLD_COUNT', 'CONTROL_AREA', 'HOLD_AREAS', 'IN_AREA', 'ENTERED'].includes(c.type)) continue;
