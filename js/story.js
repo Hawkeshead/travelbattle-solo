@@ -57,7 +57,11 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
   const playerCoalition = coalition.includes(playerNation);
   const lead = playerCoalition ? playerNation
     : coalition.slice().sort((a, b) => battle.sides[b].brigades.length - battle.sides[a].brigades.length)[0];
-  const forcesFor = names => ({ brigades: names.flatMap(n => battle.sides[n].brigades.map(b => cardBrigade(b, n, n !== playerNation))) });
+  /* A commander an enemy objective sets out to remove (COMMANDER_REMOVED) is a
+     VIP: Brigadiers can never be attacked, only taken by a unit ending its
+     move in his square, which only VIPs allow. */
+  const hunted = new Set(Object.values(battle.sides).flatMap(s => (s.objective.conditions || []).filter(c => c.type === 'COMMANDER_REMOVED').map(c => c.tag)));
+  const forcesFor = names => ({ brigades: names.flatMap(n => battle.sides[n].brigades.map(b => Object.assign(cardBrigade(b, n, n !== playerNation), b.tag && hunted.has(b.tag) ? { vip: true } : {}))) });
   const winFor = n => ({ text: battle.sides[n].objective.text, combinator: battle.sides[n].objective.combinator || 'any',
     conditions: battle.sides[n].objective.conditions || [] });
   const holds = n => (battle.sides[n].objective.conditions || []).some(c => /HOLD|CONTROL|COMMANDER$|UNBROKEN/.test(c.type));

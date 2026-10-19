@@ -594,11 +594,11 @@
     "Prussia": {
      "start": "Rows 6 to 10; may start in the villages",
      "objective": {
-      "text": "At the end of round 12, two Brigades unbroken and Blücher (Zieten's Brigadier) in play.",
+      "text": "At the end of round 12, all three Brigades unbroken and Blücher still in play.",
       "conditions": [
        {
         "type": "BRIGADES_UNBROKEN",
-        "count": 2,
+        "count": 3,
         "atRound": 12
        },
        {
@@ -1487,7 +1487,7 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold Wagnelée, or a square of Saint-Amand-la-Haye, at the end of round 10.",
+      "text": "Hold Wagnelée and a square of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
@@ -1502,7 +1502,7 @@
         "atRound": 10
        }
       ],
-      "combinator": "any"
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -1965,6 +1965,12 @@
        9,
        3
       ]
+     ],
+     "nostitz": [
+      [
+       4,
+       6
+      ]
      ]
     }
    },
@@ -1988,10 +1994,10 @@
        "name": "Blücher's escort",
        "units": [
         "BRIGADIER",
-        "INFANTRY",
-        "INFANTRY",
         "LIGHT_CAV",
-        "LIGHT_CAV"
+        "LIGHT_CAV",
+        "INFANTRY",
+        "INFANTRY"
        ],
        "protect": true,
        "note": "Blücher (to protect), Light Cavalry x2, Infantry x2",
@@ -2003,8 +2009,12 @@
           "count": 1
          },
          {
+          "area": "nostitz",
+          "count": 1
+         },
+         {
           "area": "heights",
-          "count": 4
+          "count": 3
          }
         ]
        },
@@ -2017,7 +2027,7 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Remove Blücher, or have two units in rows 8 to 10, at the end of round 8.",
+      "text": "Take Blücher, or have three units in rows 8 to 10, at the end of round 8.",
       "conditions": [
        {
         "type": "COMMANDER_REMOVED",
@@ -2026,7 +2036,7 @@
        {
         "type": "IN_AREA",
         "area": "heights",
-        "count": 2,
+        "count": 3,
         "atRound": 8
        }
       ],
@@ -2037,13 +2047,12 @@
        "name": "Milhaud",
        "units": [
         "BRIGADIER",
-        "GUARD",
         "HEAVY_CAV",
         "HEAVY_CAV",
-        "HEAVY_CAV"
+        "GUARD"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x2, Guard (+Heavy Cav for balance)",
+       "note": "Brigadier, Heavy Cavalry x2, Guard",
        "placement": {
         "type": "area",
         "area": "french_start"
@@ -2562,12 +2571,11 @@
     "Britain": {
      "start": "Perponcher in columns I to P; Picton arrives round 3 and Brunswick round 5 on column T",
      "objective": {
-      "text": "Hold a square of the Quatre Bras crossroads hamlet at the end of round 12.",
+      "text": "Hold the crossroads square itself (an Allied unit on it, no French unit) at the end of round 12.",
       "conditions": [
        {
-        "type": "HOLD_COUNT",
-        "area": "qb",
-        "count": 1,
+        "type": "CONTROL_AREA",
+        "area": "crossroads",
         "atRound": 12
        }
       ],
@@ -3254,14 +3262,13 @@
        "name": "Piré",
        "units": [
         "BRIGADIER",
-        "INFANTRY",
         "LIGHT_CAV",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "LIGHT_CAV"
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x3, Infantry (+Light Cav for balance)",
+       "note": "Brigadier, Light Cavalry x3, Infantry",
        "placement": {
         "type": "edge"
        }

@@ -127,6 +127,8 @@ export function setupOperation(cardOrId, playerSide){
     if(p.formation) u.formation = p.formation;
     if(p.tag) u.storyTag = p.tag;   // a campaign Brigade's tag, for its objectives (objective-core.js)
     if(p.locked) u._lockedUntil = p.locked;   // a Brigade held back until this round (engine-rules isLocked)
+    const cardB = card.forces[p.side === SIDES.RED ? 'british' : 'french'].brigades[p.brigadeId];
+    if(p.type === 'BRIGADIER' && cardB && cardB.vip){ u.captureRule = 'enterSquare'; u.historicalName = u.historicalName || cardB.name; }   // a hunted commander: taken by a unit ending its move in his square
     if(p.reserve) state.reserves.push({ unit: u, round: p.reserve.round, area: p.reserve.area });
     else state.units.push(u);
   }
