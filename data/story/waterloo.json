@@ -587,6 +587,12 @@
        19,
        9
       ]
+     ],
+     "brye": [
+      [
+       5,
+       8
+      ]
      ]
     }
    },
@@ -594,7 +600,7 @@
     "Prussia": {
      "start": "Rows 6 to 10; may start in the villages",
      "objective": {
-      "text": "At the end of round 12, all three Brigades unbroken and Blücher still in play.",
+      "text": "At the end of round 12: all three Brigades unbroken, Blücher in play, and Brye (F9, the line of retreat) still held.",
       "conditions": [
        {
         "type": "BRIGADES_UNBROKEN",
@@ -604,6 +610,12 @@
        {
         "type": "COMMANDER",
         "tag": "blucher",
+        "atRound": 12
+       },
+       {
+        "type": "HOLD_COUNT",
+        "area": "brye",
+        "count": 1,
         "atRound": 12
        }
       ],
@@ -720,10 +732,11 @@
         "GUARD",
         "GUARD",
         "GUARD",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Guard x3, Artillery",
+       "note": "Brigadier, Guard x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        },
