@@ -688,10 +688,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -703,10 +704,11 @@
         "INFANTRY",
         "INFANTRY",
         "HEAVY_CAV",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery",
+       "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -1522,10 +1524,12 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry, Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -1998,10 +2002,11 @@
         "BRIGADIER",
         "GUARD",
         "HEAVY_CAV",
+        "HEAVY_CAV",
         "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Heavy Cavalry x2, Guard",
+       "note": "Brigadier, Heavy Cavalry x2, Guard (+Heavy Cav for balance)",
        "placement": {
         "type": "area",
         "area": "french_start"
@@ -2615,10 +2620,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -2630,10 +2636,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "LIGHT_CAV"
+        "LIGHT_CAV",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "note": "Brigadier, Infantry x3, Light Cavalry (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -3218,10 +3225,11 @@
         "INFANTRY",
         "LIGHT_CAV",
         "LIGHT_CAV",
+        "LIGHT_CAV",
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x3, Infantry",
+       "note": "Brigadier, Light Cavalry x3, Infantry (+Light Cav for balance)",
        "placement": {
         "type": "edge"
        }
@@ -3732,10 +3740,11 @@
         "LIGHT_CAV",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "HEAVY_CAV"
+        "HEAVY_CAV",
+        "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x3, Heavy Cavalry",
+       "note": "Brigadier, Light Cavalry x3, Heavy Cavalry (+Light Cav for balance)",
        "placement": {
         "type": "edge"
        }
@@ -4528,10 +4537,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery",
+       "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -4543,10 +4553,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
+        "ARTILLERY",
         "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Artillery for balance)",
        "placement": {
         "type": "edge"
        }
@@ -5058,10 +5069,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery",
+       "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -5426,10 +5438,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4, Artillery",
+       "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -5850,10 +5863,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "area",
         "area": "prussian_start"
@@ -5866,10 +5880,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "LIGHT_CAV"
+        "LIGHT_CAV",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Light Cavalry",
+       "note": "Brigadier, Infantry x3, Light Cavalry (+Infantry for balance)",
        "placement": {
         "type": "area",
         "area": "prussian_start"
@@ -6842,10 +6857,11 @@
         "INFANTRY",
         "INFANTRY",
         "ARTILLERY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery x2",
+       "note": "Brigadier, Infantry x3, Artillery x2 (+Infantry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -7697,10 +7713,11 @@
         "INFANTRY",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "HEAVY_CAV"
+        "HEAVY_CAV",
+        "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)",
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers) (+Light Cav for balance)",
        "placement": {
         "type": "edge"
        }
