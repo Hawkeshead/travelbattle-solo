@@ -645,15 +645,21 @@ export async function main() {
   let vs = null;
   if (vsAt > -1) {
     cleanVersions();
-    vs = materialiseVersion(args[vsAt + 1]);
+    /* --vs bot: the sparring bot (tools/spar/make-bot.mjs), a copy of the
+       current AI whose moves follow a short rulebook of good play instead. */
+    if (args[vsAt + 1] === 'bot') {
+      const { execFileSync } = await import('node:child_process');
+      execFileSync(process.execPath, [new URL('../spar/make-bot.mjs', import.meta.url).pathname], { stdio: 'inherit' });
+      vs = { tag: 'bot', entry: '../../js/ai-strategy.bot.js', written: [] };
+    } else vs = materialiseVersion(args[vsAt + 1]);
     process.env.SIM_OLD_ENTRY = vs.entry;
     /* The tag name when there is one, otherwise the short hash. The full subject
        line is useful in the header above and absurd inside a table column and a
        verdict sentence, but 'cerberus' is both short and meaningful where a hash
        is only short. */
-    process.env.SIM_VS_LABEL = labelFor(args[vsAt + 1]);
+    process.env.SIM_VS_LABEL = args[vsAt + 1] === 'bot' ? 'bot' : labelFor(args[vsAt + 1]);
     if (!variant) variant = 'control';   // current build, no overrides, versus the old one
-    console.log(`current build  vs  ${describeRef(args[vsAt + 1])}`);
+    console.log(`current build  vs  ${args[vsAt + 1] === 'bot' ? 'the sparring bot' : describeRef(args[vsAt + 1])}`);
   }
   /* SWAP THE SIDES, ALWAYS, when running a variant. Every seed is played twice,
      once with the variant on Britain and once on France. Anything that makes a

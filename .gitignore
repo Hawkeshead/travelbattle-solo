@@ -41,3 +41,6 @@ circuit-breaker-state.json
 # Simulator build artefacts: old AI versions materialised for a version-vs-version run
 js/ai-strategy__*.js
 js/ai-tactics__*.js
+
+# The sparring bot is generated (tools/spar/make-bot.mjs)
+js/ai-strategy.bot.js
