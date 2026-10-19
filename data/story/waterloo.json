@@ -4739,7 +4739,7 @@
     "Britain": {
      "start": "In the chateau (D5 to E6), the garden and the orchard; the guns on the ridge (rows 8 and 9)",
      "objective": {
-      "text": "Hold all four chateau squares (D5, E5, D6, E6) at the end of round 12.",
+      "text": "Hold three of the four chateau squares (D5, E5, D6, E6) at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
