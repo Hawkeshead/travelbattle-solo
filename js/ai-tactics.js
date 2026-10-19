@@ -516,7 +516,7 @@ function storyMoveBonus(mover, side, pos){
       const ex = sc.map.exits && sc.map.exits[key];
       if(!ex) continue;
       const row = ex === 'britishEdge' ? state.terrain.length - 1 : 0;
-      const pull = Math.max(0, 10 - Math.abs(pos.y - row)) * 0.30 * k;
+      const pull = Math.max(0, 20 - Math.abs(pos.y - row)) * 0.45 * k;   // the full length of a corridor (Genappe: the cavalry stopped halfway)
       s += c.mustIncludeTag ? (mover.storyTag === c.mustIncludeTag && brig ? pull * 2 : pull * 0.4) : pull;
     }
   }

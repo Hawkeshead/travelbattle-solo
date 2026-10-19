@@ -1442,6 +1442,44 @@
        19,
        9
       ]
+     ],
+     "rear": [
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ]
      ]
     }
    },
@@ -1449,7 +1487,7 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold Wagnelée, or two squares of Saint-Amand-la-Haye, at the end of round 10.",
+      "text": "Hold Wagnelée, or a square of Saint-Amand-la-Haye, at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
@@ -1460,7 +1498,7 @@
        {
         "type": "HOLD_COUNT",
         "area": "la_haye",
-        "count": 2,
+        "count": 1,
         "atRound": 10
        }
       ],
@@ -1473,11 +1511,10 @@
         "BRIGADIER",
         "INFANTRY",
         "INFANTRY",
-        "INFANTRY",
         "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x4",
+       "note": "Brigadier, Infantry x3 (one fewer for balance)",
        "placement": {
         "type": "area",
         "area": "st_amand"
@@ -1496,7 +1533,7 @@
        "note": "Brigadier, Infantry x3, Artillery",
        "placement": {
         "type": "area",
-        "area": "prussian_start"
+        "area": "rear"
        }
       }
      ],
@@ -1505,12 +1542,12 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold three squares of Saint-Amand at the end of round 10.",
+      "text": "Hold two squares of Saint-Amand at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "st_amand",
-        "count": 3,
+        "count": 2,
         "atRound": 10
        }
       ],
@@ -2597,7 +2634,7 @@
     "France": {
      "start": "Columns A and B; Kellermann arrives round 4 on column A",
      "objective": {
-      "text": "Hold Gemioncourt at the end of round 12 and have removed three Allied units.",
+      "text": "Hold Gemioncourt at the end of round 12, or remove four Allied units.",
       "conditions": [
        {
         "type": "HOLD_AREA",
@@ -2607,10 +2644,10 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3
+        "count": 4
        }
       ],
-      "combinator": "all"
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2873,7 +2910,7 @@
     "Britain": {
      "start": "Rows 5 to 7, in and around the rye",
      "objective": {
-      "text": "Remove two French cavalry units by the end of round 6, with no French unit on the crossroads (F9) at the end of round 6.",
+      "text": "Remove two French cavalry units by the end of round 6.",
       "conditions": [
        {
         "type": "DESTROY",
@@ -2883,14 +2920,9 @@
         ],
         "count": 2,
         "byRound": 6
-       },
-       {
-        "type": "CLEAR_AREA",
-        "area": "crossroads",
-        "atRound": 6
        }
       ],
-      "combinator": "all"
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2917,14 +2949,14 @@
     "France": {
      "start": "Rows 1 and 2",
      "objective": {
-      "text": "Remove two Allied infantry units, or end a turn with a cavalry unit on the crossroads (F9), by the end of round 6.",
+      "text": "Break an Allied battalion and get a unit onto the crossroads (F9), both by the end of round 6.",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [
          "INFANTRY"
         ],
-        "count": 2,
+        "count": 1,
         "byRound": 6
        },
        {
@@ -2933,7 +2965,7 @@
         "byRound": 6
        }
       ],
-      "combinator": "any"
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -3374,14 +3406,6 @@
     "areas": {
      "rearguard_start": [
       [
-       4,
-       0
-      ],
-      [
-       5,
-       0
-      ],
-      [
        6,
        0
       ],
@@ -3390,12 +3414,8 @@
        0
       ],
       [
-       4,
-       1
-      ],
-      [
-       5,
-       1
+       8,
+       0
       ],
       [
        6,
@@ -3406,12 +3426,8 @@
        1
       ],
       [
-       4,
-       2
-      ],
-      [
-       5,
-       2
+       8,
+       1
       ],
       [
        6,
@@ -3422,12 +3438,8 @@
        2
       ],
       [
-       4,
-       3
-      ],
-      [
-       5,
-       3
+       8,
+       2
       ],
       [
        6,
@@ -3438,12 +3450,8 @@
        3
       ],
       [
-       4,
-       4
-      ],
-      [
-       5,
-       4
+       8,
+       3
       ],
       [
        6,
@@ -3454,12 +3462,8 @@
        4
       ],
       [
-       4,
-       5
-      ],
-      [
-       5,
-       5
+       8,
+       4
       ],
       [
        6,
@@ -3470,12 +3474,8 @@
        5
       ],
       [
-       4,
-       6
-      ],
-      [
-       5,
-       6
+       8,
+       5
       ],
       [
        6,
@@ -3486,12 +3486,8 @@
        6
       ],
       [
-       4,
-       7
-      ],
-      [
-       5,
-       7
+       8,
+       6
       ],
       [
        6,
@@ -3502,12 +3498,8 @@
        7
       ],
       [
-       4,
-       8
-      ],
-      [
-       5,
-       8
+       8,
+       7
       ],
       [
        6,
@@ -3518,12 +3510,8 @@
        8
       ],
       [
-       4,
-       9
-      ],
-      [
-       5,
-       9
+       8,
+       8
       ],
       [
        6,
@@ -3531,6 +3519,10 @@
       ],
       [
        7,
+       9
+      ],
+      [
+       8,
        9
       ]
      ],
@@ -3673,11 +3665,11 @@
     "Britain": {
      "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
      "objective": {
-      "text": "Have four units leave by the Brussels end by the end of round 12.",
+      "text": "Have three units leave by the Brussels end by the end of round 12.",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 4,
+        "count": 3,
         "byRound": 12
        }
       ],
@@ -3716,7 +3708,7 @@
        }
       }
      ],
-     "role": "hold"
+     "role": "escape"
     },
     "France": {
      "start": "Columns A and B",
@@ -5364,10 +5356,11 @@
         "INFANTRY",
         "INFANTRY",
         "INFANTRY",
-        "ARTILLERY"
+        "ARTILLERY",
+        "INFANTRY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "area",
         "area": "hamlets"
@@ -5477,7 +5470,7 @@
    "date": "18 June 1815",
    "kind": "Operation",
    "layout": "standard",
-   "turnLimit": 10,
+   "turnLimit": 12,
    "history": "From half past four, Bülow's Prussians came out of the Bois de Paris and attacked Plancenoit, behind the French right. Lobau's corps, then the Young Guard and finally two battalions of the Old Guard retook the village in turn, and the fighting around its walled churchyard went on until the Prussians took it for good at about half past eight.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Plancenoit",
    "map": {
@@ -5839,18 +5832,18 @@
     "Prussia": {
      "start": "Rows 8 to 10, out of the Bois de Paris",
      "objective": {
-      "text": "Hold the church, or four village squares, at the end of round 10.",
+      "text": "Hold the church, or four village squares, at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_AREA",
         "area": "church",
-        "atRound": 10
+        "atRound": 12
        },
        {
         "type": "HOLD_COUNT",
         "area": "village",
         "count": 4,
-        "atRound": 10
+        "atRound": 12
        }
       ],
       "combinator": "any"
@@ -5864,10 +5857,11 @@
         "INFANTRY",
         "INFANTRY",
         "ARTILLERY",
-        "INFANTRY"
+        "INFANTRY",
+        "ARTILLERY"
        ],
        "protect": false,
-       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
+       "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance) (+Artillery for balance)",
        "placement": {
         "type": "area",
         "area": "prussian_start"
@@ -7758,7 +7752,7 @@
        "tag": "napoleon"
       }
      ],
-     "role": "hold"
+     "role": "escape"
     }
    },
    "special": "Night: artillery fires only at targets within two squares. The jammed road: road squares give no extra move in columns F to L.",
