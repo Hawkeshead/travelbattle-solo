@@ -1,3 +1,4 @@
+import { waterDistance } from './engine-water.js';
 import { SIDES, UNIT_TYPES, state } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { brigadeCavalryCount, canAttackTarget, chebyshev, combatBonuses, hasLOS, inBounds, isAdjacent, isConcealedFromEnemy, isRoadLike, legalMoves, movableUnitsForSide, terrainAt, unitBaseMove } from './engine-rules.js';
@@ -361,7 +362,80 @@ function operationAreaFor(side){
   const name = (c || c2 || {}).area;
   return name ? ((state.scenario.map.areas || {})[name] || []).map(([x, y]) => ({ x, y })) : [];
 }
+/* =========================================================
+   PLAYING FOR THE OBJECTIVE (campaign battles, 18 Oct 2026)
+
+   In an independently judged battle each side reads its OWN objective's
+   conditions and pulls its units towards what they name, harder as the
+   round each one is judged at comes closer:
+     take or hold a place     towards its squares; standing in one is worth
+                              a lot, more when the round is near
+     hold N of several places towards the nearest of them
+     units in an area         towards it
+     join up with an ally     the tagged Brigade towards the other
+     a commander to keep      kept back, near friends; into the area if named
+     a commander to kill      cavalry and nearby units hunt him
+     march off                towards the exit edge (the named commander first)
+   It also reads the ENEMY's objective and sits in the places the enemy must
+   take, which is how a defender knows where to stand.
+   Distances go round rivers (waterDistance).
+========================================================= */
+const roundNow = () => Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
+function urgency(c){
+  const due = c.atRound || c.byRound || (state.scenario && state.scenario.turnLimit) || 10;
+  const left = due - roundNow();
+  return left <= 0 ? 2.5 : left <= 2 ? 2.0 : left <= 4 ? 1.4 : 1.0;
+}
+const sqOf = name => (((state.scenario.map || {}).areas || {})[name] || []).map(([x, y]) => ({ x, y }));
+const nearest = (pos, sqs) => sqs.length ? Math.min(...sqs.map(q => waterDistance(pos, q))) : 99;
+function storyMoveBonus(mover, side, pos){
+  const sc = state.scenario, key = OP_SIDE_KEY[side], foeKey = OP_SIDE_KEY[side === 'red' ? 'blue' : 'red'];
+  const t = UNIT_TYPES[mover.type], brig = t.key === 'BRIGADIER';
+  let s = 0;
+  for(const c of ((sc.win[key] || {}).conditions || [])){
+    const k = urgency(c);
+    if(['HOLD_AREA', 'HOLD_COUNT', 'CONTROL_AREA', 'IN_AREA', 'ENTERED', 'CLEAR_AREA'].includes(c.type) && c.area){
+      if(c.tag && mover.storyTag !== c.tag) continue;
+      if(brig && c.type !== 'IN_AREA') continue;
+      const sqs = sqOf(c.area), d = nearest(pos, sqs);
+      const taken = sqs.some(q => q.x === pos.x && q.y === pos.y);
+      s += taken ? 2.0 * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, 8 - d) * 0.30 * k;
+    } else if(c.type === 'HOLD_AREAS' && !brig){
+      const sqs = (c.areas || []).flatMap(sqOf), d = nearest(pos, sqs);
+      s += d === 0 ? 2.0 * k + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.5 : Math.max(0, 8 - d) * 0.30 * k;
+    } else if(c.type === 'NEXT_TO' && mover.storyTag === c.tag && !brig){
+      const friends = state.units.filter(o => !o.removed && o.side === side && o.storyTag === c.nextTo);
+      const d = friends.length ? Math.min(...friends.map(o => waterDistance(pos, o))) : 99;
+      s += d === 1 ? 2.5 * k : Math.max(0, 10 - d) * 0.30 * k;
+    } else if(c.type === 'COMMANDER' && brig && mover.storyTag === c.tag){
+      if(c.area){ const d = nearest(pos, sqOf(c.area)); s += d === 0 ? 3.0 * k : Math.max(0, 8 - d) * 0.40 * k; }
+      const near = state.units.filter(o => !o.removed && o.side === side && o.id !== mover.id && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1).length;
+      s += Math.min(near, 2) * 0.6;
+      if(state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1)) s -= 3.0;
+    } else if(c.type === 'COMMANDER_REMOVED' && !brig){
+      const prey = state.units.find(o => !o.removed && o.side !== side && o.type === 'BRIGADIER' && o.storyTag === c.tag);
+      if(prey){ const d = waterDistance(pos, prey); s += Math.max(0, 8 - d) * (t.isCavalry ? 0.45 : 0.25) * k; }
+    } else if(c.type === 'MARCH_OFF'){
+      const ex = sc.map.exits && sc.map.exits[key];
+      if(!ex) continue;
+      const row = ex === 'britishEdge' ? state.terrain.length - 1 : 0;
+      const pull = Math.max(0, 10 - Math.abs(pos.y - row)) * 0.30 * k;
+      s += c.mustIncludeTag ? (mover.storyTag === c.mustIncludeTag && brig ? pull * 2 : pull * 0.4) : pull;
+    }
+  }
+  // Stand where the enemy must go: its places are ours to deny.
+  if(!brig){
+    for(const c of ((sc.win[foeKey] || {}).conditions || [])){
+      const names = c.areas || (c.area ? [c.area] : []);
+      if(!names.length || !['HOLD_AREA', 'HOLD_COUNT', 'CONTROL_AREA', 'HOLD_AREAS', 'IN_AREA', 'ENTERED'].includes(c.type)) continue;
+      const sqs = names.flatMap(sqOf), d = nearest(pos, sqs);
+      s += d === 0 ? 1.5 * urgency(c) + terrainSeekBonus(mover.type, pos.x, pos.y) * 0.4 : Math.max(0, 4 - d) * 0.15;
+    }
+  }
+  return s;
+}
 export function scenarioMoveBonus(mover, side, pos){
+  if(state.scenario && state.scenario.judging === 'independent') return storyMoveBonus(mover, side, pos);
   if(!state.scenario || !state.scenario.aiRoles) return 0;
   const role = operationRole(side);
   const t = UNIT_TYPES[mover.type];
