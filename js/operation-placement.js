@@ -99,7 +99,8 @@ export function planOperationPlacement(card, terrain){
       let at = 0;
       for(const g of groups){ placed.push(...fillArea(j.side, units.slice(at, at + g.count), areaCells(card, g.area), taken)); at += g.count; }
     } else placed = fillEdge(j.side, j.b.units, objectiveX, taken);
-    for(const pl of placed) plan.push({ side: j.side, type: unitType(pl.u), x: pl.x, y: pl.y, brigadeId: j.i, formation: unitFormation(pl.u) || (typeof j.b.formation === 'string' ? j.b.formation : null), tag: j.b.tag || null, locked: j.b.lockedUntil || null });
+    for(const pl of placed) plan.push({ side: j.side, type: unitType(pl.u), x: pl.x, y: pl.y, brigadeId: j.i, formation: unitFormation(pl.u) || (typeof j.b.formation === 'string' ? j.b.formation : null), tag: j.b.tag || null,
+      locked: j.b.lockedUntil || (unitType(pl.u) === 'BRIGADIER' && j.b.pinCommanderUntil) || null });   // a pinned commander (Blucher under his horse) is held like a locked Brigade
   }
   return plan;
 }

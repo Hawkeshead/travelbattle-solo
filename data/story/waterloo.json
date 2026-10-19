@@ -659,17 +659,18 @@
         "area": "prussian_start"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold three of Ligny's five village squares (J6, L6, J7 to L7) at the end of round 10, or break one Prussian Brigade.",
+      "text": "Hold two of Ligny's village squares at the end of round 10, or break one Prussian Brigade.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "ligny",
-        "count": 3,
+        "count": 2,
         "atRound": 10
        },
        {
@@ -725,9 +726,10 @@
         "type": "edge"
        },
        "tag": "guard",
-       "lockedUntil": 5
+       "lockedUntil": 4
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "The Imperial Guard cannot move before round 5.",
@@ -1495,27 +1497,22 @@
         "area": "prussian_start"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold four squares of Saint-Amand and one of Saint-Amand-la-Haye at the end of round 8.",
+      "text": "Hold three squares of Saint-Amand at the end of round 8.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "st_amand",
-        "count": 4,
-        "atRound": 8
-       },
-       {
-        "type": "HOLD_COUNT",
-        "area": "la_haye",
-        "count": 1,
+        "count": 3,
         "atRound": 8
        }
       ],
-      "combinator": "all"
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -1551,7 +1548,8 @@
         "round": 4
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "None beyond the brook.",
@@ -1969,14 +1967,16 @@
          }
         ]
        },
-       "tag": "blucher"
+       "tag": "blucher",
+       "pinCommanderUntil": 3
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Remove Blücher, or have three units in rows 8 to 10, at the end of round 8.",
+      "text": "Remove Blücher, or have two units in rows 8 to 10, at the end of round 8.",
       "conditions": [
        {
         "type": "COMMANDER_REMOVED",
@@ -1985,7 +1985,7 @@
        {
         "type": "IN_AREA",
         "area": "heights",
-        "count": 3,
+        "count": 2,
         "atRound": 8
        }
       ],
@@ -2007,14 +2007,13 @@
         "area": "french_start"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Blücher is pinned for rounds 1 and 2, then moves as cavalry and cannot attack.",
    "balance": "Even on points. The cuirassiers reach him by round 2, so the Prussian lancers must screen him and then race him four squares home; France can also win by pushing through, which pulls Prussia two ways. Target 50 to 60% each.",
-   "needs": [
-    "pinned commander (rounds 1 and 2)"
-   ]
+   "needs": []
   },
   {
    "id": "quatre-bras",
@@ -2496,6 +2495,24 @@
        15,
        9
       ]
+     ],
+     "qb": [
+      [
+       15,
+       4
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       16,
+       5
+      ]
      ]
     }
    },
@@ -2503,15 +2520,16 @@
     "Britain": {
      "start": "Perponcher in columns I to P; Picton arrives round 3 and Brunswick round 5 on column T",
      "objective": {
-      "text": "An Allied unit on the crossroads (P5) and no French unit on it, at the end of round 10.",
+      "text": "Hold a square of the Quatre Bras crossroads hamlet at the end of round 10.",
       "conditions": [
        {
-        "type": "CONTROL_AREA",
-        "area": "crossroads",
+        "type": "HOLD_COUNT",
+        "area": "qb",
+        "count": 1,
         "atRound": 10
        }
       ],
-      "combinator": "all"
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -2568,12 +2586,13 @@
         "round": 5
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Columns A and B; Kellermann arrives round 4 on column A",
      "objective": {
-      "text": "Hold Gemioncourt (J6) and have removed four Allied units, at the end of round 10.",
+      "text": "Hold Gemioncourt at the end of round 10 and have removed three Allied units.",
       "conditions": [
        {
         "type": "HOLD_AREA",
@@ -2583,7 +2602,7 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 4
+        "count": 3
        }
       ],
       "combinator": "all"
@@ -2637,7 +2656,8 @@
         "round": 4
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Reinforcements enter on their own end at the start of the round shown.",
@@ -2886,7 +2906,8 @@
        },
        "tag": "halkett"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 and 2",
@@ -2926,7 +2947,8 @@
        },
        "tag": "kellermann"
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Tall rye: a unit in farmland is hidden from enemies more than two squares away.",
@@ -3103,13 +3125,13 @@
     "Britain": {
      "start": "Wellington at C4; the 92nd in square at G8; Brunswick rows 5 and 6",
      "objective": {
-      "text": "Wellington ends a turn on or next to the 92nd's square by the end of round 3, and is in play at the end of round 8.",
+      "text": "Wellington ends round 4 next to or inside the 92nd's square, and is in play at the end of round 8.",
       "conditions": [
        {
         "type": "COMMANDER",
         "tag": "wellington",
         "area": "near92",
-        "atRound": 3
+        "atRound": 4
        },
        {
         "type": "COMMANDER",
@@ -3168,7 +3190,8 @@
        },
        "tag": "brunswick"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 and 2",
@@ -3204,7 +3227,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it.",
@@ -3219,7 +3243,7 @@
    "date": "17 June 1815",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 10,
+   "turnLimit": 12,
    "history": "Wellington fell back from Quatre Bras in a thunderstorm, Uxbridge's cavalry covering the retreat. In Genappe's narrow street the 7th Hussars charged the French lancers and were thrown back; then the 1st Life Guards came down the hill and drove the lancers through the town, and the pursuit slowed.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Genappe",
    "map": {
@@ -3641,12 +3665,12 @@
     "Britain": {
      "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
      "objective": {
-      "text": "Five units leave by column T by the end of round 10.",
+      "text": "Have four units leave by the Brussels end by the end of round 12.",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 5,
-        "byRound": 10
+        "count": 4,
+        "byRound": 12
        }
       ],
       "combinator": "any"
@@ -3683,18 +3707,19 @@
         "area": "heights"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Columns A and B",
      "objective": {
-      "text": "Remove three Allied units by the end of round 10.",
+      "text": "Remove three Allied units by the end of round 12.",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
         "count": 3,
-        "byRound": 10
+        "byRound": 12
        }
       ],
       "combinator": "any"
@@ -3729,7 +3754,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Thunderstorm: no artillery fire in rounds 1 to 4, and all ground but roads costs one extra move. The Dyle is crossed at the bridge or the ford.",
@@ -4474,17 +4500,18 @@
         "area": "prussian_start"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "At the end of round 12, units on two of the three bridges (C4 and C5, I4 and I5, P4 and P5), each with a unit beside it on the Prussian bank.",
+      "text": "Hold one of the three bridgeheads on the Prussian bank at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bridgeheads",
-        "count": 2,
+        "count": 1,
         "atRound": 12
        }
       ],
@@ -4536,7 +4563,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "The Dyle is crossed only at bridges. Five artillery hits destroy a bridge.",
@@ -4712,12 +4740,13 @@
        },
        "tag": "macdonell"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Enter a chateau square at least once, and remove two Allied units, by the end of round 12.",
+      "text": "Enter a chateau square at least once, and remove one Allied unit, by the end of round 12.",
       "conditions": [
        {
         "type": "ENTERED",
@@ -4726,7 +4755,7 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 2
+        "count": 1
        }
       ],
       "combinator": "all"
@@ -4748,7 +4777,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "French waves: a lost French Infantry unit returns on row 1 two rounds later, up to four times.",
@@ -4995,17 +5025,18 @@
        },
        "tag": "kempt"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold both farm squares (F5, F6) at the end of round 12.",
+      "text": "Hold a farm square at the end of round 12.",
       "conditions": [
        {
-        "type": "HOLD_AREA",
+        "type": "HOLD_COUNT",
         "area": "farm",
-        "mode": "all",
+        "count": 1,
         "atRound": 12
        }
       ],
@@ -5041,7 +5072,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "From round 7 the units in the farm cannot volley (their rifle ammunition is gone).",
@@ -5318,7 +5350,8 @@
        },
        "tag": "nassau"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "Prussia": {
      "start": "Arrives round 6 on column T, rows 5 to 7",
@@ -5356,22 +5389,18 @@
         "area": "east_edge"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold any one hamlet at the end of round 5.",
+      "text": "Get into any of the three hamlets by the end of round 6.",
       "conditions": [
        {
-        "type": "HOLD_AREAS",
-        "areas": [
-         "papelotte",
-         "la_haye",
-         "smohain"
-        ],
-        "count": 1,
-        "atRound": 5
+        "type": "ENTERED",
+        "area": "hamlets",
+        "byRound": 6
        }
       ],
       "combinator": "any"
@@ -5406,7 +5435,8 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "Mistaken identity: on the round they arrive, Prussian units cannot attack and cannot be supported by Nassau units. From Britain's route the AI commands Zieten; from Prussia's, Saxe-Weimar.",
@@ -5783,7 +5813,7 @@
     "Prussia": {
      "start": "Rows 8 to 10, out of the Bois de Paris",
      "objective": {
-      "text": "Hold the church (K5) and two other village squares at the end of round 10.",
+      "text": "Hold the church, or four village squares, at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_AREA",
@@ -5793,11 +5823,11 @@
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 3,
+        "count": 4,
         "atRound": 10
        }
       ],
-      "combinator": "all"
+      "combinator": "any"
      },
      "brigades": [
       {
@@ -5832,7 +5862,8 @@
         "area": "prussian_start"
        }
       }
-     ]
+     ],
+     "role": "attack"
     },
     "France": {
      "start": "Lobau in the village; Duhesme rows 1 to 3; the Old Guard joins Duhesme on row 1 in round 6",
@@ -5889,7 +5920,8 @@
         }
        ]
       }
-     ]
+     ],
+     "role": "hold"
     }
    },
    "special": "None.",
@@ -6657,6 +6689,16 @@
        18,
        4
       ]
+     ],
+     "hougoumont": [
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ]
      ]
     }
    },
@@ -6664,7 +6706,7 @@
     "Britain": {
      "start": "Rows 7 to 10, with one unit each in Hougoumont (B6, C6), La Haye Sainte (K6) and Papelotte (Q6, R6)",
      "objective": {
-      "text": "No French unit on Wellington's ridge (row 7) at the end of round 12, or break two French Brigades.",
+      "text": "No French unit on Wellington's ridge, and Hougoumont still held, at the end of round 12.",
       "conditions": [
        {
         "type": "CLEAR_AREA",
@@ -6672,11 +6714,13 @@
         "atRound": 12
        },
        {
-        "type": "BREAK_BRIGADES",
-        "count": 2
+        "type": "HOLD_COUNT",
+        "area": "hougoumont",
+        "count": 1,
+        "atRound": 12
        }
       ],
-      "combinator": "any"
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -6715,7 +6759,8 @@
        },
        "tag": "picton"
       }
-     ]
+     ],
+     "role": "hold"
     },
     "Prussia": {
      "start": "Arrives round 6 on column T, rows 3 to 5",
@@ -6754,7 +6799,8 @@
         "area": "east_edge"
        }
       }
-     ]
+     ],
+     "role": "hold"
     },
     "France": {
      "start": "Rows 1 to 3",
@@ -6824,7 +6870,8 @@
        "tag": "napoleon",
        "lockedUntil": 7
       }
-     ]
+     ],
+     "role": "attack"
     }
    },
    "special": "The Imperial Guard cannot move before round 7. From Britain's route the AI commands Bülow; from Prussia's, the two British Brigades.",
@@ -6837,7 +6884,7 @@
    "date": "night of 18 to 19 June 1815",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 8,
+   "turnLimit": 10,
    "history": "Gneisenau drove the Prussian cavalry and every infantryman who could still march after the beaten French through the night. At Genappe the road jammed with guns and wagons; Prussian fusiliers took Napoleon's own carriage, and the Emperor escaped on horseback minutes before.",
    "sourceUrl": "https://en.wikipedia.org/wiki/August_Neidhardt_von_Gneisenau",
    "map": {
@@ -7245,6 +7292,88 @@
        10,
        9
       ]
+     ],
+     "escape": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       0
+      ],
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       0,
+       3
+      ],
+      [
+       1,
+       3
+      ],
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ]
      ]
     },
     "exits": {
@@ -7255,12 +7384,12 @@
     "Prussia": {
      "start": "Columns S and T",
      "objective": {
-      "text": "End a turn with a unit on the carriage square (H5) by the end of round 8.",
+      "text": "Reach the carriage square (H5) by the end of round 10.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 8
+        "byRound": 10
        }
       ],
       "combinator": "any"
@@ -7281,18 +7410,19 @@
         "type": "edge"
        }
       }
-     ]
+     ],
+     "role": "attack"
     },
     "France": {
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
-      "text": "Napoleon leaves by column A by the end of round 6.",
+      "text": "Napoleon in the last two columns at the south end at the end of round 6.",
       "conditions": [
        {
-        "type": "MARCH_OFF",
-        "count": 0,
-        "mustIncludeTag": "napoleon",
-        "byRound": 6
+        "type": "COMMANDER",
+        "tag": "napoleon",
+        "area": "escape",
+        "atRound": 6
        }
       ],
       "combinator": "any"
@@ -7315,7 +7445,8 @@
        },
        "tag": "napoleon"
       }
-     ]
+     ],
+     "role": "hold"
     }
    },
    "special": "Night: artillery fires only at targets within two squares. The jammed road: road squares give no extra move in columns F to L.",

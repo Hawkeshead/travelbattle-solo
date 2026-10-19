@@ -23,7 +23,7 @@ function cardBrigade(b, nation, ally){
     ? { type: t, formation: b.formation[i] } : t);
   const out = { name: b.name, nation, units, placement: b.placement || { type: 'edge' } };
   if(b.tag) out.tag = b.tag;
-  for(const k of ['arrives', 'arrivals', 'lockedUntil']) if(b[k] != null) out[k] = b[k];   // reinforcements and held-back Brigades
+  for(const k of ['arrives', 'arrivals', 'lockedUntil', 'pinCommanderUntil']) if(b[k] != null) out[k] = b[k];   // reinforcements and held-back Brigades
   if(ally) out.ai = true;
   return out;
 }
@@ -74,7 +74,7 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
     specialRules: {},
     storyRules: { layout: battle.layout, needs: battle.needs || [], notes: battle.special || '' },   // the campaign's own rules, applied as the engine gains them
     ifBothMet: null, ifTimeExpires: null,
-    aiRoles: { british: holds(lead) ? 'hold' : 'attack', french: holds(french[0]) ? 'hold' : 'attack' },
+    aiRoles: { british: battle.sides[lead].role || (holds(lead) ? 'hold' : 'attack'), french: battle.sides[french[0]].role || (holds(french[0]) ? 'hold' : 'attack') },   // the battle's own attacker and defender
     outcomes: { britishWin: '', frenchWin: '' },
     story: { battleId: battle.id, playerNation, lead, layout: battle.layout },
   };
