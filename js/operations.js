@@ -29,6 +29,7 @@
    its whole move and leaves the board, removed and escaped. Not a casualty:
    no skull, not counted by DESTROY or in losses.
 ========================================================= */
+import { TERRAIN } from './data-core.js';
 import { buildWater } from './engine-water.js';
 import { ROWS, SIDES, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, setBoardMode, state, unitNationName } from './data-core.js';
 import { getCard } from './scenario-cards.js';
@@ -132,11 +133,68 @@ export function setupOperation(cardOrId, playerSide){
     if(p.reserve) state.reserves.push({ unit: u, round: p.reserve.round, area: p.reserve.area });
     else state.units.push(u);
   }
+  regroupBrigades(card);
+
   state.phase = 'deploy';
   state.deployPool = { red: [], blue: [] };
   state.deployBrigadeIndex = { red: card.forces.british.brigades.length, blue: card.forces.french.brigades.length };
   log(`Operation: ${card.name}, ${card.date}. ${card.turnLimit} rounds.`, 'system');
   return state.scenario;
+}
+
+/* KEEP BRIGADES IN COMMAND AT THE START (found with the sparring server,
+   19 Oct 2026). The placement plan spreads a Brigade's units over its
+   starting squares, and in most Waterloo battles a third to two thirds of the
+   units began cut off from their Brigadier, unable to move. After placement,
+   each cut-off unit is moved to the nearest free square of its own starting
+   squares (its area, or its side's home rows, three deep) that brings it back into
+   its Brigadier's chain, nearest its Brigadier first. */
+function regroupBrigades(card){
+  const rows = state.terrain.length, cols = state.terrain[0].length;
+  const areas = (card.map && card.map.areas) || {};
+  const free = (x, y) => !state.units.some(o => !o.removed && o.x === x && o.y === y);
+  const passable = (u, x, y) => { const t = TERRAIN[state.terrain[y][x]] || {}; return !(t.restrictTo && !t.restrictTo.includes(u.type)); };
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const key = side === SIDES.RED ? 'british' : 'french';
+    const home = side === SIDES.RED ? [rows - 3, rows - 2, rows - 1] : [0, 1, 2];   // a third row if the two home rows are full
+    /* First, each Brigadier to the free starting square nearest the middle
+       of his own units (the Guard's Brigadier at Ligny had been placed among
+       another Brigade, with his battalions out on both flanks). */
+    for(const brig of state.units.filter(o => !o.removed && o.side === side && o.type === 'BRIGADIER')){
+      const own = state.units.filter(o => !o.removed && o.side === side && o.type !== 'BRIGADIER' && o.brigadeId === brig.brigadeId);
+      if(!own.length) continue;
+      const cx = own.reduce((n, o) => n + o.x, 0) / own.length, cy = own.reduce((n, o) => n + o.y, 0) / own.length;
+      const b = card.forces[key].brigades[brig.brigadeId] || {};
+      const p = b.placement || { type: 'edge' };
+      const names = p.type === 'area' ? (p.split ? p.split.map(g => g.area) : [p.area]) : [];
+      if(names.length) continue;   // a placed commander (Blucher, Wellington) stays where the battle puts him
+      const spots = home.flatMap(y => Array.from({ length: cols }, (_, x) => ({ x, y }))).filter(c => free(c.x, c.y) && passable(brig, c.x, c.y));
+      spots.sort((a2, c) => Math.hypot(a2.x - cx, a2.y - cy) - Math.hypot(c.x - cx, c.y - cy));
+      if(spots.length && Math.hypot(spots[0].x - cx, spots[0].y - cy) < Math.hypot(brig.x - cx, brig.y - cy)){ brig.x = spots[0].x; brig.y = spots[0].y; }
+    }
+    for(let pass = 0; pass < 3; pass++){
+      const movable = movableUnitsForSide(side);
+      const cut = state.units.filter(u => !u.removed && u.side === side && u.type !== 'BRIGADIER' && !movable.has(u.id));
+      if(!cut.length) break;
+      for(const u of cut){
+        const b = card.forces[key].brigades[u.brigadeId] || {};
+        const p = b.placement || { type: 'edge' };
+        const names = p.type === 'area' ? (p.split ? p.split.map(g => g.area) : [p.area]) : [];
+        let squares = names.flatMap(n => (areas[n] || []).map(([x, y]) => ({ x, y })));
+        if(!squares.length) squares = home.flatMap(y => Array.from({ length: cols }, (_, x) => ({ x, y })));
+        const brig = state.units.find(o => !o.removed && o.side === side && o.type === 'BRIGADIER' && o.brigadeId === u.brigadeId);
+        if(!brig) continue;
+        const cands = squares.filter(c => free(c.x, c.y) && passable(u, c.x, c.y))
+          .sort((a, c) => Math.max(Math.abs(a.x - brig.x), Math.abs(a.y - brig.y)) - Math.max(Math.abs(c.x - brig.x), Math.abs(c.y - brig.y)));
+        const was = { x: u.x, y: u.y };
+        for(const c of cands){
+          u.x = c.x; u.y = c.y;
+          if(movableUnitsForSide(side).has(u.id)) break;
+          u.x = was.x; u.y = was.y;
+        }
+      }
+    }
+  }
 }
 
 /* REINFORCEMENTS ARRIVE at the start of their side's turn in their round (or
