@@ -23,6 +23,7 @@ function cardBrigade(b, nation, ally){
     ? { type: t, formation: b.formation[i] } : t);
   const out = { name: b.name, nation, units, placement: b.placement || { type: 'edge' } };
   if(b.tag) out.tag = b.tag;
+  for(const k of ['arrives', 'arrivals', 'lockedUntil']) if(b[k] != null) out[k] = b[k];   // reinforcements and held-back Brigades
   if(ally) out.ai = true;
   return out;
 }

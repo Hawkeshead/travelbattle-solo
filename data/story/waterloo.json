@@ -724,16 +724,15 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "guard"
+       "tag": "guard",
+       "lockedUntil": 5
       }
      ]
     }
    },
    "special": "The Imperial Guard cannot move before round 5.",
    "balance": "France has the Guard and 3 more points, but must cross the brook (one bridge, two fords) into villages, and its Guard only has six rounds. Prussia only has to survive in shape, which a careful player can do, so its margin is thin troops spread over three villages. Target 50 to 60% each.",
-   "needs": [
-    "locked Brigade (Guard until round 5)"
-   ]
+   "needs": []
   },
   {
    "id": "saint-amand",
@@ -1547,16 +1546,17 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "young_guard"
+       "tag": "young_guard",
+       "arrives": {
+        "round": 4
+       }
       }
      ]
     }
    },
    "special": "None beyond the brook.",
    "balance": "Even on points. France faces houses behind water but gets the Young Guard as a second wave once Saint-Amand is softened; Prussia can fall back village by village and only needs to keep the rear one. Target 50 to 60% each.",
-   "needs": [
-    "reinforcement (Young Guard, round 4)"
-   ]
+   "needs": []
   },
   {
    "id": "blucher",
@@ -2545,7 +2545,10 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "picton"
+       "tag": "picton",
+       "arrives": {
+        "round": 3
+       }
       },
       {
        "name": "Brunswick, round 5",
@@ -2560,7 +2563,10 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "brunswick"
+       "tag": "brunswick",
+       "arrives": {
+        "round": 5
+       }
       }
      ]
     },
@@ -2626,7 +2632,10 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "kellermann"
+       "tag": "kellermann",
+       "arrives": {
+        "round": 4
+       }
       }
      ]
     }
@@ -2634,8 +2643,7 @@
    "special": "Reinforcements enter on their own end at the start of the round shown.",
    "balance": "France has 28 points against Perponcher's 14 for the first two rounds and should take Gemioncourt; the Allies catch up to 40 against 42 as reinforcements arrive near the crossroads. Both objectives were met on the day. Target 50 to 60% each.",
    "needs": [
-    "corridor deployment",
-    "reinforcements (rounds 3, 4 and 5)"
+    "corridor deployment"
    ]
   },
   {
@@ -5342,7 +5350,11 @@
         "type": "area",
         "area": "east_edge"
        },
-       "tag": "zieten"
+       "tag": "zieten",
+       "arrives": {
+        "round": 6,
+        "area": "east_edge"
+       }
       }
      ]
     },
@@ -5400,7 +5412,6 @@
    "special": "Mistaken identity: on the round they arrive, Prussian units cannot attack and cannot be supported by Nassau units. From Britain's route the AI commands Zieten; from Prussia's, Saxe-Weimar.",
    "balance": "France has 25 against 14 for five rounds and only needs one hamlet briefly; the Allies need two at the end, which the Prussians make possible from round 6. Target 50 to 60% for each side.",
    "needs": [
-    "reinforcement on a side edge (round 6)",
     "mistaken identity"
    ]
   },
@@ -5874,8 +5885,7 @@
           "GUARD",
           "GUARD"
          ],
-         "round": 6,
-         "edge": "frenchEdge"
+         "round": 6
         }
        ]
       }
@@ -5884,9 +5894,7 @@
    },
    "special": "None.",
    "balance": "France has 32 against 28 and starts in the houses, but its clock ends at round 6; Prussia must still be in the village at round 10 after the Old Guard arrives. Target 50 to 60% each.",
-   "needs": [
-    "reinforcement (Old Guard, round 6)"
-   ]
+   "needs": []
   },
   {
    "id": "waterloo",
@@ -6740,7 +6748,11 @@
         "type": "area",
         "area": "east_edge"
        },
-       "tag": "bulow"
+       "tag": "bulow",
+       "arrives": {
+        "round": 6,
+        "area": "east_edge"
+       }
       }
      ]
     },
@@ -6809,17 +6821,15 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "napoleon"
+       "tag": "napoleon",
+       "lockedUntil": 7
       }
      ]
     }
    },
    "special": "The Imperial Guard cannot move before round 7. From Britain's route the AI commands Bülow; from Prussia's, the two British Brigades.",
    "balance": "Coalition 52 (38 from the start) against France 53. France can win outright by taking the ridge, but its own objective is to hold its centre and get Napoleon out, which becomes hard once Bülow arrives. Target 50 to 60% each.",
-   "needs": [
-    "reinforcement on a side edge (round 6)",
-    "locked Brigade (Guard until round 7)"
-   ]
+   "needs": []
   },
   {
    "id": "pursuit",

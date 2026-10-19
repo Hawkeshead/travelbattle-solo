@@ -59,7 +59,11 @@ export function pickUnitAtCell(x,y){
    cavalry may never attack a unit sheltering in a building. Depends only on the
    attacker's TYPE and the defender's SQUARE, not on where the attacker stands,
    which is what lets the AI ask the question about a prospective move. */
+/* A Brigade held back until a round (campaign battles: the Guard at Ligny and
+   Waterloo) cannot move, attack or fire before it; it still defends. */
+export function isLocked(u){ return !!u._lockedUntil && Math.ceil((state.turnNumber || 1) / 2) < u._lockedUntil; }
 export function canAttackTarget(attacker, defender){
+  if(isLocked(attacker)) return false;
   /* Every Brigadier, an Operation VIP included. A VIP is not fought: he is
      taken by a unit ending its move in his square (see isVip and
      displaceBrigadierIfPresent), so he is a charge DESTINATION, never a melee
@@ -421,6 +425,7 @@ export function hasAnyLegalMove(u){
 }
 
 export function legalMoves(u){
+  if(isLocked(u)) return [];
   if(u.formation==='square') return []; // squares don't move
   if(u.turnOnly) return [];
   if(state.moved && state.moved.has(u.id)) return []; // already moved (or explicitly stood pat) this phase
@@ -643,6 +648,7 @@ export function playMovementAudio(u, steps, profile){
 }
 
 export function volleyTargets(u){
+  if(isLocked(u)) return [];
   if(u.removed || !isFootInfantry(u)) return [];
   if(u.turnOnly) return [];                                   // turned around: cannot fire
   if(u.noActionThisTurn) return [];
@@ -702,6 +708,7 @@ export function volleyModifiers(target){
 }
 
 export function artilleryTargets(gun){
+  if(isLocked(gun)) return [];
   if(gun.turnOnly) return []; // pushed/shaken: can only turn around, not fire
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both

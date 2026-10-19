@@ -107,17 +107,46 @@ export function setupOperation(cardOrId, playerSide){
   resetHistoricalIdentities();
   resetUndoStack();
   state.units = [];
+  state.reserves = [];
   for(const p of planOperationPlacement(card, state.terrain)){
-    const u = newUnit(p.side, p.type, p.x, p.y, p.brigadeId);
+    const u = newUnit(p.side, p.type, p.reserve ? -1 : p.x, p.reserve ? -1 : p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
     if(p.tag) u.storyTag = p.tag;   // a campaign Brigade's tag, for its objectives (objective-core.js)
-    state.units.push(u);
+    if(p.locked) u._lockedUntil = p.locked;   // a Brigade held back until this round (engine-rules isLocked)
+    if(p.reserve) state.reserves.push({ unit: u, round: p.reserve.round, area: p.reserve.area });
+    else state.units.push(u);
   }
   state.phase = 'deploy';
   state.deployPool = { red: [], blue: [] };
   state.deployBrigadeIndex = { red: card.forces.british.brigades.length, blue: card.forces.french.brigades.length };
   log(`Operation: ${card.name}, ${card.date}. ${card.turnLimit} rounds.`, 'system');
   return state.scenario;
+}
+
+/* REINFORCEMENTS ARRIVE at the start of their side's turn in their round (or
+   later, if every arrival square is taken): on the squares of their arrival
+   area, or else their side's home row, nearest the middle first. */
+export function bringReinforcements(side){
+  if(!state.reserves || !state.reserves.length) return;
+  const round = Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
+  const due = state.reserves.filter(r => r.unit.side === side && r.round <= round);
+  if(!due.length) return;
+  const rows = state.terrain.length, cols = state.terrain[0].length;
+  const areas = (state.scenario && state.scenario.map && state.scenario.map.areas) || {};
+  const free = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows && !state.units.some(o => !o.removed && o.x === x && o.y === y);
+  let arrived = 0;
+  for(const r of due){
+    const home = side === SIDES.RED ? rows - 1 : 0;
+    const cells = (r.area && areas[r.area] ? areas[r.area].map(([x, y]) => ({ x, y })) : Array.from({ length: cols }, (_, x) => ({ x, y: home })))
+      .filter(c => free(c.x, c.y)).sort((a, b) => Math.abs(a.x - cols / 2) - Math.abs(b.x - cols / 2));
+    if(!cells.length) continue;
+    r.unit.x = cells[0].x; r.unit.y = cells[0].y;
+    state.units.push(r.unit);
+    state.reserves.splice(state.reserves.indexOf(r), 1);
+    logReplay('arrive', { unitId: r.unit.id, side, x: r.unit.x, y: r.unit.y, round });
+    arrived++;
+  }
+  if(arrived) log(`Reinforcements arrive: ${arrived} unit${arrived === 1 ? '' : 's'} for ${side === SIDES.RED ? 'the Coalition' : 'France'}.`, 'system');
 }
 
 /* Who moves first (2.4 / the card's firstPlayer): british, french, or a die. */

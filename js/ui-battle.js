@@ -2,7 +2,7 @@ import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
 import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
 import { saveAtPhaseStart } from './match-save.js';
-import { brigadeIdsFor, operationFirstMover, canMarchOff, marchOff } from './operations.js';
+import { brigadeIdsFor, bringReinforcements, operationFirstMover, canMarchOff, marchOff } from './operations.js';
 import { currentRecord } from './telemetry/recorder.js';
 import { resendCurrent } from './telemetry/sender.js';
 import { telemetryFightEnds, telemetryMoveBegins, telemetryMoveEnds } from './telemetry/hooks.js';
@@ -538,6 +538,7 @@ export function playTurnTheme(side){
 export function beginMovePhase(){
   saveAtPhaseStart('move');   // match-save.js: a resumable point, before the phase sets itself up
   if(state.gameOver) return;
+  if(state.scenario) bringReinforcements(state.turn);   // campaign reinforcements due this round (operations.js)
   state.phase = 'move';
   // Hand the player's own zoom and pan back as their turn starts. Parked at the
   // top of the AI's move phase; following the action must never cost them where

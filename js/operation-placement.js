@@ -73,6 +73,24 @@ export function planOperationPlacement(card, terrain){
   })();
   for(const j of jobs){
     const p = j.b.placement || { type: 'edge' };
+    const base = { side: j.side, brigadeId: j.i, tag: j.b.tag || null, locked: j.b.lockedUntil || null };
+    /* REINFORCEMENTS (campaign battles): a Brigade that 'arrives' is held off
+       the board until its round; 'arrivals' holds back some of a Brigade's
+       units the same way. They are planned as reserves (no square). */
+    if(j.b.arrives){
+      for(const u of j.b.units) plan.push(Object.assign({}, base, { type: unitType(u), formation: unitFormation(u), reserve: { round: j.b.arrives.round, area: j.b.arrives.area || null } }));
+      continue;
+    }
+    let units0 = j.b.units.slice();
+    for(const a of (j.b.arrivals || [])){
+      for(const t of a.units){
+        const k = units0.map(unitType).lastIndexOf(t);
+        if(k < 0) continue;
+        units0.splice(k, 1);
+        plan.push(Object.assign({}, base, { type: t, formation: null, reserve: { round: a.round, area: a.area || null } }));
+      }
+    }
+    j.b = Object.assign({}, j.b, { units: units0 });
     let placed;
     if(p.type === 'area'){
       const groups = p.split || [{ area: p.area, count: j.b.units.length }];
@@ -81,7 +99,7 @@ export function planOperationPlacement(card, terrain){
       let at = 0;
       for(const g of groups){ placed.push(...fillArea(j.side, units.slice(at, at + g.count), areaCells(card, g.area), taken)); at += g.count; }
     } else placed = fillEdge(j.side, j.b.units, objectiveX, taken);
-    for(const pl of placed) plan.push({ side: j.side, type: unitType(pl.u), x: pl.x, y: pl.y, brigadeId: j.i, formation: unitFormation(pl.u) || (typeof j.b.formation === 'string' ? j.b.formation : null), tag: j.b.tag || null });
+    for(const pl of placed) plan.push({ side: j.side, type: unitType(pl.u), x: pl.x, y: pl.y, brigadeId: j.i, formation: unitFormation(pl.u) || (typeof j.b.formation === 'string' ? j.b.formation : null), tag: j.b.tag || null, locked: j.b.lockedUntil || null });
   }
   return plan;
 }
