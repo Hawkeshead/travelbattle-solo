@@ -469,7 +469,7 @@ function storyMoveBonus(mover, side, pos){
      never crossed the brook in ten rounds; the modest pull lost to keeping out
      of the guns' reach). Defenders keep the gentler pull. */
   const attacking = sc.aiRoles && sc.aiRoles[key] === 'attack';
-  const reach = attacking ? 14 : 8, per = attacking ? 0.55 : 0.30, inPlace = attacking ? 3.0 : 2.0;
+  const reach = attacking ? Math.max(14, state.terrain.length) : 8, per = attacking ? 0.55 : 0.30, inPlace = attacking ? 3.0 : 2.0;   // a corridor is 20 deep: the pull reaches its far end
   let s = 0;
   /* A Brigadier on a bridge square blocks it (one unit per bridge square):
      at Wavre the French Brigadier parked on the bridge and his own infantry
@@ -505,7 +505,11 @@ function storyMoveBonus(mover, side, pos){
       const d = friends.length ? Math.min(...friends.map(o => waterDistance(pos, o))) : 99;
       s += d === 1 ? 2.5 * k : Math.max(0, 10 - d) * 0.30 * k;
     } else if(c.type === 'COMMANDER' && brig && mover.storyTag === c.tag){
-      if(c.area){ const d = nearest(pos, sqOf(c.area)); s += d === 0 ? 3.0 * k : Math.max(0, 8 - d) * 0.40 * k; }
+      if(c.area){
+        const far = sc.aiRoles && sc.aiRoles[key] === 'escape';   // an escaping commander pulls over a whole corridor (the Pursuit)
+        const d = nearest(pos, sqOf(c.area)), R2 = far ? 20 : 8, P2 = far ? 1.5 : 0.40;
+        s += d === 0 ? (R2 * P2 + 3.0) * k : Math.max(0, R2 - d) * P2 * k;
+      }
       const near = state.units.filter(o => !o.removed && o.side === side && o.id !== mover.id && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1).length;
       s += Math.min(near, 2) * 0.6;
       if(state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1)) s -= 3.0;
@@ -516,12 +520,14 @@ function storyMoveBonus(mover, side, pos){
       const ex = sc.map.exits && sc.map.exits[key];
       if(!ex) continue;
       const row = ex === 'britishEdge' ? state.terrain.length - 1 : 0;
-      const pull = Math.max(0, 20 - Math.abs(pos.y - row)) * 0.45 * k;   // the full length of a corridor (Genappe: the cavalry stopped halfway)
+      const escaping = sc.aiRoles && sc.aiRoles[key] === 'escape';
+      const pull = Math.max(0, 20 - Math.abs(pos.y - row)) * (escaping ? 0.9 : 0.45) * k;   // the full length of a corridor; an escaping side pulls double (Genappe: the cavalry stayed to screen the guns)
       s += c.mustIncludeTag ? (mover.storyTag === c.mustIncludeTag && brig ? pull * 2 : pull * 0.4) : pull;
     }
   }
   // Crossings: the attacker spreads over them and seizes their far ends; the defender holds its own.
-  s += crossingTerm(mover, side, pos, attacking, Math.max(1, ...((sc.win[key] || {}).conditions || []).map(urgency)));
+  if(!(sc.aiRoles && sc.aiRoles[key] === 'escape'))   // a retreating side does not stop to hold crossings
+    s += crossingTerm(mover, side, pos, attacking, Math.max(1, ...((sc.win[key] || {}).conditions || []).map(urgency)));
   // Stand where the enemy must go: its places are ours to deny.
   if(!brig){
     for(const c of ((sc.win[foeKey] || {}).conditions || [])){

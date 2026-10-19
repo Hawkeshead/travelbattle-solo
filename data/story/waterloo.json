@@ -3713,12 +3713,12 @@
     "France": {
      "start": "Columns A and B",
      "objective": {
-      "text": "Remove three Allied units by the end of round 12.",
+      "text": "Remove two Allied units by the end of round 12.",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3,
+        "count": 2,
         "byRound": 12
        }
       ],
@@ -7708,10 +7708,11 @@
         "LIGHT_CAV",
         "LIGHT_CAV",
         "HEAVY_CAV",
+        "LIGHT_CAV",
         "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers) (+Light Cav for balance)",
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers) (+Light Cav for balance) (+Light Cavalry for balance)",
        "placement": {
         "type": "edge"
        }
@@ -7722,13 +7723,13 @@
     "France": {
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
-      "text": "Napoleon in the last two columns at the south end at the end of round 6.",
+      "text": "Napoleon in the last two columns at the south end at the end of round 5.",
       "conditions": [
        {
         "type": "COMMANDER",
         "tag": "napoleon",
         "area": "escape",
-        "atRound": 6
+        "atRound": 5
        }
       ],
       "combinator": "any"
