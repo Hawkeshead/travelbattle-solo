@@ -729,7 +729,16 @@ export function showActionLine(fromUnit, toUnit, color, durationMs, dashed){
 function drawOperationAreas(){
   const sc = state.scenario;
   if(!sc || !sc.map || !sc.map.areas) return;
-  for(const [, cells] of Object.entries(sc.map.areas)){
+  /* Only the places an objective names, and only small ones (12 squares or
+     fewer): villages, farms, bridgeheads, crossroads. Starting areas and broad
+     zones ("three units across the brook") are not painted on the board. */
+  const named = new Set();
+  for(const w of Object.values(sc.win || {})) for(const c of ((w && w.conditions) || [])){
+    if(c.area) named.add(c.area);
+    for(const a2 of (c.areas || [])) named.add(a2);
+  }
+  for(const [name, cells] of Object.entries(sc.map.areas)){
+    if(!named.has(name) || cells.length > 12) continue;
     const set = new Set(cells.map(([x, y]) => x + ',' + y));
     const here = state.units.filter(u => !u.removed && u.type !== 'BRIGADIER' && set.has(u.x + ',' + u.y));
     const b = here.some(u => u.side === SIDES.RED), f = here.some(u => u.side === SIDES.BLUE);

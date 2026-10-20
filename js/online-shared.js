@@ -51,10 +51,11 @@
    the 1st commander).
 ========================================================= */
 import { recOnlineMerged } from './telemetry/recorder.js';
-import { COLS, ROWS, SIDES, SIDE_LABEL, setBoardMode, state } from './data-core.js';
+import { SIDES, SIDE_LABEL, setBoardMode, state } from './data-core.js';
 import { NATIONS, nationKeyFor, nationsForSide } from './nations.js';
 import { setOnlineSession, setRemoteAsker, setRemoteDeployHandler, sharedArmiesEnabled } from './online-session.js';
 import { localTransport, supabaseTransport } from './online-group.js';
+import { SCOLS, SROWS } from './render-board.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
          canvas, cellFromClient, draw, fromScreen, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas, toScreen } from './render-board.js';
 import { highlightCells } from './render-units.js';
@@ -917,7 +918,7 @@ function updateBanner(){
 /* A square on the board, as a point on the page. */
 function pagePoint(x, y){
   const r = canvas.getBoundingClientRect();
-  const s = toScreen(x, y), cw = r.width / COLS, ch = r.height / ROWS;
+  const s = toScreen(x, y), cw = r.width / SCOLS(), ch = r.height / SROWS();
   return { x: r.left + (s.x + 0.5) * cw, y: r.top + (s.y + 0.5) * ch, cell: cw };
 }
 function markerAt(x, y, inner, cls){

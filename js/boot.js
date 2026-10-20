@@ -8,7 +8,7 @@ import { clashResult, clashStart, initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, toScreen } from './render-board.js';
+import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, SCOLS, sizeCanvas, toScreen } from './render-board.js';
 import { setDiceClash, setDiceFrame, setDiceScreenPoint } from './dice.js';
 import { initUnitMarkers } from './unit-markers.js';
 import { COLS } from './data-core.js';
@@ -178,7 +178,7 @@ if(typeof navigator !== 'undefined' && navigator.serviceWorker && /^https?:$/.te
 setDiceScreenPoint((x, y) => {
   const wrap = document.getElementById('boardWrap');
   const wr = wrap.getBoundingClientRect(), r = boardCanvas.getBoundingClientRect();
-  const cell = r.width / COLS, s = toScreen(x, y);
+  const cell = r.width / SCOLS(), s = toScreen(x, y);   // the board's width AS SHOWN (a corridor is seen from the side)
   return { x: r.left - wr.left + (s.x + 0.5) * cell, y: r.top - wr.top + (s.y + 0.5) * cell, cell };
 });
 /* Framing a fight for its dice: the units themselves plus two squares either

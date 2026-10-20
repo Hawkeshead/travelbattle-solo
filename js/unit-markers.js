@@ -15,9 +15,9 @@
    same size on screen at every zoom and follows a unit while it moves. Hidden units (in ambush)
    are never marked. Visual only: nothing here is saved, synced or replayed.
 ========================================================= */
-import { COLS, humanOwns, nationOf, state } from './data-core.js';
+import { humanOwns, nationOf, state } from './data-core.js';
 import { NATIONS } from './nations.js';
-import { canvas as boardCanvas, getUnitVisualPos, toScreen } from './render-board.js';
+import { canvas as boardCanvas, getUnitVisualPos, SCOLS, toScreen } from './render-board.js';
 
 const ACT_MS = 2200;           // how long an enemy unit stays marked after acting
 const COCKADE_R = 9;           // cockade radius, CSS px, at every zoom
@@ -86,7 +86,7 @@ function frame(){
   if(!marks.length) return;
   dirty = true;   // something drawn this frame: clear it next frame (nothing to clear when idle)
   const wr = wrap.getBoundingClientRect(), cr = boardCanvas.getBoundingClientRect();
-  const cell = cr.width / COLS;
+  const cell = cr.width / SCOLS();   // the board's width as shown
   const t = performance.now() / 1000;
   for(const { u, word } of marks){
     const v = getUnitVisualPos(u), s = toScreen(v.x, v.y);

@@ -3,7 +3,7 @@ import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit, setTurnedAround, terrainAt } from './engine-rules.js';
-import { animateUnitTo, canvas, clearUnitAnimations, draw, toScreen } from './render-board.js';
+import { animateUnitTo, canvas, clearUnitAnimations, draw, SCOLS, SROWS, toScreen } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 import { clashReplay } from './render-figures.js';
 
@@ -64,7 +64,7 @@ export function showReplayHitRing(x,y){
   const wrap = document.getElementById('boardWrap');
   const rect = canvas.getBoundingClientRect();
   const wrapRect = wrap.getBoundingClientRect();
-  const cellPxX = rect.width/COLS, cellPxY = rect.height/ROWS;
+  const cellPxX = rect.width/SCOLS(), cellPxY = rect.height/SROWS();
   const sp = toScreen(x, y), sy_ = sp.y;
   const ring = document.createElement('div');
   ring.className = 'replay-hit-ring';

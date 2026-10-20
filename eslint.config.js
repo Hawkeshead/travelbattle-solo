@@ -20,6 +20,7 @@ import globals from 'globals';
 export default [
   {
     ignores: [
+      'js/ai-strategy.bot.js',   // the sparring bot, generated (tools/spar/make-bot.mjs)
       'node_modules/**',
       'test-results/**',
       'playwright-report/**',

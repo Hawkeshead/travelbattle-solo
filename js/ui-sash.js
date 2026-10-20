@@ -22,8 +22,8 @@
    pan, so the lettering stays one size at any zoom, and following the unit's
    DRAWN position so it rides along while the unit walks.
 ========================================================= */
-import { COLS, ROWS, UNIT_TYPES, state, unitColor } from './data-core.js';
-import { canvas, getUnitVisualPos, toScreen } from './render-board.js';
+import { UNIT_TYPES, state, unitColor } from './data-core.js';
+import { canvas, getUnitVisualPos, SCOLS, SROWS, toScreen } from './render-board.js';
 
 /* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
    Matthew asked for the profile panel back, tighter. Kept, not deleted, so the
@@ -88,14 +88,14 @@ function paint(force){
 /* Opens to the right of the unit, or to the left when the unit is in the right
    half of the board, the same rule the old panel used for its side. */
 function openLeft(u){
-  const vp = getUnitVisualPos(u) || { x: u.x };
-  return vp.x >= COLS / 2;
+  const vp = getUnitVisualPos(u) || { x: u.x, y: u.y };
+  return toScreen(vp.x, vp.y).x >= SCOLS() / 2;   // the half of the board AS SHOWN
 }
 
 function place(opensLeft){
   const u = current;
   const rect = canvas.getBoundingClientRect();
-  const cw = rect.width / COLS, ch = rect.height / ROWS;
+  const cw = rect.width / SCOLS(), ch = rect.height / SROWS();
   const vp = getUnitVisualPos(u) || { x: u.x, y: u.y };
   const sp = toScreen(vp.x, vp.y), row = sp.y;
   const w = root.offsetWidth || 160, h = root.offsetHeight || 60;

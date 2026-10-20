@@ -32,7 +32,7 @@
 import { COLS, ROWS, UNIT_TYPES, state } from './data-core.js';
 import { termOf, iconSvg } from './spyglass-terms.js';
 import { isOnline } from './online-session.js';
-import { canvas as boardCanvas, draw, getUnitVisualPos, setBoardUnderlay, toScreen } from './render-board.js';
+import { canvas as boardCanvas, draw, getUnitVisualPos, SCOLS, setBoardUnderlay, toScreen } from './render-board.js';
 import { currentTrace, onTrace, setStepGate, setTraceCapture } from './ai-trace.js';
 import { isConcealedFromEnemy } from './engine-rules.js';
 
@@ -177,7 +177,7 @@ function rects(){
 }
 /* A square's centre and size on the overlay layer (CSS px). */
 function sq(x, y, R){
-  const cell = R.cr.width / COLS, s = toScreen(x, y);
+  const cell = R.cr.width / SCOLS(), s = toScreen(x, y);   // the board's width as shown
   return { x: R.cr.left - R.wr.left + (s.x + 0.5) * cell, y: R.cr.top - R.wr.top + (s.y + 0.5) * cell, cell };
 }
 /* What the player cannot see stays unseen: an AI unit in a wood or lying in
