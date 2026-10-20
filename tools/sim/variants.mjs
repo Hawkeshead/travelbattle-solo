@@ -11,6 +11,11 @@
 ========================================================= */
 
 export const VARIANTS = {
+  /* Line discipline (ai-strategy): advance as a block, no lone units near the enemy. */
+  line:        { LINE_DISCIPLINE: 1 },
+  line_soft:   { LINE_DISCIPLINE: 1, LINE_AHEAD: 0.8, LINE_ALONE: 0.8 },
+  line_hard:   { LINE_DISCIPLINE: 1, LINE_AHEAD: 2.5, LINE_ALONE: 2.5 },
+  line_alone:  { LINE_DISCIPLINE: 1, LINE_AHEAD: 0, LINE_ALONE: 2.0 },
   /* Recovery errands are ON by default, so the experiment is turning them OFF. */
   no_errands:  { BRIGADE_ERRANDS: 0 },
   /* The finishing rule is ON by default, so the experiment turns it OFF. */

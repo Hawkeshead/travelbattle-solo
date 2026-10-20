@@ -5100,6 +5100,27 @@ export function aiDecideAndExecuteMove(u){
       if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
     }
 
+    /* LINE DISCIPLINE (19 Oct 2026, from the sparring game and the bot):
+       advance as a block. No unit ends more than a row ahead of its army's
+       front (the average of its three most forward fighting units), except
+       cavalry charging; and a unit with no friend beside it, within three
+       squares of the enemy, is a target. Off by default until measured
+       (variant 'line'). */
+    if(tune(side, 'LINE_DISCIPLINE', 0)){
+      const rowsN = state.terrain.length, fwdOf = y => side === 'blue' ? y : rowsN - 1 - y;
+      const others = state.units.filter(o => !o.removed && o.side === side && o.id !== u.id && o.type !== 'BRIGADIER');
+      const tops = others.map(o => fwdOf(o.y)).sort((a2, b2) => b2 - a2).slice(0, 3);
+      const front = tops.length ? tops.reduce((n, v) => n + v, 0) / tops.length : fwdOf(oy);
+      const typ = UNIT_TYPES[u.type];
+      if(typ.key !== 'BRIGADIER'){
+        const over = fwdOf(c.y) - front - 1;
+        if(over > 0 && !(typ.isCavalry && isChargeMove)) s -= subScore(parts, 'lineAhead', tune(side, 'LINE_AHEAD', 1.5) * over);
+        const alone = !others.some(o => Math.max(Math.abs(o.x - c.x), Math.abs(o.y - c.y)) === 1);
+        const enemyNear = state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && Math.max(Math.abs(o.x - c.x), Math.abs(o.y - c.y)) <= 3);
+        if(alone && enemyNear && !typ.isArtillery) s -= subScore(parts, 'lineAlone', tune(side, 'LINE_ALONE', 1.5));
+      }
+    }
+
     s += addScore(parts, 'jitter', seededRandom() * 0.03); // tie-breaking jitter: prevents an exact repeated stall between equally-scored options
     u.x=ox; u.y=oy;
     scored.push({ x:c.x, y:c.y, stay:!!c.stay, total:s, parts });
