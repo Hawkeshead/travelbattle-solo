@@ -413,7 +413,7 @@ function assaultPull(mover, side, pos, sqs, k){
      defender  holds the crossing squares on its own bank (the chokepoints),
                more where the enemy is close
    A side's bank is the one nearer its home row. */
-export const CROSSING = { APPROACH: 0.35, BRIDGEHEAD: 2.5, NEAR: 0.8, CROWD: 1.2, HELD: 1.5, HOLD: 1.6, HOLD_THREAT: 1.0 };
+export const CROSSING = { APPROACH: 0.35, BRIDGEHEAD: 2.5, NEAR: 0.8, CROWD: 2.5, HELD: 4.0, HOLD: 1.6, HOLD_THREAT: 1.0 };   // 20 Oct: CROWD 1.2 -> 2.5, HELD 1.5 -> 4 (Quatre Bras: every French attack queued at the defended bridge, the fords never used)
 function crossings(){
   const w = state.water; if(!w) return [];
   if(w._crossings && w._crossings.v === w.version) return w._crossings.list;
@@ -443,7 +443,7 @@ function crossingTerm(mover, side, pos, attacking, k){
       const [near, far] = mineFirst(c);
       if(at(far, pos)) return CROSSING.BRIDGEHEAD * k;   // on the far bank of a crossing: the bridgehead
       const crowd = friends.filter(o => Math.max(Math.abs(o.x - near.x), Math.abs(o.y - near.y)) <= 1).length;
-      const held = foes.some(o => at(o, far)) ? 1 : 0;
+      const held = foes.some(o => o.type !== 'BRIGADIER' && Math.max(Math.abs(o.x - far.x), Math.abs(o.y - far.y)) <= 1) ? 1 : 0;   // defended: an enemy on or beside the far end
       const cost = waterDistance(pos, near) + crowd * CROSSING.CROWD + held * CROSSING.HELD;
       if(!best || cost < best.cost) best = { cost, near };
     }

@@ -19,10 +19,14 @@
 export const FRENCH_SIDE = new Set(['France']);
 
 function cardBrigade(b, nation, ally){
-  const units = b.units.map((t, i) => (Array.isArray(b.formation) && b.formation[i] && b.formation[i] !== 'line')
-    ? { type: t, formation: b.formation[i] } : t);
+  const units = b.units.map((t, i) => {
+    const f = Array.isArray(b.formation) && b.formation[i] && b.formation[i] !== 'line' ? b.formation[i] : null;
+    const n = Array.isArray(b.names) && b.names[i] ? b.names[i] : null;   // the unit's own name (the 92nd Highlanders)
+    return f || n ? Object.assign({ type: t }, f ? { formation: f } : {}, n ? { name: n } : {}) : t;
+  });
   const out = { name: b.name, nation, units, placement: b.placement || { type: 'edge' } };
   if(b.tag) out.tag = b.tag;
+  if(b.commander) out.commander = b.commander;   // the Brigadier's name
   for(const k of ['arrives', 'arrivals', 'lockedUntil', 'pinCommanderUntil']) if(b[k] != null) out[k] = b[k];   // reinforcements and held-back Brigades
   if(ally) out.ai = true;
   return out;
@@ -70,7 +74,7 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
     kind: 'operation', campaign, status: 'ready', judging: 'independent',
     name: battle.name, date: battle.date, archetype: null, intro: battle.history,
     sourceUrl: battle.sourceUrl || '', historicalResult: '',
-    firstPlayer: 'french',
+    firstPlayer: battle.firstPlayer || 'french',   // who moves first (the Narrow Escape: the Allies)
     map: Object.assign({ type: 'authored' }, battle.layout === 'corridor' ? corridorMap(battle.map) : battle.map),
     turnLimit: battle.turnLimit,
     forces: { british: forcesFor(coalition), french: forcesFor(french) },

@@ -127,6 +127,7 @@ export function setupOperation(cardOrId, playerSide){
     const u = newUnit(p.side, p.type, p.reserve ? -1 : p.x, p.reserve ? -1 : p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
     if(p.tag) u.storyTag = p.tag;   // a campaign Brigade's tag, for its objectives (objective-core.js)
+    if(p.name) u.historicalName = p.name;   // a campaign battle names its own units and commanders
     if(p.locked) u._lockedUntil = p.locked;   // a Brigade held back until this round (engine-rules isLocked)
     const cardB = card.forces[p.side === SIDES.RED ? 'british' : 'french'].brigades[p.brigadeId];
     if(p.type === 'BRIGADIER' && cardB && cardB.vip){ u.captureRule = 'enterSquare'; u.historicalName = u.historicalName || cardB.name; }   // a hunted commander: taken by a unit ending its move in his square
@@ -179,6 +180,7 @@ function regroupBrigades(card){
       for(const u of cut){
         const b = card.forces[key].brigades[u.brigadeId] || {};
         const p = b.placement || { type: 'edge' };
+        if(p.split) continue;   // placed square by square on purpose (the 92nd at the crossroads, Blucher's escort, the Brye rearguard): left where the battle puts them
         const names = p.type === 'area' ? (p.split ? p.split.map(g => g.area) : [p.area]) : [];
         let squares = names.flatMap(n => (areas[n] || []).map(([x, y]) => ({ x, y })));
         if(!squares.length) squares = home.flatMap(y => Array.from({ length: cols }, (_, x) => ({ x, y })));

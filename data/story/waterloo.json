@@ -3664,11 +3664,11 @@
        "name": "Wellington and the 92nd",
        "units": [
         "BRIGADIER",
-        "INFANTRY",
+        "GUARD",
         "INFANTRY"
        ],
        "protect": true,
-       "note": "Wellington (to protect), Infantry (the 92nd, in square), Infantry (a Brunswick battalion)",
+       "note": "Wellington (to protect), the 92nd Gordon Highlanders (Guard, in square), a Brunswick battalion",
        "placement": {
         "type": "area",
         "split": [
@@ -3691,7 +3691,13 @@
         "line",
         "square",
         "line"
-       ]
+       ],
+       "names": [
+        null,
+        "92nd Gordon Highlanders",
+        "Brunswick Leib Battalion"
+       ],
+       "commander": "Wellington"
       },
       {
        "name": "The Duke of Brunswick",
@@ -3706,7 +3712,13 @@
         "type": "area",
         "area": "brunswick_start"
        },
-       "tag": "brunswick"
+       "tag": "brunswick",
+       "commander": "Duke of Brunswick",
+       "names": [
+        null,
+        "Brunswick Avantgarde",
+        "Brunswick Hussars"
+       ]
       }
      ],
      "role": "hold"
@@ -3743,18 +3755,27 @@
        "note": "Brigadier, Light Cavalry x3, Infantry",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Piré",
+       "names": [
+        null,
+        "5e Lanciers",
+        "6e Lanciers",
+        "1er Chasseurs à Cheval",
+        null
+       ]
       }
      ],
      "role": "attack"
     }
    },
-   "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it.",
+   "special": "Wellington moves as cavalry and cannot attack; a square shelters a commander standing in it. The Allies move first.",
    "balance": "Britain has 2 more points but two commanders to keep alive, and Wellington starts three squares from safety with lancers two moves away. Target 50 to 60% each.",
    "needs": [],
    "rules": {
     "shelter": true
-   }
+   },
+   "firstPlayer": "british"
   },
   {
    "id": "genappe-17",

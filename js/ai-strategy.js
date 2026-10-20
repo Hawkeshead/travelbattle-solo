@@ -2697,6 +2697,7 @@ export function orderAiUnitsForMove(side){
 
   return units
     .sort((a,b)=> (brigadeX[a.brigadeId]-brigadeX[b.brigadeId])
+               || (Number(a.brigadeId)-Number(b.brigadeId))   // two Brigadiers in one column: never interleave their Brigades
                || (phaseOf(a)-phaseOf(b))
                || (chainDepth(a)-chainDepth(b))
                || (pri[a.type]-pri[b.type]))
