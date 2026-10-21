@@ -150,7 +150,8 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     scenario: process.env.SIM_SCENARIO || null,
     rounds: state.scenarioResult ? state.scenarioResult.round : (state.scenario ? Math.ceil((state.turnNumber || 1) / 2) : null),
     reason: state.scenarioResult ? state.scenarioResult.reason.replace(/, round \d+.*$/, '') : null,
-    achieved: state.scenarioResult && state.scenarioResult.achieved ? { ...state.scenarioResult.achieved } : null,   // campaign battles: each side's objective
+    achieved: state.scenarioResult && state.scenarioResult.achieved ? { ...state.scenarioResult.achieved } : null,
+    river: !!(state.water && Object.keys(state.water.edges || {}).length),   // a river on this board (river-generator)   // campaign battles: each side's objective
     turns: state.turnNumber,
     wallMs: Date.now() - t0,
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
@@ -521,6 +522,18 @@ export function summarise(results) {
   lines.push(`hung               ${results.filter(r => r.finished === 'hung').length}`);
   lines.push(`crashed            ${results.filter(r => r.finished === 'crashed').length}`);
   lines.push('');
+  /* RIVER OR NOT: how the matches with a river on the board went (decided,
+     win rate for the current build or variant, and how many did not finish). */
+  {
+    const withR = results.filter(r => r.river), without = results.filter(r => r.river === false);
+    const line = (label, rs) => {
+      if (!rs.length) return;
+      const dec = rs.filter(r => r.finished === 'win');
+      const mine = dec.filter(r => r.variantWon === 'variant').length;
+      lines.push(`${label.padEnd(14)} ${rs.length} matches, ${dec.length} decided, ${rs.length - dec.length} unfinished; ${process.env.SIM_VS_LABEL ? 'current build' : 'variant'} won ${mine} of ${dec.length}${dec.length ? ' (' + Math.round(100 * mine / dec.length) + '%)' : ''}`);
+    };
+    if (withR.length || without.length) { lines.push('BY RIVER'); line('  river', withR); line('  no river', without); }
+  }
   /* Campaign battles are judged independently: report how often EACH side met
      its own objective, which is the balance measure (target 50 to 60% each). */
   const judged = results.filter(r => r.achieved);
