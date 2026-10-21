@@ -23,6 +23,7 @@ const TERMS = {
   // Command
   cohesionLoss: T("Leaves the Brigadier's command", 'chainBroken'),
   lineAhead: T('Too far ahead of the line', 'chainBroken'),
+  stayStackedUnderGuns: T('Column standing under enemy guns', 'chainBroken'),
   lineAlone: T('Alone near the enemy', 'chainBroken'),
   cohesionDrift: T("Leaves the Brigadier's command", 'chainBroken'),
   cohesionGain: T('Keeps the Brigade in command', 'chain'),

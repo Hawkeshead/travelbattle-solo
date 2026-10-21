@@ -4880,6 +4880,16 @@ export function aiDecideAndExecuteMove(u){
       const sharing = unitsAt(c.x,c.y).some(o=>!o.removed && o.side===side && o.id!==u.id && o.type!=='BRIGADIER');
       if(sharing){ const g = gunsCovering(c, side, COLUMN_GUN_REACH); if(g) s -= subScore(parts, 'stackUnderGuns', STACK_UNDER_GUNS_COST * g); }
     }
+    /* ... and STAYING stacked under them (20 Oct 2026, Matthew's Quatre Bras):
+       the rule above only priced moving INTO a stack, so a column already
+       formed sat on the approach to the Gemioncourt bridge turn after turn, and
+       three British hits destroyed six French units, two at a time. Holding a
+       shared square under enemy guns now costs the same, so the column splits
+       or moves on. Not when it is already in contact (the column is attacking). */
+    if(c.stay && !t.isArtillery && t.key !== 'BRIGADIER' && nearestEnemyDist(c, side) > 1){
+      const sharing = unitsAt(c.x,c.y).some(o=>!o.removed && o.side===side && o.id!==u.id && o.type!=='BRIGADIER');
+      if(sharing){ const g = gunsCovering(c, side, COLUMN_GUN_REACH); if(g) s -= subScore(parts, 'stayStackedUnderGuns', STACK_UNDER_GUNS_COST * g); }
+    }
     /* KILLING GROUND (10 Oct 2026). 7 of France's 13 losses in seed 3089168468
        were to British guns, several to units that stood inside a battery's
        reach turn after turn. A unit that ended last turn inside enemy gun
