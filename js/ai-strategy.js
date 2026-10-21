@@ -1,9 +1,9 @@
-import { squareBlockedByWater, waterDistance } from './engine-water.js';
+import { squareBlockedByWater, waterDistance, meleeBlocked } from './engine-water.js';
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
 import { stepGate, traceDecision, traceOn, traceTurn } from './ai-trace.js';
-import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus, crossingTerm } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state, unitNationName } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { zeroedSquares, homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
@@ -5109,6 +5109,32 @@ export function aiDecideAndExecuteMove(u){
       const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o) && canAttackTarget(u,o));
       const committingReserve = (mission==='RESERVE' || mission==='FIX') && !c.stay && nearestEnemyDist(c,side) <= unitBaseMove(u)+1;
       if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
+    }
+
+    /* CROSSINGS IN QUICK BATTLES (21 Oct 2026). With the River setting on,
+       every random map has a river, and AI against AI the armies sat two or
+       three squares apart across it, neither crossing (9 of 40 matches never
+       finished against the sparring bot, 21 of 40 against Alexander). The
+       campaign's crossing play (ai-tactics crossingTerm) now runs here too:
+       Brigades on the attack (MAIN_ATTACK, SUPPORT) head for the crossing that
+       is nearest, least crowded and least defended and seize its far end; the
+       rest hold the crossings on their own bank. The longer since anything left
+       the board, the harder the attackers push (x1 to x3). Variant 'cross'. */
+    if(state.water && !(state.scenario && state.scenario.judging === 'independent') && tune(side, 'CROSSING_QB', 0)){
+      const m = missionFor(u);
+      const attackingNow = m === 'MAIN_ATTACK' || m === 'SUPPORT';
+      const quiet = (state.turnNumber || 1) - (state._lastKillTurn || 0);
+      const kq = 1 + Math.min(2, Math.max(0, quiet) / 20);
+      s += addScore(parts, 'crossing', tune(side, 'CROSSING_QB', 0) * crossingTerm(u, side, c, attackingNow, attackingNow ? kq : 1));
+    }
+    /* POUNCE (21 Oct 2026, the sparring bot's best habit): an enemy that has
+       just been turned around gives its attacker +1, and the bot closed on such
+       units more often than we did (7.5 turned-around bonuses a match against
+       our 4.8). A square beside a turned-around enemy (not across open water)
+       is worth POUNCE. Variant 'pounce'. */
+    if(tune(side, 'POUNCE', 0) && !UNIT_TYPES[u.type].isArtillery && u.type !== 'BRIGADIER'){
+      const turned = state.units.some(e => !e.removed && e.side !== side && e.turnOnly && Math.max(Math.abs(e.x - c.x), Math.abs(e.y - c.y)) === 1 && !(state.water && meleeBlocked(c, e)));
+      if(turned) s += addScore(parts, 'pounce', tune(side, 'POUNCE', 0));
     }
 
     /* LINE DISCIPLINE (19 Oct 2026, from the sparring game and the bot):

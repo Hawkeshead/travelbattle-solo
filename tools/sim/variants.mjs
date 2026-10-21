@@ -11,6 +11,11 @@
 ========================================================= */
 
 export const VARIANTS = {
+  /* Crossings in Quick Battles, and pouncing on turned-around enemies (ai-strategy). */
+  cross:        { CROSSING_QB: 1 },
+  cross_strong: { CROSSING_QB: 2 },
+  pounce:       { POUNCE: 1.5 },
+  cross_pounce: { CROSSING_QB: 1, POUNCE: 1.5 },
   /* Line discipline (ai-strategy): advance as a block, no lone units near the enemy. */
   line:        { LINE_DISCIPLINE: 1 },
   line_soft:   { LINE_DISCIPLINE: 1, LINE_AHEAD: 0.8, LINE_ALONE: 0.8 },

@@ -427,7 +427,7 @@ function crossings(){
   w._crossings = { v: w.version, list };
   return list;
 }
-function crossingTerm(mover, side, pos, attacking, k){
+export function crossingTerm(mover, side, pos, attacking, k){
   const list = crossings(); if(!list.length) return 0;
   const rows = state.terrain.length, home = side === 'red' ? rows - 1 : 0;
   const t = UNIT_TYPES[mover.type];
