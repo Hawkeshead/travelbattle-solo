@@ -379,6 +379,62 @@ function collectMen(men, u, s, places, anim, facing){
    of a square lower than its place: the rear riders and rear rank of the
    board's top row would otherwise lose their heads at the board's edge. */
 const FIGURE_SCALE = 1.25, FIGURE_DROP = 0.08;
+
+/* CRISPER FIGURES (21 Oct 2026, Matthew: clearer and sharper, the pixel
+   style kept).
+
+   THE OUTLINE. Every figure gets a one-pixel dark outline, so each man reads
+   on his own against the grass and against the men beside him (a line seen
+   from behind was one block of red and black). Worked out once per sheet,
+   the first time it is drawn, frame by frame so no outline crosses into the
+   next frame; the art files are unchanged.
+
+   EVEN PIXELS. On a phone at the normal zoom an art pixel lands on about 1.4
+   screen pixels, and drawn straight with nearest-neighbour some rows came
+   out one pixel and some two, so the men looked lumpy. Between one and two
+   screen pixels per art pixel the outlined sheet is now kept doubled
+   (nearest-neighbour: still hard-edged pixels) and shrunk smoothly to its
+   exact size, so every art pixel comes out the same size with a soft edge a
+   fraction of a screen pixel wide. The doubled sheets are cached (about 50
+   are in use at once in a battle; the cache is capped and forgets the
+   least recently used). Zoomed in further, pixels are big enough that they
+   are drawn straight, as before; zoomed out below one screen pixel per art
+   pixel, they are shrunk smoothly. */
+const OUTLINE = 'rgba(20,13,8,0.92)';
+const OUTLINED = new Map();   // the sheet's image -> its outlined copy
+function outlined(img, meta){
+  let o = OUTLINED.get(img);
+  if(o) return o;
+  const W = img.naturalWidth, H = img.naturalHeight, fw = meta.frameWidth;
+  const sil = document.createElement('canvas'); sil.width = W; sil.height = H;
+  const sg = sil.getContext('2d');
+  sg.drawImage(img, 0, 0); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = OUTLINE; sg.fillRect(0, 0, W, H);
+  o = document.createElement('canvas'); o.width = W; o.height = H;
+  const g = o.getContext('2d');
+  for(let x0 = 0; x0 < W; x0 += fw){
+    g.save(); g.beginPath(); g.rect(x0, 0, fw, H); g.clip();
+    for(const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) g.drawImage(sil, x0, 0, fw, H, x0 + dx, dy, fw, H);
+    g.restore();
+  }
+  g.drawImage(img, 0, 0);
+  OUTLINED.set(img, o);
+  return o;
+}
+const DOUBLED = new Map();     // outlined sheet -> the same at twice the size; Map order = least recently used first
+const DOUBLED_MAX_PX = 16e6;   // about 64 MB; both armies standing need about 10 million pixels
+let doubledPx = 0;
+function doubled(src){
+  let d = DOUBLED.get(src);
+  if(d){ DOUBLED.delete(src); DOUBLED.set(src, d); return d; }
+  d = document.createElement('canvas'); d.width = src.width * 2; d.height = src.height * 2;
+  const g = d.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0, d.width, d.height);
+  DOUBLED.set(src, d); doubledPx += d.width * d.height;
+  while(doubledPx > DOUBLED_MAX_PX && DOUBLED.size > 1){
+    const [k0, v0] = DOUBLED.entries().next().value;
+    DOUBLED.delete(k0); doubledPx -= v0.width * v0.height; v0.width = v0.height = 0;
+  }
+  return d;
+}
 function blit(c, sh, frame, fx, fy){
   const { img, meta, f } = sh;
   const ay = meta.anchorYByFacing && meta.anchorYByFacing[f] != null ? meta.anchorYByFacing[f] : meta.anchorY;
@@ -390,10 +446,16 @@ function blit(c, sh, frame, fx, fy){
     if(!t.b && !t.c){
       const dx = Math.round(t.a * x + t.e), dy = Math.round(t.d * y + t.f);
       const dw = Math.round(t.a * (x + w) + t.e) - dx, dh = Math.round(t.d * (y + h) + t.f) - dy;
+      const src = outlined(img, meta), fw = meta.frameWidth, fh = meta.frameHeight, s = dh / fh;
       c.save();
       c.setTransform(1, 0, 0, 1, 0, 0);
-      c.imageSmoothingEnabled = false;
-      c.drawImage(img, sx, 0, meta.frameWidth, meta.frameHeight, dx, dy, dw, dh);
+      if(s > 1.04 && s < 1.96){
+        c.imageSmoothingEnabled = true;
+        c.drawImage(doubled(src), sx * 2, 0, fw * 2, fh * 2, dx, dy, dw, dh);
+      } else {
+        c.imageSmoothingEnabled = s < 0.96;   // shrunk below one screen pixel per art pixel: smoothly
+        c.drawImage(src, sx, 0, fw, fh, dx, dy, dw, dh);
+      }
       c.restore();
       return;
     }
