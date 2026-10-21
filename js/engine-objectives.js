@@ -93,7 +93,17 @@ function latchAchieved(ctx){
   const got = state.scenarioAchieved = state.scenarioAchieved || {};
   for(const side of [SIDES.RED, SIDES.BLUE]){
     world();
-    if(got[side] || !coreListLatched(side, ctx)) continue;
+    const conds = (state.scenario.win && state.scenario.win[SIDE_KEY[side]] && state.scenario.win[SIDE_KEY[side]].conditions) || [];
+    const before = conds.map((_, i) => !!state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]);
+    const all = coreListLatched(side, ctx);
+    // An objective in several parts says so as each part is done ("1 of 2"), not only at the end.
+    if(conds.length > 1 && !got[side]) conds.forEach((c, i) => {
+      if(before[i] || !state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]) return;
+      const n = conds.filter((_, j) => state.scenarioStreaks[SIDE_KEY[side] + ':L:' + j]).length;
+      if(state.scenario.win[SIDE_KEY[side]].combinator === 'all' && n < conds.length)
+        log(`${SIDE_LABEL[side]}: part ${n} of ${conds.length} of the objective done (round ${ctx.round}).`, 'system');
+    });
+    if(got[side] || !all) continue;
     got[side] = ctx.round;
     log(`${SIDE_LABEL[side]} achieves its objective (round ${ctx.round}).`, 'system');
     logReplay('objectiveMet', { side, round: ctx.round });
@@ -175,6 +185,8 @@ export function objectiveStatusLine(side){
         f ? `${cap(name)}: French hold ${f} square${f > 1 ? 's' : ''}` : `${cap(name)}: empty`);
     } else if(c.type === 'DESTROY'){
       parts.push(`Destroyed: ${destroyedCount(side, c.unitTypes)} of ${c.count}${c.unitTypes && c.unitTypes.length ? ' ' + c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') : ''}`);
+    } else if(c.type === 'COMMANDER' || c.type === 'COMMANDER_REMOVED'){
+      parts.push(commanderStatus(side, c, w.conditions.indexOf(c)));
     } else if(c.type === 'MARCH_OFF'){
       const gone = marchedOff(side);
       const need = c.count != null ? c.count : Math.ceil((c.fraction || 0) * startingFighters(side));
@@ -192,6 +204,26 @@ export function objectiveStatusLine(side){
   return [...new Set(parts)].join(' · ');
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+/* A named commander's part of an objective, in plain words (19 Oct 2026: the
+   Duke's Narrow Escape showed nothing at all, so Wellington reaching the 92nd
+   in time looked as if it had not counted). A part already achieved in an
+   independently judged battle is ticked. */
+const commanderOf = tag => state.units.find(u => u.storyTag === tag && u.type === 'BRIGADIER');
+const commanderName = tag => { const u = commanderOf(tag); return (u && u.historicalName) || cap(tag); };
+function commanderStatus(side, c, i){
+  const done = !!(state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]);
+  const u = commanderOf(c.tag), name = commanderName(c.tag), alive = !!u && !u.removed;
+  if(c.type === 'COMMANDER_REMOVED') return alive ? `${name}: still in the field` : `${name}: taken \u2713`;
+  if(!alive) return `${name}: lost`;
+  const round = currentRound();
+  if(c.area){
+    const there = (state.scenario.map && state.scenario.map.areas && state.scenario.map.areas[c.area] || []).some(([x, y]) => u.x === x && u.y === y);
+    if(done) return `${name} in place by round ${c.atRound || round} \u2713`;
+    if(c.atRound && round > c.atRound) return `${name} was not in place at round ${c.atRound}`;
+    return `${name}: ${there ? 'in place' : 'not in place yet'}${c.atRound ? ` (counts at the end of round ${c.atRound})` : ''}`;
+  }
+  return c.atRound ? `${name} in play until the end of round ${c.atRound}${done ? ' \u2713' : ''}` : `${name}: in play${done ? ' \u2713' : ''}`;
+}
 
 export function endGame(winner){
   state.gameOver = true;
