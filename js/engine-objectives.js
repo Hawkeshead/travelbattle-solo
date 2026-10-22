@@ -1,3 +1,4 @@
+import { quickPoints, quickRoundLimit } from './engine-rules.js';
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
 import { campaignContext, campaignFinished, recordResult } from './campaign-play.js';
 import { clearSave } from './match-save.js';
@@ -193,6 +194,14 @@ export function objectiveStatusLine(side){
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
+/* The Quick Battle round limit is reached (engine-rules QUICK_ROUND_LIMIT). */
+export function endOnPoints(){
+  const red = quickPoints(SIDES.RED), blue = quickPoints(SIDES.BLUE);
+  state.pointsResult = { red, blue, rounds: quickRoundLimit() };
+  log(`Round ${quickRoundLimit()} is over: ${SIDE_LABEL[SIDES.RED]} ${red} points, ${SIDE_LABEL[SIDES.BLUE]} ${blue}.`, 'system');
+  logReplay('pointsResult', { red, blue });
+  endGame(red > blue ? SIDES.RED : blue > red ? SIDES.BLUE : null);
+}
 export function endGame(winner){
   state.gameOver = true;
   clearSave();   // match-save.js: a finished match has nothing to resume
@@ -243,10 +252,13 @@ export function endGame(winner){
     }
     return;
   }
-  document.getElementById('overlayTitle').textContent = `${SIDE_LABEL[winner]} Victory`;
-  showVictoryDressing(winner);
+  const pr = state.pointsResult;
+  document.getElementById('overlayTitle').textContent = winner ? `${SIDE_LABEL[winner]} Victory` : 'A Drawn Battle';
+  if(winner) showVictoryDressing(winner);
   const outcome = state.scenario && state.scenario.outcomes ? state.scenario.outcomes[winner === SIDES.RED ? 'britishWin' : 'frenchWin'] : null;
-  const bodyText = state.scenario
+  const bodyText = pr
+    ? `Round ${pr.rounds} is over and neither army is broken. On points (enemy units destroyed, and 5 for each Brigade broken): ${SIDE_LABEL[SIDES.RED]} ${pr.red}, ${SIDE_LABEL[SIDES.BLUE]} ${pr.blue}. ${winner ? SIDE_LABEL[winner] + ' holds the field.' : 'Both armies hold their ground.'}`
+    : state.scenario
     ? `${(state.scenarioResult && state.scenarioResult.reason) || SIDE_LABEL[winner] + ' achieves the objective'}.${outcome ? ' ' + outcome : ''}`
     : state.mapBattle
       ? `The enemy's Brigades are broken. ${SIDE_LABEL[winner]} holds the field at ${state.mapBattle.townName}.`

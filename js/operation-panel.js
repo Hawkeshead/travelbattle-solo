@@ -9,6 +9,7 @@
 ========================================================= */
 import { SIDES, state } from './data-core.js';
 import { currentRound, objectiveStatusLine, sideKey } from './engine-objectives.js';
+import { quickPoints, quickRoundLimit } from './engine-rules.js';
 
 let el = null, open = false, timer = null;
 /* BETWEEN TURNS, NOT ALL THE TIME (Matthew, 4 Oct 2026): the panel comes up
@@ -34,6 +35,16 @@ const label = side => (side === SIDES.RED ? 'Britain' : 'France');
 function render(){
   const sc = state.scenario;
   if(!el) return;
+  if(!sc && quickRoundLimit() && state.phase !== 'deploy'){
+    /* A Quick Battle: the round plaque, and when opened the points so far
+       (engine-rules QUICK_ROUND_LIMIT and quickPoints). */
+    el.style.display = 'block';
+    const lim = quickRoundLimit(), r = Math.min(currentRound(), lim);
+    el.classList.add('tab'); el.classList.toggle('open', open);
+    el.innerHTML = `<div class="opp-round">Round ${r} of ${lim}</div>` + (open
+      ? `<div class="opp-status">On points if no army breaks by round ${lim}: ${label(SIDES.RED)} ${quickPoints(SIDES.RED)}, ${label(SIDES.BLUE)} ${quickPoints(SIDES.BLUE)}</div>` : '');
+    return;
+  }
   if(!sc || !sc.win || typeof sc.win !== 'object' || state.phase === 'deploy'){ el.style.display = 'none'; return; }
   el.style.display = 'block';
   const me = playerSide(), them = me === SIDES.RED ? SIDES.BLUE : SIDES.RED;
@@ -53,5 +64,5 @@ function render(){
 export function showObjectivePanel(){
   ensure(); open = false; render();
   clearInterval(timer);
-  timer = setInterval(() => { if(!state.scenario){ el.style.display = 'none'; clearInterval(timer); return; } render(); }, 600);
+  timer = setInterval(() => { if(!state.scenario && !quickRoundLimit()){ el.style.display = 'none'; clearInterval(timer); return; } render(); }, 600);
 }
