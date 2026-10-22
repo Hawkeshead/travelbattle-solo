@@ -4544,7 +4544,7 @@ export function aiDecideAndExecuteMove(u){
        unaffected. */
     if(seekTactics && !selfPreservation){
       const contact = contactPoint(side);
-      if(contact) s -= subScore(parts, 'convergeOnContact', chebyshev(c, contact) * CONVERGE_PULL);
+      if(contact) s -= subScore(parts, 'convergeOnContact', (tune(side, 'WATER_PULLS', 0) ? waterDistance(c, contact) : chebyshev(c, contact)) * CONVERGE_PULL);   // round the river
     }
 
     /* Closing on a Brigade that is one or two units from breaking. Applies to
@@ -4557,7 +4557,7 @@ export function aiDecideAndExecuteMove(u){
     if(!selfPreservation){
       const role = finishRoleFor(u, startX, startY);
       if(role){
-        const tgt = role.f.unit, d = chebyshev(c, tgt);
+        const tgt = role.f.unit, d = tune(side, 'WATER_PULLS', 0) ? waterDistance(c, tgt) : chebyshev(c, tgt);   // round the river
         const commit = role.f.wins ? FINISH_COMMIT_WINS : FINISH_COMMIT;
         if(role.kind === 'gun'){
           if(d >= 3 && d <= 4 && hasLOS(u, tgt)) s += addScore(parts, 'finishing', commit);
@@ -4572,7 +4572,7 @@ export function aiDecideAndExecuteMove(u){
     }
     if(seekTactics && !selfPreservation && !t.isArtillery){
       const kill = killTarget(side);
-      if(kill) s -= subScore(parts, 'killPull', chebyshev(c, kill.unit) * kill.worth);
+      if(kill) s -= subScore(parts, 'killPull', (tune(side, 'WATER_PULLS', 0) ? waterDistance(c, kill.unit) : chebyshev(c, kill.unit)) * kill.worth);   // round the river (stall probe 40105: straight-line pulls left a winning army stuck at the bank)
     }
 
     if(seekTactics && !holdingReserve && !preserving && !selfPreservation && !t.isArtillery){

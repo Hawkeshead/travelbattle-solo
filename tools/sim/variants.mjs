@@ -11,6 +11,8 @@
 ========================================================= */
 
 export const VARIANTS = {
+  /* The pulls towards a target (kill, finishing, converge) measured round the river (off by default: lost 21/33 to straight-line pulls). */
+  water_pulls: { WATER_PULLS: 1 },
   /* Crossings in Quick Battles, and pouncing on turned-around enemies (ai-strategy). */
   cross:        { CROSSING_QB: 1 },
   cross_strong: { CROSSING_QB: 2 },

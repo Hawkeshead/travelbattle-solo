@@ -120,6 +120,16 @@ let fieldsFor = null;
 export function waterDistance(a, b){
   const w = W();
   if(!w) return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  /* A target or origin off the board (a removed unit, a reserve waiting at
+     -1,-1, a missing square): no field can be built from it. Without this
+     guard the search below looped forever on NaN squares until memory ran
+     out (found 21 Oct 2026 when the AI's kill pull began measuring round the
+     river). Fall back to the straight-line distance, or 99 if there is none. */
+  const onBoard = p => p && Number.isInteger(p.x) && Number.isInteger(p.y) && p.x >= 0 && p.y >= 0 && p.x < COLS && p.y < ROWS;
+  if(!onBoard(a) || !onBoard(b)){
+    const d = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    return Number.isFinite(d) ? d : 99;
+  }
   const stamp = w.version + ':' + COLS + 'x' + ROWS;
   if(fieldsFor !== w || fields.stamp !== stamp){ fields.clear(); fieldsFor = w; fields.stamp = stamp; }
   const key = b.x + ',' + b.y;
