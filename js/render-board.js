@@ -1850,7 +1850,8 @@ export function v2Ready(timeoutMs = 10000){
    until every tile is ready, so no square ever lands empty. */
 function introV2(onComplete){
   const terrain = state.terrain, lay = v2Layout();
-  const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50, DUST_MS = 200, FADE_MS = 450;
+  // Halved on 21 Oct 2026 (Matthew: the intro 50% faster): about five seconds for the whole board, was ten.
+  const FALL_MS = 150, BOUNCE1_MS = 75, BOUNCE2_MS = 50, STAGGER_MS = 25, DUST_MS = 100, FADE_MS = 225;
   const fallDistance = window.innerHeight;
   const cells = [];
   for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++) cells.push({ x, y, sx: SX(x, y), sy: SY(x, y) });
@@ -2920,8 +2921,8 @@ export function draw(){
    live terrain-rendering pipeline itself is never touched.
 ========================================================= */
 export function playBoardIntroAnimation(onComplete){
-  /* The intro measures REAL elapsed time: 200 tiles at a 50ms stagger is about
-     ten and a half seconds no matter how fast frames are served. That is the
+  /* The intro measures REAL elapsed time: 200 tiles at a 25ms stagger is about
+     five seconds no matter how fast frames are served. That is the
      point when a person is watching and pure dead weight in a batch run, so the
      harness flag skips straight to the finished board. Inert in real play, where
      FAST_ANIMATION_MODE is never set. */
@@ -2942,8 +2943,9 @@ export function playBoardIntroAnimation(onComplete){
 
   const dpr = renderScale;   // the snapshot's own pixels per CSS pixel (was devicePixelRatio; the same thing at zoom 1)
   const fallDistance = window.innerHeight; // always starts fully off the top of the current viewport, whatever the phone's orientation
-  const FALL_MS = 300, BOUNCE1_MS = 150, BOUNCE2_MS = 100, STAGGER_MS = 50;
-  const DUST_MS = 200;
+  // Halved on 21 Oct 2026, as introV2.
+  const FALL_MS = 150, BOUNCE1_MS = 75, BOUNCE2_MS = 50, STAGGER_MS = 25;
+  const DUST_MS = 100;
 
   const tiles = [];
   for(let y=0;y<ROWS;y++){
