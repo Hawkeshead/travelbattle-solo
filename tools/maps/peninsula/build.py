@@ -382,6 +382,15 @@ obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10},
 # Somosierra 100/0: the Spanish infantry packed the pass; on the day the guns were the obstacle
 sj = B['somosierra']['sides']['Spain']['brigades']
 sj[0]['units'] = [B_, I, I, ART, ART]; sj[1]['units'] = [B_, I, ART, ART]
+# The Poles started boxed in behind the infantry (two or three squares to move to); on the day they led the column up the road
+B['somosierra']['map']['areas']['poles_start'] = [[x, y] for y in range(2, 6) for x in range(2, 5)]
+B['somosierra']['sides']['Poland']['brigades'][0]['placement'] = {'type': 'area', 'area': 'poles_start'}
+# The lancers now reach the guns but die among them; what they did on the day was ride over the batteries
+for n in ('Poland', 'France'):
+    obj('somosierra', n, [{'type': 'ENTERED', 'area': 'summit', 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': ['ARTILLERY'], 'count': 2, 'byRound': 10}],
+        'Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.')
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 1, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold the summit, with both Brigades unbroken, at the end of round 10.', 'all')
 
 out = {'$comment': "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
        'schemaVersion': 1, 'campaign': 'peninsula', 'name': 'The Peninsula', 'years': '1808 to 1814',

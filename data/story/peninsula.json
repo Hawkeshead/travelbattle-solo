@@ -1265,6 +1265,56 @@
        13,
        6
       ]
+     ],
+     "poles_start": [
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ]
      ]
     }
    },
@@ -1304,13 +1354,18 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold the summit (the last four road squares) at the end of round 10.",
-      "combinator": "any",
+      "text": "Hold the summit, with both Brigades unbroken, at the end of round 10.",
+      "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "summit",
         "count": 1,
+        "atRound": 10
+       },
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
         "atRound": 10
        }
       ]
@@ -1329,7 +1384,8 @@
         "LIGHT_CAV"
        ],
        "placement": {
-        "type": "edge"
+        "type": "area",
+        "area": "poles_start"
        },
        "commander": "Kozietulski",
        "names": [
@@ -1343,12 +1399,20 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a cavalry unit onto the summit by the end of round 10.",
+      "text": "Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "summit",
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [
+         "ARTILLERY"
+        ],
+        "count": 2,
         "byRound": 10
        }
       ]
@@ -1386,12 +1450,20 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the summit by the end of round 10.",
+      "text": "Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "summit",
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [
+         "ARTILLERY"
+        ],
+        "count": 2,
         "byRound": 10
        }
       ]
