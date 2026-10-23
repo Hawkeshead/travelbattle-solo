@@ -1,5 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
-import { perkFight, perkFightBonus, perkRallyBetter } from './perks.js';
+import { perkFight, perkFightBonus, perkPursue, perkRallyBetter, perkStandsGround, perkUnitLost, perkWoodsAsRoad } from './perks.js';
 import { backsToWater, canCross, crossedFordThisTurn, isBridgeSquare, meleeBlocked, retreatIntoRiver, stepWater } from './engine-water.js';
 import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
@@ -467,7 +467,9 @@ export function legalMoves(u){
 
   let allowance = unitBaseMove(u);
   const jam = storyRule('jam');
-  const startRoad = isRoadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y));
+  const woodsRoad = perkWoodsAsRoad(u);   // Guerrillas (perks.js): woods count as road
+  const roadLike = terr => isRoadLike(terr) || (woodsRoad && terr.key === 'WOODS');
+  const startRoad = roadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y));
   const storm = storyRule('storm');
   if(storm && battleRound() <= storm.untilRound) allowance = Math.max(1, allowance - 1);   // mud: a square less, the road bonus still counts
   const cavOrHorseArty = isCavalryOrHorseArtillery(u);
@@ -538,7 +540,7 @@ export function legalMoves(u){
   for(const [key,d] of dist){
     if(key===startKey) continue;
     const [x,y] = key.split(',').map(Number);
-    const endRoad = isRoadLike(terrainAt(x,y)) && !(jam && inStoryArea(jam.area, x, y));
+    const endRoad = roadLike(terrainAt(x,y)) && !(jam && inStoryArea(jam.area, x, y));
     let effAllowance = (startRoad && endRoad) ? allowance+1 : allowance;
     const endPlough = terrainAt(x,y).plough;
     if(cavOrHorseArty && (startPlough || endPlough)) effAllowance = Math.min(effAllowance, 1); // hard going for horses starting or ending on a ploughed field
@@ -1387,7 +1389,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
 
       // Brigade perks count the fight (perks.js): who won, and how.
       perkFight(attacker, defender, fightOutcome, genuineDraw ? null : defenderHillTieWin ? defender
-        : (attackerChargeTieWin || attackerColumnTieWin) ? attacker : finalA > finalD ? attacker : defender);
+        : (attackerChargeTieWin || attackerColumnTieWin) ? attacker : finalA > finalD ? attacker : defender, ambushMode);
 
       if(genuineDraw){
         log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn, fight continues next turn.`, 'combat');
@@ -1452,7 +1454,7 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       const attackerSucceeded = winnerIsAttacker;
       if(diff===1){
         logNarration('melee_pushback', attackerSucceeded ? 'win' : 'loss');
-        pushBack(loser, winner);
+        if(!perkStandsGround(loser)) pushBack(loser, winner);   // Stubborn (perks.js): once a turn it stands
         onComplete();
       } else if(diff===2){
         logNarration('melee_rout', attackerSucceeded ? 'win' : 'loss');
@@ -1470,7 +1472,8 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
            one beneath it. The Column now shares a fate for artillery only, which
            is where the rule belongs: a roundshot goes through a doubled stand
            and does not care which half it hits. */
-        retreatAndRally(loser, onComplete);
+        const routedFrom = { x: loser.x, y: loser.y };
+        retreatAndRally(loser, () => { perkPursue(winner, routedFrom.x, routedFrom.y); onComplete(); });   // Pursuers (perks.js)
       } else {
         logNarration('melee_destroy', attackerSucceeded ? 'win' : 'loss');
         removeUnit(loser, 'destroyed in combat');
@@ -1850,6 +1853,7 @@ export function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
 export function removeUnit(u, reason){
   u.removed = true;
+  perkUnitLost(u);   // Old Moustaches (perks.js)
   /* Waves (storyRule): the lost unit's place is taken by a fresh one on its
      home row two rounds later, up to the rule's limit. */
   const waves = storyRule('waves');

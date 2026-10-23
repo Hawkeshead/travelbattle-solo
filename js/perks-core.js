@@ -27,12 +27,20 @@ export const PERKS = {
                   how: 'won two fights defending a village or building' },
   INSPIRING:    { name: 'Inspiring Presence', feat: 'wins',         need: 3, text: 'its units rally one better (guns excepted)',
                   how: 'won three fights' },
+  STUBBORN:     { name: 'Stubborn',           feat: 'heldGround',   need: 3, text: 'once a turn, one of its units stands its ground instead of being pushed back',
+                  how: 'held its ground in three fights' },
+  GUERRILLAS:   { name: 'Guerrillas',         feat: 'ambushWins',   need: 2, text: 'its infantry move through woods as if on road',
+                  how: 'won two fights from ambush' },
+  MOUSTACHES:   { name: 'Old Moustaches',     feat: 'winsAfterLoss', need: 2, text: 'its units get +1 in their next fight after a friend falls',
+                  how: 'won two fights after losing a unit' },
+  PURSUERS:     { name: 'Pursuers',           feat: 'cavalryRouts', need: 2, text: 'its cavalry ride into the ground a routed enemy leaves',
+                  how: 'routed two enemy units with its cavalry' },
   CHARMED:      { name: 'Charmed Life',       feat: 'winsAfterLeadership', need: 2, text: 'its Brigadier gets his Leadership Roll back',
                   how: 'won two fights after its Leadership Roll was spent' },
 };
 export const PERK_ORDER = Object.keys(PERKS);
 
-export const newPerkState = () => ({ perks: {}, feats: {} });
+export const newPerkState = () => ({ perks: {}, feats: {}, avenge: {}, stoodTurn: {} });
 export const brigKey = (side, brigadeId) => side + ':' + brigadeId;
 export const perksOf = (ps, key) => (ps && ps.perks[key]) || [];
 

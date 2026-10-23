@@ -36,3 +36,11 @@ test('in command: linked to the Brigadier through touching units of its own Brig
   brig.removed = true;                                                    // he falls: the perk goes with him
   assert.equal(perkWorks(ps, units, a, 'STEADY', adj), false);
 });
+
+test('every perk has its own feat and a number to reach', async () => {
+  const { PERKS } = await import('../js/perks-core.js');
+  const feats = Object.values(PERKS).map(p => p.feat);
+  assert.equal(new Set(feats).size, feats.length);
+  assert.equal(Object.keys(PERKS).length, 10);
+  for(const p of Object.values(PERKS)) assert.ok(p.need > 0 && p.name && p.text && p.how);
+});

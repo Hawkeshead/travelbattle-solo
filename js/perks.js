@@ -11,7 +11,8 @@
 ========================================================= */
 import { SIDE_LABEL, state, UNIT_TYPES } from './data-core.js';
 import { log, logReplay } from './engine-state.js';
-import { isAdjacent, terrainAt } from './engine-rules.js';
+import { isAdjacent, terrainAt, unitsAt } from './engine-rules.js';
+import { animateUnitTo } from './render-board.js';
 import { isOnline } from './online-session.js';
 import { PERKS, addFeat, brigKey, commandingBrigadier, newPerkState, perkWorks, perksOf } from './perks-core.js';
 
@@ -49,9 +50,16 @@ function feat(unit, name){
 }
 
 /* ---------- what happened ---------- */
-/* After a fight. winner is null for a drawn fight. */
-export function perkFight(attacker, defender, outcome, winner){
-  if(!ps()) return;
+/* After a fight. winner is null for a drawn fight; ambush is the ambush mode, if one was sprung. */
+export function perkFight(attacker, defender, outcome, winner, ambush){
+  const p = ps();
+  if(!p) return;
+  // Old Moustaches' +1 is for one fight: spent now by whoever had it.
+  for(const u of [attacker, defender]) if(p.avenge[brigKey(u.side, u.brigadeId)] && works(u, 'MOUSTACHES')) delete p.avenge[brigKey(u.side, u.brigadeId)];
+  if(winner !== attacker) feat(defender, 'heldGround');
+  if(ambush && winner === attacker) feat(attacker, 'ambushWins');
+  if(winner && outcome === 'rout' && t(winner).isCavalry) feat(winner, 'cavalryRouts');
+  if(winner && state.units.some(o => o.removed && !o.escaped && o.side === winner.side && o.brigadeId === winner.brigadeId && o.type !== 'BRIGADIER')) feat(winner, 'winsAfterLoss');
   if(winner){
     feat(winner, 'wins');
     const brig = state.units.find(o => o.side === winner.side && o.brigadeId === winner.brigadeId && o.type === 'BRIGADIER');
@@ -61,6 +69,11 @@ export function perkFight(attacker, defender, outcome, winner){
   // Cavalry beaten off: infantry charged by cavalry that the cavalry did not beat.
   if(foot(defender) && t(attacker).isCavalry && winner !== attacker) feat(defender, 'cavRepelled');
   if(winner === defender && (terrainAt(defender.x, defender.y) || {}).key === 'BUILDING') feat(defender, 'villageHolds');
+}
+/* A unit of a Brigade is lost (removeUnit): Old Moustaches want revenge. */
+export function perkUnitLost(u){
+  const p = ps();
+  if(p && u && u.type !== 'BRIGADIER' && perksOf(p, brigKey(u.side, u.brigadeId)).includes('MOUSTACHES')) p.avenge[brigKey(u.side, u.brigadeId)] = true;
 }
 export function perkVolley(shooter, outcome){ if(outcome === 'knockback') feat(shooter, 'knockbacks'); }
 export function perkGunDestroyed(gun){ if(gun) feat(gun, 'destroyed'); }
@@ -73,9 +86,40 @@ export function perkFightBonus(unit, opponent, defending){
   if(defending && foot(unit) && t(opponent).isCavalry && works(unit, 'STEADY')) out.push('Steady Lads: +1 to roll');
   if(t(unit).isCavalry && works(unit, 'BLOODTHIRSTY')) out.push('Bloodthirsty: +1 to roll');
   if(defending && (terrainAt(unit.x, unit.y) || {}).key === 'BUILDING' && works(unit, 'STREET')) out.push('Street Fighters: +1 to roll');
+  if(ps().avenge[brigKey(unit.side, unit.brigadeId)] && works(unit, 'MOUSTACHES')) out.push('Old Moustaches: +1 to roll');
   return out;
 }
 export const perkVolleyBonus = shooter => (ps() && works(shooter, 'MARKSMEN') ? 1 : 0);
+/* Guerrillas: woods count as road for the road bonus (infantry only). */
+export const perkWoodsAsRoad = u => !!(ps() && (u.type === 'INFANTRY' || u.type === 'GUARD') && works(u, 'GUERRILLAS'));
+/* Stubborn: once a turn per Brigade, a unit that would be pushed back stands. */
+export function perkStandsGround(loser){
+  const p = ps();
+  if(!p || !works(loser, 'STUBBORN')) return false;
+  const key = brigKey(loser.side, loser.brigadeId);
+  if(p.stoodTurn[key] === state.turnNumber) return false;
+  p.stoodTurn[key] = state.turnNumber;
+  log(`${loser.historicalName || loser.type} stands its ground (Stubborn).`, 'combat');
+  logReplay('perkUsed', { perk: 'STUBBORN', unitId: loser.id, side: loser.side });
+  return true;
+}
+/* Pursuers: after a rout, the winning cavalry ride into the square the enemy
+   left, if it is empty, open to cavalry, next to them, and they stay in
+   command there (a pursuit never cuts a unit off from its Brigadier). */
+export function perkPursue(winner, x, y){
+  if(!ps() || winner.removed || !t(winner).isCavalry || !works(winner, 'PURSUERS')) return;
+  if(unitsAt(x, y).length || !isAdjacent(winner, { x, y })) return;
+  const terr = terrainAt(x, y) || {};
+  if(terr.restrictTo && !terr.restrictTo.includes(winner.type)) return;
+  const was = { x: winner.x, y: winner.y };
+  winner.x = x; winner.y = y;
+  const stays = works(winner, 'PURSUERS');
+  winner.x = was.x; winner.y = was.y;
+  if(!stays) return;
+  animateUnitTo(winner, x, y, 'advanceAfterCombat');
+  log(`${winner.historicalName || winner.type} ride after them into the ground they left (Pursuers).`, 'combat');
+  logReplay('perkUsed', { perk: 'PURSUERS', unitId: winner.id, side: winner.side, x, y });
+}
 /* Inspiring Presence: rally one better, never for guns. */
 export const perkRallyBetter = unit => !!(ps() && unit.type !== 'ARTILLERY' && works(unit, 'INSPIRING'));
 /* For the unit's sash: "★ Steady Lads", or "(out of command)" when it is cut off from its Brigadier. */
