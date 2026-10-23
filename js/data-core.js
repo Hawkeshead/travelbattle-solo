@@ -475,6 +475,17 @@ export function humanOwns(side){
   return !(state.mode==='ai' && side===state.aiSide);
 }
 
+/* A NEW MATCH FORGETS THE LAST ONE'S AI (23 Oct 2026). The AI's working
+   memory and the records the export prints (its moves, army plans, combos,
+   missions) live on state under keys starting '_ai', and nothing cleared
+   them between matches in one visit: the Cavalry at Genappe's export carried
+   both Narrow Escape games' French moves ahead of its own. Called as every
+   new match is set up (beginBoardSetup, setupOperation). */
+export function resetAiMemory(){
+  for(const k of Object.keys(state)) if(k.startsWith('_ai')) delete state[k];
+  state._aiMoveHistory = { red: [], blue: [] };
+}
+
 export let state = {
   gameOver: false,
   mode: 'hotseat',  // 'hotseat' | 'ai'

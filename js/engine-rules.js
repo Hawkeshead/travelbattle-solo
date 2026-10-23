@@ -798,6 +798,12 @@ export function seedRng(seed){
   rngState = rngSeed;
 }
 export function currentRngSeed(){ return rngSeed; }
+/* A NEW SEED FOR EVERY MATCH THE PLAYER STARTS (23 Oct 2026). The seed was
+   set once, when the page loaded, so every match in one visit reported the
+   same seed and only the first could be replayed from it. The menus call this
+   as a match is chosen; the simulator, which seeds a match itself and starts
+   it without the menus, is unaffected. */
+export function freshMatchSeed(){ seedRng(((Math.random() * 4294967296) ^ Date.now()) >>> 0); }
 /* The generator's position, for a saved match (match-save.js): resuming from
    it rolls the rest of the match exactly as it would have gone. */
 export function getRngState(){ return { seed: rngSeed, state: rngState }; }

@@ -744,7 +744,11 @@ export function exportFullMatchLog(){
       const who = ev.volley
         ? `${SIDE_LABEL[ev.shooterSide !== undefined ? ev.shooterSide : ev.side]} volley`
         : (ev.gunSide !== undefined ? `${SIDE_LABEL[ev.gunSide]} gun` : 'Artillery');
-      if(ev.hit === false){
+      if(ev.bridge){
+        // A shot at a bridge (rivers, 18 Oct 2026): no unit, no effect roll, only a hit or a miss on the bridge.
+        lines.push(`${who} on the bridge at (${ev.x},${ev.y}): ${ev.hit ? 'HIT' : 'MISS'}`);
+        lines.push(`    hit    dice[${(ev.hitRolls||[]).join(',')}] x${(ev.hitRolls||[]).length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${ev.canister ? '  [canister: 2 dice]' : ''}`);
+      } else if(ev.hit === false){
         lines.push(`${who} on ${label(ev.targetId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}): MISS`);
         lines.push(`    hit    dice[${(ev.hitRolls||[]).join(',')}] x${(ev.hitRolls||[]).length} kept ${ev.hitKept} (needed ${ev.hitNeeded}+)${ev.canister ? '  [canister: 2 dice]' : ''}`);
       } else if(ev.rawRoll === undefined){

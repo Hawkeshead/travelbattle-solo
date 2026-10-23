@@ -12,9 +12,9 @@ import { operationBriefHTML, redrawOperation, setupOperation } from './operation
 import { showObjectivePanel } from './operation-panel.js';
 import { abandonSave, loadSave, resumeSave } from './match-save.js';
 import { isOnline, sharedArmiesEnabled } from './online-session.js';
-import { brigadeNationOf, humanOwns, statesOf, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
+import { brigadeNationOf, humanOwns, resetAiMemory, statesOf, SIDES, SIDE_COLOR, SIDE_LABEL, TB_DATA, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildExcludedRoadEdgeSetGrand, buildTerrainMap, buildTerrainMapGrand, COLS, ROWS, generateGrandQuadrants, setBoardMode, state, UNIT_TYPES, archiveOf, nationOf } from './data-core.js';
 import { FAST_DICE_MODE, showDice } from './dice.js';
-import { rollD6, seededRandom } from './engine-rules.js';
+import { freshMatchSeed, rollD6, seededRandom } from './engine-rules.js';
 import { log, resetUndoStack, syncPhaseButtons } from './engine-state.js';
 import { beginDiagramMode, clearTransientRenderState, draw, syncAmbientClip, endDiagramMode, playBoardIntroAnimation, sizeCanvas, sy, toScreen } from './render-board.js';
 import { AmbientLayer } from './ambient-layer.js';
@@ -350,6 +350,7 @@ export function showModeSelect(isSplash){
     again.textContent = 'Same Again \u00B7 ' + side;
     menuItem(again, 'again');
     again.onclick = ()=>{
+      freshMatchSeed();
       state.scenario = null; state.campaign = null;
       state.mode = 'ai';
       state.aiSide = last.aiSide;
@@ -632,6 +633,7 @@ export function beginOperation(card, playerSide){
   if(isOnline() || state.group || state.rts) return;   // Online, Group and Real-Time never take a card
   AudioManager.stopMusic();
   abandonSave();   // a new battle replaces any saved one
+  freshMatchSeed();
   setupOperation(card, playerSide);
   document.getElementById('overlay').classList.remove('show');
   redrawOperation();
@@ -695,6 +697,7 @@ export function showSideSelect(){
      Prussia. Taking a Coalition flag gives the AI France; taking France asks
      which Coalition nation the AI commands, on a second row of flags. */
   const go = (nations, aiSide, brigades) => {
+    freshMatchSeed();
     state.mode = 'ai'; state.aiSide = aiSide; state.aiDifficulty = 'hard';
     state.nations = nations;
     state.brigadeNations = brigades ? brigades.nations : null;
@@ -988,6 +991,7 @@ export function beginBoardSetup(){
   if(!isOnline() && !state.group && !gateBattle(() => beginBoardSetup(), art)) return;
   prepareFiles(art);   // online: not waited for, but started at once
   document.documentElement.classList.add('title-away');   // a battle is starting: the title screen goes
+  resetAiMemory();   // nothing of the last match's AI carries into this one
   state.campaignRun = null;   // a standard match is not a campaign step
   state.mapBattle = null;     // nor a campaign map battle
   // A new battle against the AI replaces any saved one (its record goes as an

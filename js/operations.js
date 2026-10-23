@@ -31,7 +31,7 @@
 ========================================================= */
 import { TERRAIN } from './data-core.js';
 import { buildWater } from './engine-water.js';
-import { ROWS, SIDES, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, setBoardMode, state, unitNationName } from './data-core.js';
+import { ROWS, SIDES, assignBuildingStyles, assignGrassStyles, buildExcludedRoadEdgeSet, buildTerrainMap, resetAiMemory, setBoardMode, state, unitNationName } from './data-core.js';
 import { getCard } from './scenario-cards.js';
 import { log, logReplay, newUnit, resetHistoricalIdentities, resetUndoStack } from './engine-state.js';
 import { movableUnitsForSide, seededRandom } from './engine-rules.js';
@@ -100,6 +100,7 @@ export function setupOperation(cardOrId, playerSide){
   state.campaign = null;
   state.mapBattle = null;   // an Operation is never a campaign map battle
   state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {}; state.scenarioAchieved = {};
+  resetAiMemory();   // nothing of the last match's AI carries into this one
   state.gameOver = false; state.winner = null;
   state.turnNumber = 1;
   if(playerSide){ state.mode = 'ai'; state.spectate = false; state.aiSide = playerSide === SIDES.RED ? SIDES.BLUE : SIDES.RED; }
