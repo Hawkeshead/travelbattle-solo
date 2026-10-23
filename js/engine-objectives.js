@@ -141,7 +141,11 @@ function finishIndependent(round, how){
      named; the campaign then moves on as for any other success. */
   if(how === 'wiped'){
     const w = wipedOut();
-    if(w && !got[w]){
+    /* Only if the enemy was destroyed, not if it got away: at Cacabelos the
+       British marched their whole force off, and France was credited with
+       destroying it. A side any of whose units marched off was not wiped out. */
+    const escaped = w && fighters(otherSide(w)).some(u => u.escaped);
+    if(w && !got[w] && !escaped){
       got[w] = round;
       log(`${SIDE_LABEL[w]} ${plural(w) ? 'destroy' : 'destroys'} the enemy army: objective achieved (round ${round}).`, 'system');
     }

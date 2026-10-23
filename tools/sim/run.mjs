@@ -137,6 +137,14 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
      Victory toggle), which the AI plans for differently (army plan, FIX 5). */
   if (process.env.SIM_WIN_BRIGADES) state.winBrigades = Number(process.env.SIM_WIN_BRIGADES);
   const finished = await waitForEnd(state, MATCH_TIMEOUT_MS);
+  /* SIM_EXPORT=<file>: write the match's full export (the game's own Export
+     Full Match Log, with the AI move log) to read a battle turn by turn. */
+  if (process.env.SIM_EXPORT) {
+    try {
+      const rp = await import('../../js/replay.js'), st = await import('../../js/ai-strategy.js');
+      fs.writeFileSync(process.env.SIM_EXPORT, rp.exportFullMatchLog() + '\n\n' + st.exportAiMoveLog());
+    } catch (e) { fs.writeFileSync(process.env.SIM_EXPORT, 'export failed: ' + e.stack); }
+  }
   const living = side => state.units.filter(u => !u.removed && u.side === side).length;
 
   const variantWon = variantSide && state.winner
