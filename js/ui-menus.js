@@ -223,8 +223,10 @@ export function showModeSelect(isSplash){
   box.classList.add('as-folio');
   const titleEl = document.getElementById('overlayTitle');
   const subtitleEl = document.getElementById('overlaySubtitle');
-  titleEl.textContent = 'TravelBattle';
-  document.getElementById('overlayText').innerHTML = 'Full army, solo skirmish engine. Deploy 3 Brigades per side, alternating, across the first two rows of your board edge, then fight it out. Break 2 of the enemy\'s 3 Brigades to win.';
+  /* The title card behind the menu (21 Oct 2026, Matthew: the old TravelBattle
+     card with its pre-deployment rules was showing while Campaign opened). */
+  titleEl.textContent = 'Grognards';
+  document.getElementById('overlayText').innerHTML = 'Napoleonic battles on a field of twenty squares. Command the armies of Britain, France and their allies, from Flanders to Waterloo.';
   document.getElementById('overlayBtn').style.display = 'none';
   subtitleEl.style.display = 'block';
   // The menu is the row of objects on the title screen, not the panel.
@@ -271,7 +273,14 @@ export function showModeSelect(isSplash){
   /* CAMPAIGN (19 Oct 2026): the story campaigns (story-ui.js). The old
      Campaigns list (showCampaignsList) is shelved, still exported. */
   campBtn.textContent = 'Campaign';
-  campBtn.onclick = ()=>{ state.spectate=false; import('./story-ui.js').then(m => m.showStoryCampaign()); };
+  campBtn.onclick = ()=>{
+    state.spectate=false;
+    // Say what is coming at once, while the campaign screens load (no old title card in between).
+    document.getElementById('overlayTitle').textContent = 'Campaign';
+    document.getElementById('overlaySubtitle').style.display = 'none';
+    document.getElementById('overlayText').textContent = 'Opening the campaign book…';
+    import('./story-ui.js').then(m => m.showStoryCampaign());
+  };
   const grandBtn = document.createElement('button');
   grandBtn.textContent = 'Grand Strategy (4 boards)';
   grandBtn.onclick = ()=>{ state.spectate=false; extra.style.display='none'; showGrandMatchTypeSelect(); };
