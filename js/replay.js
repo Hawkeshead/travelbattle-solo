@@ -710,8 +710,15 @@ export function exportFullMatchLog(){
         lines.push(`    t=${p.t}  visual (${p.vx},${p.vy})  screen px (${p.cx},${p.cy})${p.overlayUp ? '  [overlay up]' : ''}`);
       }
     } else if(ev.type==='leadership'){
-      lines.push(`LEADERSHIP ROLL: ${label(ev.brigadierId)} spends his Brigade's one save for ${label(ev.unitId)} at (${ev.x},${ev.y})`);
-      lines.push(`    Failed to rally and kept in the field. ${SIDE_LABEL[ev.side]} Brigade ${ev.brigadeId + 1} has no save left.`);
+      lines.push(`LEADERSHIP ROLL: ${label(ev.brigadierId)} spends his Brigade's save for ${label(ev.unitId)} at (${ev.x},${ev.y})`);
+      /* Named, not numbered (the export numbered Brigades from 1 here and from
+         0 in the deployment list), and "spent" rather than "none left": the
+         Charmed Life perk gives the save back (Papelotte, 23 Oct 2026). */
+      lines.push(`    Failed to rally and kept in the field. ${brigadeName(ev.side, ev.brigadeId)} has spent its Leadership Roll.`);
+    } else if(ev.type==='perk' && PERKS[ev.perk]){
+      lines.push(`PERK: ${brigadeName(ev.side, ev.brigadeId)} earns ${PERKS[ev.perk].name}: ${PERKS[ev.perk].text}`);
+    } else if(ev.type==='perkUsed' && PERKS[ev.perk]){
+      lines.push(`PERK USED: ${label(ev.unitId)}, ${PERKS[ev.perk].name}`);
     } else if(ev.type==='formation'){
       lines.push(`FORMATION: ${label(ev.unitId)} (${SIDE_LABEL[ev.side]}) at (${ev.x},${ev.y}) -> ${ev.to.toUpperCase()}`);
     } else if(ev.type==='rally'){

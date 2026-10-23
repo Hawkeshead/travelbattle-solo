@@ -45,7 +45,7 @@ function feat(unit, name){
   logReplay('perk', { side: unit.side, brigadeId: unit.brigadeId, perk: id });
   if(id === 'CHARMED'){
     const brig = state.units.find(o => !o.removed && o.side === unit.side && o.brigadeId === unit.brigadeId && o.type === 'BRIGADIER');
-    if(brig) brig.leadershipUsed = false;
+    if(brig && brig.leadershipUsed){ brig.leadershipUsed = false; log(`${brig.historicalName || 'The Brigadier'} has his Leadership Roll back (Charmed Life).`, 'system'); }
   }
 }
 

@@ -6030,13 +6030,13 @@
     "Prussia": {
      "start": "Arrives round 6 on column T, rows 5 to 7",
      "objective": {
-      "text": "Three units next to Nassau units at the end of round 10.",
+      "text": "Two units next to Nassau units at the end of round 10.",
       "conditions": [
        {
         "type": "NEXT_TO",
         "tag": "zieten",
         "nextTo": "nassau",
-        "count": 3,
+        "count": 2,
         "atRound": 10
        }
       ],
