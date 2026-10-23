@@ -396,6 +396,7 @@ const nearest = (pos, sqs) => sqs.length ? Math.min(...sqs.map(q => waterDistanc
    1.0 early, up to 2.5 at the deadline, enough by then to outweigh a bad
    fight estimate. Infantry and Guard lead (cavalry at half, guns not at all). */
 export const ASSAULT_PULL = 1.6;
+export const MARCH_PULL_ESCAPE = 2.0;   // per row towards the exit edge, for a side whose role is escape
 function assaultPull(mover, side, pos, sqs, k){
   const t = UNIT_TYPES[mover.type];
   if(t.isArtillery) return 0;
@@ -533,7 +534,11 @@ function storyMoveBonus(mover, side, pos){
       if(!ex) continue;
       const row = ex === 'britishEdge' ? state.terrain.length - 1 : 0;
       const escaping = sc.aiRoles && sc.aiRoles[key] === 'escape';
-      const pull = Math.max(0, 20 - Math.abs(pos.y - row)) * (escaping ? 0.9 : 0.45) * k;   // the full length of a corridor; an escaping side pulls double (Genappe: the cavalry stayed to screen the guns)
+      /* 23 Oct 2026, Cacabelos: at 0.9 a row the escaping British never
+         left their start (staying in a building's cover was worth 1.3, leaving
+         the Brigadier's side 4), the Brigadier wandered and the men were cut
+         off. At 2.0 a row the Brigade walks out together. */
+      const pull = Math.max(0, 20 - Math.abs(pos.y - row)) * (escaping ? MARCH_PULL_ESCAPE : 0.45) * k;   // the full length of a corridor; an escaping side pulls double (Genappe: the cavalry stayed to screen the guns)
       s += c.mustIncludeTag ? (mover.storyTag === c.mustIncludeTag && brig ? pull * 2 : pull * 0.4) : pull;
     }
   }

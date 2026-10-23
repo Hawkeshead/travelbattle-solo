@@ -2611,6 +2611,14 @@ export function missionMoveBonus(u, side, pos, mission, plan){
   }
 }
 
+/* The row a side marches off by, when its role in a campaign battle is to
+   escape (and the card names its exit), else null. */
+function escapeExitRow(side){
+  if(!state.scenario || operationRole(side) !== 'escape') return null;
+  const ex = state.scenario.map && state.scenario.map.exits && state.scenario.map.exits[side === SIDES.RED ? 'british' : 'french'];
+  if(!ex) return null;
+  return ex === 'britishEdge' ? state.terrain.length - 1 : 0;
+}
 export function orderAiUnitsForMove(side){
   // Grouped by Brigade, leftmost Brigade first, so a human watching can follow
   // "now it's doing the left Brigade's turn" rather than units from all three
@@ -2694,8 +2702,16 @@ export function orderAiUnitsForMove(side){
      attack, the Brigadier moves AFTER his units and closes up behind them, so
      he follows the assault instead of placing himself before it moves. */
   const brigLast = u => u.type==='BRIGADIER' && tune(side, 'BRIG_LAST', 0) && ATTACK_MISSIONS.has(missionFor(u));
+  /* THE MARCH OUT (23 Oct 2026, Cacabelos). A Brigade that must leave the
+     field moves like a caterpillar: the unit nearest the exit first, then the
+     next, and the Brigadier LAST, closing up behind them so all are back in
+     command before their next turn. Brigadier first deadlocked it: he stood on
+     the bridge, his hussars on its far end would not ride on and lose him, and
+     he could not pass them. */
+  const exitRow = escapeExitRow(side);
   const chainDepth = u => {
     if(brigLast(u)) return Infinity;
+    if(exitRow != null) return u.type==='BRIGADIER' ? Infinity : Math.abs(u.y - exitRow);   // front of the column first
     if(u.type==='BRIGADIER') return -Infinity;
     const brig = brigadierOf[u.brigadeId];
     return brig ? -chebyshev(u, brig) : 0;   // negated, so furthest sorts first
@@ -4130,6 +4146,11 @@ export function aiDecideAndExecuteMove(u){
          behaviour. */
       const pressing = ATTACK_MISSIONS.has(mission) && closesOnEnemy;
       if(pressing) leash *= tune(side, 'CLOSE_PRESS', 1.0);
+      /* The march out: a step towards the exit may leave the Brigadier's
+         side, because he moves last and closes up behind (orderAiUnitsForMove). */
+      const exitRow = escapeExitRow(side);
+      const marching = exitRow != null && Math.abs(c.y - exitRow) < Math.abs(startY - exitRow);
+      if(marching) leash *= 0.25;
       if(!t.isArtillery) s -= subScore(parts, 'cohesionLoss', leash);
       /* S7: DISCONNECTING FOR NOTHING COSTS EXTRA.
 
@@ -4151,7 +4172,7 @@ export function aiDecideAndExecuteMove(u){
          can clear. */
       const buysAFight = state.units.some(o=>!o.removed && o.side!==side &&
         isAdjacent(c, o) && canAttackTarget(u, o));
-      if(!t.isArtillery && !buysAFight) s -= subScore(parts, 'cohesionDrift',
+      if(!t.isArtillery && !buysAFight && !marching) s -= subScore(parts, 'cohesionDrift',
         1.6 * (pressing ? tune(side, 'CLOSE_PRESS', 1.0) : 1));
     /* Judged on the CANDIDATE square, not the gun's current one, so a move INTO
        a vantage point counts as established and is not penalised for arriving
