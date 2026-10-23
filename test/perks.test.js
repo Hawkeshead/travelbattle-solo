@@ -18,7 +18,7 @@ test('a feat earns its perk when it reaches its number, once', () => {
 test('the cap stops a second perk; a longer battle allows two', () => {
   const short = newPerkState(), long = newPerkState();
   for(let i = 0; i < 2; i++){ addFeat(short, 'red:0', 'cavRepelled', 1); addFeat(long, 'red:0', 'cavRepelled', 2); }
-  for(let i = 0; i < 3; i++){ addFeat(short, 'red:0', 'wins', 1); addFeat(long, 'red:0', 'wins', 2); }
+  for(let i = 0; i < 5; i++){ addFeat(short, 'red:0', 'wins', 1); addFeat(long, 'red:0', 'wins', 2); }
   assert.deepEqual(short.perks['red:0'], ['STEADY']);
   assert.deepEqual(long.perks['red:0'], ['STEADY', 'INSPIRING']);
 });

@@ -151,6 +151,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     rounds: state.scenarioResult ? state.scenarioResult.round : (state.scenario ? Math.ceil((state.turnNumber || 1) / 2) : null),
     reason: state.scenarioResult ? state.scenarioResult.reason.replace(/, round \d+.*$/, '') : null,
     achieved: state.scenarioResult && state.scenarioResult.achieved ? { ...state.scenarioResult.achieved } : null,
+    perks: state.perkState ? Object.entries(state.perkState.perks).flatMap(([k, l]) => l.map(id => k.split(':')[0] + ':' + id)) : [],   // Brigade perks earned (perks.js)
     allies: state.scenarioResult && state.scenarioResult.allies ? state.scenarioResult.allies.map(a => ({ nation: a.nation, met: !!a.round })) : null,   // allied nations' own objectives
     river: !!(state.water && Object.keys(state.water.edges || {}).length),   // a river on this board (river-generator)   // campaign battles: each side's objective
     turns: state.turnNumber,
@@ -537,6 +538,11 @@ export function summarise(results) {
   }
   /* Campaign battles are judged independently: report how often EACH side met
      its own objective, which is the balance measure (target 50 to 60% each). */
+  const perked = results.flatMap(r => r.perks || []);
+  if (perked.length || results.length){
+    const by = {}; for (const k of perked) by[k] = (by[k] || 0) + 1;
+    lines.push(`perks earned     ${perked.length} in ${results.length} matches: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}`);
+  }
   const judged = results.filter(r => r.achieved);
   if (judged.length){
     const n = judged.length, red = judged.filter(r => r.achieved.red).length, blue = judged.filter(r => r.achieved.blue).length;
