@@ -42,7 +42,7 @@ function render(){
     const lim = quickRoundLimit(), r = Math.min(currentRound(), lim);
     el.classList.add('tab'); el.classList.toggle('open', open);
     el.innerHTML = `<div class="opp-round">Round ${r} of ${lim}</div>` + (open
-      ? `<div class="opp-status">On points if no army breaks by round ${lim}: ${label(SIDES.RED)} ${quickPoints(SIDES.RED)}, ${label(SIDES.BLUE)} ${quickPoints(SIDES.BLUE)}</div>` : '');
+      ? `<div class="opp-status">Points: ${label(SIDES.RED)} ${quickPoints(SIDES.RED)} · ${label(SIDES.BLUE)} ${quickPoints(SIDES.BLUE)}</div><div class="opp-hint">Decides the battle if no army breaks by round ${lim}</div>` : '');
     return;
   }
   if(!sc || !sc.win || typeof sc.win !== 'object' || state.phase === 'deploy'){ el.style.display = 'none'; return; }
