@@ -124,7 +124,7 @@ function finishIndependent(round, how){
     }
   }
   const words = side => `${SIDE_LABEL[side]} ${got[side] ? 'achieved its objective (round ' + got[side] + ')' : 'did not achieve its objective'}`;
-  const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : ''}`;
+  const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : how === 'early' ? `; the battle was ended in round ${round}` : ''}`;
   // The banner names a side: the one that met its objective while the other did
   // not; if both or neither did, the human player's side (or red) is named and
   // the result line says what happened to each.
@@ -134,6 +134,23 @@ function finishIndependent(round, how){
   log(reason + '.', 'system');
   logReplay('scenarioResult', { winner, reason, round, achieved: state.scenarioResult.achieved });
   endGame(winner);
+}
+
+/* END BATTLE (23 Oct 2026, Matthew: the Cavalry at Genappe was won by round
+   4 and then ran eight more rounds with nothing at stake for him). In a
+   campaign battle, once the player's own objective is achieved, the player
+   may end it there: both sides are judged as they stand, so whatever the
+   enemy had not achieved by then it has not achieved. operation-panel.js
+   offers the button. */
+const humanSide = () => (state.mode === 'ai' && !state.spectate && state.aiSide ? otherSide(state.aiSide) : null);
+export function canEndBattleEarly(){
+  const me = humanSide();
+  return !!(me && independent() && !state.gameOver && state.scenarioAchieved && state.scenarioAchieved[me]);
+}
+export function endBattleEarly(){
+  if(!canEndBattleEarly()) return;
+  log(`${SIDE_LABEL[humanSide()]} ends the battle (round ${currentRound()}).`, 'system');
+  finishIndependent(currentRound(), 'early');
 }
 
 /* After a removal or a march off. */

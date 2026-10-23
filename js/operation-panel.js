@@ -8,10 +8,10 @@
    sides' objectives in full with their status; tap again to fold it.
 ========================================================= */
 import { SIDES, state } from './data-core.js';
-import { currentRound, objectiveStatusLine, sideKey } from './engine-objectives.js';
+import { canEndBattleEarly, currentRound, endBattleEarly, objectiveStatusLine, sideKey } from './engine-objectives.js';
 import { quickPoints, quickRoundLimit } from './engine-rules.js';
 
-let el = null, open = false, timer = null;
+let el = null, open = false, timer = null, armedUntil = 0;
 /* BETWEEN TURNS, NOT ALL THE TIME (Matthew, 4 Oct 2026): the panel comes up
    with your status at the start of each turn, stays for SHOW_MS, then folds
    to a small "Round 3 of 8" tab in the corner. Tap the tab to open both
@@ -25,7 +25,16 @@ function ensure(){
   el.id = 'opPanel';
   el.setAttribute('role', 'button');
   el.setAttribute('tabindex', '0');
-  el.addEventListener('click', e => { e.stopPropagation(); open = !open; if(!open) showUntil = 0; render(); });
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    /* END BATTLE, two taps: the first asks, the second ends it (a stray tap on
+       the corner card must never end a battle). */
+    if(e.target.closest('.opp-end')){
+      if(armedUntil > Date.now()){ armedUntil = 0; endBattleEarly(); render(); return; }
+      armedUntil = Date.now() + 4000; render(); return;
+    }
+    open = !open; if(!open) showUntil = 0; render();
+  });
   document.body.appendChild(el);
   return el;
 }
@@ -59,6 +68,12 @@ function render(){
     : tab ? `<div class="opp-round">${round}</div>`
     : `<div class="opp-round">${round} · ${label(me)}</div><div class="opp-status">${objectiveStatusLine(me)}</div>`;
   el.classList.toggle('open', open);
+  // Your objective is achieved: you may end the battle here (engine-objectives endBattleEarly).
+  if(canEndBattleEarly()){
+    const armed = armedUntil > Date.now();
+    el.insertAdjacentHTML('beforeend', `<button type="button" class="opp-end${armed ? ' armed' : ''}">${armed ? 'Tap again to end' : 'End Battle'}</button>`);
+    el.classList.remove('tab');
+  }
 }
 
 export function showObjectivePanel(){
