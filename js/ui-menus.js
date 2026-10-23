@@ -646,6 +646,19 @@ export function beginOperation(card, playerSide){
   log('Arrange your units if you wish: drag one to another square in its area, or onto another of your units to swap them. Then Begin Battle.', 'system');
 }
 
+/* Replay Battle (engine-objectives replayBattle): the page has reloaded with a
+   note naming the battle, the player's side and, for a campaign battle not
+   yet passed, the campaign run it belongs to. */
+export function replayBattleFromNote(note){
+  const card = note && typeof note.cardId === 'string' ? getCard(note.cardId) : null;
+  if(!card || card.kind !== 'operation' || (note.side !== SIDES.RED && note.side !== SIDES.BLUE)){ showModeSelect(true); return false; }
+  const r = note.storyRun;
+  state.storyRun = r && typeof r === 'object' && typeof r.battleId === 'string' ? { campaign: r.campaign, battleId: r.battleId, nation: r.nation } : null;
+  state.campaignRun = null;
+  beginOperation(card, note.side);
+  return true;
+}
+
 export function showOperationModeSelect(scenario){
   document.getElementById('overlayTitle').textContent = 'How will you play this Operation?';
   document.getElementById('overlayText').innerHTML =

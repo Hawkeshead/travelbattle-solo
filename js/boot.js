@@ -15,7 +15,8 @@ import { COLS } from './data-core.js';
 import { sharedArmiesEnabled } from './online-session.js';
 import { initDesk } from './render-desk.js';
 import { initBattleControls, initBoardInput } from './ui-battle.js';
-import { CAMPAIGNS_ENABLED, prepareTitleBoard, showModeSelect, startAmbientLayer } from './ui-menus.js';
+import { CAMPAIGNS_ENABLED, prepareTitleBoard, replayBattleFromNote, showModeSelect, startAmbientLayer } from './ui-menus.js';
+import { REPLAY_NOTE } from './engine-objectives.js';
 import { AudioManager } from './audio-manager.js';
 import { initSafeArea } from './safe-area.js';
 import { FOOT_ACK, FOOT_ACK_ALT, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
@@ -109,7 +110,16 @@ export function start(){
      'battle' (start the pending battle) or 'map'. No title intro then. */
   let campaignMapLanding = null;
   try { campaignMapLanding = sessionStorage.getItem('fc_cmap_launch'); sessionStorage.removeItem('fc_cmap_launch'); } catch { /* no storage: the title screen as usual */ }
-  if(campaignMapLanding){
+  /* REPLAY BATTLE (engine-objectives.js) leaves the same kind of one-shot
+     note: the battle to start again, from the top. */
+  let replayNote = null;
+  try { replayNote = JSON.parse(sessionStorage.getItem(REPLAY_NOTE) || 'null'); sessionStorage.removeItem(REPLAY_NOTE); } catch { /* no storage or a bad note: the title screen */ }
+  if(replayNote && !campaignMapLanding){
+    document.documentElement.classList.add('title-away');
+    prepareTitleBoard();
+    sizeCanvas();
+    replayBattleFromNote(replayNote);
+  } else if(campaignMapLanding){
     document.documentElement.classList.add('title-away');
     prepareTitleBoard();
     sizeCanvas();

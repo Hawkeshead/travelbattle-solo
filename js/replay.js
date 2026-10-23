@@ -248,7 +248,7 @@ function sectionMetadata(){
     out.push(`Town            : ${cm.town} (${cm.townId})`);
     if(state.mapBattle && state.mapBattle.ground) out.push(`Ground          : ${state.mapBattle.ground}`);
   }
-  out.push(`Ended           : ${state.gameOver ? 'win condition met' : 'in progress / abandoned'}`);
+  out.push(`Ended           : ${!state.gameOver ? 'in progress / abandoned' : state.scenarioResult ? `objectives judged, round ${state.scenarioResult.round}` : 'win condition met'}`);
   return out;
 }
 
@@ -268,7 +268,7 @@ function sectionOperation(){
   if(!sc || sc.kind !== 'operation') return [];
   const out = ['', 'Operation result'];
   const r = state.scenarioResult;
-  out.push(`  winner        : ${r ? SIDE_LABEL[r.winner] : 'none yet'}`);
+  out.push(`  winner        : ${r ? (r.winner ? SIDE_LABEL[r.winner] : 'neither side') : 'none yet'}`);
   out.push(`  reason        : ${r ? r.reason : 'in progress'}`);
   out.push(`  round reached : ${r ? r.round : Math.ceil((state.turnNumber || 1) / 2)}`);
   const esc = state.units.filter(u => u.escaped);

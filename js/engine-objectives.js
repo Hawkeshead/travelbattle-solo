@@ -128,8 +128,11 @@ function finishIndependent(round, how){
   // The banner names a side: the one that met its objective while the other did
   // not; if both or neither did, the human player's side (or red) is named and
   // the result line says what happened to each.
+  /* NEITHER MET ITS OBJECTIVE (23 Oct 2026, Papelotte): the banner read
+     "Britain and Prussia Victory" over a result line saying both sides had
+     failed. Now nobody is named; the screen says neither side prevailed. */
   const human = state.aiSide ? otherSide(state.aiSide) : SIDES.RED;
-  const winner = got[SIDES.RED] && !got[SIDES.BLUE] ? SIDES.RED : got[SIDES.BLUE] && !got[SIDES.RED] ? SIDES.BLUE : human;
+  const winner = got[SIDES.RED] && !got[SIDES.BLUE] ? SIDES.RED : got[SIDES.BLUE] && !got[SIDES.RED] ? SIDES.BLUE : got[SIDES.RED] ? human : null;
   state.scenarioResult = { winner, reason, round, achieved: { red: !!got[SIDES.RED], blue: !!got[SIDES.BLUE] } };
   log(reason + '.', 'system');
   logReplay('scenarioResult', { winner, reason, round, achieved: state.scenarioResult.achieved });
@@ -313,7 +316,8 @@ export function endGame(winner){
     return;
   }
   const pr = state.pointsResult;
-  document.getElementById('overlayTitle').textContent = winner ? `${SIDE_LABEL[winner]} Victory` : 'A Drawn Battle';
+  const noneMet = !winner && state.scenarioResult && state.scenarioResult.achieved && !state.scenarioResult.achieved.red && !state.scenarioResult.achieved.blue;
+  document.getElementById('overlayTitle').textContent = winner ? `${SIDE_LABEL[winner]} Victory` : noneMet ? 'Neither Side Prevails' : 'A Drawn Battle';
   if(winner) showVictoryDressing(winner);
   const outcome = state.scenario && state.scenario.outcomes ? state.scenario.outcomes[winner === SIDES.RED ? 'britishWin' : 'frenchWin'] : null;
   const bodyText = pr
@@ -327,6 +331,8 @@ export function endGame(winner){
   const modeChoices = document.getElementById('modeChoices');
   if(modeChoices) modeChoices.style.display = 'none';
   document.getElementById('overlayBtn').style.display = 'inline-block';
+  // Kept for Replay Battle: recordStoryResult clears state.storyRun.
+  replayStory = state.storyRun ? Object.assign({}, state.storyRun) : null;
   if(state.storyRun){
     /* A story campaign battle (story-ui.js): passed if the player's nation met
        its objective; the button goes back to the campaign's route. */
@@ -420,11 +426,39 @@ function showVictoryDressing(winner){
    once the other phone's half of the match record has arrived (each phone only
    records the turns it ran), which is what makes Watch Replay and the full
    export complete on both phones. */
+/* REPLAY BATTLE (23 Oct 2026, Matthew, after Papelotte): the same battle
+   again from its start, on a fresh page so nothing of the match just played
+   carries over (the way New Battle has always worked); boot.js reads the note
+   and starts it (ui-menus replayBattleFromNote). A campaign battle not yet
+   passed still counts for the campaign when replayed; one already passed is
+   replayed as practice, so it cannot be passed twice. Battles with their own
+   campaign bookkeeping (the campaign map, campaign steps) and shared games
+   go back through their own screens instead. */
+export const REPLAY_NOTE = 'fc_replay_battle';
+let replayStory = null;
+function canReplayBattle(){
+  return !!(state.scenario && state.scenario.id && humanSide() && !isOnline() && !state.group && !state.rts &&
+    !state.campaign && !state.campaignRun && !state.mapBattle);
+}
+function replayBattle(){
+  const side = humanSide();
+  const passed = !!(state.scenarioResult && state.scenarioResult.achieved && state.scenarioResult.achieved[side]);
+  const note = { cardId: state.scenario.id, side, storyRun: replayStory && !passed ? replayStory : null };
+  try { sessionStorage.setItem(REPLAY_NOTE, JSON.stringify(note)); } catch { /* no session storage: the title screen */ }
+  location.reload();
+}
+
 export function renderEndButtons(){
   const extra = document.getElementById('modeChoices');
   if(!extra || !state.gameOver) return;
   extra.innerHTML = ''; // always rebuilt fresh here — no dependency on what an earlier menu left behind
   const endScreenButtons = [];
+  if(canReplayBattle()){
+    const again = document.createElement('button');
+    again.textContent = 'Replay Battle';
+    again.onclick = replayBattle;
+    endScreenButtons.push(again);
+  }
   if(state.matchLog && state.matchLog.length>0 && state.replayStartUnits){
     const replayBtn = document.createElement('button');
     replayBtn.textContent = 'Watch Replay';
