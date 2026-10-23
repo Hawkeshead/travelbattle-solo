@@ -4029,6 +4029,12 @@ export function aiDecideAndExecuteMove(u){
   // be compared. Per unit, not per match: only the current decision matters
   // and holding them all would grow without bound.
   const scored = [];
+  // Who is in command before this Brigadier moves (BRIG_STRAND, below).
+  // On in campaign battles only: in Quick Battles it lost 13/37 (35%) to the
+  // same AI without it, while in campaign battles it cut stuck units about 11%
+  // with the attacks unchanged (Quatre Bras France 88%, Wavre 100%).
+  const strandCost = (state.scenario && state.scenario.judging === 'independent') ? tune(side, 'BRIG_STRAND_CAMPAIGN', 2) : tune(side, 'BRIG_STRAND', 0);
+  const connBeforeMove = (u.type === 'BRIGADIER' && strandCost) ? movableUnitsForSide(side) : null;
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
@@ -4244,6 +4250,18 @@ export function aiDecideAndExecuteMove(u){
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
         s += addScore(parts, 'cohesionGain', connectedCount * 0.5);
+        /* DON'T STRAND YOUR OWN MEN (21 Oct 2026, behind BRIG_STRAND). Measured
+           in campaign battles: most units cut off from command were cut off by
+           their own Brigadier's move at the start of the turn (21 of 38 at
+           Quatre Bras and Wavre), not by being pushed back (9) or by losses (1).
+           Keeping a unit connected was worth only 0.5 to him, so staying out of
+           reach (2.5) or trailing the line easily outweighed stranding a
+           battalion. Each unit in command before his move that his move would
+           leave cut off now costs BRIG_STRAND. */
+        if(connBeforeMove){
+          const stranded = brigadeMates.filter(o => connBeforeMove.has(o.id) && !connNow.has(o.id)).length;
+          if(stranded) s -= subScore(parts, 'strandOwnMen', stranded * strandCost);
+        }
 
         /* TRAIL THE LINE. A Brigadier is a chain-of-command marker, not a
            fighting man: he cannot attack, cannot be attacked, and carries his

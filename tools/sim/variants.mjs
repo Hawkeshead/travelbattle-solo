@@ -14,6 +14,8 @@ export const VARIANTS = {
   /* The Brigadier trails where his front unit will be when his Brigade attacks (ai-strategy BRIG_LEAD). */
   brig_lead:   { BRIG_LEAD: 1 },
   brig_last:   { BRIG_LAST: 1 },
+  brig_strand: { BRIG_STRAND: 2 },
+  brig_strand_hard: { BRIG_STRAND: 4 },
   /* The pulls towards a target (kill, finishing, converge) measured round the river (off by default: lost 21/33 to straight-line pulls). */
   water_pulls: { WATER_PULLS: 1 },
   /* Crossings in Quick Battles, and pouncing on turned-around enemies (ai-strategy). */
