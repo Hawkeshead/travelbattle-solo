@@ -2054,7 +2054,7 @@
         ]
        },
        "tag": "blucher",
-       "pinCommanderUntil": 3,
+       "pinCommanderUntil": 5,
        "commander": "Blücher"
       }
      ],
@@ -8005,11 +8005,19 @@
        0
       ],
       [
+       2,
+       0
+      ],
+      [
        0,
        1
       ],
       [
        1,
+       1
+      ],
+      [
+       2,
        1
       ],
       [
@@ -8018,6 +8026,10 @@
       ],
       [
        1,
+       2
+      ],
+      [
+       2,
        2
       ],
       [
@@ -8026,6 +8038,10 @@
       ],
       [
        1,
+       3
+      ],
+      [
+       2,
        3
       ],
       [
@@ -8034,6 +8050,10 @@
       ],
       [
        1,
+       4
+      ],
+      [
+       2,
        4
       ],
       [
@@ -8042,6 +8062,10 @@
       ],
       [
        1,
+       5
+      ],
+      [
+       2,
        5
       ],
       [
@@ -8050,6 +8074,10 @@
       ],
       [
        1,
+       6
+      ],
+      [
+       2,
        6
       ],
       [
@@ -8058,6 +8086,10 @@
       ],
       [
        1,
+       7
+      ],
+      [
+       2,
        7
       ],
       [
@@ -8066,6 +8098,10 @@
       ],
       [
        1,
+       8
+      ],
+      [
+       2,
        8
       ],
       [
@@ -8074,6 +8110,10 @@
       ],
       [
        1,
+       9
+      ],
+      [
+       2,
        9
       ]
      ],
@@ -8530,12 +8570,12 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 10.",
+      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 8.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 10
+        "byRound": 8
        }
       ],
       "combinator": "any"
@@ -8566,7 +8606,7 @@
     "France": {
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
-      "text": "Napoleon in the last two columns at the south end (A or B) at the end of round 8.",
+      "text": "Napoleon in the last three columns at the south end (A to C) at the end of round 8.",
       "conditions": [
        {
         "type": "COMMANDER",
