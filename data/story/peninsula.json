@@ -449,8 +449,8 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold Bailén and a square of the ridge across the road at the end of round 10.",
-      "combinator": "all",
+      "text": "Hold Bailén, or a square of the ridge across the road, at the end of round 10.",
+      "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
@@ -825,12 +825,12 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "No French unit on Vimeiro Hill or in the village at the end of round 10.",
+      "text": "No French unit in Vimeiro village at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "CLEAR_AREA",
-        "area": "vimeiro",
+        "area": "village",
         "atRound": 10
        }
       ]
@@ -911,8 +911,8 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Take Vimeiro village at any point, or remove four Allied units, by the end of round 10.",
-      "combinator": "any",
+      "text": "Get into Vimeiro village and remove three Allied units by the end of round 10.",
+      "combinator": "all",
       "conditions": [
        {
         "type": "ENTERED",
@@ -922,7 +922,7 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 4
+        "count": 3
        }
       ]
      }
@@ -943,7 +943,7 @@
    "date": "30 November 1808",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 8,
+   "turnLimit": 10,
    "history": "San Juan's Spaniards held the Somosierra pass with four batteries stacked up the zigzag road in the fog. Napoleon sent the Polish Chevau-légers of the Guard straight up it; in minutes they rode over the batteries one after another, at terrible cost, and the road to Madrid lay open.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Somosierra",
    "map": {
@@ -1005,6 +1005,14 @@
     ],
     "areas": {
      "summit": [
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
       [
        18,
        3
@@ -1298,14 +1306,14 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold the summit (the last two road squares) at the end of round 8.",
+      "text": "Hold the summit (the last four road squares) at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "summit",
         "count": 1,
-        "atRound": 8
+        "atRound": 10
        }
       ]
      }
@@ -1319,6 +1327,7 @@
         "BRIGADIER",
         "LIGHT_CAV",
         "LIGHT_CAV",
+        "LIGHT_CAV",
         "LIGHT_CAV"
        ],
        "placement": {
@@ -1329,19 +1338,20 @@
         null,
         "3rd squadron",
         "1st squadron",
-        "2nd squadron"
+        "2nd squadron",
+        "4th squadron"
        ]
       }
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a cavalry unit onto the summit by the end of round 8.",
+      "text": "Get a cavalry unit onto the summit by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "summit",
-        "byRound": 8
+        "byRound": 10
        }
       ]
      }
@@ -1378,13 +1388,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the summit by the end of round 8.",
+      "text": "Get a unit onto the summit by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "summit",
-        "byRound": 8
+        "byRound": 10
        }
       ]
      }
@@ -1685,12 +1695,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Have three units leave by the Villafranca road (the Coalition edge) by the end of round 8.",
+      "text": "Have two units leave by the Villafranca road by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 3,
+        "count": 2,
         "byRound": 8
        }
       ]
@@ -1729,13 +1739,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove two British units by the end of round 8, with Colbert still in play.",
+      "text": "Remove three British units by the end of round 8, with Colbert still in play.",
       "combinator": "all",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 2,
+        "count": 3,
         "byRound": 8
        },
        {
@@ -2748,7 +2758,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the Cerro de Medellín at any point, or break two Allied Brigades, by the end of round 10.",
+      "text": "Get a unit onto the Cerro de Medellín at any point, or break one Allied Brigade, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
@@ -2758,7 +2768,7 @@
        },
        {
         "type": "BREAK_BRIGADES",
-        "count": 2,
+        "count": 1,
         "byRound": 10
        }
       ]
@@ -2969,12 +2979,12 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break two Spanish Brigades by the end of round 10.",
+      "text": "Break one Spanish Brigade by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "BREAK_BRIGADES",
-        "count": 2,
+        "count": 1,
         "byRound": 10
        }
       ]
@@ -3653,13 +3663,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Four units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
+      "text": "Three units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
       "combinator": "all",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "far_bank",
-        "count": 4,
+        "count": 3,
         "atRound": 8
        },
        {
@@ -3695,14 +3705,14 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Both Caçador battalions across the Côa at the end of round 8.",
+      "text": "A Caçador battalion across the Côa at the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "far_bank",
         "tag": "cacadores",
-        "count": 2,
+        "count": 1,
         "atRound": 8
        }
       ]
@@ -3741,13 +3751,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove three Allied units, or get a unit over the bridge, by the end of round 8.",
+      "text": "Remove two Allied units, or get a unit over the bridge, by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3,
+        "count": 2,
         "byRound": 8
        },
        {
@@ -4973,12 +4983,12 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break a Brigade, or clear the hill of Allied units, by the end of round 8.",
+      "text": "Break two Allied Brigades, or clear the hill of Allied units, by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "BREAK_BRIGADES",
-        "count": 1,
+        "count": 2,
         "byRound": 8
        },
        {
@@ -5382,12 +5392,12 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break two Allied Brigades, or have a unit on the southern hills at the end of round 10.",
+      "text": "Break one Allied Brigade, or have a unit on the southern hills at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "BREAK_BRIGADES",
-        "count": 2,
+        "count": 1,
         "byRound": 10
        },
        {
@@ -5690,12 +5700,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Three units leave by the Fuenteguinaldo end by the end of round 10.",
+      "text": "Two units leave by the Fuenteguinaldo end by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 3,
+        "count": 2,
         "byRound": 10
        }
       ]
@@ -5771,13 +5781,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove three Allied units by the end of round 10.",
+      "text": "Remove four Allied units by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3,
+        "count": 4,
         "byRound": 10
        }
       ]
@@ -6154,12 +6164,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Four units leave over the Sierra (the French edge) by the end of round 8.",
+      "text": "Three units leave over the Sierra (the French edge) by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 4,
+        "count": 3,
         "byRound": 8
        }
       ]
@@ -6375,13 +6385,18 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break two French Brigades by the end of round 10.",
-      "combinator": "any",
+      "text": "Break one French Brigade and remove four French units by the end of round 10.",
+      "combinator": "all",
       "conditions": [
        {
         "type": "BREAK_BRIGADES",
-        "count": 2,
+        "count": 1,
         "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4
        }
       ]
      }
@@ -6519,7 +6534,7 @@
    "date": "23 July 1812",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 6,
+   "turnLimit": 8,
    "history": "The day after Salamanca, Bock's heavy dragoons of the King's German Legion caught Foy's rearguard on a slope near García Hernández. A dying French horse fell into the front of a square, the dragoons rode through the gap and broke it, then broke a second: one of the few times cavalry broke formed infantry.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Garc%C3%ADa_Hern%C3%A1ndez",
    "map": {
@@ -6900,7 +6915,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break two French infantry units by the end of round 6.",
+      "text": "Break two French infantry units by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
@@ -6909,7 +6924,7 @@
          "INFANTRY"
         ],
         "count": 2,
-        "byRound": 6
+        "byRound": 8
        }
       ]
      }
@@ -6955,13 +6970,13 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Three units leave by the French end by the end of round 6.",
+      "text": "Three units leave by the French end by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
         "count": 3,
-        "byRound": 6
+        "byRound": 8
        }
       ]
      }
@@ -7672,14 +7687,14 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Three units across the Zadorra by the end of round 12.",
+      "text": "Two units across the Zadorra at the end of round 12.",
       "combinator": "any",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "north_bank",
         "tag": "ashworth",
-        "count": 3,
+        "count": 2,
         "atRound": 12
        }
       ]
@@ -7745,12 +7760,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Six units leave by the road to France (the French edge) by the end of round 12.",
+      "text": "Eight units leave by the road to France (the French edge) by the end of round 12.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 6,
+        "count": 8,
         "byRound": 12
        }
       ]
@@ -8217,13 +8232,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Hold two of the southern redoubts at the end of round 12.",
+      "text": "Hold a southern redoubt at the end of round 12.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "south_redoubts",
-        "count": 2,
+        "count": 1,
         "atRound": 12
        }
       ]

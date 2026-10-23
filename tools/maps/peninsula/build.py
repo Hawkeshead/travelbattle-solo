@@ -312,6 +312,63 @@ B['bussaco']['map']['areas']['ridge_hills'] = sq(m['bussaco'], '^', rows=range(6
 B['toulouse']['map']['areas']['redoubts'] = [[8, 3], [11, 3], [14, 3]]
 B['toulouse']['map']['areas']['ers'] = sq(m['toulouse'], ':', cols=range(16, 20))
 
+# ---- BALANCE, pass 1 (simulator, 4 matches each, Coalition lead / France) ----
+def obj(bid, nation, conds, text, comb=None):
+    o = B[bid]['sides'][nation]['objective']; o['conditions'] = conds; o['text'] = text
+    if comb: o['combinator'] = comb
+# Bailen 25/25: either Bailen or the ridge is enough for Spain
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 1, 'atRound': 10}, {'type': 'HOLD_COUNT', 'area': 'ridge', 'count': 1, 'atRound': 10}],
+    'Hold Bailén, or a square of the ridge across the road, at the end of round 10.', 'any')
+# Vimeiro 0/100: the village is what the British must keep; France needs the village and three kills
+obj('vimeiro', 'Britain', [{'type': 'CLEAR_AREA', 'area': 'village', 'atRound': 10}], 'No French unit in Vimeiro village at the end of round 10.')
+obj('vimeiro', 'France', [{'type': 'ENTERED', 'area': 'village', 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3}],
+    'Get into Vimeiro village and remove three Allied units by the end of round 10.', 'all')
+# Somosierra 100/0: the summit is the last four squares of the road; ten rounds; a fourth squadron of Poles
+B['somosierra']['map']['areas']['summit'] = [[16, 3], [17, 3], [18, 3], [19, 3]]
+B['somosierra']['turnLimit'] = 10
+for n in ('Spain', 'Poland', 'France'):
+    for c in B['somosierra']['sides'][n]['objective']['conditions']:
+        for k in ('atRound', 'byRound'):
+            if c.get(k) == 8: c[k] = 10
+    B['somosierra']['sides'][n]['objective']['text'] = B['somosierra']['sides'][n]['objective']['text'].replace('round 8', 'round 10').replace('the last two road squares', 'the last four road squares')
+pol = B['somosierra']['sides']['Poland']['brigades'][0]; pol['units'] = pol['units'] + [LC]; pol['names'] = pol['names'] + ['4th squadron']
+# Cacabelos 0/100: two units away is enough; France needs three kills
+obj('cacabelos', 'Britain', [{'type': 'MARCH_OFF', 'count': 2, 'byRound': 8}], 'Have two units leave by the Villafranca road by the end of round 8.')
+obj('cacabelos', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 8}, {'type': 'COMMANDER', 'tag': 'colbert', 'atRound': 8}],
+    'Remove three British units by the end of round 8, with Colbert still in play.', 'all')
+# Talavera 100/0 and Albuera 100/0 and Ocana 100/0: France breaks one Brigade (or reaches its place)
+obj('talavera', 'France', [{'type': 'ENTERED', 'area': 'medellin', 'byRound': 10}, {'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}],
+    'Get a unit onto the Cerro de Medellín at any point, or break one Allied Brigade, by the end of round 10.')
+obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_hill', 'count': 1, 'atRound': 10}],
+    'Break one Allied Brigade, or have a unit on the southern hills at the end of round 10.')
+obj('ocana', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}], 'Break one Spanish Brigade by the end of round 10.')
+# The Coa 0/0: three across for Britain, one for Portugal; France two kills or across
+obj('coa', 'Britain', [{'type': 'IN_AREA', 'area': 'far_bank', 'count': 3, 'atRound': 8}, {'type': 'CLEAR_AREA', 'area': 'bridge_far', 'atRound': 8}],
+    'Three units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.', 'all')
+obj('coa', 'Portugal', [{'type': 'IN_AREA', 'area': 'far_bank', 'tag': 'cacadores', 'count': 1, 'atRound': 8}], 'A Caçador battalion across the Côa at the end of round 8.')
+obj('coa', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 8}, {'type': 'ENTERED', 'area': 'far_bank', 'byRound': 8}],
+    'Remove two Allied units, or get a unit over the bridge, by the end of round 8.')
+# Sabugal 0/100: France must break two Brigades
+obj('sabugal', 'France', [{'type': 'BREAK_BRIGADES', 'count': 2, 'byRound': 8}, {'type': 'CLEAR_AREA', 'area': 'hill', 'atRound': 8}],
+    'Break two Allied Brigades, or clear the hill of Allied units, by the end of round 8.')
+# El Bodon 25/100: two away for Britain; France four kills
+obj('elbodon', 'Britain', [{'type': 'MARCH_OFF', 'count': 2, 'byRound': 10}], 'Two units leave by the Fuenteguinaldo end by the end of round 10.')
+obj('elbodon', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 4, 'byRound': 10}], 'Remove four Allied units by the end of round 10.')
+# Arroyo 50/0: three French units away is enough
+obj('arroyo', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 8}], 'Three units leave over the Sierra (the French edge) by the end of round 8.')
+# Salamanca 0/75: break one French Brigade, and remove four units
+obj('salamanca', 'Britain', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
+    'Break one French Brigade and remove four French units by the end of round 10.', 'all')
+# Garcia Hernandez 0/50: eight rounds
+B['garcia-hernandez']['turnLimit'] = 8
+obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': ['INFANTRY'], 'count': 2, 'byRound': 8}], 'Break two French infantry units by the end of round 8.')
+obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 8}], 'Three units leave by the French end by the end of round 8.')
+# Vitoria 50/100: France must get eight units away; Portugal two across
+obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 8, 'byRound': 12}], 'Eight units leave by the road to France (the French edge) by the end of round 12.')
+obj('vitoria', 'Portugal', [{'type': 'IN_AREA', 'area': 'north_bank', 'tag': 'ashworth', 'count': 2, 'atRound': 12}], 'Two units across the Zadorra at the end of round 12.')
+# Toulouse 25/75: one southern redoubt is enough
+obj('toulouse', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'south_redoubts', 'count': 1, 'atRound': 12}], 'Hold a southern redoubt at the end of round 12.')
+
 out = {'$comment': "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
        'schemaVersion': 1, 'campaign': 'peninsula', 'name': 'The Peninsula', 'years': '1808 to 1814',
        'intro': "1808. Napoleon has put his brother on the throne of Spain, and Spain has risen. Britain sends an army to Portugal. Six years of war across the Peninsula follow, from Bailén to the walls of Toulouse.",
