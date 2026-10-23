@@ -11,6 +11,13 @@
 ========================================================= */
 
 export const VARIANTS = {
+  /* The pulls towards a target (kill, finishing, converge) measured round the river (off by default: lost 21/33 to straight-line pulls). */
+  water_pulls: { WATER_PULLS: 1 },
+  /* Crossings in Quick Battles, and pouncing on turned-around enemies (ai-strategy). */
+  cross:        { CROSSING_QB: 1 },
+  cross_strong: { CROSSING_QB: 2 },
+  pounce:       { POUNCE: 1.5 },
+  cross_pounce: { CROSSING_QB: 1, POUNCE: 1.5 },
   /* Line discipline (ai-strategy): advance as a block, no lone units near the enemy. */
   line:        { LINE_DISCIPLINE: 1 },
   line_soft:   { LINE_DISCIPLINE: 1, LINE_AHEAD: 0.8, LINE_ALONE: 0.8 },

@@ -1,9 +1,9 @@
-import { squareBlockedByWater, waterDistance } from './engine-water.js';
+import { squareBlockedByWater, waterDistance, meleeBlocked } from './engine-water.js';
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
 import { stepGate, traceDecision, traceOn, traceTurn } from './ai-trace.js';
-import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus } from './ai-tactics.js';
+import { AI_UNIT_VALUE, cavalryThreatWithinCharge, evaluateState, findBoggedEnemyGun, findRaidableEnemyGun, findDefensiveRallyPoint, findVulnerableEnemyUnits, groundDenialBonus, isIsolatedAndThreatened, mutualSupportBonus, operationRole, rallyPointPullBonus, reserveCrisisExists, retreatToSupportBonus, roadSeekBonus, scenarioMoveBonus, screensGunBonus, supportCountFor, terrainSeekBonus, threatPenalty, vulnerableTargetPullBonus, crossingTerm } from './ai-tactics.js';
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state, unitNationName } from './data-core.js';
 import { otherSide } from './engine-objectives.js';
 import { zeroedSquares, homeRowOf, brigadierDisplacementCell, enemyBrigadierAt, isChargeMove as isChargeMoveRule, isVip, setTurnedAround, playFootMarch, playChargeSabres, artilleryTargets, chebyshev, combatBonuses, consumePloughEscort, hasLOS, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, movableUnitsForSide, neighbors8, resolveFight, stackPartner, terrainAt, unitBaseMove, unitsAt, volleyTargets, seededRandom } from './engine-rules.js';
@@ -4544,7 +4544,7 @@ export function aiDecideAndExecuteMove(u){
        unaffected. */
     if(seekTactics && !selfPreservation){
       const contact = contactPoint(side);
-      if(contact) s -= subScore(parts, 'convergeOnContact', chebyshev(c, contact) * CONVERGE_PULL);
+      if(contact) s -= subScore(parts, 'convergeOnContact', (tune(side, 'WATER_PULLS', 0) ? waterDistance(c, contact) : chebyshev(c, contact)) * CONVERGE_PULL);   // round the river
     }
 
     /* Closing on a Brigade that is one or two units from breaking. Applies to
@@ -4557,7 +4557,7 @@ export function aiDecideAndExecuteMove(u){
     if(!selfPreservation){
       const role = finishRoleFor(u, startX, startY);
       if(role){
-        const tgt = role.f.unit, d = chebyshev(c, tgt);
+        const tgt = role.f.unit, d = tune(side, 'WATER_PULLS', 0) ? waterDistance(c, tgt) : chebyshev(c, tgt);   // round the river
         const commit = role.f.wins ? FINISH_COMMIT_WINS : FINISH_COMMIT;
         if(role.kind === 'gun'){
           if(d >= 3 && d <= 4 && hasLOS(u, tgt)) s += addScore(parts, 'finishing', commit);
@@ -4572,7 +4572,7 @@ export function aiDecideAndExecuteMove(u){
     }
     if(seekTactics && !selfPreservation && !t.isArtillery){
       const kill = killTarget(side);
-      if(kill) s -= subScore(parts, 'killPull', chebyshev(c, kill.unit) * kill.worth);
+      if(kill) s -= subScore(parts, 'killPull', (tune(side, 'WATER_PULLS', 0) ? waterDistance(c, kill.unit) : chebyshev(c, kill.unit)) * kill.worth);   // round the river (stall probe 40105: straight-line pulls left a winning army stuck at the bank)
     }
 
     if(seekTactics && !holdingReserve && !preserving && !selfPreservation && !t.isArtillery){
@@ -5041,7 +5041,21 @@ export function aiDecideAndExecuteMove(u){
     else if(raidTarget) s -= subScore(parts, 'gunRaid',
       chebyshev(c, raidTarget) * tune(side, 'GUN_RAID_PULL', 0.15));
     // Operations: pull toward whatever the active scenario's objective actually rewards.
-    if(state.scenario) s += addScore(parts, 'scenario', scenarioMoveBonus(u, side, c));
+    /* An objective move that would cut the unit off its Brigadier counts for a
+       quarter (21 Oct 2026). In campaign battles the objective pull (up to about
+       30) swamped the leave-command penalty (2.4): the assault wave at Quatre
+       Bras ran ahead of Foy and Bachelu to the brook and froze there, cut off,
+       for the rest of the battle. A cohesionLoss on this candidate means the
+       square is off the chain. Quick Battles have no objective pull.
+       Measured and left OFF (1 = full value): at 0.25 the stuck decisions at
+       Quatre Bras fell to 15 to 33 a match but the French attacks collapsed
+       (Quatre Bras 88% -> 0%, Wavre 100% -> 13%); at 0.6 the attacks mostly
+       came back (63%, 88%) and so did the stuck decisions (18 to 35). Running
+       ahead of the Brigadier is what wins these attacks. */
+    if(state.scenario){
+      const sb = scenarioMoveBonus(u, side, c);
+      s += addScore(parts, 'scenario', parts.cohesionLoss ? sb * tune(side, 'OFF_CHAIN_OBJECTIVE', 1) : sb);
+    }
     // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,
     // on top of (not instead of) all the tactical bonuses above.
     /* The tempo multiplier scales the mission pull, so a Brigade advances hard
@@ -5109,6 +5123,32 @@ export function aiDecideAndExecuteMove(u){
       const setsUpFight = !c.stay && state.units.some(o=>!o.removed && o.side!==side && isAdjacent(c,o) && !isConcealedFromEnemy(o) && canAttackTarget(u,o));
       const committingReserve = (mission==='RESERVE' || mission==='FIX') && !c.stay && nearestEnemyDist(c,side) <= unitBaseMove(u)+1;
       if(isChargeMove || setsUpFight || committingReserve) s -= subScore(parts, 'lookahead', lookaheadMovePenalty(u, side) * 0.4);
+    }
+
+    /* CROSSINGS IN QUICK BATTLES (21 Oct 2026). With the River setting on,
+       every random map has a river, and AI against AI the armies sat two or
+       three squares apart across it, neither crossing (9 of 40 matches never
+       finished against the sparring bot, 21 of 40 against Alexander). The
+       campaign's crossing play (ai-tactics crossingTerm) now runs here too:
+       Brigades on the attack (MAIN_ATTACK, SUPPORT) head for the crossing that
+       is nearest, least crowded and least defended and seize its far end; the
+       rest hold the crossings on their own bank. The longer since anything left
+       the board, the harder the attackers push (x1 to x3). Variant 'cross'. */
+    if(state.water && !(state.scenario && state.scenario.judging === 'independent') && tune(side, 'CROSSING_QB', 0)){
+      const m = missionFor(u);
+      const attackingNow = m === 'MAIN_ATTACK' || m === 'SUPPORT';
+      const quiet = (state.turnNumber || 1) - (state._lastKillTurn || 0);
+      const kq = 1 + Math.min(2, Math.max(0, quiet) / 20);
+      s += addScore(parts, 'crossing', tune(side, 'CROSSING_QB', 0) * crossingTerm(u, side, c, attackingNow, attackingNow ? kq : 1));
+    }
+    /* POUNCE (21 Oct 2026, the sparring bot's best habit): an enemy that has
+       just been turned around gives its attacker +1, and the bot closed on such
+       units more often than we did (7.5 turned-around bonuses a match against
+       our 4.8). A square beside a turned-around enemy (not across open water)
+       is worth POUNCE. Variant 'pounce'. */
+    if(tune(side, 'POUNCE', 0) && !UNIT_TYPES[u.type].isArtillery && u.type !== 'BRIGADIER'){
+      const turned = state.units.some(e => !e.removed && e.side !== side && e.turnOnly && Math.max(Math.abs(e.x - c.x), Math.abs(e.y - c.y)) === 1 && !(state.water && meleeBlocked(c, e)));
+      if(turned) s += addScore(parts, 'pounce', tune(side, 'POUNCE', 0));
     }
 
     /* LINE DISCIPLINE (19 Oct 2026, from the sparring game and the bot):

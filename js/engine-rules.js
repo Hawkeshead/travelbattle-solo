@@ -1885,6 +1885,31 @@ export function removeUnit(u, reason){
   renderBrigadeStatus();
 }
 
+/* QUICK BATTLE ROUND LIMIT (Matthew, 21 Oct 2026). Two armies that will not
+   cross a river to each other could face off for ever, AI or human. A Quick
+   Battle now lasts at most QUICK_ROUND_LIMIT rounds; breaking two enemy
+   Brigades still wins at once. At the limit each side scores the points of
+   the enemy units it destroyed (Infantry 3, Guard 4, Light Cavalry 3, Heavy
+   Cavalry 4, Artillery 3, Brigadier 2) plus 5 for each enemy Brigade broken;
+   the higher score wins and equal scores are a drawn battle. Not for
+   Operations, campaign battles, map battles or Online Group, which have their
+   own endings. */
+export const QUICK_ROUND_LIMIT = 40;   // AI against AI the median Quick Battle lasts about 30 rounds; 40 lets real battles finish and ends standoffs
+const UNIT_POINTS = { INFANTRY: 3, GUARD: 4, LIGHT_CAV: 3, HEAVY_CAV: 4, ARTILLERY: 3, BRIGADIER: 2 };
+export function quickRoundLimit(){
+  return (!state.scenario && !state.group && !state.mapBattle && !state.campaign) ? QUICK_ROUND_LIMIT : 0;
+}
+export function quickPoints(side){
+  const foe = side === SIDES.RED ? SIDES.BLUE : SIDES.RED;
+  const lost = state.units.filter(u => u.side === foe && u.removed && !u.escaped);
+  let pts = lost.reduce((n, u) => n + (UNIT_POINTS[u.type] || 0), 0);
+  const ids = [...new Set(state.units.filter(u => u.side === foe).map(u => u.brigadeId))];
+  for(const b of ids){
+    const fighters = state.units.filter(u => u.side === foe && u.brigadeId === b && u.type !== 'BRIGADIER');
+    if(fighters.length && fighters.every(u => u.removed)) pts += 5;
+  }
+  return pts;
+}
 export function checkWinCondition(){
   if(state.replaying) return;
   if(state.scenario){ checkScenarioObjective(); return; }

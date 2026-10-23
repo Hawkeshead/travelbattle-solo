@@ -633,7 +633,8 @@
         "type": "area",
         "area": "prussian_start"
        },
-       "tag": "blucher"
+       "tag": "blucher",
+       "commander": "Blücher"
       },
       {
        "name": "Pirch",
@@ -649,7 +650,8 @@
        "placement": {
         "type": "area",
         "area": "prussian_start"
-       }
+       },
+       "commander": "Pirch"
       },
       {
        "name": "Thielmann",
@@ -678,7 +680,8 @@
           "count": 1
          }
         ]
-       }
+       },
+       "commander": "Thielmann"
       }
      ],
      "role": "hold"
@@ -716,7 +719,8 @@
        "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Vandamme"
       },
       {
        "name": "Gérard",
@@ -732,7 +736,8 @@
        "note": "Brigadier, Infantry x2, Heavy Cavalry, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Gérard"
       },
       {
        "name": "Imperial Guard",
@@ -749,7 +754,8 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "guard"
+       "tag": "guard",
+       "commander": "Drouot"
       }
      ],
      "role": "attack"
@@ -1539,7 +1545,8 @@
        "placement": {
         "type": "area",
         "area": "st_amand"
-       }
+       },
+       "commander": "Steinmetz"
       },
       {
        "name": "Tippelskirch",
@@ -1555,7 +1562,8 @@
        "placement": {
         "type": "area",
         "area": "rear"
-       }
+       },
+       "commander": "Tippelskirch"
       }
      ],
      "role": "hold"
@@ -1590,7 +1598,8 @@
        "note": "Brigadier, Infantry x3, Artillery (+Infantry, Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Vandamme"
       },
       {
        "name": "Young Guard (Duhesme), arrives round 4 on row 1",
@@ -1608,7 +1617,8 @@
        "tag": "young_guard",
        "arrives": {
         "round": 3
-       }
+       },
+       "commander": "Duhesme"
       }
      ],
      "role": "attack"
@@ -2044,7 +2054,8 @@
         ]
        },
        "tag": "blucher",
-       "pinCommanderUntil": 3
+       "pinCommanderUntil": 3,
+       "commander": "Blücher"
       }
      ],
      "role": "hold"
@@ -2081,7 +2092,8 @@
        "placement": {
         "type": "area",
         "area": "french_start"
-       }
+       },
+       "commander": "Milhaud"
       }
      ],
      "role": "attack"
@@ -3116,7 +3128,14 @@
         "type": "area",
         "area": "allied_start"
        },
-       "tag": "perponcher"
+       "tag": "perponcher",
+       "commander": "Perponcher",
+       "names": [
+        null,
+        "27th Jäger Battalion",
+        "7th Dutch Line",
+        null
+       ]
       },
       {
        "name": "Picton, round 3",
@@ -3136,7 +3155,15 @@
        "arrives": {
         "round": 5,
         "area": "brussels_road"
-       }
+       },
+       "commander": "Picton",
+       "names": [
+        null,
+        "42nd Black Watch",
+        "44th East Essex",
+        "28th North Gloucestershire",
+        "92nd Gordon Highlanders"
+       ]
       },
       {
        "name": "Brunswick, round 5",
@@ -3155,7 +3182,14 @@
        "arrives": {
         "round": 5,
         "area": "brussels_road"
-       }
+       },
+       "commander": "Duke of Brunswick",
+       "names": [
+        null,
+        "Brunswick Leib Battalion",
+        "Brunswick Avantgarde",
+        "Brunswick Hussars"
+       ]
       }
      ],
      "role": "hold"
@@ -3201,7 +3235,8 @@
        "note": "Brigadier, Infantry x3, Artillery (+Infantry for balance) (+Infantry x2 for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Bachelu"
       },
       {
        "name": "Foy",
@@ -3217,7 +3252,8 @@
        "note": "Brigadier, Infantry x3, Light Cavalry (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Foy"
       },
       {
        "name": "Kellermann, round 4",
@@ -3235,7 +3271,14 @@
        "tag": "kellermann",
        "arrives": {
         "round": 2
-       }
+       },
+       "commander": "Kellermann",
+       "names": [
+        null,
+        "8e Cuirassiers",
+        "11e Cuirassiers",
+        null
+       ]
       }
      ],
      "role": "attack"
@@ -3478,7 +3521,16 @@
         "type": "area",
         "area": "allied"
        },
-       "tag": "halkett"
+       "tag": "halkett",
+       "commander": "Colin Halkett",
+       "names": [
+        null,
+        "69th South Lincolnshire",
+        "33rd West Riding",
+        "30th Cambridgeshire",
+        "73rd Highland",
+        null
+       ]
       }
      ],
      "role": "hold"
@@ -3519,7 +3571,15 @@
        "placement": {
         "type": "edge"
        },
-       "tag": "kellermann"
+       "tag": "kellermann",
+       "commander": "Kellermann",
+       "names": [
+        null,
+        null,
+        "8e Cuirassiers",
+        "11e Cuirassiers",
+        null
+       ]
       }
      ],
      "role": "attack"
@@ -4246,7 +4306,8 @@
        "placement": {
         "type": "area",
         "area": "rearguard_start"
-       }
+       },
+       "commander": "Vivian"
       },
       {
        "name": "Uxbridge",
@@ -4262,7 +4323,8 @@
        "placement": {
         "type": "area",
         "area": "heights"
-       }
+       },
+       "commander": "Uxbridge"
       }
      ],
      "role": "escape"
@@ -4297,7 +4359,8 @@
        "note": "Brigadier, Light Cavalry x3, Heavy Cavalry (+Light Cav for balance) (+Light Cavalry)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Subervie"
       },
       {
        "name": "Advance guard",
@@ -4311,7 +4374,8 @@
        "note": "Brigadier, Infantry x2, Artillery",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Napoleon"
       }
      ],
      "role": "attack"
@@ -5045,7 +5109,8 @@
        "placement": {
         "type": "area",
         "area": "wavre"
-       }
+       },
+       "commander": "Thielmann"
       },
       {
        "name": "Stulpnagel",
@@ -5060,7 +5125,8 @@
        "placement": {
         "type": "area",
         "area": "prussian_start"
-       }
+       },
+       "commander": "Stülpnagel"
       }
      ],
      "role": "hold"
@@ -5095,7 +5161,8 @@
        "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Vandamme"
       },
       {
        "name": "Gérard",
@@ -5111,7 +5178,8 @@
        "note": "Brigadier, Infantry x3, Artillery (+Artillery for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Gérard"
       },
       {
        "name": "Pajol",
@@ -5125,7 +5193,8 @@
        "note": "Brigadier, Light Cavalry x2, Heavy Cavalry",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Pajol"
       }
      ],
      "role": "attack"
@@ -5302,7 +5371,15 @@
         "type": "area",
         "area": "outworks"
        },
-       "tag": "macdonell"
+       "tag": "macdonell",
+       "commander": "Macdonell",
+       "names": [
+        null,
+        "1st Battalion, 2nd Nassau",
+        "Coldstream Guards",
+        "3rd Foot Guards",
+        "Bull's Troop RHA"
+       ]
       }
      ],
      "role": "hold"
@@ -5339,7 +5416,16 @@
        "note": "Brigadier, Infantry x4, Artillery",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Jérôme",
+       "names": [
+        null,
+        "1er Léger",
+        "2e Léger",
+        "1er Ligne",
+        "3e Ligne",
+        null
+       ]
       }
      ],
      "role": "attack"
@@ -5576,7 +5662,13 @@
         "type": "area",
         "area": "baring_start"
        },
-       "tag": "baring"
+       "tag": "baring",
+       "commander": "Baring",
+       "names": [
+        null,
+        "2nd Light Battalion KGL",
+        "1st Light Battalion KGL"
+       ]
       },
       {
        "name": "Kempt",
@@ -5592,7 +5684,14 @@
         "type": "area",
         "area": "kempt_start"
        },
-       "tag": "kempt"
+       "tag": "kempt",
+       "commander": "Kempt",
+       "names": [
+        null,
+        "95th Rifles",
+        "28th North Gloucestershire",
+        null
+       ]
       }
      ],
      "role": "hold"
@@ -5627,7 +5726,8 @@
        "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Donzelot"
       },
       {
        "name": "Travers",
@@ -5640,7 +5740,8 @@
        "note": "Brigadier, Heavy Cavalry x2",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Travers"
       }
      ],
      "role": "attack"
@@ -5920,7 +6021,8 @@
         "type": "area",
         "area": "hamlets"
        },
-       "tag": "nassau"
+       "tag": "nassau",
+       "commander": "Saxe-Weimar"
       }
      ],
      "role": "hold"
@@ -5959,7 +6061,8 @@
        "arrives": {
         "round": 6,
         "area": "east_edge"
-       }
+       },
+       "commander": "Zieten"
       }
      ],
      "role": "hold"
@@ -5993,7 +6096,8 @@
        "note": "Brigadier, Infantry x4, Artillery (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Durutte"
       },
       {
        "name": "Jacquinot",
@@ -6006,7 +6110,8 @@
        "note": "Brigadier, Light Cavalry x2",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Jacquinot"
       }
      ],
      "role": "attack"
@@ -6420,7 +6525,8 @@
        "placement": {
         "type": "area",
         "area": "prussian_start"
-       }
+       },
+       "commander": "Hiller"
       },
       {
        "name": "Ryssel",
@@ -6437,7 +6543,8 @@
        "placement": {
         "type": "area",
         "area": "prussian_start"
-       }
+       },
+       "commander": "Ryssel"
       }
      ],
      "role": "attack"
@@ -6468,7 +6575,8 @@
        "placement": {
         "type": "area",
         "area": "village"
-       }
+       },
+       "commander": "Lobau"
       },
       {
        "name": "Duhesme (Young Guard)",
@@ -6494,7 +6602,8 @@
          ],
          "round": 6
         }
-       ]
+       ],
+       "commander": "Duhesme"
       }
      ],
      "role": "hold"
@@ -7309,13 +7418,22 @@
         "type": "area",
         "area": "allied_start"
        },
-       "tag": "maitland"
+       "tag": "maitland",
+       "commander": "Maitland",
+       "names": [
+        null,
+        null,
+        null,
+        "2nd Battalion, 1st Foot Guards",
+        "3rd Battalion, 1st Foot Guards",
+        null
+       ]
       },
       {
        "name": "Picton and Ponsonby",
        "units": [
         "BRIGADIER",
-        "INFANTRY",
+        "GUARD",
         "INFANTRY",
         "HEAVY_CAV",
         "HEAVY_CAV",
@@ -7327,7 +7445,16 @@
         "type": "area",
         "area": "allied_start"
        },
-       "tag": "picton"
+       "tag": "picton",
+       "commander": "Picton",
+       "names": [
+        null,
+        "92nd Gordon Highlanders",
+        "42nd Black Watch",
+        "Scots Greys",
+        "Inniskilling Dragoons",
+        null
+       ]
       }
      ],
      "role": "hold"
@@ -7367,7 +7494,8 @@
        "arrives": {
         "round": 6,
         "area": "east_edge"
-       }
+       },
+       "commander": "Bülow"
       }
      ],
      "role": "hold"
@@ -7406,7 +7534,8 @@
        "note": "Brigadier, Infantry x3, Artillery x2 (+Infantry for balance)",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "Reille"
       },
       {
        "name": "d'Erlon and Milhaud",
@@ -7422,7 +7551,8 @@
        "note": "Brigadier, Infantry x3, Heavy Cavalry x2",
        "placement": {
         "type": "edge"
-       }
+       },
+       "commander": "d'Erlon"
       },
       {
        "name": "Imperial Guard",
@@ -7439,7 +7569,8 @@
         "type": "edge"
        },
        "tag": "napoleon",
-       "lockedUntil": 7
+       "lockedUntil": 7,
+       "commander": "Napoleon"
       }
      ],
      "role": "attack"
@@ -8426,7 +8557,8 @@
        "placement": {
         "type": "area",
         "area": "prussian_start"
-       }
+       },
+       "commander": "Gneisenau"
       }
      ],
      "role": "attack"
@@ -8461,7 +8593,8 @@
         "type": "area",
         "area": "french_start"
        },
-       "tag": "napoleon"
+       "tag": "napoleon",
+       "commander": "Napoleon"
       }
      ],
      "role": "escape"

@@ -1,3 +1,4 @@
+import { showObjectivePanel } from './operation-panel.js';
 import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
 import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
@@ -15,8 +16,8 @@ import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinish
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, friendlyAiCommands, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
 import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
 import { presentRollTrigger, showDice } from './dice.js';
-import { scenarioRoundEnded } from './engine-objectives.js';
-import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets } from './engine-rules.js';
+import { scenarioRoundEnded, endOnPoints } from './engine-objectives.js';
+import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets, quickRoundLimit } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -108,7 +109,9 @@ export const VOLLEY_COMMAND = {
 export function startBattle(){
   document.documentElement.classList.add('title-away');   // a battle is under way: the title screen is gone, the dials are shown
   document.getElementById('overlay').classList.remove('show');
+  state.pointsResult = null;   // a new battle: no points verdict yet (Quick Battle round limit)
   state.matchLog = [];
+  if(!state.scenario && quickRoundLimit()) showObjectivePanel();   // the round plaque, 'Round X of 20'
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
   if(state.group){
     // Group: one army at a time, alternating teams, in an order rolled now and
@@ -1006,6 +1009,8 @@ export function endFightPhase(){
     /* Operations: a round is both sides' turns, so one has just ended when the
        side-turn count is now odd again (the round's first side is about to move). */
     if(state.scenario && !state.gameOver && (state.turnNumber - 1) % 2 === 0) scenarioRoundEnded((state.turnNumber - 1) / 2);
+    /* Quick Battle round limit (engine-rules QUICK_ROUND_LIMIT): decided on points. */
+    if(!state.scenario && !state.gameOver && quickRoundLimit() && (state.turnNumber - 1) % 2 === 0 && (state.turnNumber - 1) / 2 >= quickRoundLimit()) endOnPoints();
     if(!state.gameOver) beginMovePhase();
   }, 300);
 }
