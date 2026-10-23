@@ -185,9 +185,14 @@ function roundGate(side, c, ctx, here){
 export function listLatched(side, ctx){
   const w = W.card.win && W.card.win[SIDE_KEY[side]];
   if(!w) return false;
+  return latchList(side, w, SIDE_KEY[side] + ':L:', ctx);
+}
+/* The same for any objective list, its latches kept under `prefix` (an
+   allied nation's: 'british:A:Prussia:'). */
+export function latchList(side, w, prefix, ctx){
   const conds = w.conditions || [];
   const done = conds.map((c, i) => {
-    const key = SIDE_KEY[side] + ':L:' + i;
+    const key = prefix + i;
     if(!W.streaks[key] && (ctx.endOfRound || INSTANT.has(c.type)) && CONDITIONS[c.type](side, c, ctx)) W.streaks[key] = ctx.round || 1;
     return !!W.streaks[key];
   });

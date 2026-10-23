@@ -52,3 +52,14 @@ test('conditionProgress counts what the objective panel shows', async () => {
   assert.deepEqual(conditionProgress('red', { type: 'BREAK_BRIGADES', count: 1 }), { have: 1, need: 1 });
   assert.equal(conditionProgress('red', { type: 'DESTROY', count: 1 }), null);
 });
+
+test('an allied objective latches under its own key', async () => {
+  const { latchList } = await import('../js/objective-core.js');
+  const streaks = {};
+  const ally = { combinator: 'any', conditions: [{ type: 'NEXT_TO', tag: 'zieten', nextTo: 'nassau', count: 1, atRound: 8 }] };
+  useWorld({ card, streaks, units: [u('p', 'red', 'INFANTRY', 3, 3, { storyTag: 'zieten' }), u('n', 'red', 'INFANTRY', 4, 4, { storyTag: 'nassau' })] });
+  assert.equal(latchList('red', ally, 'british:A:Prussia:', { endOfRound: true, round: 7 }), false);   // not yet its round
+  assert.equal(latchList('red', ally, 'british:A:Prussia:', end), true);
+  assert.equal(streaks['british:A:Prussia:0'], 8);
+  assert.equal(streaks['british:L:0'], undefined);                                                       // the side's own objective untouched
+});

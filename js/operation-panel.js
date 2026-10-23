@@ -8,7 +8,7 @@
    sides' objectives in full with their status; tap again to fold it.
 ========================================================= */
 import { SIDES, state } from './data-core.js';
-import { canEndBattleEarly, currentRound, endBattleEarly, objectiveStatusLine, sideKey } from './engine-objectives.js';
+import { allyObjectives, canEndBattleEarly, currentRound, endBattleEarly, objectiveStatusLine, sideKey } from './engine-objectives.js';
 import { quickPoints, quickRoundLimit } from './engine-rules.js';
 
 let el = null, open = false, timer = null, armedUntil = 0;
@@ -59,12 +59,15 @@ function render(){
   const me = playerSide(), them = me === SIDES.RED ? SIDES.BLUE : SIDES.RED;
   const block = (side, mine) => `<div class="opp-side${mine ? ' mine' : ''}"><div class="opp-who">${label(side)}${mine ? ' (you)' : ''}</div>` +
     `<div class="opp-text">${sc.win[sideKey(side)].text}</div><div class="opp-status">${objectiveStatusLine(side)}</div></div>`;
+  // An allied nation's own objective (Papelotte: Zieten's Prussians), led by the AI and deciding nothing.
+  const allied = side => allyObjectives(side).map(a => `<div class="opp-side ally"><div class="opp-who">${a.nation} (allied AI)</div>` +
+    `<div class="opp-text">${a.text}</div><div class="opp-status">${objectiveStatusLine(side, a)}</div></div>`).join('');
   if(state.turnNumber !== shownForTurn){ shownForTurn = state.turnNumber; showUntil = Date.now() + SHOW_MS; open = false; }
   const round = `Round ${Math.min(currentRound(), sc.turnLimit)} of ${sc.turnLimit}`;
   const tab = !open && Date.now() > showUntil;
   el.classList.toggle('tab', tab);
   el.innerHTML = open
-    ? `<div class="opp-round">${round}</div>` + block(me, true) + block(them, false)
+    ? `<div class="opp-round">${round}</div>` + block(me, true) + allied(me) + block(them, false) + allied(them)
     : tab ? `<div class="opp-round">${round}</div>`
     : `<div class="opp-round">${round} · ${label(me)}</div><div class="opp-status">${objectiveStatusLine(me)}</div>`;
   el.classList.toggle('open', open);

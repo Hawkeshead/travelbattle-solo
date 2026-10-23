@@ -99,7 +99,7 @@ export function setupOperation(cardOrId, playerSide){
   });
   state.campaign = null;
   state.mapBattle = null;   // an Operation is never a campaign map battle
-  state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {}; state.scenarioAchieved = {};
+  state.scenarioResult = null; state.scenarioRounds = []; state.scenarioStreaks = {}; state.scenarioAchieved = {}; state.scenarioAllyAchieved = {};
   resetAiMemory();   // nothing of the last match's AI carries into this one
   state.gameOver = false; state.winner = null;
   state.turnNumber = 1;

@@ -2,7 +2,7 @@ import { quickPoints, quickRoundLimit } from './engine-rules.js';
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
 import { campaignContext, campaignFinished, recordResult } from './campaign-play.js';
 import { clearSave } from './match-save.js';
-import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listLatched as coreListLatched, conditionProgress as coreProgress, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
+import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listLatched as coreListLatched, conditionProgress as coreProgress, latchList as coreLatchList, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
@@ -109,7 +109,25 @@ function latchAchieved(ctx){
     log(`${SIDE_LABEL[side]} ${achieves(side)} ${its(side)} objective (round ${ctx.round}).`, 'system');
     logReplay('objectiveMet', { side, round: ctx.round });
   }
+  // Allied nations' objectives: latched and logged the same way, deciding nothing.
+  const allyGot = state.scenarioAllyAchieved = state.scenarioAllyAchieved || {};
+  for(const side of [SIDES.RED, SIDES.BLUE]) for(const a of allyObjectives(side)){
+    const key = allyKey(side, a);
+    if(allyGot[key]) continue;
+    world();
+    if(!coreLatchList(side, a, key + ':', ctx)) continue;
+    allyGot[key] = ctx.round;
+    log(`${a.nation} (allied) achieves its objective (round ${ctx.round}).`, 'system');
+    logReplay('allyObjectiveMet', { side, nation: a.nation, round: ctx.round });
+  }
 }
+/* A side's allied nations' objectives (story.js card.allies), and the key their
+   latches and result are kept under. */
+export function allyObjectives(side){
+  const sc = state.scenario;
+  return (independent() && sc.allies && sc.allies[SIDE_KEY[side]]) || [];
+}
+const allyKey = (side, a) => `${SIDE_KEY[side]}:A:${a.nation}`;
 /* "Britain and Prussia did not achieve its objective" read wrongly: a side
    named for two nations takes "their" (and "achieve", not "achieves"). */
 const plural = side => / and /.test(SIDE_LABEL[side]);
@@ -129,7 +147,10 @@ function finishIndependent(round, how){
     }
   }
   const words = side => `${SIDE_LABEL[side]} ${got[side] ? `achieved ${its(side)} objective (round ${got[side]})` : `did not achieve ${its(side)} objective`}`;
-  const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : how === 'early' ? `; the battle was ended in round ${round}` : ''}`;
+  const allyGot = state.scenarioAllyAchieved || {};
+  const allies = [SIDES.RED, SIDES.BLUE].flatMap(side => allyObjectives(side).map(a => ({ nation: a.nation, side, round: allyGot[allyKey(side, a)] || null })));
+  const allyWords = allies.map(a => `; ${a.nation} (allied) ${a.round ? `achieved its objective (round ${a.round})` : 'did not achieve its objective'}`).join('');
+  const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${allyWords}${how === 'wiped' ? ', and the field is cleared' : how === 'early' ? `; the battle was ended in round ${round}` : ''}`;
   // The banner names a side: the one that met its objective while the other did
   // not; if both or neither did, the human player's side (or red) is named and
   // the result line says what happened to each.
@@ -138,7 +159,7 @@ function finishIndependent(round, how){
      failed. Now nobody is named; the screen says neither side prevailed. */
   const human = state.aiSide ? otherSide(state.aiSide) : SIDES.RED;
   const winner = got[SIDES.RED] && !got[SIDES.BLUE] ? SIDES.RED : got[SIDES.BLUE] && !got[SIDES.RED] ? SIDES.BLUE : got[SIDES.RED] ? human : null;
-  state.scenarioResult = { winner, reason, round, achieved: { red: !!got[SIDES.RED], blue: !!got[SIDES.BLUE] } };
+  state.scenarioResult = { winner, reason, round, achieved: { red: !!got[SIDES.RED], blue: !!got[SIDES.BLUE] }, allies };
   log(reason + '.', 'system');
   logReplay('scenarioResult', { winner, reason, round, achieved: state.scenarioResult.achieved });
   endGame(winner);
@@ -209,9 +230,10 @@ function recordRoundStatus(round){
 }
 
 /* A one-line live status of a side's objective, for the objective panel. */
-export function objectiveStatusLine(side){
+export function objectiveStatusLine(side, ally = null){
   if(!state.scenario || !state.scenario.win) return '';
-  const w = state.scenario.win[SIDE_KEY[side]];
+  const w = ally || state.scenario.win[SIDE_KEY[side]];
+  const prefix = ally ? allyKey(side, ally) + ':' : SIDE_KEY[side] + ':L:';   // where each part's latch is kept
   const parts = [];
   for(const c of (w.conditions || [])){
     if(/AREA$/.test(c.type)){
@@ -223,9 +245,9 @@ export function objectiveStatusLine(side){
     } else if(c.type === 'DESTROY'){
       parts.push(`Destroyed: ${destroyedCount(side, c.unitTypes)} of ${c.count}${c.unitTypes && c.unitTypes.length ? ' ' + c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') : ''}`);
     } else if(c.type === 'COMMANDER' || c.type === 'COMMANDER_REMOVED'){
-      parts.push(commanderStatus(side, c, w.conditions.indexOf(c)));
+      parts.push(commanderStatus(side, c, prefix + w.conditions.indexOf(c)));
     } else if(coreProgressOf(side, c)){
-      parts.push(countStatus(side, c, w.conditions.indexOf(c)));
+      parts.push(countStatus(side, c, prefix + w.conditions.indexOf(c)));
     } else if(c.type === 'ENTERED'){
       const done = state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':ENTERED:' + c.area];
       const late = !done && c.byRound && currentRound() > c.byRound;
@@ -252,7 +274,7 @@ function coreProgressOf(side, c){ world(); return coreProgress(side, c); }
 /* A count objective in plain words, with when it counts, and a warning in
    the last two rounds before it counts while it is short (Papelotte: two
    hamlet squares held of the three needed, and nothing on screen said so). */
-function countStatus(side, c, i){
+function countStatus(side, c, latch){
   const { have, need } = coreProgressOf(side, c);
   const n = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`;
   const [label, held] = {
@@ -263,7 +285,7 @@ function countStatus(side, c, i){
     BRIGADES_UNBROKEN: () => ['Brigades unbroken', String(have)],
     BREAK_BRIGADES: () => ['Enemy Brigades broken', String(have)],
   }[c.type]();
-  const done = !!(independent() && state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]);
+  const done = !!(independent() && state.scenarioStreaks && state.scenarioStreaks[latch]);
   if(done) return `${label}: ${held} \u2713`;
   const round = currentRound(), at = c.atRound;
   if(at && round > at) return `${label}: ${held}, ${need} needed (counted at round ${at}: not met)`;
@@ -279,8 +301,8 @@ function countStatus(side, c, i){
    independently judged battle is ticked. */
 const commanderOf = tag => state.units.find(u => u.storyTag === tag && u.type === 'BRIGADIER');
 const commanderName = tag => { const u = commanderOf(tag); return (u && u.historicalName) || cap(tag); };
-function commanderStatus(side, c, i){
-  const done = !!(state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]);
+function commanderStatus(side, c, latch){
+  const done = !!(state.scenarioStreaks && state.scenarioStreaks[latch]);
   const u = commanderOf(c.tag), name = commanderName(c.tag), alive = !!u && !u.removed;
   if(c.type === 'COMMANDER_REMOVED') return alive ? `${name}: still in the field` : `${name}: taken \u2713`;
   if(!alive) return `${name}: lost`;

@@ -79,6 +79,13 @@ export function storyToCard(battle, playerNation, campaign = 'story'){
     turnLimit: battle.turnLimit,
     forces: { british: forcesFor(coalition), french: forcesFor(french) },
     win: { british: winFor(lead), french: winFor(french[0]) },
+    /* ALLIED OBJECTIVES (23 Oct 2026, Papelotte): a nation on the field that
+       is neither the player's nor the side's lead kept its objective only in
+       the story file, so Zieten's Prussians never sought the Nassauers. Each
+       is carried here: judged and reported, pursued by its own AI-led
+       Brigades, but never what decides the battle or the campaign. */
+    allies: { british: coalition.filter(n => n !== lead).map(n => Object.assign({ nation: n }, winFor(n))).filter(a => a.conditions.length),
+      french: french.slice(1).map(n => Object.assign({ nation: n }, winFor(n))).filter(a => a.conditions.length) },
     specialRules: {},
     storyRules: { layout: battle.layout, needs: battle.needs || [], notes: battle.special || '', rules: battle.rules || {} },   // the campaign's own rules, applied as the engine gains them
     ifBothMet: null, ifTimeExpires: null,
