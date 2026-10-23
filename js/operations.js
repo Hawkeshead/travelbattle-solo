@@ -211,10 +211,19 @@ export function bringReinforcements(side){
   const areas = (state.scenario && state.scenario.map && state.scenario.map.areas) || {};
   const free = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows && !state.units.some(o => !o.removed && o.x === x && o.y === y);
   let arrived = 0;
+  /* A Brigade arrives TOGETHER (found 21 Oct 2026: Kellermann's cuirassiers at
+     Quatre Bras spent 14 to 25 decisions a match cut off). Its Brigadier comes
+     on first, then each of his units takes the free arrival square nearest
+     him, so the chain is whole from the first turn. Units whose Brigadier is
+     already on the field (arrivals joining a Brigade) close on him too. */
+  due.sort((a, b) => (a.unit.type === 'BRIGADIER' ? 0 : 1) - (b.unit.type === 'BRIGADIER' ? 0 : 1));
   for(const r of due){
     const home = side === SIDES.RED ? rows - 1 : 0;
+    const brig = r.unit.type === 'BRIGADIER' ? null
+      : state.units.find(o => !o.removed && o.side === side && o.type === 'BRIGADIER' && o.brigadeId === r.unit.brigadeId);
+    const near = c => brig ? Math.max(Math.abs(c.x - brig.x), Math.abs(c.y - brig.y)) * 100 + Math.abs(c.x - cols / 2) : Math.abs(c.x - cols / 2);
     const cells = (r.area && areas[r.area] ? areas[r.area].map(([x, y]) => ({ x, y })) : Array.from({ length: cols }, (_, x) => ({ x, y: home })))
-      .filter(c => free(c.x, c.y)).sort((a, b) => Math.abs(a.x - cols / 2) - Math.abs(b.x - cols / 2));
+      .filter(c => free(c.x, c.y)).sort((a, b) => near(a) - near(b));
     if(!cells.length) continue;
     r.unit.x = cells[0].x; r.unit.y = cells[0].y;
     r.unit._arrivedRound = round;   // the round it came on (mistaken identity, engine-rules)
