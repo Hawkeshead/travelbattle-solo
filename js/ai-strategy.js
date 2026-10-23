@@ -2690,7 +2690,12 @@ export function orderAiUnitsForMove(side){
     if(u.type==='BRIGADIER') return PHASE_BRIGADIER;
     return connected.has(u.id) ? PHASE_CONNECTED : PHASE_CUTOFF;
   };
+  /* BRIGADIER LAST (21 Oct 2026, behind BRIG_LAST): in a Brigade on the
+     attack, the Brigadier moves AFTER his units and closes up behind them, so
+     he follows the assault instead of placing himself before it moves. */
+  const brigLast = u => u.type==='BRIGADIER' && tune(side, 'BRIG_LAST', 0) && ATTACK_MISSIONS.has(missionFor(u));
   const chainDepth = u => {
+    if(brigLast(u)) return Infinity;
     if(u.type==='BRIGADIER') return -Infinity;
     const brig = brigadierOf[u.brigadeId];
     return brig ? -chebyshev(u, brig) : 0;   // negated, so furthest sorts first
@@ -4266,7 +4271,23 @@ export function aiDecideAndExecuteMove(u){
            collecting it stays the errand it always was. */
         const anchor = recovering || brigadeMates.reduce((best,o)=>
           nearestEnemyDist(o, side) < nearestEnemyDist(best, side) ? o : best, brigadeMates[0]);
-        const gap = chebyshev(c, anchor);
+        /* LEAD THE ADVANCE (21 Oct 2026, behind BRIG_LEAD). The Brigadier moves
+           first in his Brigade and trails his most forward unit where it stands
+           NOW; then it advances a square and the front of the assault steps off
+           his chain (Quatre Bras: battalions frozen at the brook, beyond Foy and
+           Bachelu). When his Brigade is attacking, he trails where that unit will
+           be: one square on towards its nearest enemy. Not while recovering a
+           cut-off unit, and not once the front unit is already in contact. */
+        let aim = anchor;
+        if(!recovering && tune(side, 'BRIG_LEAD', 0) && ATTACK_MISSIONS.has(missionFor(u))){
+          let foe = null, fd = Infinity;
+          for(const e of state.units){
+            if(e.removed || e.side === side || e.type === 'BRIGADIER') continue;
+            const d = chebyshev(anchor, e); if(d < fd){ fd = d; foe = e; }
+          }
+          if(foe && fd > 1) aim = { x: anchor.x + Math.sign(foe.x - anchor.x), y: anchor.y + Math.sign(foe.y - anchor.y) };
+        }
+        const gap = chebyshev(c, aim);
         /* RECOVERY NEEDS ADJACENCY, NOT PROXIMITY. The normal band holds him one
            to two squares behind the line, which is right for a Brigadier
            following an advance and useless for freeing a cut-off unit: the
