@@ -148,3 +148,203 @@ MAPS['talavera'] = dict(layout='standard',
              bridges=[dict(squares=[[11,4],[11,5]], art='wooden')]),
   places=[["Cerro de Medellín", 16.5, 8.6, 'feature'], ["Pajar de Vergara", 9.6, 5.6, 'town'], ["Talavera", 1.5, 9.5, 'town'],
           ["the Portiña", 4.5, 4.45, 'water'], ["the Cascajal", 15.5, 0.4, 'feature']])
+
+# ---- batch 2 ----
+def roadgrid(*paths):
+    g = [['.'] * 20 for _ in range(10)]
+    for path in paths:
+        for (x0, y0), (x1, y1) in zip(path, path[1:]):
+            if x0 == x1:
+                for y in range(min(y0, y1), max(y0, y1) + 1): g[y][x0] = '='
+            else:
+                for x in range(min(x0, x1), max(x0, x1) + 1): g[y0][x] = '='
+    return [''.join(r) for r in g]
+
+MAPS['ocana'] = dict(layout='standard',
+  terrain=["....................",
+           "....::..........::..",
+           "....................",
+           "...................."  ,
+           "....................",
+           ".........::.........",
+           "....................",
+           "....::.........::...",
+           ".........###........",
+           "........#####......."],
+  roads=roadgrid([(10,0),(10,4),(13,4),(13,7),(10,7),(10,9)]),
+  river=dict(kind='brook', course=[[-0.2,6],[20.2,6]], fords=[[4.2,6.8,5.6,6.4],[12.2,14.8,5.6,6.4]], bridges=[]),
+  places=[["Ocaña", 10.5, 7.45, 'town'], ["the ravine", 9, 6.45, 'water'], ["to Aranjuez", 11.5, 0.4, 'feature'],
+          ["the open plain", 4.5, 3.5, 'feature']])
+
+MAPS['coa'] = dict(layout='corridor',
+  terrain=["##..::..**..^^.^^^^.",
+           "##..::..**....^.^^^^",
+           "....::.....:...^.^^.",
+           "..::..**.......^^...",
+           "....................",
+           "..::..**.......^^...",
+           "....::.....:...^.^^.",
+           "....::..**....^.^^^^",
+           "....::..**..^^.^^^^.",
+           "...................."],
+  roads=roadgrid([(0,4),(19,4)]),
+  river=dict(kind='river', course=[[13,-0.2],[13,10.2]], fords=[], bridges=[dict(squares=[[12,4],[13,4]], art='single-arch')]),
+  places=[["Almeida", 1, 0.45, 'town'], ["the Côa", 13.3, 1.5, 'water'], ["the gorge", 15.5, 7.5, 'feature'],
+          ["vineyards and walls", 6, 2.5, 'feature']])
+
+MAPS['bussaco'] = dict(layout='standard',
+  terrain=["....................",
+           "....::.......::.....",
+           "....................",
+           "........:::.........",
+           "....................",
+           ".....#..............",
+           "^^^^^^^^^^^^^^^^****",
+           "^^^^^^^^^^^^^^^^*#**",
+           "^^^^^^^^^^^^^^^^****",
+           "...................."],
+  roads=roadgrid([(3,0),(3,9)], [(15,0),(15,9)]),
+  river=None,
+  places=[["the Bussaco ridge", 9, 7.5, 'feature'], ["the convent", 17.5, 8.6, 'town'], ["Sula", 5.5, 4.6, 'town'],
+          ["San Antonio de Cantaro", 3.5, 2.5, 'town'], ["to Mortágua", 16.6, 0.4, 'feature']])
+
+MAPS['sabugal'] = dict(layout='standard',
+  terrain=["........###.........",
+           "........###.........",
+           "...**..........**...",
+           "...**...^^^^...**...",
+           "........^^^^........",
+           "......**^^^^**......",
+           "....................",
+           "....::........::....",
+           "....................",
+           "...................."],
+  roads=roadgrid([(10,0),(10,9)]),
+  river=dict(kind='river', course=[[-0.2,8],[20.2,8]], fords=[[2.2,5.8,7.6,8.4],[12.2,15.8,7.6,8.4]],
+             bridges=[dict(squares=[[10,7],[10,8]], art='single-arch')]),
+  places=[["Sabugal", 9.5, 2.5, 'town'], ["the hill", 10, 4.5, 'feature'], ["the Côa", 7, 8.45, 'water'],
+          ["stone walls", 3.5, 1.6, 'feature']])
+MAPS['sabugal']['terrain'][3] = "...**...^^.^...**..."
+MAPS['sabugal']['terrain'][4] = "........^^.^........"
+MAPS['sabugal']['terrain'][5] = "......**^^.^**......"
+
+MAPS['albuera'] = dict(layout='standard',
+  terrain=["....................",
+           ".............****...",
+           "............*****...",
+           "..::.........****...",
+           "....................",
+           "....................",
+           "....................",
+           "...###.....^^^^^^...",
+           "...##.....^^^^^^^^..",
+           "..........^^^^^^^..."],
+  roads=roadgrid([(5,0),(5,9)]),
+  river=dict(kind='river', course=[[-0.2,6],[20.2,6]], fords=[[9.2,11.8,5.6,6.4],[14.2,16.8,5.6,6.4]],
+             bridges=[dict(squares=[[5,5],[5,6]], art='three-arch')]),
+  places=[["Albuera", 4, 9.5, 'town'], ["the southern hills", 14, 9.6, 'feature'], ["Albuera stream", 8, 6.45, 'water'],
+          ["olive woods", 15, 0.45, 'feature']])
+MAPS['albuera']['terrain'][7] = "...#.#.....^^^^^^..."
+MAPS['albuera']['terrain'][8] = "...##.....^^^^^^^^.."
+
+MAPS['elbodon'] = dict(layout='corridor',
+  terrain=["^^^.................",
+           "^^^^......*.........",
+           "^^^^..............#.",
+           "^^^..........*....#.",
+           "...................#",
+           "^^^..........*....##",
+           "^^^^...*...........#",
+           "^^^^................",
+           "^^^.................",
+           "...................."],
+  roads=roadgrid([(0,4),(19,4)]),
+  river=None,
+  places=[["El Bodón heights", 1.5, 9.6, 'feature'], ["Fuenteguinaldo", 17.5, 1.5, 'town'], ["open ground", 9.5, 7.5, 'feature']])
+
+MAPS['arroyo'] = dict(layout='standard',
+  terrain=["^^^^^^^^^^^^^^^^^^^^",
+           "^^^^^^^^^^^^^^^^^^^^",
+           "........###.........",
+           "........##.#........",
+           ".........#..........",
+           "....................",
+           "....::.........::...",
+           "....................",
+           "....................",
+           "...................."],
+  roads=roadgrid([(10,9),(10,3),(19,3)]),
+  river=None,
+  places=[["Sierra de Montánchez", 10, 0.6, 'feature'], ["Arroyo dos Molinos", 7, 4.6, 'town'], ["to Mérida", 17.5, 2.6, 'feature']])
+MAPS['arroyo']['terrain'][3] = "........##.##......."
+MAPS['arroyo']['terrain'][4] = ".........##........."
+MAPS['arroyo']['terrain'][4] = ".........#.........."
+
+MAPS['salamanca'] = dict(layout='standard',
+  terrain=["^^^^^^^^^^^^^^^^^^..",
+           "....................",
+           "....::..........::..",
+           "....................",
+           "...........^^.......",
+           "...........^^.......",
+           "........^^..........",
+           "........^^..........",
+           ".........#..........",
+           "........###........."],
+  roads=roadgrid([(9,9),(9,8)], [(0,1),(19,1)]),
+  river=None,
+  places=[["the Greater Arapile", 12, 3.6, 'feature'], ["the Lesser Arapile", 9, 5.6, 'feature'], ["Los Arapiles", 9.5, 9.6, 'town'],
+          ["Marmont's line of march", 9.5, 1.6, 'feature']])
+
+MAPS['garcia-hernandez'] = dict(layout='corridor',
+  terrain=["^^^^^^^.............",
+           "^^^^^^^^............",
+           "^^^^^^^.....::......",
+           "^^^^^^..............",
+           "....................",
+           "^^^^^^..............",
+           "^^^^^^^.....::......",
+           "^^^^^^^^............",
+           "^^^^^^^.............",
+           "...................."],
+  roads=roadgrid([(0,4),(19,4)]),
+  river=dict(kind='brook', course=[[12,-0.2],[12,10.2]], fords=[[11.6,12.4,0.2,3.8],[11.6,12.4,5.2,9.8]],
+             bridges=[dict(squares=[[11,4],[12,4]], art='wooden')]),
+  places=[["Foy's slope", 3, 9.6, 'feature'], ["the stream", 12.3, 2.5, 'water'], ["García Hernández", 16, 2.5, 'town']])
+MAPS['garcia-hernandez']['terrain'][2] = "^^^^^^^.........#..."
+
+MAPS['vitoria'] = dict(layout='standard',
+  terrain=["......###.###.......",
+           "...::.#######.::....",
+           "....................",
+           ".........^^.........",
+           "^^..................",
+           "^^..................",
+           "^^......::..........",
+           "^^..................",
+           "^^..........::......",
+           "^^.................."],
+  roads=roadgrid([(0,1),(19,1)], [(2,1),(2,9)], [(6,1),(6,9)], [(11,1),(11,9)], [(17,1),(17,9)]),
+  river=dict(kind='river', course=[[-0.2,5],[4,5],[4,4],[9,4],[9,5],[14,5],[14,4],[20.2,4]], fords=[],
+             bridges=[dict(squares=[[2,4],[2,5]], art='three-arch'), dict(squares=[[6,3],[6,4]], art='single-arch'),
+                      dict(squares=[[11,4],[11,5]], art='single-arch'), dict(squares=[[17,3],[17,4]], art='wooden')]),
+  places=[["Vitoria and the baggage", 9.5, 0.45, 'town'], ["the knoll of Arinez", 10, 2.6, 'feature'], ["the Zadorra", 13, 5.45, 'water'],
+          ["Puebla heights", 1.5, 9.6, 'feature'], ["Tres Puentes", 6.5, 3.4, 'feature'], ["Gamarra", 17.5, 2.4, 'feature']])
+
+MAPS['toulouse'] = dict(layout='standard',
+  terrain=["####......######....",
+           "....................",
+           "......^^^^^^^^^^....",
+           "......^^#^^#^^#^....",
+           "......^^^^^^^^^^....",
+           ".................:::",
+           ".................:::",
+           "....::...........:::",
+           ".................:::",
+           "................:::."],
+  roads=roadgrid([(4,0),(4,9)], [(15,0),(15,1)], [(15,1),(19,1)]),
+  river=dict(kind='canal', course=[[-0.2,1],[20.2,1]], fords=[],
+             bridges=[dict(squares=[[4,0],[4,1]], art='single-arch'), dict(squares=[[15,0],[15,1]], art='single-arch')]),
+  places=[["Toulouse", 1.5, 0.6, 'town'], ["the canal", 9.5, 1.45, 'water'], ["the Calvinet ridge", 11, 5.4, 'feature'],
+          ["the Ers marsh", 18, 9.6, 'feature'], ["the northern redoubts", 8.5, 2.4, 'feature']])
+MAPS['toulouse']['terrain'][0] = "####.....######....."
