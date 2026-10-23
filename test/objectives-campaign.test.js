@@ -39,3 +39,16 @@ test('BRIGADES_UNBROKEN, BREAK_BRIGADES and ENTERED', () => {
   useWorld({ card, streaks, units: [u('c', 'blue', 'INFANTRY', 1, 1)] });         // left the farm: still counts
   assert.equal(C.ENTERED('blue', { area: 'farm' }, { round: 5 }), true);
 });
+
+test('conditionProgress counts what the objective panel shows', async () => {
+  const { conditionProgress } = await import('../js/objective-core.js');
+  useWorld({ card, streaks: {}, units: [
+    u('a', 'red', 'INFANTRY', 5, 4), u('b', 'red', 'INFANTRY', 5, 4), u('c', 'red', 'INFANTRY', 5, 5, { storyTag: 'nassau' }),
+    u('p', 'red', 'INFANTRY', 6, 6, { storyTag: 'zieten' }), u('q', 'red', 'INFANTRY', 9, 9, { storyTag: 'zieten' }),
+    u('g', 'red', 'BRIGADIER', 0, 8), u('x', 'blue', 'INFANTRY', 1, 1, { brigadeId: 0, removed: true }) ] });
+  assert.deepEqual(conditionProgress('red', { type: 'HOLD_COUNT', area: 'farm', count: 3 }), { have: 2, need: 3 });   // three units, two squares
+  assert.deepEqual(conditionProgress('red', { type: 'IN_AREA', area: 'farm', count: 3 }), { have: 3, need: 3 });
+  assert.deepEqual(conditionProgress('red', { type: 'NEXT_TO', tag: 'zieten', nextTo: 'nassau', count: 3 }), { have: 1, need: 3 });
+  assert.deepEqual(conditionProgress('red', { type: 'BREAK_BRIGADES', count: 1 }), { have: 1, need: 1 });
+  assert.equal(conditionProgress('red', { type: 'DESTROY', count: 1 }), null);
+});

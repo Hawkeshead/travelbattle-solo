@@ -2,7 +2,7 @@ import { quickPoints, quickRoundLimit } from './engine-rules.js';
 import { exportAiMoveLog, summariseAiDecisions } from './ai-strategy.js';
 import { campaignContext, campaignFinished, recordResult } from './campaign-play.js';
 import { clearSave } from './match-save.js';
-import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listLatched as coreListLatched, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
+import { resolveEndOfRound, CONDITION_TABLE, areaHolders as coreAreaHolders, destroyedCount as coreDestroyed, listLatched as coreListLatched, conditionProgress as coreProgress, listMet as coreListMet, marchedOff as coreMarchedOff, startingFighters as coreStartingFighters, useWorld } from './objective-core.js';
 import { currentRecord, recAwaitOnlineMerge, recFinalise } from './telemetry/recorder.js';
 import { isOnline } from './online-session.js';
 import { AudioManager } from './audio-manager.js';
@@ -106,10 +106,15 @@ function latchAchieved(ctx){
     });
     if(got[side] || !all) continue;
     got[side] = ctx.round;
-    log(`${SIDE_LABEL[side]} achieves its objective (round ${ctx.round}).`, 'system');
+    log(`${SIDE_LABEL[side]} ${achieves(side)} ${its(side)} objective (round ${ctx.round}).`, 'system');
     logReplay('objectiveMet', { side, round: ctx.round });
   }
 }
+/* "Britain and Prussia did not achieve its objective" read wrongly: a side
+   named for two nations takes "their" (and "achieve", not "achieves"). */
+const plural = side => / and /.test(SIDE_LABEL[side]);
+const its = side => (plural(side) ? 'their' : 'its');
+const achieves = side => (plural(side) ? 'achieve' : 'achieves');
 function finishIndependent(round, how){
   const got = state.scenarioAchieved = state.scenarioAchieved || {};
   /* DESTROYING THE WHOLE ENEMY ARMY COUNTS (23 Oct 2026, Matthew): a side
@@ -120,10 +125,10 @@ function finishIndependent(round, how){
     const w = wipedOut();
     if(w && !got[w]){
       got[w] = round;
-      log(`${SIDE_LABEL[w]} destroys the enemy army: objective achieved (round ${round}).`, 'system');
+      log(`${SIDE_LABEL[w]} ${plural(w) ? 'destroy' : 'destroys'} the enemy army: objective achieved (round ${round}).`, 'system');
     }
   }
-  const words = side => `${SIDE_LABEL[side]} ${got[side] ? 'achieved its objective (round ' + got[side] + ')' : 'did not achieve its objective'}`;
+  const words = side => `${SIDE_LABEL[side]} ${got[side] ? `achieved ${its(side)} objective (round ${got[side]})` : `did not achieve ${its(side)} objective`}`;
   const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : how === 'early' ? `; the battle was ended in round ${round}` : ''}`;
   // The banner names a side: the one that met its objective while the other did
   // not; if both or neither did, the human player's side (or red) is named and
@@ -152,7 +157,7 @@ export function canEndBattleEarly(){
 }
 export function endBattleEarly(){
   if(!canEndBattleEarly()) return;
-  log(`${SIDE_LABEL[humanSide()]} ends the battle (round ${currentRound()}).`, 'system');
+  log(`${SIDE_LABEL[humanSide()]} ${plural(humanSide()) ? 'end' : 'ends'} the battle (round ${currentRound()}).`, 'system');
   finishIndependent(currentRound(), 'early');
 }
 
@@ -219,6 +224,12 @@ export function objectiveStatusLine(side){
       parts.push(`Destroyed: ${destroyedCount(side, c.unitTypes)} of ${c.count}${c.unitTypes && c.unitTypes.length ? ' ' + c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') : ''}`);
     } else if(c.type === 'COMMANDER' || c.type === 'COMMANDER_REMOVED'){
       parts.push(commanderStatus(side, c, w.conditions.indexOf(c)));
+    } else if(coreProgressOf(side, c)){
+      parts.push(countStatus(side, c, w.conditions.indexOf(c)));
+    } else if(c.type === 'ENTERED'){
+      const done = state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':ENTERED:' + c.area];
+      const late = !done && c.byRound && currentRound() > c.byRound;
+      parts.push(`${areaName(c.area)}: ${done ? 'reached \u2713' : late ? `not reached by round ${c.byRound}` : 'not reached yet'}${!done && !late && c.byRound ? ` (by round ${c.byRound})` : ''}`);
     } else if(c.type === 'MARCH_OFF'){
       const gone = marchedOff(side);
       const need = c.count != null ? c.count : Math.ceil((c.fraction || 0) * startingFighters(side));
@@ -236,6 +247,32 @@ export function objectiveStatusLine(side){
   return [...new Set(parts)].join(' · ');
 }
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const areaName = a => cap(String(a).replace(/_/g, ' '));
+function coreProgressOf(side, c){ world(); return coreProgress(side, c); }
+/* A count objective in plain words, with when it counts, and a warning in
+   the last two rounds before it counts while it is short (Papelotte: two
+   hamlet squares held of the three needed, and nothing on screen said so). */
+function countStatus(side, c, i){
+  const { have, need } = coreProgressOf(side, c);
+  const n = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`;
+  const [label, held] = {
+    HOLD_COUNT: () => [areaName(c.area), n(have, 'square') + ' held'],
+    IN_AREA: () => [areaName(c.area), n(have, 'unit') + ' there'],
+    NEXT_TO: () => [`${cap(c.tag)} beside ${cap(c.nextTo)}`, n(have, 'unit')],
+    HOLD_AREAS: () => ['Places held', String(have)],
+    BRIGADES_UNBROKEN: () => ['Brigades unbroken', String(have)],
+    BREAK_BRIGADES: () => ['Enemy Brigades broken', String(have)],
+  }[c.type]();
+  const done = !!(independent() && state.scenarioStreaks && state.scenarioStreaks[SIDE_KEY[side] + ':L:' + i]);
+  if(done) return `${label}: ${held} \u2713`;
+  const round = currentRound(), at = c.atRound;
+  if(at && round > at) return `${label}: ${held}, ${need} needed (counted at round ${at}: not met)`;
+  const left = at ? at - round : c.byRound ? c.byRound - round : null;
+  if(have < need && left != null && left <= 1)
+    return `\u26A0 ${label}: ${held}, ${need - have} short (${at ? 'counts' : 'due'} at the end of ${left === 0 ? 'this' : 'next'} round)`;
+  const when = at ? ` (counts at the end of round ${at})` : c.byRound ? ` (by round ${c.byRound})` : '';
+  return `${label}: ${held}, ${need} needed${when}`;
+}
 /* A named commander's part of an objective, in plain words (19 Oct 2026: the
    Duke's Narrow Escape showed nothing at all, so Wellington reaching the 92nd
    in time looked as if it had not counted). A part already achieved in an

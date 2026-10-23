@@ -132,6 +132,31 @@ const CONDITIONS = {
     return !!W.streaks[key];
   },
 };
+/* HOW FAR ALONG A COUNTING CONDITION IS, right now (23 Oct 2026: Papelotte's
+   "hold three squares of the hamlets" showed no count at all, and the battle
+   was missed by one square). { have, need } for the objective panel, or null
+   for a condition that is not a count. The same tests as the table above,
+   without the round gate. */
+export function conditionProgress(side, c){
+  const mine = u => onBoard(u) && u.side === side && u.type !== 'BRIGADIER';
+  switch(c.type){
+    case 'HOLD_COUNT':
+      return { have: new Set(W.units.filter(u => mine(u) && inArea(u, c.area)).map(u => u.x + ',' + u.y)).size, need: c.count };
+    case 'IN_AREA':
+      return { have: W.units.filter(u => onBoard(u) && u.side === side && (c.anyUnit || u.type !== 'BRIGADIER') && inArea(u, c.area) && (!c.tag || u.storyTag === c.tag)).length, need: c.count || 1 };
+    case 'NEXT_TO': {
+      const them = W.units.filter(u => onBoard(u) && u.side === side && u.storyTag === c.nextTo);
+      return { have: W.units.filter(u => mine(u) && u.storyTag === c.tag && them.some(o => Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y)) === 1)).length, need: c.count || 1 };
+    }
+    case 'HOLD_AREAS':
+      return { have: (c.areas || []).filter(a => W.units.some(u => mine(u) && inArea(u, a)) && !W.units.some(u => onBoard(u) && u.side === otherSide(side) && inArea(u, a))).length, need: c.count || 1 };
+    case 'BRIGADES_UNBROKEN':
+      return { have: brigadeStates(side).filter(b => b.alive).length, need: c.count };
+    case 'BREAK_BRIGADES':
+      return { have: brigadeStates(otherSide(side)).filter(b => !b.alive).length, need: c.count };
+    default: return null;
+  }
+}
 /* A side's Brigades: alive while any fighting unit of it is still on the field. */
 function brigadeStates(side){
   const by = new Map();
