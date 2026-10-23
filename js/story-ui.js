@@ -13,11 +13,12 @@
 ========================================================= */
 import { SIDES, TB_DATA, state } from './data-core.js';
 import { getCard } from './scenario-cards.js';
+import { FRENCH_SIDE } from './story.js';
 
 const KEY = 'fc_story';
 export const CAMPAIGNS = [
   { id: 'waterloo', name: 'The Waterloo Campaign', years: '1815', nations: ['Britain', 'Prussia', 'France'] },
-  { id: 'peninsula', name: 'The Peninsula', years: '1808 to 1814', nations: ['Britain', 'Portugal', 'Spain', 'France'], soon: true },
+  { id: 'peninsula', name: 'The Peninsula', years: '1808 to 1814', nations: ['Britain', 'Portugal', 'Spain', 'France'] },
   { id: 'flanders', name: 'Flanders', years: '1793 to 1795', nations: ['Britain', 'Austria', 'France'], soon: true },
 ];
 const NATION_ORDER = ['Britain', 'Prussia', 'Austria', 'Portugal', 'Spain', 'France'];
@@ -122,7 +123,7 @@ export function showTheatre(){
 function showBriefing(id){
   const p = loadStory(); const b = battleOf(p.campaign, id);
   const mine = b.sides[p.nation];
-  const foes = Object.keys(b.sides).filter(n => (n === 'France') !== (p.nation === 'France'));
+  const foes = Object.keys(b.sides).filter(n => FRENCH_SIDE.has(n) !== FRENCH_SIDE.has(p.nation));   // France and its allies (the Poles) against the rest
   const allies = Object.keys(b.sides).filter(n => n !== p.nation && !foes.includes(n));
   const foeLead = foes.slice().sort((a, c) => b.sides[c].brigades.length - b.sides[a].brigades.length)[0];
   const html = `<p><strong>${esc(b.date)}</strong> · ${esc(b.kind)} · ${b.turnLimit} rounds</p>
@@ -135,7 +136,7 @@ function showBriefing(id){
   button(extra, 'To Battle', null, () => {
     const card = getCard(`${p.campaign}-${b.id}-${p.nation.toLowerCase()}`);
     state.storyRun = { campaign: p.campaign, battleId: b.id, nation: p.nation };
-    import('./ui-menus.js').then(m => m.beginOperation(card, p.nation === 'France' ? SIDES.BLUE : SIDES.RED));
+    import('./ui-menus.js').then(m => m.beginOperation(card, FRENCH_SIDE.has(p.nation) ? SIDES.BLUE : SIDES.RED));
   });
   button(extra, 'Back', null, showTheatre);
 }
@@ -144,7 +145,7 @@ function showBriefing(id){
 export function recordStoryResult(){
   const run = state.storyRun; const p = loadStory();
   if(!run || !p) return null;
-  const side = run.nation === 'France' ? 'blue' : 'red';
+  const side = FRENCH_SIDE.has(run.nation) ? 'blue' : 'red';
   const passed = !!(state.scenarioResult && state.scenarioResult.achieved && state.scenarioResult.achieved[side]);
   const name = battleOf(p.campaign, run.battleId).name;
   if(passed){ p.done.push(run.battleId); p.step += 1; }

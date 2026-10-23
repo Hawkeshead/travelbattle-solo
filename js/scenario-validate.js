@@ -30,7 +30,8 @@ export function validateCard(card){
   if(card.kind === 'operation'){
     for(const side of CARD_SIDES){
       const f = forces && forces[side];
-      if(!f || !Array.isArray(f.brigades) || !f.brigades.length || f.brigades.length > 3){ where(`${side} needs 1 to 3 Brigades`); continue; }
+      const maxB = card.judging === 'independent' ? 5 : 3;   // campaign battles: up to five (Vitoria's Coalition is three nations, five Brigades)
+      if(!f || !Array.isArray(f.brigades) || !f.brigades.length || f.brigades.length > maxB){ where(`${side} needs 1 to ${maxB} Brigades`); continue; }
       f.brigades.forEach((b, i) => {
         const units = b.units || [];
         for(const u of units) if(!UNIT_TYPES_ALLOWED.has(unitType(u))) where(`${side} Brigade ${i + 1}: unknown unit type "${unitType(u)}"`);
