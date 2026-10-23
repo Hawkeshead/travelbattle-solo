@@ -324,6 +324,38 @@ function sectionDeployment(){
 }
 
 
+/* WHERE EVERYONE ENDED UP (23 Oct 2026: reviewing Papelotte, the player's own
+   moves are summarised as "routine moves", so where the Nassauers finished
+   could only be pieced together from who shot at whom). The board as it
+   stands, each unit on it a letter (Coalition capitals, France small
+   letters), then the key: name, square, formation, and what became of the
+   ones no longer on the field. */
+function sectionPositions(){
+  const out = [`=== ${state.gameOver ? 'FINAL POSITIONS' : 'POSITIONS NOW'} (turn ${state.turnNumber || 1}) ===`];
+  if(!state.terrain || !state.units || !state.units.length){ out.push('(no units on the board)'); return out; }
+  const marks = new Map(), key = [];
+  for(const side of [SIDES.RED, SIDES.BLUE]){
+    const letters = side === SIDES.RED ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : 'abcdefghijklmnopqrstuvwxyz';
+    key.push(`${SIDE_LABEL[side]}:`);
+    const waiting = (state.reserves || []).filter(r => r.unit && r.unit.side === side && !state.units.includes(r.unit));
+    state.units.filter(u => u.side === side).concat(waiting.map(r => Object.assign(Object.create(r.unit), { _due: r.round }))).forEach((u, i) => {
+      const ch = letters[i] || '+';
+      const name = u.historicalName || u.type;
+      const fate = u.escaped ? 'marched off' : u.removed ? 'lost' : u._due ? `arrives round ${u._due}` : u.x < 0 ? 'not yet arrived' : null;
+      if(!fate) marks.set(u.x + ',' + u.y, marks.has(u.x + ',' + u.y) ? '*' : ch);   // * two units on one square
+      key.push(`  ${ch} ${String(u.type).padEnd(10)} ${String(name).padEnd(34)} ${fate ? fate : `(${u.x},${u.y}) ${u.formation || 'line'}`}  Bde ${u.brigadeId}`);
+    });
+  }
+  out.push('   ' + Array.from({ length: COLS }, (_, x) => String(x % 10)).join(''));
+  for(let y = 0; y < ROWS; y++){
+    let row = '';
+    for(let x = 0; x < COLS; x++) row += marks.get(x + ',' + y) || TERRAIN_GLYPH[state.terrain[y][x]] || '?';
+    out.push(String(y).padStart(2) + ' ' + row);
+  }
+  out.push('   units: Coalition A-Z, France a-z (* two units on a square); terrain as in section 2');
+  return out.concat(key);
+}
+
 function sectionSummary(log, label){
   const out = ['=== SECTION 5: MATCH SUMMARY ==='];
   const fights = log.filter(e=>e.type==='fight');
@@ -830,6 +862,8 @@ export function exportFullMatchLog(){
   lines.push('');
   lines.push(...sectionSummary(state.matchLog, label));
   lines.push(...sectionOperation());
+  lines.push('');
+  lines.push(...sectionPositions());
   // Unit figures (render-figures.js): the fallen men left on the field. The full
   // list (board positions) is on state.figureBodies, which the match record and
   // undo carry; the count is here so an export says what the field looked like.
