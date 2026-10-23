@@ -151,6 +151,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     rounds: state.scenarioResult ? state.scenarioResult.round : (state.scenario ? Math.ceil((state.turnNumber || 1) / 2) : null),
     reason: state.scenarioResult ? state.scenarioResult.reason.replace(/, round \d+.*$/, '') : null,
     achieved: state.scenarioResult && state.scenarioResult.achieved ? { ...state.scenarioResult.achieved } : null,
+    allies: state.scenarioResult && state.scenarioResult.allies ? state.scenarioResult.allies.map(a => ({ nation: a.nation, met: !!a.round })) : null,   // allied nations' own objectives
     river: !!(state.water && Object.keys(state.water.edges || {}).length),   // a river on this board (river-generator)   // campaign battles: each side's objective
     turns: state.turnNumber,
     wallMs: Date.now() - t0,
@@ -540,6 +541,11 @@ export function summarise(results) {
   if (judged.length){
     const n = judged.length, red = judged.filter(r => r.achieved.red).length, blue = judged.filter(r => r.achieved.blue).length;
     lines.push(`objective met    Coalition (red) ${red} of ${n} (${Math.round(100 * red / n)}%)   France (blue) ${blue} of ${n} (${Math.round(100 * blue / n)}%)`);
+    const allyNames = [...new Set(judged.flatMap(r => (r.allies || []).map(a => a.nation)))];
+    for (const name of allyNames) {
+      const k = judged.filter(r => (r.allies || []).some(a => a.nation === name && a.met)).length;
+      lines.push(`objective met    ${name} (allied) ${k} of ${n} (${Math.round(100 * k / n)}%)`);
+    }
   }
   lines.push(`Britain (red) wins ${wins.red} (${pct(wins.red)}%)`);
   lines.push(`France (blue) wins ${wins.blue} (${pct(wins.blue)}%)`);
