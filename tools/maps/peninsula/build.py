@@ -369,6 +369,20 @@ obj('vitoria', 'Portugal', [{'type': 'IN_AREA', 'area': 'north_bank', 'tag': 'as
 # Toulouse 25/75: one southern redoubt is enough
 obj('toulouse', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'south_redoubts', 'count': 1, 'atRound': 12}], 'Hold a southern redoubt at the end of round 12.')
 
+# ---- BALANCE, pass 2 ----
+# Talavera, Albuera: France reached the water and stopped (one fight in ten
+# rounds). Its objective becomes what it did on the day: get across in force.
+B['talavera']['map']['areas']['south_bank'] = [[x, y] for y in range(10) for x in range(20) if (y >= 5 if 6 <= x <= 12 else y >= 4)]
+obj('talavera', 'France', [{'type': 'ENTERED', 'area': 'medellin', 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_bank', 'count': 4, 'atRound': 10}],
+    'Get a unit onto the Cerro de Medellín at any point, or have four units across the Portiña at the end of round 10.')
+B['albuera']['map']['areas']['south_bank'] = [[x, y] for y in range(6, 10) for x in range(20)]
+obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_bank', 'count': 3, 'atRound': 10}],
+    'Break one Allied Brigade, or have three units across the Albuera stream at the end of round 10.')
+
+# Somosierra 100/0: the Spanish infantry packed the pass; on the day the guns were the obstacle
+sj = B['somosierra']['sides']['Spain']['brigades']
+sj[0]['units'] = [B_, I, I, ART, ART]; sj[1]['units'] = [B_, I, ART, ART]
+
 out = {'$comment': "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
        'schemaVersion': 1, 'campaign': 'peninsula', 'name': 'The Peninsula', 'years': '1808 to 1814',
        'intro': "1808. Napoleon has put his brother on the throne of Spain, and Spain has risen. Britain sends an army to Portugal. Six years of war across the Peninsula follow, from Bailén to the walls of Toulouse.",
