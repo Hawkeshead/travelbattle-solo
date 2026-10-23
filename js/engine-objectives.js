@@ -111,7 +111,18 @@ function latchAchieved(ctx){
   }
 }
 function finishIndependent(round, how){
-  const got = state.scenarioAchieved || {};
+  const got = state.scenarioAchieved = state.scenarioAchieved || {};
+  /* DESTROYING THE WHOLE ENEMY ARMY COUNTS (23 Oct 2026, Matthew): a side
+     that leaves the enemy no units at all has done everything its objective
+     could ask of the battle, so it is achieved, whatever round the objective
+     named; the campaign then moves on as for any other success. */
+  if(how === 'wiped'){
+    const w = wipedOut();
+    if(w && !got[w]){
+      got[w] = round;
+      log(`${SIDE_LABEL[w]} destroys the enemy army: objective achieved (round ${round}).`, 'system');
+    }
+  }
   const words = side => `${SIDE_LABEL[side]} ${got[side] ? 'achieved its objective (round ' + got[side] + ')' : 'did not achieve its objective'}`;
   const reason = `${words(SIDES.RED)}; ${words(SIDES.BLUE)}${how === 'wiped' ? ', and the field is cleared' : ''}`;
   // The banner names a side: the one that met its objective while the other did

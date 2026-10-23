@@ -279,6 +279,19 @@ function reserveDispatchWindow(ms){
   state._dispatchUntil = Math.max(state._dispatchUntil || 0, Date.now() + ms);
 }
 
+/* The line under "X's Brigade is broken" (23 Oct 2026): it said '1 of 3
+   broken, two ends the battle' whatever the battle, so in the Narrow Escape,
+   one Brigade a side, it was wrong twice. Now it counts the side's own
+   Brigades, says when that was the whole army, and names the battle's own
+   ending: the Victory setting in a Quick Battle; in an Operation or campaign
+   battle, which are won on their objectives, no ending is claimed. */
+function dispatchSub(side, broken, total){
+  if(total && broken >= total) return `${SIDE_LABEL[side]}: ${total === 1 ? 'its only Brigade' : `all ${total} Brigades`} broken`;
+  const tally = `${SIDE_LABEL[side]}: ${broken} of ${total} broken`;
+  if(state.scenario || state.mapBattle) return tally;
+  const need = state.winBrigades || 2;
+  return `${tally} &middot; ${need === 1 ? 'one' : need === 2 ? 'two' : need} ends the battle`;
+}
 function showDispatch(side, brigadeId){
   const el = document.getElementById('brigadeDispatch');
   if(!el) return;
@@ -292,7 +305,7 @@ function showDispatch(side, brigadeId){
     `<div class="dispatch-head">${who}'s Brigade is broken</div>` +
     (armyForBrigade(side, brigadeId)
       ? `<div class="dispatch-sub">${armyForBrigade(side, brigadeId).label}: ${armyBrokenCount(armyForBrigade(side, brigadeId))} of 3 broken &middot; two breaks the army</div>`
-      : `<div class="dispatch-sub">${SIDE_LABEL[side]}: ${brokenCount} of 3 broken &middot; two ends the battle</div>`);
+      : `<div class="dispatch-sub">${dispatchSub(side, brokenCount, statuses.length)}</div>`);
   el.classList.add('show');
   // No dedicated sound yet: the audio catalogue has no brigadeBreak entry and
   // inventing one silently would fail the asset check. Hook here when one exists.

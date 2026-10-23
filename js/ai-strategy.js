@@ -2680,7 +2680,8 @@ export function orderAiUnitsForMove(side){
   const connected = movableUnitsForSide(side);
   const strandedMates = {};
   for(const bId of Object.keys(brigadierOf)){
-    strandedMates[bId] = units.some(u => u.brigadeId===bId && u.type!=='BRIGADIER' &&
+    // Object keys are strings and brigadeIds numbers: compared as text (until 23 Oct 2026 this never matched, so the Brigadier always went first)
+    strandedMates[bId] = units.some(u => String(u.brigadeId)===bId && u.type!=='BRIGADIER' &&
       !UNIT_TYPES[u.type].isArtillery && !connected.has(u.id));
   }
   const PHASE_CONNECTED = 0, PHASE_BRIGADIER = 1, PHASE_CUTOFF = 2;
