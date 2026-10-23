@@ -16,7 +16,7 @@
    achieved historically, both can be met in one game, and the battle runs to
    its turn limit (engine-objectives.js).
 ========================================================= */
-export const FRENCH_SIDE = new Set(['France']);
+export const FRENCH_SIDE = new Set(['France', 'Poland']);   // the Imperial side: France and its allies (the Poles at Somosierra)
 
 function cardBrigade(b, nation, ally){
   const units = b.units.map((t, i) => {

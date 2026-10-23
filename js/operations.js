@@ -123,7 +123,7 @@ export function setupOperation(cardOrId, playerSide){
   }
   state.units = [];
   state.reserves = [];
-  state._wavesSent = 0;
+  state._wavesSent = 0; state._turncoatDone = false;
   for(const p of planOperationPlacement(card, state.terrain)){
     const u = newUnit(p.side, p.type, p.reserve ? -1 : p.x, p.reserve ? -1 : p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
@@ -204,6 +204,21 @@ function regroupBrigades(card){
    later, if every arrival square is taken): on the squares of their arrival
    area, or else their side's home row, nearest the middle first. */
 export function bringReinforcements(side){
+  /* CHANGING SIDES (campaign rule 'turncoat', the Swiss at Bailen): at the
+     start of the named round, a named unit still in play goes over to the
+     other side and joins the Brigade with the given tag. */
+  const tc = state.scenario && state.scenario.storyRules && state.scenario.storyRules.rules && state.scenario.storyRules.rules.turncoat;
+  const roundNow = Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
+  if(tc && !state._turncoatDone && roundNow >= tc.round){
+    const u = state.units.find(o => !o.removed && o.historicalName === tc.unit);
+    const host = state.units.find(o => !o.removed && o.storyTag === tc.joinTag);
+    if(u && host){
+      u.side = host.side; u.brigadeId = host.brigadeId; u.storyTag = host.storyTag; u.turnOnly = false;
+      log(`${tc.unit} goes over to the other side!`, 'system');
+      logReplay('turncoat', { unitId: u.id, side: u.side });
+    }
+    state._turncoatDone = true;
+  }
   if(!state.reserves || !state.reserves.length) return;
   const round = Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
   const due = state.reserves.filter(r => r.unit.side === side && r.round <= round);

@@ -1,0 +1,9205 @@
+{
+ "$comment": "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
+ "schemaVersion": 1,
+ "campaign": "peninsula",
+ "name": "The Peninsula",
+ "years": "1808 to 1814",
+ "intro": "1808. Napoleon has put his brother on the throne of Spain, and Spain has risen. Britain sends an army to Portugal. Six years of war across the Peninsula follow, from Bailén to the walls of Toulouse.",
+ "battles": [
+  {
+   "id": "bailen",
+   "name": "Bailén",
+   "date": "19 July 1808",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Dupont's corps, marching back north in the July heat, found Reding's Spaniards across its road at Bailén with Castaños closing behind. Four French attacks failed, the Swiss in French service went over to their countrymen, and Dupont surrendered nearly 18,000 men: the first defeat of a French army in the field.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Bail%C3%A9n",
+   "map": {
+    "terrain": [
+     "....................",
+     "......::......::....",
+     "....................",
+     "..**......*.....**..",
+     ".***.............**.",
+     "....^^^^^^^^^^......",
+     "...^^^^^.^^^^^^.....",
+     "..**..........**....",
+     ".........###........",
+     "........#####......."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=========.",
+     "..........=........."
+    ],
+    "places": [
+     [
+      "the Rumblar",
+      2.5,
+      1.5,
+      "water"
+     ],
+     [
+      "Bailén",
+      10.5,
+      7.45,
+      "town"
+     ],
+     [
+      "the ridge",
+      7.5,
+      5.5,
+      "feature"
+     ],
+     [
+      "olive groves",
+      2.5,
+      3.4,
+      "feature"
+     ],
+     [
+      "to Andújar",
+      11.6,
+      0.4,
+      "feature"
+     ],
+     [
+      "Vedel's road",
+      16.5,
+      8.45,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "bailen": [
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ]
+     ],
+     "ridge": [
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ]
+     ],
+     "french_start": [
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       0,
+       3
+      ],
+      [
+       1,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ]
+     ],
+     "vedel": [
+      [
+       19,
+       8
+      ],
+      [
+       19,
+       9
+      ],
+      [
+       18,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       2
+      ],
+      [
+       20.2,
+       2
+      ]
+     ],
+     "fords": [
+      [
+       3.2,
+       5.8,
+       1.6,
+       2.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         10,
+         1
+        ],
+        [
+         10,
+         2
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Reding",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Reding",
+       "tag": "reding"
+      },
+      {
+       "name": "Coupigny",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Coupigny"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold Bailén, or a square of the ridge across the road, at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "bailen",
+        "count": 1,
+        "atRound": 10
+       },
+       {
+        "type": "HOLD_COUNT",
+        "area": "ridge",
+        "count": 1,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Dupont",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Dupont",
+       "names": [
+        null,
+        null,
+        null,
+        "Swiss battalion (Reding)",
+        null
+       ]
+      },
+      {
+       "name": "Barbou",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Barbou",
+       "names": [
+        null,
+        null,
+        null,
+        "Marins de la Garde",
+        null
+       ]
+      },
+      {
+       "name": "Fresia",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Fresia"
+      },
+      {
+       "name": "Vedel",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Vedel",
+       "arrives": {
+        "round": 8,
+        "area": "vedel"
+       }
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get a unit into Bailén, or break two Spanish Brigades, by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "bailen",
+        "byRound": 10
+       },
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 2,
+        "byRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "The Rumblar behind the French. Vedel arrives in round 8 behind the Spanish.",
+   "balance": "",
+   "rules": {
+    "slow": [
+     {
+      "side": "blue",
+      "fromRound": 6
+     }
+    ],
+    "turncoat": {
+     "round": 7,
+     "unit": "Swiss battalion (Reding)",
+     "joinTag": "reding"
+    }
+   },
+   "needs": []
+  },
+  {
+   "id": "vimeiro",
+   "name": "Vimeiro",
+   "date": "21 August 1808",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Junot attacked Wellesley's army on the hills around Vimeiro in columns. British skirmishers and two-deep lines on the reverse slopes shot the columns to pieces, a flank attack on the eastern ridge was beaten back too, and Junot asked for terms.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Vimeiro",
+   "map": {
+    "terrain": [
+     "....................",
+     "....::......::......",
+     "..**...........**...",
+     "....................",
+     "..............^^^^..",
+     ".....^^^.....^^^^^..",
+     "....^^^^^....^^^....",
+     ".....###............",
+     "......#.............",
+     "...................."
+    ],
+    "roads": [
+     "........=...........",
+     "........=...........",
+     "........=...........",
+     ".......=............",
+     "......=.............",
+     "......=.............",
+     "......=.............",
+     "......=...=.........",
+     "......=======.......",
+     "......=............."
+    ],
+    "places": [
+     [
+      "Vimeiro Hill",
+      6,
+      4.7,
+      "feature"
+     ],
+     [
+      "Vimeiro",
+      6.5,
+      6.4,
+      "town"
+     ],
+     [
+      "the eastern ridge",
+      15.5,
+      3.7,
+      "feature"
+     ],
+     [
+      "the Maceira",
+      2.5,
+      8.6,
+      "water"
+     ],
+     [
+      "to Lourinhã",
+      9.8,
+      0.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "vimeiro": [
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       6,
+       8
+      ]
+     ],
+     "village": [
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       6,
+       8
+      ]
+     ]
+    },
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       20.2,
+       8
+      ]
+     ],
+     "fords": [
+      [
+       1.2,
+       3.8,
+       7.6,
+       8.4
+      ],
+      [
+       13.2,
+       16.8,
+       7.6,
+       8.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         10,
+         7
+        ],
+        [
+         10,
+         8
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Anstruther and Fane",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Fane",
+       "names": [
+        null,
+        "95th Rifles",
+        "50th West Kent",
+        "97th Queen's Germans",
+        null
+       ]
+      },
+      {
+       "name": "Ferguson",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ferguson",
+       "names": [
+        null,
+        "36th Herefordshire",
+        "40th 2nd Somersetshire",
+        "71st Highland",
+        null
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "No French unit in Vimeiro village at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "village",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Trant",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Trant",
+       "tag": "trant"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Trant's Brigade unbroken at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "trant",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Thomières and Charlot",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Thomières"
+      },
+      {
+       "name": "Kellermann",
+       "units": [
+        "BRIGADIER",
+        "GUARD",
+        "GUARD",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Kellermann"
+      },
+      {
+       "name": "Margaron",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Margaron"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get into Vimeiro village and remove three Allied units by the end of round 10.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "village",
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 3
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "reverseSlope": {
+     "side": "red"
+    }
+   },
+   "needs": []
+  },
+  {
+   "id": "somosierra",
+   "name": "Somosierra",
+   "date": "30 November 1808",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 10,
+   "history": "San Juan's Spaniards held the Somosierra pass with four batteries stacked up the zigzag road in the fog. Napoleon sent the Polish Chevau-légers of the Guard straight up it; in minutes they rode over the batteries one after another, at terrible cost, and the road to Madrid lay open.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Somosierra",
+   "map": {
+    "terrain": [
+     "^^^^^^^^^^^^^^^^^^^^",
+     "^^^^^^..^^^^^^^^^^^^",
+     "..^^^....^^^^..^^^^.",
+     "..................#.",
+     "....................",
+     "......^^......^^....",
+     "..^^^....^^^^..^^^^.",
+     "^^^^^^..^^^^^^^^^^^^",
+     "^^^^^^^^^^^^^^^^^^^^",
+     "^^^^^^^^^^^^^^^^^^^^"
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....======.....=====",
+     "=====....=======....",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "places": [
+     [
+      "the pass road",
+      3.0,
+      3.4,
+      "feature"
+     ],
+     [
+      "Somosierra",
+      18.5,
+      2.4,
+      "town"
+     ],
+     [
+      "the summit",
+      18,
+      6.5,
+      "feature"
+     ],
+     [
+      "first battery",
+      6.5,
+      6.5,
+      "feature"
+     ],
+     [
+      "fourth battery",
+      16.5,
+      6.5,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "summit": [
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ]
+     ],
+     "summit_start": [
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ]
+     ],
+     "pass_lower": [
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ]
+     ]
+    }
+   },
+   "sides": {
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "San Juan",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "pass_lower"
+       },
+       "commander": "San Juan"
+      },
+      {
+       "name": "the summit",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "ARTILLERY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "summit_start"
+       },
+       "commander": "Sardén"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold the summit (the last four road squares) at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "summit",
+        "count": 1,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Poland": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Polish Chevau-légers",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Kozietulski",
+       "names": [
+        null,
+        "3rd squadron",
+        "1st squadron",
+        "2nd squadron",
+        "4th squadron"
+       ]
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get a cavalry unit onto the summit by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "summit",
+        "byRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Ruffin",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ruffin"
+      },
+      {
+       "name": "Savary",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Savary"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get a unit onto the summit by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "summit",
+        "byRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "night": {
+     "untilRound": 3
+    }
+   },
+   "needs": [
+    "cavalry on the road only",
+    "Guard re-roll for the Poles"
+   ]
+  },
+  {
+   "id": "cacabelos",
+   "name": "The Death of General Colbert",
+   "date": "3 January 1809",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 8,
+   "history": "Covering Moore's winter retreat to Corunna, Paget's reserve held the bridge over the Cúa at Cacabelos. General Colbert led the French cavalry across and was shot dead by Rifleman Tom Plunket of the 95th at long range; the attack stalled and the rearguard got away.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Cacabelos",
+   "map": {
+    "terrain": [
+     "....................",
+     "...::::......::::...",
+     "...::::......::::...",
+     "....................",
+     ".........#..........",
+     "...........#........",
+     "..::::........::::..",
+     "..::::........::::..",
+     "....................",
+     "...................."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=........."
+    ],
+    "places": [
+     [
+      "Cacabelos",
+      8.4,
+      4.0,
+      "town"
+     ],
+     [
+      "the Cúa",
+      15.5,
+      5.45,
+      "water"
+     ],
+     [
+      "vineyards",
+      4,
+      6.5,
+      "feature"
+     ],
+     [
+      "to Villafranca",
+      11.8,
+      9.6,
+      "feature"
+     ],
+     [
+      "to Bembibre",
+      11.6,
+      0.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "british_start": [
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ]
+     ]
+    },
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       5
+      ],
+      [
+       20.2,
+       5
+      ]
+     ],
+     "fords": [
+      [
+       2.2,
+       4.8,
+       4.6,
+       5.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         10,
+         4
+        ],
+        [
+         10,
+         5
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    },
+    "exits": {
+     "british": "britishEdge"
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Paget's reserve",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "british_start"
+       },
+       "commander": "Edward Paget",
+       "names": [
+        null,
+        "95th Rifles",
+        "28th North Gloucestershire",
+        "15th Hussars",
+        null
+       ]
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "Have two units leave by the Villafranca road by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 2,
+        "byRound": 8
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Colbert",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Colbert",
+       "tag": "colbert"
+      },
+      {
+       "name": "Merle",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Merle"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Remove three British units by the end of round 8, with Colbert still in play.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 3,
+        "byRound": 8
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "colbert",
+        "atRound": 8
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": [
+    "the marksman (the 95th's long shot at a commander)"
+   ]
+  },
+  {
+   "id": "corunna",
+   "name": "Corunna",
+   "date": "16 January 1809",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "With the transports waiting in the harbour, Moore turned at Corunna to hold off Soult while the army embarked. Elviña was taken and retaken all afternoon; Moore was mortally wounded there, but the French were held and the army got away by sea that night.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Corunna",
+   "map": {
+    "terrain": [
+     "....................",
+     "..^^^^^^^^^^^^^^^...",
+     "..^^^^^^^^^^^^^^^...",
+     "....................",
+     ".......::...........",
+     "........##..........",
+     "........##..::......",
+     "...^^^^^^^^^^^^^^...",
+     "....................",
+     "#####..........#####"
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "===================="
+    ],
+    "places": [
+     [
+      "Peñasquedo ridge",
+      9.5,
+      0.45,
+      "feature"
+     ],
+     [
+      "Elviña",
+      9,
+      4.6,
+      "town"
+     ],
+     [
+      "Monte Mero",
+      6,
+      6.6,
+      "feature"
+     ],
+     [
+      "Corunna",
+      2.5,
+      8.6,
+      "town"
+     ],
+     [
+      "the harbour",
+      17.5,
+      8.6,
+      "water"
+     ]
+    ],
+    "areas": {
+     "monte_mero": [
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ]
+     ],
+     "elvina": [
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ]
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Baird",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Baird",
+       "names": [
+        null,
+        "42nd Black Watch",
+        "50th West Kent",
+        "4th King's Own",
+        null
+       ]
+      },
+      {
+       "name": "Hope",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Hope",
+       "names": [
+        null,
+        null,
+        null,
+        "1st Foot Guards"
+       ]
+      },
+      {
+       "name": "Paget's reserve",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Edward Paget",
+       "names": [
+        null,
+        "95th Rifles",
+        "52nd Oxfordshire"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "No French unit on the Monte Mero ridge, and none in Elviña, at the end of round 10.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "monte_mero",
+        "atRound": 10
+       },
+       {
+        "type": "CLEAR_AREA",
+        "area": "elvina",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Mermet",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Mermet"
+      },
+      {
+       "name": "Merle",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Merle"
+      },
+      {
+       "name": "Lahoussaye and Franceschi",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Franceschi"
+      },
+      {
+       "name": "the great battery",
+       "units": [
+        "BRIGADIER",
+        "ARTILLERY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Soult"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Hold Elviña at the end of round 10, or break two British Brigades.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "elvina",
+        "atRound": 10
+       },
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 2,
+        "byRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": [
+    "the great battery fires over lower ground",
+    "embarkation from round 7"
+   ]
+  },
+  {
+   "id": "talavera",
+   "name": "Talavera",
+   "date": "27 to 28 July 1809",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Wellesley and Cuesta stood side by side north of Talavera, the Spanish behind walls and olive groves, the British in the plain and on the Cerro de Medellín. Victor attacked the Medellín by night and again by day and failed; the Guards' counter-charge went too far and was nearly cut off, but the line held.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Talavera",
+   "map": {
+    "terrain": [
+     "....................",
+     ".....::.......^^^...",
+     "..............^^^^..",
+     "....................",
+     "....................",
+     ".****...........^^^.",
+     "##***....#.....^^^^.",
+     "###**...........^^..",
+     "###*................",
+     "##.................."
+    ],
+    "roads": [
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "...........=........",
+     "===========.........",
+     "...................."
+    ],
+    "places": [
+     [
+      "Cerro de Medellín",
+      16.5,
+      8.6,
+      "feature"
+     ],
+     [
+      "Pajar de Vergara",
+      9.6,
+      5.6,
+      "town"
+     ],
+     [
+      "Talavera",
+      1.5,
+      9.5,
+      "town"
+     ],
+     [
+      "the Portiña",
+      4.5,
+      4.45,
+      "water"
+     ],
+     [
+      "the Cascajal",
+      15.5,
+      0.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "medellin": [
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ]
+     ],
+     "talavera": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ]
+     ],
+     "spanish_start": [
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ]
+     ],
+     "british_start": [
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ],
+     "south_bank": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       20.2,
+       4
+      ]
+     ],
+     "fords": [
+      [
+       2.2,
+       4.8,
+       3.6,
+       4.4
+      ],
+      [
+       7.2,
+       9.8,
+       4.6,
+       5.4
+      ],
+      [
+       15.2,
+       17.8,
+       3.6,
+       4.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         11,
+         4
+        ],
+        [
+         11,
+         5
+        ]
+       ],
+       "art": "wooden"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Hill",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "british_start"
+       },
+       "commander": "Hill",
+       "names": [
+        null,
+        "29th Worcestershire",
+        "48th Northamptonshire",
+        "66th Berkshire",
+        null
+       ]
+      },
+      {
+       "name": "Sherbrooke",
+       "units": [
+        "BRIGADIER",
+        "GUARD",
+        "GUARD",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "british_start"
+       },
+       "commander": "Sherbrooke",
+       "names": [
+        null,
+        "Coldstream Guards",
+        "3rd Foot Guards",
+        "King's German Legion"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "No French unit on the Cerro de Medellín at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "medellin",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Cuesta",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "spanish_start"
+       },
+       "commander": "Cuesta"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold Talavera and its enclosures at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "talavera",
+        "count": 1,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Ruffin",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ruffin"
+      },
+      {
+       "name": "Lapisse",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Lapisse"
+      },
+      {
+       "name": "Latour-Maubourg",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Latour-Maubourg"
+      },
+      {
+       "name": "Sebastiani",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Sebastiani"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get a unit onto the Cerro de Medellín at any point, or have four units across the Portiña at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "medellin",
+        "byRound": 10
+       },
+       {
+        "type": "IN_AREA",
+        "area": "south_bank",
+        "count": 4,
+        "atRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "night": {
+     "round": 1
+    }
+   },
+   "needs": [
+    "the Guards' over-eager charge"
+   ]
+  },
+  {
+   "id": "ocana",
+   "name": "Ocaña",
+   "date": "19 November 1809",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Areizaga's large Spanish army, marching on Madrid, met Soult and King Joseph on the open plain at Ocaña. The Spanish infantry held the first attacks, but Sébastiani's cavalry swept round the Spanish right and the army broke: the worst Spanish defeat of the war.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Oca%C3%B1a",
+   "map": {
+    "terrain": [
+     "....................",
+     "....::..........::..",
+     "....................",
+     "....................",
+     "....................",
+     ".........::.........",
+     "....................",
+     "....::.........::...",
+     ".........###........",
+     "........#####......."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........====......",
+     ".............=......",
+     ".............=......",
+     "..........====......",
+     "..........=.........",
+     "..........=........."
+    ],
+    "places": [
+     [
+      "Ocaña",
+      10.5,
+      7.45,
+      "town"
+     ],
+     [
+      "the ravine",
+      9,
+      6.45,
+      "water"
+     ],
+     [
+      "to Aranjuez",
+      11.5,
+      0.4,
+      "feature"
+     ],
+     [
+      "the open plain",
+      4.5,
+      3.5,
+      "feature"
+     ]
+    ],
+    "areas": {},
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       -0.2,
+       6
+      ],
+      [
+       20.2,
+       6
+      ]
+     ],
+     "fords": [
+      [
+       4.2,
+       6.8,
+       5.6,
+       6.4
+      ],
+      [
+       12.2,
+       14.8,
+       5.6,
+       6.4
+      ]
+     ],
+     "bridges": []
+    }
+   },
+   "sides": {
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Zayas",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Zayas"
+      },
+      {
+       "name": "Lacy",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Lacy"
+      },
+      {
+       "name": "Freire",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Freire"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "At least two Brigades unbroken at the end of round 10 (the army gets away).",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Leval and Girard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Girard"
+      },
+      {
+       "name": "Mortier's reserve",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Mortier"
+      },
+      {
+       "name": "Sébastiani and Milhaud",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Sébastiani"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Break one Spanish Brigade by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 1,
+        "byRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": []
+  },
+  {
+   "id": "coa",
+   "name": "The Côa",
+   "date": "24 July 1810",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 8,
+   "history": "Craufurd kept the Light Division too long on the wrong bank of the Côa below Almeida, and Ney fell on it with his whole corps. The division fought its way back through the vineyards to the single bridge in the gorge and held it; three French attempts to storm the bridge were shot down.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_the_C%C3%B4a",
+   "map": {
+    "terrain": [
+     "##..::..**..^^.^^^^.",
+     "##..::..**....^.^^^^",
+     "....::.....:...^.^^.",
+     "..::..**.......^^...",
+     "....................",
+     "..::..**.......^^...",
+     "....::.....:...^.^^.",
+     "....::..**....^.^^^^",
+     "....::..**..^^.^^^^.",
+     "...................."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "places": [
+     [
+      "Almeida",
+      1,
+      0.45,
+      "town"
+     ],
+     [
+      "the Côa",
+      13.3,
+      1.5,
+      "water"
+     ],
+     [
+      "the gorge",
+      15.5,
+      7.5,
+      "feature"
+     ],
+     [
+      "vineyards and walls",
+      6,
+      2.5,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "far_bank": [
+      [
+       13,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       16,
+       0
+      ],
+      [
+       17,
+       0
+      ],
+      [
+       18,
+       0
+      ],
+      [
+       19,
+       0
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       16,
+       5
+      ],
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ],
+     "bridge_far": [
+      [
+       13,
+       4
+      ]
+     ],
+     "allied_start": [
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       13,
+       -0.2
+      ],
+      [
+       13,
+       10.2
+      ]
+     ],
+     "fords": [],
+     "bridges": [
+      {
+       "squares": [
+        [
+         12,
+         4
+        ],
+        [
+         13,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Beckwith",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Beckwith",
+       "names": [
+        null,
+        "95th Rifles",
+        "43rd Monmouthshire",
+        null
+       ]
+      },
+      {
+       "name": "Barclay",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Barclay",
+       "names": [
+        null,
+        "52nd Oxfordshire",
+        "1st Battalion, 95th"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Three units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "far_bank",
+        "count": 3,
+        "atRound": 8
+       },
+       {
+        "type": "CLEAR_AREA",
+        "area": "bridge_far",
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "the Caçadores",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Elder",
+       "tag": "cacadores",
+       "names": [
+        null,
+        "1st Caçadores",
+        "3rd Caçadores"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "A Caçador battalion across the Côa at the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "far_bank",
+        "tag": "cacadores",
+        "count": 1,
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Loison",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Loison"
+      },
+      {
+       "name": "Ney's cavalry",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Lamotte"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Remove two Allied units, or get a unit over the bridge, by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 2,
+        "byRound": 8
+       },
+       {
+        "type": "ENTERED",
+        "area": "far_bank",
+        "byRound": 8
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": []
+  },
+  {
+   "id": "bussaco",
+   "name": "Bussaco",
+   "date": "27 September 1810",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Masséna sent Reynier and Ney straight up the long, steep ridge of Bussaco in the morning mist. Reynier's columns reached the crest and were driven off; Ney's attack climbed into the Light Division, which rose from behind the crest and fired at a few paces. The Portuguese held as well as the British.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Bu%C3%A7aco",
+   "map": {
+    "terrain": [
+     "....................",
+     "....::.......::.....",
+     "....................",
+     "........:::.........",
+     "....................",
+     ".....#..............",
+     "^^^^^^^^^^^^^^^^****",
+     "^^^^^^^^^^^^^^^^*#**",
+     "^^^^^^^^^^^^^^^^****",
+     "...................."
+    ],
+    "roads": [
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=....",
+     "...=...........=...."
+    ],
+    "places": [
+     [
+      "the Bussaco ridge",
+      9,
+      7.5,
+      "feature"
+     ],
+     [
+      "the convent",
+      17.5,
+      8.6,
+      "town"
+     ],
+     [
+      "Sula",
+      5.5,
+      4.6,
+      "town"
+     ],
+     [
+      "San Antonio de Cantaro",
+      3.5,
+      2.5,
+      "town"
+     ],
+     [
+      "to Mortágua",
+      16.6,
+      0.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "crest": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ]
+     ],
+     "ridge": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ],
+     "ridge_hills": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ]
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Picton",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "ridge"
+       },
+       "commander": "Picton",
+       "names": [
+        null,
+        "88th Connaught Rangers",
+        "45th Nottinghamshire",
+        "74th Highland",
+        null
+       ]
+      },
+      {
+       "name": "Craufurd",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "ridge"
+       },
+       "commander": "Craufurd",
+       "names": [
+        null,
+        "43rd Monmouthshire",
+        "52nd Oxfordshire",
+        "95th Rifles"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "No French unit on the crest of the ridge at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "crest",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Pack",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "ridge"
+       },
+       "commander": "Pack",
+       "tag": "pack"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Two Portuguese units still on the ridge at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "ridge",
+        "tag": "pack",
+        "count": 2,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Reynier",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Reynier"
+      },
+      {
+       "name": "Ney",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ney"
+      },
+      {
+       "name": "Montbrun",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Montbrun"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Get a unit onto the crest at any point, or remove four Allied units, by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "crest",
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "night": {
+     "untilRound": 2
+    },
+    "reverseSlope": {
+     "side": "red"
+    },
+    "slow": [
+     {
+      "area": "ridge_hills",
+      "max": 1
+     }
+    ]
+   },
+   "needs": []
+  },
+  {
+   "id": "sabugal",
+   "name": "Sabugal",
+   "date": "3 April 1811",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 8,
+   "history": "Wellington planned to trap Reynier at Sabugal, but fog and rain threw his columns out. Beckwith's brigade crossed alone and met Reynier's whole corps on a hill; it held off attack after attack, cavalry too, until the rest of the army came up out of the fog.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Sabugal",
+   "map": {
+    "terrain": [
+     "........###.........",
+     "........###.........",
+     "...**..........**...",
+     "...**...^^.^...**...",
+     "........^^.^........",
+     "......**^^.^**......",
+     "....................",
+     "....::........::....",
+     "....................",
+     "...................."
+    ],
+    "roads": [
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=........."
+    ],
+    "places": [
+     [
+      "Sabugal",
+      9.5,
+      2.5,
+      "town"
+     ],
+     [
+      "the hill",
+      10,
+      4.5,
+      "feature"
+     ],
+     [
+      "the Côa",
+      7,
+      8.45,
+      "water"
+     ],
+     [
+      "stone walls",
+      3.5,
+      1.6,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "hill": [
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       11,
+       5
+      ]
+     ],
+     "beckwith_start": [
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       8,
+       5
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       15,
+       5
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ]
+     ]
+    },
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       -0.2,
+       8
+      ],
+      [
+       20.2,
+       8
+      ]
+     ],
+     "fords": [
+      [
+       2.2,
+       5.8,
+       7.6,
+       8.4
+      ],
+      [
+       12.2,
+       15.8,
+       7.6,
+       8.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         10,
+         7
+        ],
+        [
+         10,
+         8
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Beckwith",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "beckwith_start"
+       },
+       "commander": "Beckwith",
+       "tag": "beckwith",
+       "names": [
+        null,
+        "43rd Monmouthshire",
+        "95th Rifles",
+        null
+       ]
+      },
+      {
+       "name": "Picton",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Picton",
+       "arrives": {
+        "round": 5
+       }
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Beckwith's Brigade on the hill (a unit on any square of it) at the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "hill",
+        "tag": "beckwith",
+        "count": 1,
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "the Caçadores",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "beckwith_start"
+       },
+       "commander": "Elder",
+       "tag": "cacadores_s"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Their Brigadier still in play at the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "cacadores_s",
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Merle",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Merle"
+      },
+      {
+       "name": "Heudelet",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Heudelet"
+      },
+      {
+       "name": "Soult's dragoons",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Pierre Soult"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Break two Allied Brigades, or clear the hill of Allied units, by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 2,
+        "byRound": 8
+       },
+       {
+        "type": "CLEAR_AREA",
+        "area": "hill",
+        "atRound": 8
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "night": {
+     "untilRound": 4
+    }
+   },
+   "needs": [
+    "rain (volleys) from round 6"
+   ]
+  },
+  {
+   "id": "albuera",
+   "name": "Albuera",
+   "date": "16 May 1811",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Soult swung round Beresford's right through the woods onto the hill held by Zayas's Spaniards, who stood. Colborne's brigade was caught in line in a hailstorm by the Vistula Lancers and destroyed; then the Fusilier Brigade went up the hill and fought it out with the French columns until they broke.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Albuera",
+   "map": {
+    "terrain": [
+     "....................",
+     ".............****...",
+     "............*****...",
+     "..::.........****...",
+     "....................",
+     "....................",
+     "....................",
+     "...#.#.....^^^^^^...",
+     "...##.....^^^^^^^^..",
+     "..........^^^^^^^..."
+    ],
+    "roads": [
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=..............",
+     ".....=.............."
+    ],
+    "places": [
+     [
+      "Albuera",
+      4,
+      9.5,
+      "town"
+     ],
+     [
+      "the southern hills",
+      14,
+      9.6,
+      "feature"
+     ],
+     [
+      "Albuera stream",
+      8,
+      6.45,
+      "water"
+     ],
+     [
+      "olive woods",
+      15,
+      0.45,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "south_hill": [
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ]
+     ],
+     "albuera": [
+      [
+       3,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ]
+     ],
+     "south_bank": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ],
+      [
+       10,
+       9
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       -0.2,
+       6
+      ],
+      [
+       20.2,
+       6
+      ]
+     ],
+     "fords": [
+      [
+       9.2,
+       11.8,
+       5.6,
+       6.4
+      ],
+      [
+       14.2,
+       16.8,
+       5.6,
+       6.4
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         5,
+         5
+        ],
+        [
+         5,
+         6
+        ]
+       ],
+       "art": "three-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Colborne",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Colborne",
+       "names": [
+        null,
+        "3rd Buffs",
+        "48th Northamptonshire",
+        "66th Berkshire"
+       ]
+      },
+      {
+       "name": "Myers",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Myers",
+       "names": [
+        null,
+        "7th Royal Fusiliers",
+        "23rd Royal Welch Fusiliers",
+        "57th West Middlesex"
+       ]
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "No French unit on the southern hills at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "CLEAR_AREA",
+        "area": "south_hill",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Zayas",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Zayas",
+       "tag": "zayas"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Zayas still in play, with his Brigade, at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "zayas",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Harvey",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Harvey"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold Albuera village at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "albuera",
+        "count": 1,
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Girard and Gazan",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Girard"
+      },
+      {
+       "name": "Werlé",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Werlé"
+      },
+      {
+       "name": "Latour-Maubourg",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Latour-Maubourg",
+       "names": [
+        null,
+        null,
+        null,
+        "Vistula Lancers"
+       ]
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Break one Allied Brigade, or have three units across the Albuera stream at the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 1,
+        "byRound": 10
+       },
+       {
+        "type": "IN_AREA",
+        "area": "south_bank",
+        "count": 3,
+        "atRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "night": {
+     "round": 4
+    },
+    "chargeBonus": [
+     {
+      "type": "LIGHT_CAV",
+      "round": 4,
+      "label": "Charging out of the hail"
+     },
+     {
+      "type": "HEAVY_CAV",
+      "round": 4,
+      "label": "Charging out of the hail"
+     }
+    ]
+   },
+   "needs": [
+    "'die hard' re-roll for the 57th"
+   ]
+  },
+  {
+   "id": "elbodon",
+   "name": "El Bodón",
+   "date": "25 September 1811",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 10,
+   "history": "Montbrun's cavalry caught Colville's brigade on the heights at El Bodón. The 5th Foot charged the cavalry and took back the guns; then the 5th and 77th, with the 21st Portuguese, formed squares and marched six miles back to Fuenteguinaldo with the French horse riding round them, and were never broken.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_El_Bod%C3%B3n",
+   "map": {
+    "terrain": [
+     "^^^.................",
+     "^^^^......*.........",
+     "^^^^..............#.",
+     "^^^..........*....#.",
+     "...................#",
+     "^^^..........*....##",
+     "^^^^...*...........#",
+     "^^^^................",
+     "^^^.................",
+     "...................."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "places": [
+     [
+      "El Bodón heights",
+      1.5,
+      9.6,
+      "feature"
+     ],
+     [
+      "Fuenteguinaldo",
+      17.5,
+      1.5,
+      "town"
+     ],
+     [
+      "open ground",
+      9.5,
+      7.5,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "allied_start": [
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ]
+     ]
+    },
+    "exits": {
+     "british": "britishEdge"
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Colville",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Colville",
+       "names": [
+        null,
+        "5th Northumberland",
+        "77th East Middlesex",
+        null
+       ]
+      },
+      {
+       "name": "Alten",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Victor Alten",
+       "names": [
+        null,
+        "11th Light Dragoons",
+        "1st KGL Hussars"
+       ]
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "Two units leave by the Fuenteguinaldo end by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 2,
+        "byRound": 10
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "the 21st Line",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "allied_start"
+       },
+       "commander": "Harvey",
+       "tag": "p21",
+       "names": [
+        null,
+        "21st Line",
+        null
+       ]
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "The 21st Line leaves by the Fuenteguinaldo end by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 1,
+        "mustIncludeTag": "p21",
+        "byRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Montbrun",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Montbrun"
+      },
+      {
+       "name": "Wathier",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Wathier"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Remove four Allied units by the end of round 10.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4,
+        "byRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": [
+    "squares on the march"
+   ]
+  },
+  {
+   "id": "arroyo",
+   "name": "Arroyo dos Molinos",
+   "date": "28 October 1811",
+   "kind": "Operation",
+   "layout": "standard",
+   "turnLimit": 8,
+   "history": "Hill marched through the night and rain and fell on Girard's division at dawn as it formed up to leave Arroyo dos Molinos. The 71st and 92nd came into the village with the pipes playing \"Hey, Johnnie Cope\"; Girard's men fled up the Sierra behind it, and most of the division was killed or taken.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Arroyo_dos_Molinos",
+   "map": {
+    "terrain": [
+     "^^^^^^^^^^^^^^^^^^^^",
+     "^^^^^^^^^^^^^^^^^^^^",
+     "........###.........",
+     "........##.##.......",
+     ".........#..........",
+     "....................",
+     "....::.........::...",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "..........==========",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=.........",
+     "..........=........."
+    ],
+    "places": [
+     [
+      "Sierra de Montánchez",
+      10,
+      0.6,
+      "feature"
+     ],
+     [
+      "Arroyo dos Molinos",
+      7,
+      4.6,
+      "town"
+     ],
+     [
+      "to Mérida",
+      17.5,
+      2.6,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "village": [
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       9,
+       4
+      ]
+     ],
+     "merida": [
+      [
+       19,
+       3
+      ]
+     ],
+     "french_start": [
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ]
+     ]
+    },
+    "exits": {
+     "french": "frenchEdge"
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Howard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Howard",
+       "names": [
+        null,
+        "50th West Kent",
+        "71st Highland",
+        "92nd Gordon Highlanders"
+       ]
+      },
+      {
+       "name": "Long",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Long",
+       "names": [
+        null,
+        "9th Light Dragoons",
+        "13th Light Dragoons"
+       ]
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Two squares of the village held, and four French units removed, by the end of round 8.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "village",
+        "count": 2,
+        "atRound": 8
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Ashworth",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ashworth"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold the Mérida road at the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "merida",
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Morillo",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Morillo",
+       "tag": "morillo"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Morillo still in play at the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "COMMANDER",
+        "tag": "morillo",
+        "atRound": 8
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Girard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Girard"
+      },
+      {
+       "name": "Bron",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Bron"
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "Three units leave over the Sierra (the French edge) by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 3,
+        "byRound": 8
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "noFire": {
+     "side": "blue",
+     "untilRound": 1
+    }
+   },
+   "needs": [
+    "rain until round 3",
+    "only infantry climb the Sierra"
+   ],
+   "firstPlayer": "british"
+  },
+  {
+   "id": "salamanca",
+   "name": "Salamanca",
+   "date": "22 July 1812",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 10,
+   "history": "Marmont, racing to cut Wellington off from Portugal, let his left wing stretch out along the heights south of Salamanca. Wellington struck: Pakenham hit the head of the column, Le Marchant's heavy dragoons rode down Maucune's infantry, and though Pack's Portuguese were thrown back from the Greater Arapile, they pinned its defenders. Forty thousand men were beaten in forty minutes.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Salamanca",
+   "map": {
+    "terrain": [
+     "^^^^^^^^^^^^^^^^^^..",
+     "....................",
+     "....::..........::..",
+     "....................",
+     "...........^^.......",
+     "...........^^.......",
+     "........^^..........",
+     "........^^..........",
+     ".........#..........",
+     "........###........."
+    ],
+    "roads": [
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     ".........=..........",
+     ".........=.........."
+    ],
+    "places": [
+     [
+      "the Greater Arapile",
+      12,
+      3.6,
+      "feature"
+     ],
+     [
+      "the Lesser Arapile",
+      9,
+      5.6,
+      "feature"
+     ],
+     [
+      "Los Arapiles",
+      9.5,
+      9.6,
+      "town"
+     ],
+     [
+      "Marmont's line of march",
+      9.5,
+      1.6,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "greater": [
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ]
+     ],
+     "arapile_ring": [
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       10,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ]
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Pakenham",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Pakenham",
+       "names": [
+        null,
+        "45th Nottinghamshire",
+        "74th Highland",
+        "88th Connaught Rangers",
+        null
+       ]
+      },
+      {
+       "name": "Leith",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Leith",
+       "names": [
+        null,
+        "1st Royal Scots",
+        "4th King's Own",
+        "44th East Essex"
+       ]
+      },
+      {
+       "name": "Le Marchant",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Le Marchant",
+       "names": [
+        null,
+        "3rd Dragoons",
+        "5th Dragoon Guards"
+       ]
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Break one French Brigade and remove four French units by the end of round 10.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 1,
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 4
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Pack",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Pack",
+       "tag": "pack_s"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "A unit next to the Greater Arapile at the end of any round, and Pack in play at the end of round 10.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "arapile_ring",
+        "count": 1
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "pack_s",
+        "atRound": 10
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Thomières",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Thomières"
+      },
+      {
+       "name": "Maucune",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Maucune"
+      },
+      {
+       "name": "Clausel",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Clausel"
+      },
+      {
+       "name": "Boyer",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Boyer"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Two Brigades unbroken, and the Greater Arapile still French, at the end of round 10.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
+        "atRound": 10
+       },
+       {
+        "type": "CONTROL_AREA",
+        "area": "greater",
+        "atRound": 10
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "chargeBonus": [
+     {
+      "type": "HEAVY_CAV",
+      "side": "red",
+      "fromRound": 4,
+      "vsNotSquare": true,
+      "label": "Le Marchant's charge"
+     }
+    ]
+   },
+   "needs": []
+  },
+  {
+   "id": "garcia-hernandez",
+   "name": "García Hernández",
+   "date": "23 July 1812",
+   "kind": "Operation",
+   "layout": "corridor",
+   "turnLimit": 8,
+   "history": "The day after Salamanca, Bock's heavy dragoons of the King's German Legion caught Foy's rearguard on a slope near García Hernández. A dying French horse fell into the front of a square, the dragoons rode through the gap and broke it, then broke a second: one of the few times cavalry broke formed infantry.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Garc%C3%ADa_Hern%C3%A1ndez",
+   "map": {
+    "terrain": [
+     "^^^^^^^.............",
+     "^^^^^^^^............",
+     "^^^^^^^.........#...",
+     "^^^^^^..............",
+     "....................",
+     "^^^^^^..............",
+     "^^^^^^^.....::......",
+     "^^^^^^^^............",
+     "^^^^^^^.............",
+     "...................."
+    ],
+    "roads": [
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "====================",
+     "....................",
+     "....................",
+     "....................",
+     "....................",
+     "...................."
+    ],
+    "places": [
+     [
+      "Foy's slope",
+      3,
+      9.6,
+      "feature"
+     ],
+     [
+      "the stream",
+      12.3,
+      2.5,
+      "water"
+     ],
+     [
+      "García Hernández",
+      16,
+      2.5,
+      "town"
+     ]
+    ],
+    "areas": {
+     "foy_start": [
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       2,
+       5
+      ],
+      [
+       3,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       5,
+       5
+      ],
+      [
+       6,
+       5
+      ],
+      [
+       7,
+       5
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       2,
+       9
+      ],
+      [
+       3,
+       9
+      ],
+      [
+       4,
+       9
+      ],
+      [
+       5,
+       9
+      ],
+      [
+       6,
+       9
+      ],
+      [
+       7,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "brook",
+     "course": [
+      [
+       12,
+       -0.2
+      ],
+      [
+       12,
+       10.2
+      ]
+     ],
+     "fords": [
+      [
+       11.6,
+       12.4,
+       0.2,
+       3.8
+      ],
+      [
+       11.6,
+       12.4,
+       5.2,
+       9.8
+      ]
+     ],
+     "bridges": [
+      {
+       "squares": [
+        [
+         11,
+         4
+        ],
+        [
+         12,
+         4
+        ]
+       ],
+       "art": "wooden"
+      }
+     ]
+    },
+    "exits": {
+     "french": "frenchEdge"
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Bock",
+       "units": [
+        "BRIGADIER",
+        "HEAVY_CAV",
+        "HEAVY_CAV",
+        "HEAVY_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Bock",
+       "names": [
+        null,
+        "1st KGL Dragoons",
+        "2nd KGL Dragoons",
+        "1st KGL Dragoons, 2nd squadrons"
+       ]
+      },
+      {
+       "name": "Anson",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Anson",
+       "names": [
+        null,
+        "11th Light Dragoons",
+        "16th Light Dragoons"
+       ]
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Break two French infantry units by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "DESTROY",
+        "unitTypes": [
+         "INFANTRY"
+        ],
+        "count": 2,
+        "byRound": 8
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Foy's rearguard",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "foy_start"
+       },
+       "commander": "Foy",
+       "names": [
+        null,
+        "6e Léger",
+        "69e Ligne",
+        "76e Ligne",
+        null
+       ]
+      },
+      {
+       "name": "Curto",
+       "units": [
+        "BRIGADIER",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "foy_start"
+       },
+       "commander": "Curto"
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "Three units leave by the French end by the end of round 8.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 3,
+        "byRound": 8
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": [
+    "the dead horse (one re-roll against a square)"
+   ]
+  },
+  {
+   "id": "vitoria",
+   "name": "Vitoria",
+   "date": "21 June 1813",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 12,
+   "history": "King Joseph's army stood in the Zadorra valley west of Vitoria, with its baggage and the loot of five years jammed on the roads behind it. Wellington attacked from four directions over the Zadorra bridges and round the north; the French army broke and fled, leaving everything behind.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Vitoria",
+   "map": {
+    "terrain": [
+     "......###.###.......",
+     "...::.#######.::....",
+     "....................",
+     ".........^^.........",
+     "^^..................",
+     "^^..................",
+     "^^......::..........",
+     "^^..................",
+     "^^..........::......",
+     "^^.................."
+    ],
+    "roads": [
+     "....................",
+     "====================",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=..",
+     "..=...=....=.....=.."
+    ],
+    "places": [
+     [
+      "Vitoria and the baggage",
+      9.5,
+      0.45,
+      "town"
+     ],
+     [
+      "the knoll of Arinez",
+      10,
+      2.6,
+      "feature"
+     ],
+     [
+      "the Zadorra",
+      13,
+      5.45,
+      "water"
+     ],
+     [
+      "Puebla heights",
+      1.5,
+      9.6,
+      "feature"
+     ],
+     [
+      "Tres Puentes",
+      6.5,
+      3.4,
+      "feature"
+     ],
+     [
+      "Gamarra",
+      17.5,
+      2.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "arinez": [
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ]
+     ],
+     "puebla": [
+      [
+       0,
+       4
+      ],
+      [
+       1,
+       4
+      ],
+      [
+       0,
+       5
+      ],
+      [
+       1,
+       5
+      ],
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       0,
+       9
+      ],
+      [
+       1,
+       9
+      ]
+     ],
+     "north_bank": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       0
+      ],
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       16,
+       0
+      ],
+      [
+       17,
+       0
+      ],
+      [
+       18,
+       0
+      ],
+      [
+       19,
+       0
+      ],
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       0,
+       2
+      ],
+      [
+       1,
+       2
+      ],
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       0,
+       3
+      ],
+      [
+       1,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ]
+     ],
+     "graham": [
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       18,
+       2
+      ]
+     ]
+    },
+    "river": {
+     "kind": "river",
+     "course": [
+      [
+       -0.2,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       9,
+       5
+      ],
+      [
+       14,
+       5
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       20.2,
+       4
+      ]
+     ],
+     "fords": [],
+     "bridges": [
+      {
+       "squares": [
+        [
+         2,
+         4
+        ],
+        [
+         2,
+         5
+        ]
+       ],
+       "art": "three-arch"
+      },
+      {
+       "squares": [
+        [
+         6,
+         3
+        ],
+        [
+         6,
+         4
+        ]
+       ],
+       "art": "single-arch"
+      },
+      {
+       "squares": [
+        [
+         11,
+         4
+        ],
+        [
+         11,
+         5
+        ]
+       ],
+       "art": "single-arch"
+      },
+      {
+       "squares": [
+        [
+         17,
+         3
+        ],
+        [
+         17,
+         4
+        ]
+       ],
+       "art": "wooden"
+      }
+     ]
+    },
+    "exits": {
+     "french": "frenchEdge"
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "the Light Division",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Kempt",
+       "names": [
+        null,
+        "43rd Monmouthshire",
+        "52nd Oxfordshire",
+        "95th Rifles"
+       ]
+      },
+      {
+       "name": "Picton",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Picton",
+       "names": [
+        null,
+        "88th Connaught Rangers",
+        "45th Nottinghamshire",
+        "74th Highland",
+        null
+       ]
+      },
+      {
+       "name": "Graham",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Graham",
+       "arrives": {
+        "round": 5,
+        "area": "graham"
+       }
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Take the knoll of Arinez at any point, and break two French Brigades, by the end of round 12.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "ENTERED",
+        "area": "arinez",
+        "byRound": 12
+       },
+       {
+        "type": "BREAK_BRIGADES",
+        "count": 2,
+        "byRound": 12
+       }
+      ]
+     }
+    },
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Morillo",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "puebla"
+       },
+       "commander": "Morillo"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold a square of the Puebla heights at the end of round 12.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "puebla",
+        "count": 1,
+        "atRound": 12
+       }
+      ]
+     }
+    },
+    "Portugal": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Ashworth",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Ashworth",
+       "tag": "ashworth"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Two units across the Zadorra at the end of round 12.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "north_bank",
+        "tag": "ashworth",
+        "count": 2,
+        "atRound": 12
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Gazan",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Gazan"
+      },
+      {
+       "name": "D'Erlon",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "d'Erlon"
+      },
+      {
+       "name": "Reille",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "HEAVY_CAV"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Reille"
+      },
+      {
+       "name": "Villatte",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "GUARD"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Villatte"
+      }
+     ],
+     "role": "escape",
+     "objective": {
+      "text": "Eight units leave by the road to France (the French edge) by the end of round 12.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "MARCH_OFF",
+        "count": 8,
+        "byRound": 12
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {},
+   "needs": [
+    "the baggage (stops Allied units for a round)"
+   ]
+  },
+  {
+   "id": "toulouse",
+   "name": "Toulouse",
+   "date": "10 April 1814",
+   "kind": "Major battle",
+   "layout": "standard",
+   "turnLimit": 12,
+   "history": "Soult held Toulouse behind the Garonne and the canal, with his strongest works on the Calvinet ridge. Freire's Spaniards attacked its northern end and were thrown back; Beresford marched along the marshy valley under fire and stormed the southern end. Napoleon had already abdicated: the news had not reached either army.",
+   "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Toulouse_(1814)",
+   "map": {
+    "terrain": [
+     "####.....######.....",
+     "....................",
+     "......^^^^^^^^^^....",
+     "......^^#^^#^^#^....",
+     "......^^^^^^^^^^....",
+     ".................:::",
+     ".................:::",
+     "....::...........:::",
+     ".................:::",
+     "................:::."
+    ],
+    "roads": [
+     "....=..........=....",
+     "....=..........=====",
+     "....=...............",
+     "....=...............",
+     "....=...............",
+     "....=...............",
+     "....=...............",
+     "....=...............",
+     "....=...............",
+     "....=..............."
+    ],
+    "places": [
+     [
+      "Toulouse",
+      1.5,
+      0.6,
+      "town"
+     ],
+     [
+      "the canal",
+      9.5,
+      1.45,
+      "water"
+     ],
+     [
+      "the Calvinet ridge",
+      11,
+      5.4,
+      "feature"
+     ],
+     [
+      "the Ers marsh",
+      18,
+      9.6,
+      "feature"
+     ],
+     [
+      "the northern redoubts",
+      8.5,
+      2.4,
+      "feature"
+     ]
+    ],
+    "areas": {
+     "north_redoubt": [
+      [
+       8,
+       3
+      ]
+     ],
+     "south_redoubts": [
+      [
+       11,
+       3
+      ],
+      [
+       14,
+       3
+      ]
+     ],
+     "near_north": [
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ]
+     ],
+     "french_start": [
+      [
+       2,
+       2
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       2,
+       4
+      ],
+      [
+       3,
+       4
+      ],
+      [
+       4,
+       4
+      ],
+      [
+       5,
+       4
+      ],
+      [
+       6,
+       4
+      ],
+      [
+       7,
+       4
+      ],
+      [
+       8,
+       4
+      ],
+      [
+       9,
+       4
+      ],
+      [
+       10,
+       4
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       4
+      ]
+     ],
+     "redoubts": [
+      [
+       8,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       14,
+       3
+      ]
+     ],
+     "ers": [
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ]
+     ]
+    },
+    "river": {
+     "kind": "canal",
+     "course": [
+      [
+       -0.2,
+       1
+      ],
+      [
+       20.2,
+       1
+      ]
+     ],
+     "fords": [],
+     "bridges": [
+      {
+       "squares": [
+        [
+         4,
+         0
+        ],
+        [
+         4,
+         1
+        ]
+       ],
+       "art": "single-arch"
+      },
+      {
+       "squares": [
+        [
+         15,
+         0
+        ],
+        [
+         15,
+         1
+        ]
+       ],
+       "art": "single-arch"
+      }
+     ]
+    }
+   },
+   "sides": {
+    "Britain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Beresford",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Beresford"
+      },
+      {
+       "name": "Picton's feint",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Picton"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "Hold a southern redoubt at the end of round 12.",
+      "combinator": "any",
+      "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "south_redoubts",
+        "count": 1,
+        "atRound": 12
+       }
+      ]
+     }
+    },
+    "Spain": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Freire",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "edge"
+       },
+       "commander": "Freire",
+       "tag": "freire"
+      }
+     ],
+     "role": "attack",
+     "objective": {
+      "text": "A unit next to the northern redoubts at the end of any round, and Freire still in play at the end of round 12.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "IN_AREA",
+        "area": "near_north",
+        "count": 1
+       },
+       {
+        "type": "COMMANDER",
+        "tag": "freire",
+        "atRound": 12
+       }
+      ]
+     }
+    },
+    "France": {
+     "start": "",
+     "brigades": [
+      {
+       "name": "Harispe and Villatte",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY",
+        "ARTILLERY",
+        "ARTILLERY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Harispe"
+      },
+      {
+       "name": "Darmagnac and Taupin",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "INFANTRY",
+        "INFANTRY"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Taupin"
+      },
+      {
+       "name": "Soult's reserve",
+       "units": [
+        "BRIGADIER",
+        "INFANTRY",
+        "LIGHT_CAV"
+       ],
+       "placement": {
+        "type": "area",
+        "area": "french_start"
+       },
+       "commander": "Soult"
+      }
+     ],
+     "role": "hold",
+     "objective": {
+      "text": "Hold the northern redoubt, and have two Brigades unbroken, at the end of round 12.",
+      "combinator": "all",
+      "conditions": [
+       {
+        "type": "HOLD_AREA",
+        "area": "north_redoubt",
+        "atRound": 12
+       },
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
+        "atRound": 12
+       }
+      ]
+     }
+    }
+   },
+   "special": "",
+   "balance": "",
+   "rules": {
+    "works": {
+     "area": "redoubts"
+    },
+    "slow": [
+     {
+      "area": "ers",
+      "max": 1
+     }
+    ]
+   },
+   "needs": []
+  }
+ ],
+ "routes": {
+  "Britain": [
+   "vimeiro",
+   [
+    "cacabelos",
+    "corunna"
+   ],
+   "bussaco",
+   [
+    "sabugal",
+    "elbodon",
+    "arroyo"
+   ],
+   "salamanca",
+   "garcia-hernandez",
+   "vitoria",
+   "toulouse"
+  ],
+  "Portugal": [
+   "vimeiro",
+   "coa",
+   "bussaco",
+   [
+    "sabugal",
+    "albuera"
+   ],
+   [
+    "elbodon",
+    "arroyo"
+   ],
+   "salamanca",
+   "vitoria"
+  ],
+  "Spain": [
+   "bailen",
+   "somosierra",
+   [
+    "talavera",
+    "ocana"
+   ],
+   [
+    "albuera",
+    "arroyo"
+   ],
+   "vitoria",
+   "toulouse"
+  ],
+  "France": [
+   "vimeiro",
+   "somosierra",
+   [
+    "cacabelos",
+    "corunna"
+   ],
+   "coa",
+   "bussaco",
+   [
+    "albuera",
+    "elbodon"
+   ],
+   "salamanca",
+   "vitoria"
+  ]
+ }
+}
