@@ -429,7 +429,8 @@
        "placement": {
         "type": "edge"
        },
-       "commander": "Reding"
+       "commander": "Reding",
+       "tag": "reding"
       },
       {
        "name": "Coupigny",
@@ -565,11 +566,20 @@
    },
    "special": "The Rumblar behind the French. Vedel arrives in round 8 behind the Spanish.",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "heat and thirst (French move one less from round 6)",
-    "the Swiss go over (round 7)"
-   ]
+   "rules": {
+    "slow": [
+     {
+      "side": "blue",
+      "fromRound": 6
+     }
+    ],
+    "turncoat": {
+     "round": 7,
+     "unit": "Swiss battalion (Reding)",
+     "joinTag": "reding"
+    }
+   },
+   "needs": []
   },
   {
    "id": "vimeiro",
@@ -920,10 +930,12 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "reverse slope"
-   ]
+   "rules": {
+    "reverseSlope": {
+     "side": "red"
+    }
+   },
+   "needs": []
   },
   {
    "id": "somosierra",
@@ -1381,10 +1393,11 @@
    "special": "",
    "balance": "",
    "rules": {
-    "night": true
+    "night": {
+     "untilRound": 3
+    }
    },
    "needs": [
-    "fog only until round 3 (now night all battle)",
     "cavalry on the road only",
     "Guard re-roll for the Poles"
    ]
@@ -2754,9 +2767,12 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
+   "rules": {
+    "night": {
+     "round": 1
+    }
+   },
    "needs": [
-    "night attack in round 1",
     "the Guards' over-eager charge"
    ]
   },
@@ -4218,6 +4234,200 @@
        19,
        9
       ]
+     ],
+     "ridge_hills": [
+      [
+       0,
+       6
+      ],
+      [
+       1,
+       6
+      ],
+      [
+       2,
+       6
+      ],
+      [
+       3,
+       6
+      ],
+      [
+       4,
+       6
+      ],
+      [
+       5,
+       6
+      ],
+      [
+       6,
+       6
+      ],
+      [
+       7,
+       6
+      ],
+      [
+       8,
+       6
+      ],
+      [
+       9,
+       6
+      ],
+      [
+       10,
+       6
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       15,
+       6
+      ],
+      [
+       0,
+       7
+      ],
+      [
+       1,
+       7
+      ],
+      [
+       2,
+       7
+      ],
+      [
+       3,
+       7
+      ],
+      [
+       4,
+       7
+      ],
+      [
+       5,
+       7
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       7,
+       7
+      ],
+      [
+       8,
+       7
+      ],
+      [
+       9,
+       7
+      ],
+      [
+       10,
+       7
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       0,
+       8
+      ],
+      [
+       1,
+       8
+      ],
+      [
+       2,
+       8
+      ],
+      [
+       3,
+       8
+      ],
+      [
+       4,
+       8
+      ],
+      [
+       5,
+       8
+      ],
+      [
+       6,
+       8
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       8
+      ],
+      [
+       9,
+       8
+      ],
+      [
+       10,
+       8
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       14,
+       8
+      ],
+      [
+       15,
+       8
+      ]
      ]
     }
    },
@@ -4381,12 +4591,21 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "morning mist (rounds 1 and 2)",
-    "reverse slope",
-    "steep ridge"
-   ]
+   "rules": {
+    "night": {
+     "untilRound": 2
+    },
+    "reverseSlope": {
+     "side": "red"
+    },
+    "slow": [
+     {
+      "area": "ridge_hills",
+      "max": 1
+     }
+    ]
+   },
+   "needs": []
   },
   {
    "id": "sabugal",
@@ -4773,10 +4992,13 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
+   "rules": {
+    "night": {
+     "untilRound": 4
+    }
+   },
    "needs": [
-    "fog until round 4",
-    "rain (volleys need 5 or 6) from round 6"
+    "rain (volleys) from round 6"
    ]
   },
   {
@@ -5180,9 +5402,24 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
+   "rules": {
+    "night": {
+     "round": 4
+    },
+    "chargeBonus": [
+     {
+      "type": "LIGHT_CAV",
+      "round": 4,
+      "label": "Charging out of the hail"
+     },
+     {
+      "type": "HEAVY_CAV",
+      "round": 4,
+      "label": "Charging out of the hail"
+     }
+    ]
+   },
    "needs": [
-    "hailstorm in round 4",
     "'die hard' re-roll for the 57th"
    ]
   },
@@ -5931,9 +6168,13 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
+   "rules": {
+    "noFire": {
+     "side": "blue",
+     "untilRound": 1
+    }
+   },
    "needs": [
-    "surprise (no French fire in round 1)",
     "rain until round 3",
     "only infantry climb the Sierra"
    ],
@@ -6259,10 +6500,18 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "Le Marchant's charge (+1 against infantry not in square from round 4)"
-   ]
+   "rules": {
+    "chargeBonus": [
+     {
+      "type": "HEAVY_CAV",
+      "side": "red",
+      "fromRound": 4,
+      "vsNotSquare": true,
+      "label": "Le Marchant's charge"
+     }
+    ]
+   },
+   "needs": []
   },
   {
    "id": "garcia-hernandez",
@@ -7813,6 +8062,82 @@
        16,
        4
       ]
+     ],
+     "redoubts": [
+      [
+       8,
+       3
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       14,
+       3
+      ]
+     ],
+     "ers": [
+      [
+       17,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       19,
+       5
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       18,
+       6
+      ],
+      [
+       19,
+       6
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       18,
+       9
+      ]
      ]
     },
     "river": {
@@ -8009,11 +8334,18 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "redoubts give +1",
-    "the Ers marsh (one square a move)"
-   ]
+   "rules": {
+    "works": {
+     "area": "redoubts"
+    },
+    "slow": [
+     {
+      "area": "ers",
+      "max": 1
+     }
+    ]
+   },
+   "needs": []
   }
  ],
  "routes": {

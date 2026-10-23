@@ -284,6 +284,34 @@ ROUTES = {
   'Spain': ['bailen', 'somosierra', ['talavera', 'ocana'], ['albuera', 'arroyo'], 'vitoria', 'toulouse'],
   'France': ['vimeiro', 'somosierra', ['cacabelos', 'corunna'], 'coa', 'bussaco', ['albuera', 'elbodon'], 'salamanca', 'vitoria'],
 }
+# ---- special rules built so far (engine-rules storyRule), and what each battle still waits for ----
+RULES = {
+  'bailen': ({'slow': [{'side': 'blue', 'fromRound': 6}], 'turncoat': {'round': 7, 'unit': 'Swiss battalion (Reding)', 'joinTag': 'reding'}}, []),
+  'vimeiro': ({'reverseSlope': {'side': 'red'}}, []),
+  'somosierra': ({'night': {'untilRound': 3}}, ['cavalry on the road only', 'Guard re-roll for the Poles']),
+  'cacabelos': ({}, ["the marksman (the 95th's long shot at a commander)"]),
+  'corunna': ({}, ['the great battery fires over lower ground', 'embarkation from round 7']),
+  'talavera': ({'night': {'round': 1}}, ["the Guards' over-eager charge"]),
+  'ocana': ({}, []),
+  'coa': ({}, []),
+  'bussaco': ({'night': {'untilRound': 2}, 'reverseSlope': {'side': 'red'}, 'slow': [{'area': 'ridge_hills', 'max': 1}]}, []),
+  'sabugal': ({'night': {'untilRound': 4}}, ['rain (volleys) from round 6']),
+  'albuera': ({'night': {'round': 4}, 'chargeBonus': [{'type': 'LIGHT_CAV', 'round': 4, 'label': 'Charging out of the hail'}, {'type': 'HEAVY_CAV', 'round': 4, 'label': 'Charging out of the hail'}]}, ["'die hard' re-roll for the 57th"]),
+  'elbodon': ({}, ['squares on the march']),
+  'arroyo': ({'noFire': {'side': 'blue', 'untilRound': 1}}, ['rain until round 3', 'only infantry climb the Sierra']),
+  'salamanca': ({'chargeBonus': [{'type': 'HEAVY_CAV', 'side': 'red', 'fromRound': 4, 'vsNotSquare': True, 'label': "Le Marchant's charge"}]}, []),
+  'garcia-hernandez': ({}, ['the dead horse (one re-roll against a square)']),
+  'vitoria': ({}, ['the baggage (stops Allied units for a round)']),
+  'toulouse': ({'works': {'area': 'redoubts'}, 'slow': [{'area': 'ers', 'max': 1}]}, []),
+}
+for b in battles:
+    r, n = RULES[b['id']]; b['rules'] = r; b['needs'] = n
+B = {b['id']: b for b in battles}
+B['bailen']['sides']['Spain']['brigades'][0]['tag'] = 'reding'
+B['bussaco']['map']['areas']['ridge_hills'] = sq(m['bussaco'], '^', rows=range(6, 9))
+B['toulouse']['map']['areas']['redoubts'] = [[8, 3], [11, 3], [14, 3]]
+B['toulouse']['map']['areas']['ers'] = sq(m['toulouse'], ':', cols=range(16, 20))
+
 out = {'$comment': "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
        'schemaVersion': 1, 'campaign': 'peninsula', 'name': 'The Peninsula', 'years': '1808 to 1814',
        'intro': "1808. Napoleon has put his brother on the throne of Spain, and Spain has risen. Britain sends an army to Portugal. Six years of war across the Peninsula follow, from Bailén to the walls of Toulouse.",

@@ -469,6 +469,14 @@ export function legalMoves(u){
   const startRoad = isRoadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y));
   const storm = storyRule('storm');
   if(storm && battleRound() <= storm.untilRound) allowance = Math.max(1, allowance - 1);   // mud: a square less, the road bonus still counts
+  /* SLOW GOING: heat and thirst (a side, from a round), a marsh or a steep
+     ridge (an area: one square a move). Each entry { side?, area?, fromRound?, max? }. */
+  for(const sl of [].concat(storyRule('slow') || [])){
+    if(sl.side && u.side !== sl.side) continue;
+    if(sl.fromRound && battleRound() < sl.fromRound) continue;
+    if(sl.area && !inStoryArea(sl.area, u.x, u.y)) continue;
+    allowance = sl.max != null ? Math.min(allowance, sl.max) : Math.max(1, allowance - 1);
+  }
   const cavOrHorseArty = isCavalryOrHorseArtillery(u);
   const isFootArtillery = UNIT_TYPES[u.type].isArtillery && !isHorseArtillery(u);
   const hasEscort = isFootArtillery ? brigadeHasCavalryEscort(u) : false;
@@ -683,6 +691,8 @@ export function playMovementAudio(u, steps, profile){
 }
 
 export function volleyTargets(u){
+  const noFireV = storyRule('noFire');
+  if(noFireV && u.side === noFireV.side && battleRound() <= noFireV.untilRound) return [];   // caught stacking arms
   const ammo = storyRule('ammo');
   if(ammo && u.side === ammo.side && battleRound() >= ammo.fromRound && inStoryArea(ammo.area, u.x, u.y)) return [];   // rifle rounds gone
   if(isLocked(u)) return [];
@@ -752,8 +762,18 @@ export function artilleryTargets(gun){
   if(state.fired && state.fired.has(gun.id)) return []; // already fired this phase
   if(state.moved && state.moved.has(gun.id)) return []; // moved this turn — Artillery is move OR fire, never both
   if(isInActiveFight(gun)) return []; // in contact with an enemy: it joins the Fight phase instead of firing at range
-  const night = storyRule('night');   // at night a gun can only see two squares
-  return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t) && (!night || chebyshev(gun, t) <= 2));
+  /* POOR VISIBILITY: night, fog, mist, a night attack or a hailstorm. 'night'
+     is true for the whole battle or { untilRound } / { round } for a window. */
+  const nightRule = storyRule('night');
+  const night = nightRule && (nightRule === true || (nightRule.untilRound && battleRound() <= nightRule.untilRound) || (nightRule.round && battleRound() === nightRule.round));
+  const noFire = storyRule('noFire');   // surprise: { side, untilRound } cannot fire
+  if(noFire && gun.side === noFire.side && battleRound() <= noFire.untilRound) return [];
+  /* REVERSE SLOPE (Vimeiro, Bussaco): infantry of the named side on a hill
+     with no enemy beside it cannot be shelled from more than two squares. */
+  const rs = storyRule('reverseSlope');
+  const sheltered = t => rs && t.side === rs.side && (t.type === 'INFANTRY' || t.type === 'GUARD') && terrainAt(t.x, t.y).key === 'HILL' &&
+    !state.units.some(o => !o.removed && o.side !== t.side && chebyshev(o, t) === 1);
+  return state.units.filter(t=>!t.removed && !isConcealedFromEnemy(t) && t.type!=='BRIGADIER' && t.side!==gun.side && hasLOS(gun,t) && !isInActiveFight(t) && (!night || chebyshev(gun, t) <= 2) && !(sheltered(t) && chebyshev(gun, t) > 2));
 }
 /* EMPTY BRIDGE SQUARES a gun may shoot at, to wreck the bridge (Matthew,
    18 Oct 2026): the same gun conditions as artilleryTargets, an intact bridge
@@ -1020,6 +1040,18 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   }
   if(defending && isBridgeSquare(unit.x, unit.y)){
     valueBonusDirect += 1; directReasons.push('Defending a bridge: +1 to roll');
+  }
+  /* Campaign fight bonuses (storyRule): earthworks (Toulouse's redoubts), a
+     cavalry arm's moment (Le Marchant at Salamanca from a set round), a
+     hailstorm hiding a charge (Albuera, one round). Direct, never a die. */
+  const works = storyRule('works');
+  if(works && defending && inStoryArea(works.area, unit.x, unit.y)){
+    valueBonusDirect += 1; directReasons.push('Defending earthworks: +1 to roll');
+  }
+  for(const ch of [].concat(storyRule('chargeBonus') || [])){
+    if(defending || t.key !== ch.type || (ch.side && unit.side !== ch.side) || (ch.fromRound && battleRound() < ch.fromRound) || (ch.round && battleRound() !== ch.round)) continue;
+    if(ch.vsNotSquare && opponent.formation === 'square') continue;
+    valueBonusDirect += 1; directReasons.push((ch.label || 'A charge in its moment') + ': +1 to roll');
   }
   valueBonus += valueBonusDirect;
   for(const r of directReasons) reasons.push(r);
