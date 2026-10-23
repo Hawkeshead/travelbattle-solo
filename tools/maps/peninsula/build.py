@@ -364,7 +364,9 @@ B['garcia-hernandez']['turnLimit'] = 8
 obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': ['INFANTRY'], 'count': 2, 'byRound': 8}], 'Break two French infantry units by the end of round 8.')
 obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 8}], 'Three units leave by the French end by the end of round 8.')
 # Vitoria 50/100: France must get eight units away; Portugal two across
-obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 8, 'byRound': 12}], 'Eight units leave by the road to France (the French edge) by the end of round 12.')
+obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 11, 'byRound': 12}], 'Eleven units leave by the road to France (the French edge) by the end of round 12.')
+# Garcia Hernandez: the AI's cavalry will not charge squares, and the French form them whenever cavalry come near; a troop of horse artillery
+an2 = B['garcia-hernandez']['sides']['Britain']['brigades'][1]; an2['units'] = an2['units'] + [ART]; an2['names'] = an2['names'] + ['Royal Horse Artillery']
 obj('vitoria', 'Portugal', [{'type': 'IN_AREA', 'area': 'north_bank', 'tag': 'ashworth', 'count': 2, 'atRound': 12}], 'Two units across the Zadorra at the end of round 12.')
 # Toulouse 25/75: one southern redoubt is enough
 obj('toulouse', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'south_redoubts', 'count': 1, 'atRound': 12}], 'Hold a southern redoubt at the end of round 12.')
@@ -391,6 +393,30 @@ for n in ('Poland', 'France'):
         'Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.')
 obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 1, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
     'Hold the summit, with both Brigades unbroken, at the end of round 10.', 'all')
+
+# ---- BALANCE, pass 3 ----
+obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': ['INFANTRY'], 'count': 2, 'byRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 8}],
+    'Break two French infantry units, or remove any three French units, by the end of round 8.')
+obj('salamanca', 'Britain', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
+    'Break one French Brigade, or remove four French units, by the end of round 10.', 'any')
+B['sabugal']['sides']['Britain']['brigades'][0]['placement'] = {'type': 'area', 'area': 'hill'}
+B['cacabelos']['map']['areas']['british_start'] = rect(6, 14, 5, 7)
+obj('talavera', 'France', [{'type': 'ENTERED', 'area': 'medellin', 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_bank', 'count': 5, 'atRound': 10}],
+    'Get a unit onto the Cerro de Medellín at any point, or have five units across the Portiña at the end of round 10.')
+obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 12, 'byRound': 12}], 'Twelve units leave by the road to France (the French edge) by the end of round 12.')
+obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 4, 'byRound': 8}], 'Four units leave by the French end by the end of round 8.')
+obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 8}], 'Remove two French units by the end of round 8.')
+# Vitoria: the French started on their own exit row and could march off at once; they stood in the valley
+B['vitoria']['map']['areas']['french_start'] = rect(0, 19, 2, 3)
+for br in B['vitoria']['sides']['France']['brigades']: br['placement'] = {'type': 'area', 'area': 'french_start'}
+obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 11, 'byRound': 12}], 'Eleven units leave by the road to France (the French edge) by the end of round 12.')
+# Garcia Hernandez: the AI's cavalry will not charge squares, and the French form them whenever cavalry come near; a troop of horse artillery
+an2 = B['garcia-hernandez']['sides']['Britain']['brigades'][1]; an2['units'] = an2['units'] + [ART]; an2['names'] = an2['names'] + ['Royal Horse Artillery']
+an = B['garcia-hernandez']['sides']['Britain']['brigades'][1]; an['units'] = an['units'] + [LC]; an['names'] = an['names'] + ['12th Light Dragoons']
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 8}],
+    "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.")
+obj('sabugal', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 8}, {'type': 'CLEAR_AREA', 'area': 'hill', 'atRound': 8}],
+    'Break an Allied Brigade, or clear the hill of Allied units, by the end of round 8.')
 
 out = {'$comment': "The Peninsula campaign's battles (Grognards Campaign Design doc, Peninsula battle sheets; maps in tools/maps/peninsula/maps.py). Built by tools/maps/peninsula/build.py.",
        'schemaVersion': 1, 'campaign': 'peninsula', 'name': 'The Peninsula', 'years': '1808 to 1814',
