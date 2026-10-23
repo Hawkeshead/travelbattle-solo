@@ -24,6 +24,7 @@ const TERMS = {
   cohesionLoss: T("Leaves the Brigadier's command", 'chainBroken'),
   lineAhead: T('Too far ahead of the line', 'chainBroken'),
   crossing: T('Heads for a bridge or ford', 'chainBroken'),
+  strandOwnMen: T('Would leave his own men out of command', 'chainBroken'),
   pounce: T('Strikes an enemy that is turned around', 'chainBroken'),
   stayStackedUnderGuns: T('Column standing under enemy guns', 'chainBroken'),
   lineAlone: T('Alone near the enemy', 'chainBroken'),

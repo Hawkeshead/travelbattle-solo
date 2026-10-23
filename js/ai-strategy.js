@@ -2690,7 +2690,12 @@ export function orderAiUnitsForMove(side){
     if(u.type==='BRIGADIER') return PHASE_BRIGADIER;
     return connected.has(u.id) ? PHASE_CONNECTED : PHASE_CUTOFF;
   };
+  /* BRIGADIER LAST (21 Oct 2026, behind BRIG_LAST): in a Brigade on the
+     attack, the Brigadier moves AFTER his units and closes up behind them, so
+     he follows the assault instead of placing himself before it moves. */
+  const brigLast = u => u.type==='BRIGADIER' && tune(side, 'BRIG_LAST', 0) && ATTACK_MISSIONS.has(missionFor(u));
   const chainDepth = u => {
+    if(brigLast(u)) return Infinity;
     if(u.type==='BRIGADIER') return -Infinity;
     const brig = brigadierOf[u.brigadeId];
     return brig ? -chebyshev(u, brig) : 0;   // negated, so furthest sorts first
@@ -4024,6 +4029,12 @@ export function aiDecideAndExecuteMove(u){
   // be compared. Per unit, not per match: only the current decision matters
   // and holding them all would grow without bound.
   const scored = [];
+  // Who is in command before this Brigadier moves (BRIG_STRAND, below).
+  // On in campaign battles only: in Quick Battles it lost 13/37 (35%) to the
+  // same AI without it, while in campaign battles it cut stuck units about 11%
+  // with the attacks unchanged (Quatre Bras France 88%, Wavre 100%).
+  const strandCost = (state.scenario && state.scenario.judging === 'independent') ? tune(side, 'BRIG_STRAND_CAMPAIGN', 2) : tune(side, 'BRIG_STRAND', 0);
+  const connBeforeMove = (u.type === 'BRIGADIER' && strandCost) ? movableUnitsForSide(side) : null;
   for(const c of candidates){
     const ox=u.x, oy=u.y;
     u.x=c.x; u.y=c.y;
@@ -4239,6 +4250,18 @@ export function aiDecideAndExecuteMove(u){
       if(brigadeMates.length > 0){
         const connectedCount = brigadeMates.filter(o=>connNow.has(o.id)).length;
         s += addScore(parts, 'cohesionGain', connectedCount * 0.5);
+        /* DON'T STRAND YOUR OWN MEN (21 Oct 2026, behind BRIG_STRAND). Measured
+           in campaign battles: most units cut off from command were cut off by
+           their own Brigadier's move at the start of the turn (21 of 38 at
+           Quatre Bras and Wavre), not by being pushed back (9) or by losses (1).
+           Keeping a unit connected was worth only 0.5 to him, so staying out of
+           reach (2.5) or trailing the line easily outweighed stranding a
+           battalion. Each unit in command before his move that his move would
+           leave cut off now costs BRIG_STRAND. */
+        if(connBeforeMove){
+          const stranded = brigadeMates.filter(o => connBeforeMove.has(o.id) && !connNow.has(o.id)).length;
+          if(stranded) s -= subScore(parts, 'strandOwnMen', stranded * strandCost);
+        }
 
         /* TRAIL THE LINE. A Brigadier is a chain-of-command marker, not a
            fighting man: he cannot attack, cannot be attacked, and carries his
@@ -4266,7 +4289,23 @@ export function aiDecideAndExecuteMove(u){
            collecting it stays the errand it always was. */
         const anchor = recovering || brigadeMates.reduce((best,o)=>
           nearestEnemyDist(o, side) < nearestEnemyDist(best, side) ? o : best, brigadeMates[0]);
-        const gap = chebyshev(c, anchor);
+        /* LEAD THE ADVANCE (21 Oct 2026, behind BRIG_LEAD). The Brigadier moves
+           first in his Brigade and trails his most forward unit where it stands
+           NOW; then it advances a square and the front of the assault steps off
+           his chain (Quatre Bras: battalions frozen at the brook, beyond Foy and
+           Bachelu). When his Brigade is attacking, he trails where that unit will
+           be: one square on towards its nearest enemy. Not while recovering a
+           cut-off unit, and not once the front unit is already in contact. */
+        let aim = anchor;
+        if(!recovering && tune(side, 'BRIG_LEAD', 0) && ATTACK_MISSIONS.has(missionFor(u))){
+          let foe = null, fd = Infinity;
+          for(const e of state.units){
+            if(e.removed || e.side === side || e.type === 'BRIGADIER') continue;
+            const d = chebyshev(anchor, e); if(d < fd){ fd = d; foe = e; }
+          }
+          if(foe && fd > 1) aim = { x: anchor.x + Math.sign(foe.x - anchor.x), y: anchor.y + Math.sign(foe.y - anchor.y) };
+        }
+        const gap = chebyshev(c, aim);
         /* RECOVERY NEEDS ADJACENCY, NOT PROXIMITY. The normal band holds him one
            to two squares behind the line, which is right for a Brigadier
            following an advance and useless for freeing a cut-off unit: the
