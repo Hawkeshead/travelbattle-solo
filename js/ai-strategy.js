@@ -5041,7 +5041,21 @@ export function aiDecideAndExecuteMove(u){
     else if(raidTarget) s -= subScore(parts, 'gunRaid',
       chebyshev(c, raidTarget) * tune(side, 'GUN_RAID_PULL', 0.15));
     // Operations: pull toward whatever the active scenario's objective actually rewards.
-    if(state.scenario) s += addScore(parts, 'scenario', scenarioMoveBonus(u, side, c));
+    /* An objective move that would cut the unit off its Brigadier counts for a
+       quarter (21 Oct 2026). In campaign battles the objective pull (up to about
+       30) swamped the leave-command penalty (2.4): the assault wave at Quatre
+       Bras ran ahead of Foy and Bachelu to the brook and froze there, cut off,
+       for the rest of the battle. A cohesionLoss on this candidate means the
+       square is off the chain. Quick Battles have no objective pull.
+       Measured and left OFF (1 = full value): at 0.25 the stuck decisions at
+       Quatre Bras fell to 15 to 33 a match but the French attacks collapsed
+       (Quatre Bras 88% -> 0%, Wavre 100% -> 13%); at 0.6 the attacks mostly
+       came back (63%, 88%) and so did the stuck decisions (18 to 35). Running
+       ahead of the Brigadier is what wins these attacks. */
+    if(state.scenario){
+      const sb = scenarioMoveBonus(u, side, c);
+      s += addScore(parts, 'scenario', parts.cohesionLoss ? sb * tune(side, 'OFF_CHAIN_OBJECTIVE', 1) : sb);
+    }
     // Section 6/7 (Hard): reward this square for serving the unit's Brigade mission,
     // on top of (not instead of) all the tactical bonuses above.
     /* The tempo multiplier scales the mission pull, so a Brigade advances hard
