@@ -23,6 +23,7 @@
    DRAWN position so it rides along while the unit walks.
 ========================================================= */
 import { UNIT_TYPES, state, unitColor } from './data-core.js';
+import { perkLine } from './perks.js';
 import { canvas, getUnitVisualPos, SCOLS, SROWS, toScreen } from './render-board.js';
 
 /* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
@@ -39,7 +40,7 @@ function ensure(){
   root = document.createElement('div');
   root.id = 'unitSash';
   root.setAttribute('role', 'group');
-  root.innerHTML = '<div class="sash-name"></div><div class="sash-orders"></div>';
+  root.innerHTML = '<div class="sash-name"></div><div class="sash-perk"></div><div class="sash-orders"></div>';
   document.body.appendChild(root);
   document.body.classList.add('sash-ui');
   root.addEventListener('click', e => {
@@ -69,12 +70,15 @@ function paint(force){
     orders.push({ id, label: sentence(b.textContent) });
   }
   const opensLeft = openLeft(u);
-  const key = [u.id, opensLeft, ...orders.map(o => o.label)].join('|');
+  const key = [u.id, opensLeft, perkLine(u), ...orders.map(o => o.label)].join('|');
   if(force || key !== lastKey){
     lastKey = key;
     root.style.setProperty('--side', unitColor(u));
     root.classList.toggle('left', opensLeft);
     root.querySelector('.sash-name').textContent = u.historicalName || UNIT_TYPES[u.type].label;
+    // Brigade perks (perks.js): the Brigade's, and whether this unit has them now.
+    const perk = root.querySelector('.sash-perk'), line = perkLine(u);
+    perk.textContent = line; perk.style.display = line ? '' : 'none';
     const n = orders.length;
     /* Splayed like a hand of orders: each slip turned a few degrees about the
        edge nearest the unit, the middle one straight. */

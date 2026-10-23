@@ -1,4 +1,5 @@
 import { AI_UNIT_VALUE } from './ai-tactics.js';
+import { perkFight, perkFightBonus, perkRallyBetter } from './perks.js';
 import { backsToWater, canCross, crossedFordThisTurn, isBridgeSquare, meleeBlocked, retreatIntoRiver, stepWater } from './engine-water.js';
 import { chainWaived } from './operations.js';
 import { AudioManager } from './audio-manager.js';
@@ -1021,6 +1022,8 @@ export function combatBonuses(unit, opponent, defending, extraSources){
   if(defending && isBridgeSquare(unit.x, unit.y)){
     valueBonusDirect += 1; directReasons.push('Defending a bridge: +1 to roll');
   }
+  // Brigade perks (perks.js): flat +1s, never a die.
+  for(const r of perkFightBonus(unit, opponent, defending)){ valueBonusDirect += 1; directReasons.push(r); }
   valueBonus += valueBonusDirect;
   for(const r of directReasons) reasons.push(r);
   const footPenalty = pursuitDicePenalty(unit, defending);
@@ -1382,6 +1385,10 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
         }
       });
 
+      // Brigade perks count the fight (perks.js): who won, and how.
+      perkFight(attacker, defender, fightOutcome, genuineDraw ? null : defenderHillTieWin ? defender
+        : (attackerChargeTieWin || attackerColumnTieWin) ? attacker : finalA > finalD ? attacker : defender);
+
       if(genuineDraw){
         log(`${aType.label} vs ${dType.label}: ${finalA}-${finalD}, drawn, fight continues next turn.`, 'combat');
         logNarration('melee_stalemate');
@@ -1681,6 +1688,8 @@ export function retreatAndRally(loser, onComplete){
   const rallyNote = t.key==='GUARD' ? ['Guard Infantry: needs 3+']
     : t.key==='HEAVY_CAV' ? ['Heavy Cavalry: needs 3+']
     : t.key==='ARTILLERY' ? ['Artillery: needs 5+'] : [];
+  // Inspiring Presence (perks.js): one better, so 4+ becomes 3+ and 3+ becomes 2+.
+  if(perkRallyBetter(loser)){ successOn = [successOn[0] - 1, ...successOn]; rallyNote.push(`Inspiring Presence: needs ${successOn[0]}+`); }
 
   presentRollTrigger([{label:'Rally', side:loser.side, unitId:loser.id, diceCount:1, notes:rallyNote, at:{x:loser.x,y:loser.y}}], loser.side, ()=>{
     const r = rollD6();

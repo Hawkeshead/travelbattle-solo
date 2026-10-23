@@ -1,4 +1,5 @@
 import { COLS, ROWS, SIDES, SIDE_LABEL, UNIT_TYPES, state } from './data-core.js';
+import { PERKS, brigadeName } from './perks.js';
 import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
@@ -353,6 +354,11 @@ function sectionPositions(){
     out.push(String(y).padStart(2) + ' ' + row);
   }
   out.push('   units: Coalition A-Z, France a-z (* two units on a square); terrain as in section 2');
+  // Brigade perks earned this battle (perks.js), with the feats counted towards them.
+  const ps = state.perkState;
+  const earned = ps ? Object.entries(ps.perks).filter(([, l]) => l.length) : [];
+  key.push(earned.length ? 'Perks earned:' : 'Perks earned: none');
+  for(const [k, l] of earned){ const [side, b] = k.split(':'); key.push(`  ${brigadeName(side, Number(b))}: ${l.map(id => PERKS[id].name).join(', ')}`); }
   return out.concat(key);
 }
 

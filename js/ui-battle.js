@@ -1,4 +1,5 @@
 import { showObjectivePanel } from './operation-panel.js';
+import { perkGunDestroyed, perkLine, perkVolley, perkVolleyBonus, resetPerks } from './perks.js';
 import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
 import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
@@ -111,6 +112,7 @@ export function startBattle(){
   document.getElementById('overlay').classList.remove('show');
   state.pointsResult = null;   // a new battle: no points verdict yet (Quick Battle round limit)
   state.matchLog = [];
+  resetPerks();   // Brigade perks are earned afresh in every battle
   if(!state.scenario && quickRoundLimit()) showObjectivePanel();   // the round plaque, 'Round X of 20'
   state.replayStartUnits = JSON.parse(JSON.stringify(state.units));
   if(state.group){
@@ -1138,6 +1140,7 @@ export function renderUnitInfo(u){
       ${u.rallying?'<span class="tag st-pushed">Rallying</span>':''}
       ${u.hidden?'<span class="tag st-square">In ambush</span>':(isConcealedFromEnemy(u)?'<span class="tag">In cover</span>':'')}
       ${u.charged?'<span class="tag st-active">Charged</span>':''}
+      ${perkLine(u)?`<span class="tag st-active" title="Brigade perk">${perkLine(u)}</span>`:''}
     </div>
   `;
   const portraitEl = document.getElementById('unitPortrait');
@@ -1641,7 +1644,9 @@ export function resolveVolley(shooter, target, onComplete){
   onComplete = onComplete || function(){};
   const dice = volleyDiceCount(shooter, target);
   const { turnedBonus, coverPenalty } = volleyModifiers(target);
+  const marksmen = perkVolleyBonus(shooter);   // Marksmen (perks.js): +1 effect
   const notes = [];
+  if(marksmen) notes.push('+1 effect: Marksmen');
   if(dice === 2) notes.push('Square vs Cavalry: two dice');
   if(turnedBonus)  notes.push('+1 effect: target turned around');
   if(coverPenalty) notes.push('-1 effect: target in wood/building');
@@ -1659,7 +1664,7 @@ export function resolveVolley(shooter, target, onComplete){
        destroyed" is the brief's wording; the floor is the same statement from
        the other end, since 1-3 is already no effect and a 0 would only be a
        number the effect table has no row for. */
-    const effRoll = Math.max(1, Math.min(6, rawRoll + turnedBonus - coverPenalty));
+    const effRoll = Math.max(1, Math.min(6, rawRoll + turnedBonus + marksmen - coverPenalty));
 
     /* FOUR TAKES OF AN OFFICER CALLING FIRE AND HIS SQUAD VOLLEYING, one picked
        at random. playEffect's own pickVariant does the choosing and will not
@@ -1714,6 +1719,7 @@ export function resolveVolley(shooter, target, onComplete){
     showDice([{label:'Volley', side:shooter.side, rolls, keptValue:rawRoll, notes, at:{x:shooter.x,y:shooter.y}}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
       log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''} (${label.toLowerCase()}).`, 'combat');
       state.volleyed.add(shooter.id);
+      perkVolley(shooter, outcome);
       logReplay('fire', {
         targetId: target.id, side: target.side, x: target.x, y: target.y,
         hit: true, volley: true, shooterId: shooter.id, shooterSide: shooter.side,
@@ -1829,6 +1835,7 @@ export function applyArtilleryEffect(u, roll, onComplete, detail){
        one deliberate difference between the two weapons in this path. */
     const killPartner = detail && detail.volley ? null : stackPartner(u);
     removeUnit(u, cause);
+    if(detail && detail.gunId != null && !detail.volley) perkGunDestroyed(state.units.find(o => o.id === detail.gunId));   // Bloodthirsty counts guns' kills too
     if(killPartner && !killPartner.removed){
       removeUnit(killPartner, 'Column broken alongside its partner');
     }

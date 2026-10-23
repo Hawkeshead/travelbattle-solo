@@ -17,12 +17,14 @@
 ========================================================= */
 import { humanOwns, nationOf, state } from './data-core.js';
 import { NATIONS } from './nations.js';
+import { PERKS, brigadePerks } from './perks.js';
 import { canvas as boardCanvas, getUnitVisualPos, SCOLS, toScreen } from './render-board.js';
 
 const ACT_MS = 2200;           // how long an enemy unit stays marked after acting
 const COCKADE_R = 9;           // cockade radius, CSS px, at every zoom
 let layer = null, g = null, lastLogLen = 0, dirty = true;
 let acting = null;             // { id, word, until }
+let perkFlash = null;          // { id, word, until }: a Brigadier who has just earned a perk (perks.js)
 
 export function initUnitMarkers(){
   if(layer || typeof document === 'undefined') return;
@@ -52,6 +54,10 @@ function readLog(){
     else if(ev.type === 'fight' && ev.attackerId){ id = ev.attackerId; side = ev.attackerSide; word = 'Attacking'; }
     else if(ev.type === 'formation' && ev.by === 'ai'){ id = ev.unitId; side = ev.side; word = ev.to === 'square' ? 'Forming Square' : 'Forming Line'; }
     if(id && side && !humanOwns(side)) acting = { id, word, until: performance.now() + ACT_MS };
+    if(ev.type === 'perk' && PERKS[ev.perk]){
+      const brig = state.units.find(u => u.side === ev.side && u.brigadeId === ev.brigadeId && u.type === 'BRIGADIER' && !u.removed);
+      if(brig) perkFlash = { id: brig.id, word: PERKS[ev.perk].name + '!', until: performance.now() + ACT_MS * 1.6 };
+    }
   }
   lastLogLen = log.length;
 }
@@ -83,11 +89,24 @@ function frame(){
     const a = state.units.find(u => u.id === acting.id && !u.removed);
     if(a && !a.hidden && (!sel || a.id !== sel.id)) marks.push({ u: a, word: acting.word });
   } else acting = null;
-  if(!marks.length) return;
+  if(perkFlash && performance.now() < perkFlash.until){
+    const p = state.units.find(u => u.id === perkFlash.id && !u.removed);
+    if(p) marks.push({ u: p, word: perkFlash.word });
+  } else perkFlash = null;
+  /* BRIGADE PERKS: a gold star over each Brigadier holding one (two for two),
+     shown all battle, so you can see whose Brigade is veteran. */
+  const starred = state.units.filter(u => u.type === 'BRIGADIER' && !u.removed && !u.hidden && u.x >= 0 && brigadePerks(u.side, u.brigadeId).length);
+  if(!marks.length && !starred.length) return;
   dirty = true;   // something drawn this frame: clear it next frame (nothing to clear when idle)
   const wr = wrap.getBoundingClientRect(), cr = boardCanvas.getBoundingClientRect();
   const cell = cr.width / SCOLS();   // the board's width as shown
   const t = performance.now() / 1000;
+  for(const u of starred){
+    const v = getUnitVisualPos(u), sc = toScreen(v.x, v.y);
+    const n = brigadePerks(u.side, u.brigadeId).length;
+    const x = cr.left - wr.left + (sc.x + 0.5) * cell, y = cr.top - wr.top + (sc.y + 0.5) * cell - cell * 0.42;
+    for(let i = 0; i < n; i++) star(x + (i - (n - 1) / 2) * 13, Math.max(8, y));
+  }
   for(const { u, word } of marks){
     const v = getUnitVisualPos(u), s = toScreen(v.x, v.y);
     const x = cr.left - wr.left + (s.x + 0.5) * cell, y = cr.top - wr.top + (s.y + 0.5) * cell;
@@ -119,6 +138,18 @@ function cockade(x, y, nation){
   const hl = g.createRadialGradient(-r * 0.12, -r * 0.12, 0.5, 0, 0, r * 0.34);
   hl.addColorStop(0, 'rgba(255,255,255,.75)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = hl; g.beginPath(); g.arc(0, 0, r * 0.34, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+/* A small gold five-pointed star with a dark edge, the same size at every zoom. */
+function star(x, y){
+  const R = 6, r = 2.6;
+  g.save(); g.translate(x, y);
+  g.beginPath();
+  for(let i = 0; i < 10; i++){ const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+  g.closePath();
+  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 3; g.shadowOffsetY = 1;
+  g.fillStyle = '#e9c25a'; g.fill();
+  g.shadowColor = 'transparent'; g.lineWidth = 1; g.strokeStyle = '#5a3d0c'; g.stroke();
   g.restore();
 }
 function label(text, x, y){
