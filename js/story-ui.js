@@ -41,6 +41,7 @@ function screen(title, html){
   const box = document.querySelector('#overlay .box');
   box.classList.add('as-folio', 'as-sides-screen'); box.classList.remove('as-victory');
   document.getElementById('overlayTitle').textContent = title;
+  document.getElementById('overlaySubtitle').style.display = 'none';   // the title card's 'Field Command' line is not part of these screens
   document.getElementById('overlayText').innerHTML = html;
   document.getElementById('overlayBtn').style.display = 'none';
   const extra = document.getElementById('modeChoices');
