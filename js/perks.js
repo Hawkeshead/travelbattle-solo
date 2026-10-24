@@ -38,7 +38,9 @@ function feat(unit, name){
   const p = ps();
   if(!p || !unit || unit.type === 'BRIGADIER') return;
   const key = brigKey(unit.side, unit.brigadeId);
-  const id = addFeat(p, key, name, cap());
+  const mates = state.units.filter(o => !o.removed && o.side === unit.side && o.brigadeId === unit.brigadeId);
+  const needs = { BLOODTHIRSTY: o => t(o).isCavalry, PURSUERS: o => t(o).isCavalry, STEADY: foot, GUERRILLAS: foot, MARKSMEN: foot };
+  const id = addFeat(p, key, name, cap(), pid => !needs[pid] || mates.some(needs[pid]));
   if(!id) return;
   const perk = PERKS[id];
   log(`${brigadeName(unit.side, unit.brigadeId)} has ${perk.how} and earns a perk: ${perk.name} (${perk.text}, while in command).`, 'system');

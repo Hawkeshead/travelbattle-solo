@@ -47,7 +47,11 @@ export const perksOf = (ps, key) => (ps && ps.perks[key]) || [];
 /* Count one feat for a Brigade. Returns the perk earned by it, or null: the
    first perk whose feat reaches its number, while the Brigade is under its cap
    and does not hold that perk already. */
-export function addFeat(ps, key, feat, cap){
+/* eligible(id): false for a perk the Brigade could never use (Bloodthirsty
+   for a Brigade with no cavalry: La Haye Sainte, 24 Oct 2026, Kempt's gunners
+   earned it and it did nothing). Such a perk is not awarded, so the Brigade's
+   place under the cap is kept for one it can use. */
+export function addFeat(ps, key, feat, cap, eligible = () => true){
   if(!ps) return null;
   const f = ps.feats[key] = ps.feats[key] || {};
   f[feat] = (f[feat] || 0) + 1;
@@ -55,7 +59,7 @@ export function addFeat(ps, key, feat, cap){
   if(held.length >= cap) return null;
   for(const id of PERK_ORDER){
     const p = PERKS[id];
-    if(p.feat !== feat || held.includes(id) || f[feat] < p.need) continue;
+    if(p.feat !== feat || held.includes(id) || f[feat] < p.need || !eligible(id)) continue;
     (ps.perks[key] = held).push(id);
     return id;
   }

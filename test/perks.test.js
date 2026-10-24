@@ -44,3 +44,10 @@ test('every perk has its own feat and a number to reach', async () => {
   assert.equal(Object.keys(PERKS).length, 10);
   for(const p of Object.values(PERKS)) assert.ok(p.need > 0 && p.name && p.text && p.how);
 });
+
+test('a perk the Brigade could never use is not awarded', () => {
+  const ps = newPerkState();
+  const noCavalry = id => id !== 'BLOODTHIRSTY';
+  for(let i = 0; i < 3; i++) assert.equal(addFeat(ps, 'red:1', 'destroyed', 2, noCavalry), null);
+  assert.deepEqual(ps.perks['red:1'] || [], []);
+});
