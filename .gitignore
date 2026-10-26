@@ -44,3 +44,4 @@ js/ai-tactics__*.js
 
 # The sparring bot is generated (tools/spar/make-bot.mjs)
 js/ai-strategy.bot.js
+js/ai-strategy.gunline.js

@@ -21,6 +21,12 @@
 
    node tools/spar/make-bot.mjs   writes js/ai-strategy.bot.js (not committed)
    The simulator uses it with: node tools/sim/run.mjs N --vs bot
+
+   THE GUNLINE (26 Oct 2026): node tools/spar/make-bot.mjs --gunline writes
+   js/ai-strategy.gunline.js, the same rulebook playing the way Matthew beat
+   the AI twice without loss: while the enemy still has guns, the line holds
+   its ground in cover (guns are free to site themselves and fire); once the
+   enemy's guns are gone, it advances as rule 1 says. run.mjs N --vs gunline.
 ========================================================= */
 import { readFileSync, writeFileSync } from 'node:fs';
 const here = new URL('../../js/', import.meta.url);
@@ -40,9 +46,11 @@ s = s.replace(anchor, anchor + `
       continue;
     }`);
 
+const GUNLINE = process.argv.includes('--gunline');
 s += `
 
 /* ===== SPARRING BOT RULEBOOK (generated into ai-strategy.bot.js only) ===== */
+const GUNLINE = ${GUNLINE};
 function botDoctrineScore(u, c, side, parts, ox, oy){
   const t = UNIT_TYPES[u.type], rows = state.terrain.length, cols = state.terrain[0].length;
   const fwd = y => side === 'blue' ? y : rows - 1 - y;          // how far forward a row is for this side
@@ -67,7 +75,9 @@ function botDoctrineScore(u, c, side, parts, ox, oy){
     return s;
   }
   // 1. the line: advance as a block, never more than a row ahead of the front
-  add('advance', 1.2 * fwd(c.y));   // 0.6 held 96% of the time and stalled 9 of 20
+  //    (the gunline holds instead while the enemy still has a gun)
+  if(GUNLINE && foes.some(o => UNIT_TYPES[o.type].isArtillery)) add('holdLine', c.stay ? 2.5 : -1.5 * Math.max(0, fwd(c.y) - fwd(oy)));
+  else add('advance', 1.2 * fwd(c.y));   // 0.6 held 96% of the time and stalled 9 of 20
   if(fwd(c.y) > front + 1) add('aheadOfLine', -3 * (fwd(c.y) - front - 1));
   add('cohesion', Math.min(adjFriends, 3) * 0.8);
   if(adjFriends === 0) add('alone', -3);
@@ -114,5 +124,6 @@ function botDoctrineScore(u, c, side, parts, ox, oy){
   return s;
 }
 `;
-writeFileSync(new URL('ai-strategy.bot.js', here), s);
-console.log('wrote js/ai-strategy.bot.js');
+const outName = GUNLINE ? 'ai-strategy.gunline.js' : 'ai-strategy.bot.js';
+writeFileSync(new URL(outName, here), s);
+console.log('wrote js/' + outName);

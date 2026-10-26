@@ -166,6 +166,7 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
     wallMs: Date.now() - t0,
     board: JSON.stringify(state.boardAssignment) + ' rot ' + JSON.stringify(state.boardRotation),
     survivors: { red: living(SIDES.RED), blue: living(SIDES.BLUE) },
+    gunsLost: { red: state.units.filter(u => u.side === SIDES.RED && u.removed && !u.escaped && u.type === 'ARTILLERY').length, blue: state.units.filter(u => u.side === SIDES.BLUE && u.removed && !u.escaped && u.type === 'ARTILLERY').length },   // who won the gun duel
     nations: { ...state.nations }, redNames: state.units.filter(u => u.side === SIDES.RED).slice(0, 3).map(u => u.historicalName),
     brokenBrigades: countBrokenBrigades(state, SIDES),
     stall: finished === 'win' ? null : snapshotStall(state, SIDES),
@@ -680,19 +681,20 @@ export async function main() {
     cleanVersions();
     /* --vs bot: the sparring bot (tools/spar/make-bot.mjs), a copy of the
        current AI whose moves follow a short rulebook of good play instead. */
-    if (args[vsAt + 1] === 'bot') {
+    if (args[vsAt + 1] === 'bot' || args[vsAt + 1] === 'gunline') {
+      const gl = args[vsAt + 1] === 'gunline';
       const { execFileSync } = await import('node:child_process');
-      execFileSync(process.execPath, [new URL('../spar/make-bot.mjs', import.meta.url).pathname], { stdio: 'inherit' });
-      vs = { tag: 'bot', entry: '../../js/ai-strategy.bot.js', written: [] };
+      execFileSync(process.execPath, [new URL('../spar/make-bot.mjs', import.meta.url).pathname].concat(gl ? ['--gunline'] : []), { stdio: 'inherit' });
+      vs = { tag: args[vsAt + 1], entry: gl ? '../../js/ai-strategy.gunline.js' : '../../js/ai-strategy.bot.js', written: [] };
     } else vs = materialiseVersion(args[vsAt + 1]);
     process.env.SIM_OLD_ENTRY = vs.entry;
     /* The tag name when there is one, otherwise the short hash. The full subject
        line is useful in the header above and absurd inside a table column and a
        verdict sentence, but 'cerberus' is both short and meaningful where a hash
        is only short. */
-    process.env.SIM_VS_LABEL = args[vsAt + 1] === 'bot' ? 'bot' : labelFor(args[vsAt + 1]);
+    process.env.SIM_VS_LABEL = ['bot', 'gunline'].includes(args[vsAt + 1]) ? args[vsAt + 1] : labelFor(args[vsAt + 1]);
     if (!variant) variant = 'control';   // current build, no overrides, versus the old one
-    console.log(`current build  vs  ${args[vsAt + 1] === 'bot' ? 'the sparring bot' : describeRef(args[vsAt + 1])}`);
+    console.log(`current build  vs  ${args[vsAt + 1] === 'bot' ? 'the sparring bot' : args[vsAt + 1] === 'gunline' ? 'the gunline bot' : describeRef(args[vsAt + 1])}`);
   }
   /* SWAP THE SIDES, ALWAYS, when running a variant. Every seed is played twice,
      once with the variant on Britain and once on France. Anything that makes a

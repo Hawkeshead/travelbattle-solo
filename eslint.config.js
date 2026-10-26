@@ -21,6 +21,7 @@ export default [
   {
     ignores: [
       'js/ai-strategy.bot.js',   // the sparring bot, generated (tools/spar/make-bot.mjs)
+      'js/ai-strategy.gunline.js',   // the gunline bot, generated (make-bot.mjs --gunline)
       'node_modules/**',
       'test-results/**',
       'playwright-report/**',
