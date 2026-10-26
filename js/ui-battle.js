@@ -16,7 +16,7 @@ const FCT_PREF_KEY = 'fc:floatingText';
 import { aiDoFightPhase, aiDoFirePhase, aiDoMovePhase, aiPlanTurn, currentFinishing, estimateFightValue, missionFor } from './ai-router.js';
 import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, friendlyAiCommands, humanOwns, nationOf, state, unitColor, unitNationName } from './data-core.js';
 import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
-import { presentRollTrigger, showDice } from './dice.js';
+import { flushPendingSettle, presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded, endOnPoints } from './engine-objectives.js';
 import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets, quickRoundLimit } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
@@ -883,6 +883,7 @@ export function resolveAmbushSpringsNow(onDone){
 export function endMoveButton(){ if(!interceptOrder('done', { phase: 'move' })) endMovePhase(); }
 
 export function endMovePhase(){
+  flushPendingSettle();   // see endFirePhase
   cancelAutoEnd();
   resolveAmbushSpringsNow(beginFirePhase);
 }
@@ -979,9 +980,17 @@ export function springAmbush(ambusher, target, mode, onComplete){
     onComplete();
   });
 }
-export function endFirePhase(){ cancelAutoEnd(); beginFightPhase(); }
+/* A ROLL'S RESULT LANDS IN ITS OWN TURN (26 Oct 2026). A shot's result is
+   applied when its dice panel fades (dice.js pendingSettle), and ending the
+   phase before then left it waiting for the next roll anywhere, which was the
+   AI's first roll of its turn: Matthew's exports showed his gunshots logged at
+   the start of France's turn (La Haye Sainte turn 15, Papelotte turn 21), and
+   a rout or kill from them would have landed mid-enemy-turn. Ending a phase
+   now applies anything still pending first. */
+export function endFirePhase(){ flushPendingSettle(); cancelAutoEnd(); beginFightPhase(); }
 const FIGHT_GATE_MAX_REFUSALS = 3;
 export function endFightPhase(){
+  flushPendingSettle();   // see endFirePhase
   cancelAutoEnd();
   if(state.gameOver) return;
   if(anyFightsAvailable(state.turn)){
