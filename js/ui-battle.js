@@ -1,5 +1,5 @@
 import { showObjectivePanel } from './operation-panel.js';
-import { perkGunDestroyed, perkLine, perkVolley, perkVolleyBonus, resetPerks } from './perks.js';
+import { perkDetails, perkGunDestroyed, perkVolley, perkVolleyBonus, resetPerks } from './perks.js';
 import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
 import { rearrangeTap, swallowDragClick } from './deploy-rearrange.js';
@@ -1112,6 +1112,35 @@ export function toggleUnitBio(){
 // in code this refactor is meant to leave alone, so it is recorded in TRIAGE.md
 // as a follow-up rather than smuggled in here.
 window.toggleUnitBio = toggleUnitBio;
+/* PERK TAGS (26 Oct 2026, Matthew: "I want to be able to tap the status and
+   read what effect the perk applies"). Each perk on the card is its own tag;
+   tapping it opens a short note under the tags (what it does, how the Brigade
+   earned it, and whether it works for this unit now), and tapping it again,
+   or another perk, closes or switches it. */
+let openPerk = null;   // { unitId, perk }: the note stays open when the card is redrawn
+function wirePerkTags(el, u){
+  const info = el.querySelector('.u-perk-info');
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const show = b => {
+      const p = perkDetails(u).find(d => d.id === b.dataset.perk);
+      if(!p) return;
+      openPerk = { unitId: u.id, perk: p.id };
+      b.setAttribute('aria-expanded', 'true');
+      info.innerHTML = `<b>${p.name}.</b> ${cap(p.text)}.<br><span class="how">Earned when ${p.brigade} had ${p.how}. Held by ${p.brigadier}: it works for units linked to him through their Brigade.</span>` +
+        `<br><span class="${p.inCommand ? 'ok' : 'warn'}">${p.inCommand ? 'This unit is in command: the perk applies.' : 'This unit is cut off from its Brigadier: the perk does not apply until it is back in command.'}</span>`;
+      info.hidden = false;
+  };
+  for(const b of el.querySelectorAll('.st-perk')){
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const open = b.getAttribute('aria-expanded') === 'true';
+      for(const o of el.querySelectorAll('.st-perk')) o.setAttribute('aria-expanded', 'false');
+      if(open){ info.hidden = true; openPerk = null; return; }
+      show(b);
+    };
+    if(openPerk && openPerk.unitId === u.id && openPerk.perk === b.dataset.perk) show(b);
+  }
+}
 export function renderUnitInfo(u){
   showSash(u);   // the on-board sash; the panel below is kept, hidden, as the source of truth for its buttons
   const el = document.getElementById('unitInfo');
@@ -1149,9 +1178,11 @@ export function renderUnitInfo(u){
       ${u.rallying?'<span class="tag st-pushed">Rallying</span>':''}
       ${u.hidden?'<span class="tag st-square">In ambush</span>':(isConcealedFromEnemy(u)?'<span class="tag">In cover</span>':'')}
       ${u.charged?'<span class="tag st-active">Charged</span>':''}
-      ${perkLine(u)?`<span class="tag st-active" title="Brigade perk">${perkLine(u)}</span>`:''}
+      ${perkDetails(u).map(p => `<button type="button" class="tag st-perk${p.inCommand ? '' : ' off'}" data-perk="${p.id}" aria-expanded="false">\u2605 ${p.name}</button>`).join('')}
     </div>
+    <div class="u-perk-info" hidden></div>
   `;
+  wirePerkTags(el, u);
   const portraitEl = document.getElementById('unitPortrait');
   if(portraitEl){
     portraitEl.style.background = `linear-gradient(160deg, ${unitColor(u)}22, var(--paper-2))`;

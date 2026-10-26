@@ -132,3 +132,13 @@ export function perkLine(u){
   const inCommand = !!commandingBrigadier(state.units, u, isAdjacent);
   return '\u2605 ' + held.map(id => PERKS[id].name).join(', ') + (inCommand ? '' : ' (out of command)');
 }
+/* The perks behind a unit's card tags, each with what it does, how its
+   Brigade earned it and whether it works for this unit now (ui-battle
+   renderUnitInfo: tap a perk tag to read it). */
+export function perkDetails(u){
+  if(!ps() || !u) return [];
+  const brig = commandingBrigadier(state.units, u, isAdjacent);
+  const holder = state.units.find(o => o.side === u.side && o.brigadeId === u.brigadeId && o.type === 'BRIGADIER');
+  return brigadePerks(u.side, u.brigadeId).map(id => ({ id, name: PERKS[id].name, text: PERKS[id].text, how: PERKS[id].how,
+    inCommand: !!brig, brigade: brigadeName(u.side, u.brigadeId), brigadier: (holder && holder.historicalName) || 'its Brigadier' }));
+}

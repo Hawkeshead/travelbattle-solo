@@ -352,6 +352,15 @@
   #unitInfo .tag.st-active{ color:var(--ok);background:rgba(60,110,60,.1); }
   #unitInfo .tag.st-square{ color:var(--warn);background:rgba(150,100,20,.12); }
   #unitInfo .tag.st-pushed{ color:var(--danger);background:rgba(150,40,30,.1); }
+  #unitInfo button.tag.st-perk{ pointer-events:auto;border:1px solid rgba(150,110,30,.45);color:#7a5410;background:rgba(233,194,90,.22);cursor:pointer;
+    font:inherit;font-family:'Inter',sans-serif;font-size:10px;font-weight:600;padding:1px 8px;line-height:1.5;touch-action:manipulation; }
+  #unitInfo button.tag.st-perk[aria-expanded="true"]{ background:rgba(233,194,90,.5); }
+  #unitInfo button.tag.st-perk.off{ opacity:.6;text-decoration:line-through; }
+  #unitInfo .u-perk-info{ margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--ink);background:rgba(233,194,90,.14);
+    border-left:3px solid #c99a32;padding:5px 8px;border-radius:3px; }
+  #unitInfo .u-perk-info .how{ color:var(--ink-dim); }
+  #unitInfo .u-perk-info .ok{ color:var(--ok); }
+  #unitInfo .u-perk-info .warn{ color:var(--danger); }
 
   #unitOverlayPanel #actionRow{ grid-area:act;display:flex;gap:6px;padding:0 8px 8px; }
   /* The deployment sidebar has two rows with the same id (older markup); they
