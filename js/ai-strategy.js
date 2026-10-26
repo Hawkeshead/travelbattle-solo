@@ -1,4 +1,4 @@
-import { squareBlockedByWater, waterDistance, meleeBlocked } from './engine-water.js';
+import { squareBlockedByWater, waterDistance, meleeBlocked, retreatIntoRiver } from './engine-water.js';
 import { floatingTextIdle, resetFloatingTextTurnBudget } from './floating-text.js';
 import { canMarchOff, marchOff } from './operations.js';
 import { recAi } from './telemetry/recorder.js';
@@ -362,6 +362,7 @@ export function effectiveStrength(side, brigadeId){
    Ceil, not floor, because Brigades here start at 2 to 6 units: 40% of six is
    2.4, and a six-unit Brigade down to three is plainly in trouble. Below two
    fighters PRESERVE takes over, and with none the Brigade is broken. */
+export const RIVER_AT_BACK = 2.0;           // ending a move where a push-back would drown the unit
 export const SHELTER_PULL = 0.45;          // the PRESERVE pull: it must beat cohesionLoss
 /* THESE TWO WERE MEASURED, not chosen. At 0.4 and a 1.0 engage floor the rule
    did what it was asked (the losing side took an enemy Brigade with it far more
@@ -4085,6 +4086,17 @@ export function aiDecideAndExecuteMove(u){
     // This is what let a charge strand a Cavalry unit turn after turn — the charge
     // always scored higher despite cutting the unit off from its Brigadier for good.
     const connNow = movableUnitsForSide(side);
+    /* BACKS TO THE RIVER (26 Oct 2026). Infantry pushed back across open
+       water drowns (engine-rules pushBack), and the AI never knew: in
+       Matthew's Quick Battle the 2e Grenadiers and the 45e Ligne stood with
+       the river behind them in reach of British volleys and were knocked into
+       it on a 6. Ending a move where an enemy within two squares could drive
+       the unit into the river costs RIVER_AT_BACK. */
+    if((t.key === 'INFANTRY' || t.key === 'GUARD') && state.water){
+      const danger = state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && !UNIT_TYPES[o.type].isArtillery &&
+        chebyshev(c, o) <= 2 && retreatIntoRiver({ x: c.x, y: c.y }, o));
+      if(danger) s -= subScore(parts, 'riverAtBack', tune(side, 'RIVER_AT_BACK', RIVER_AT_BACK));
+    }
     // Artillery is exempt — neither canInitiateFight nor fireArtillery check
     // connectivity, so a gun that's found a genuinely good firing position can
     // keep firing indefinitely after its Brigade advances past it, with no need
