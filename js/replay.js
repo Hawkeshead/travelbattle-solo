@@ -804,6 +804,7 @@ export function exportFullMatchLog(){
         if(ev.formationBonus) mods.push('+1 Square/Column');
         if(ev.shakenBonus) mods.push('+1 already Shaken');
         if(ev.crackShotBonus) mods.push('+1 Crack Shot');
+        if(ev.marksmen) mods.push('+1 Marksmen');
         if(ev.coverPenalty) mods.push('-1 wood/building');
         const sum = mods.length ? ` ${mods.join(' ')} ->` : ' ->';
         const can = ev.canister ? '  [canister: 2 dice]' : '';

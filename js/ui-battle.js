@@ -1724,7 +1724,7 @@ export function resolveVolley(shooter, target, onComplete){
         targetId: target.id, side: target.side, x: target.x, y: target.y,
         hit: true, volley: true, shooterId: shooter.id, shooterSide: shooter.side,
         effect: outcome, rawRoll, roll: effRoll, effRolls: rolls.slice(),
-        coverPenalty, turnedBonus,
+        coverPenalty, turnedBonus, marksmen,   // Marksmen (perks.js): printed in the export's sum
       });
       if(outcome === 'knockback'){
         /* Standard pushback displacement, so a knock back behaves exactly like
