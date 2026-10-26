@@ -7391,11 +7391,12 @@
     "Britain": {
      "start": "Rows 7 to 10, with one unit each in Hougoumont (B6, C6), La Haye Sainte (K6) and Papelotte (Q6, R6)",
      "objective": {
-      "text": "No French unit on Wellington's ridge (row 7) at the end of round 12.",
+      "text": "Hold six squares of Wellington's ridge (row 7) at the end of round 12.",
       "conditions": [
        {
-        "type": "CLEAR_AREA",
+        "type": "HOLD_COUNT",
         "area": "ridge",
+        "count": 6,
         "atRound": 12
        }
       ],
@@ -7503,12 +7504,13 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "La Belle Alliance (K1) still French at the end of round 9, and Napoleon in play at the end of round 12.",
+      "text": "Two French units on Wellington's ridge (row 7) at the end of round 12, and Napoleon in play.",
       "conditions": [
        {
-        "type": "CONTROL_AREA",
-        "area": "lba",
-        "atRound": 9
+        "type": "IN_AREA",
+        "area": "ridge",
+        "count": 2,
+        "atRound": 12
        },
        {
         "type": "COMMANDER",
