@@ -596,7 +596,7 @@
     "Prussia": {
      "start": "Rows 6 to 10; may start in the villages",
      "objective": {
-      "text": "At the end of round 12: all three Brigades unbroken, Blücher in play, Brye (F9, the line of retreat) still held, and a square of Ligny held.",
+      "text": "At the end of round 12: all three Brigades unbroken, Blücher in play, Brye (F9, the line of retreat) still held, and two squares of Ligny held.",
       "conditions": [
        {
         "type": "BRIGADES_UNBROKEN",
@@ -617,7 +617,7 @@
        {
         "type": "HOLD_COUNT",
         "area": "ligny",
-        "count": 1,
+        "count": 2,
         "atRound": 12
        }
       ],
@@ -1519,12 +1519,12 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold Wagnelée at the end of round 10.",
+      "text": "Hold two squares of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
-        "area": "wagnelee",
-        "count": 1,
+        "area": "la_haye",
+        "count": 2,
         "atRound": 10
        }
       ],
@@ -8581,12 +8581,12 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 3.",
+      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 5.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 3
+        "byRound": 5
        }
       ],
       "combinator": "any"
@@ -8599,12 +8599,10 @@
         "INFANTRY",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "HEAVY_CAV",
-        "LIGHT_CAV",
-        "LIGHT_CAV"
+        "HEAVY_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers) (+Light Cav for balance) (+Light Cavalry for balance)",
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)",
        "placement": {
         "type": "area",
         "area": "prussian_start"

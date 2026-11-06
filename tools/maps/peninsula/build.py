@@ -530,6 +530,24 @@ obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith'
 obj('arroyo', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'village', 'count': 3, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
     'Three squares of the village held at the end of round 8, or four French units removed by then.', 'any')
 
+# Fourth measurement, and what changed after it:
+# Bailen 92/42: three squares of Bailen.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 3, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold three squares of Bailén, with both Brigades unbroken, at the end of round 10.', 'all')
+# Somosierra 100/33 with three: the whole summit.
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 4, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold all four squares of the summit, with both Brigades unbroken, at the end of round 10.', 'all')
+# Coa: the bridge is always clear at the end, so the count decides (one across 100, two 17): two across, one more round.
+B['coa']['turnLimit'] = 9
+obj('coa', 'Britain', [{'type': 'IN_AREA', 'area': 'far_bank', 'count': 2, 'atRound': 9}, {'type': 'CLEAR_AREA', 'area': 'bridge_far', 'atRound': 9}],
+    'Two units across the Côa, and no French unit on the far end of the bridge, at the end of round 9.', 'all')
+obj('coa', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 9}, {'type': 'ENTERED', 'area': 'far_bank', 'byRound': 9}],
+    'Remove two Allied units, or get a unit over the bridge, by the end of round 9.', 'any')
+obj('coa', 'Portugal', [{'type': 'IN_AREA', 'area': 'far_bank', 'tag': 'cacadores', 'count': 1, 'atRound': 9}], 'A Caçador battalion across the Côa at the end of round 9.', 'any')
+# Sabugal 92: two of Beckwith's units on the hill.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 2, 'atRound': 8}],
+    "Two of Beckwith's units on the hill at the end of round 8.", 'any')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)

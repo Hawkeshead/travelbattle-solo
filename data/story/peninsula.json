@@ -449,13 +449,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold two squares of Bailén, with both Brigades unbroken, at the end of round 10.",
+      "text": "Hold three squares of Bailén, with both Brigades unbroken, at the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bailen",
-        "count": 2,
+        "count": 3,
         "atRound": 10
        },
        {
@@ -1396,13 +1396,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold three squares of the summit, with both Brigades unbroken, at the end of round 10.",
+      "text": "Hold all four squares of the summit, with both Brigades unbroken, at the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "summit",
-        "count": 3,
+        "count": 4,
         "atRound": 10
        },
        {
@@ -3615,7 +3615,7 @@
    "date": "24 July 1810",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 8,
+   "turnLimit": 9,
    "history": "Craufurd kept the Light Division too long on the wrong bank of the Côa below Almeida, and Ney fell on it with his whole corps. The division fought its way back through the vineyards to the single bridge in the gorge and held it; three French attempts to storm the bridge were shot down.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_the_C%C3%B4a",
    "map": {
@@ -4276,19 +4276,19 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "A unit across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
+      "text": "Two units across the Côa, and no French unit on the far end of the bridge, at the end of round 9.",
       "combinator": "all",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "far_bank",
-        "count": 1,
-        "atRound": 8
+        "count": 2,
+        "atRound": 9
        },
        {
         "type": "CLEAR_AREA",
         "area": "bridge_far",
-        "atRound": 8
+        "atRound": 9
        }
       ]
      }
@@ -4318,7 +4318,7 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "A Caçador battalion across the Côa at the end of round 8.",
+      "text": "A Caçador battalion across the Côa at the end of round 9.",
       "combinator": "any",
       "conditions": [
        {
@@ -4326,7 +4326,7 @@
         "area": "far_bank",
         "tag": "cacadores",
         "count": 1,
-        "atRound": 8
+        "atRound": 9
        }
       ]
      }
@@ -4364,19 +4364,19 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove two Allied units, or get a unit over the bridge, by the end of round 8.",
+      "text": "Remove two Allied units, or get a unit over the bridge, by the end of round 9.",
       "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
         "count": 2,
-        "byRound": 8
+        "byRound": 9
        },
        {
         "type": "ENTERED",
         "area": "far_bank",
-        "byRound": 8
+        "byRound": 9
        }
       ]
      }
