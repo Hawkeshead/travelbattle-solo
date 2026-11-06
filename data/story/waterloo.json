@@ -1519,12 +1519,12 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold two squares of Saint-Amand-la-Haye at the end of round 10.",
+      "text": "Hold four squares of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "la_haye",
-        "count": 2,
+        "count": 4,
         "atRound": 10
        }
       ],
@@ -8581,15 +8581,21 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 5.",
+      "text": "Reach the carriage square (K5, in Genappe's street), and remove two French units, by the end of round 8.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 5
+        "byRound": 8
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 2,
+        "byRound": 8
        }
       ],
-      "combinator": "any"
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -8615,13 +8621,13 @@
     "France": {
      "start": "Columns E to K; Napoleon at J5",
      "objective": {
-      "text": "Napoleon in the last three columns at the south end (A to C) at the end of round 8.",
+      "text": "Napoleon in the last three columns at the south end (A to C) at the end of round 10.",
       "conditions": [
        {
         "type": "COMMANDER",
         "tag": "napoleon",
         "area": "escape",
-        "atRound": 8
+        "atRound": 10
        }
       ],
       "combinator": "any"

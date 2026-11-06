@@ -548,6 +548,20 @@ obj('coa', 'Portugal', [{'type': 'IN_AREA', 'area': 'far_bank', 'tag': 'cacadore
 obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 2, 'atRound': 8}],
     "Two of Beckwith's units on the hill at the end of round 8.", 'any')
 
+# Fifth measurement, and what changed after it. Bailen and Sabugal did not
+# move with the number of squares (92 at every count), and Somosierra went
+# from 100 at three summit squares to 0 at four: holding ground alone is all
+# or nothing here, so the holding side must also hurt the attacker.
+# Bailen: two squares of Bailen, both Brigades unbroken, three French units removed.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 2, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 10}],
+    'Hold two squares of Bailén, with both Brigades unbroken, and remove three French units, by the end of round 10.', 'all')
+# Somosierra: three summit squares, both Brigades unbroken, two attackers removed.
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 3, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 10}],
+    'Hold three squares of the summit, with both Brigades unbroken, and remove two attacking units, by the end of round 10.', 'all')
+# Sabugal: Beckwith on the hill and two French units removed.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 8}],
+    "Beckwith's Brigade on the hill at the end of round 8, and two French units removed by then.", 'all')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)
