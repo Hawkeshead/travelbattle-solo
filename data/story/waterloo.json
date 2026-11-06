@@ -596,11 +596,11 @@
     "Prussia": {
      "start": "Rows 6 to 10; may start in the villages",
      "objective": {
-      "text": "At the end of round 12: two Brigades unbroken, Blücher in play, and Brye (F9, the line of retreat) still held.",
+      "text": "At the end of round 12: all three Brigades unbroken, Blücher in play, and Brye (F9, the line of retreat) still held.",
       "conditions": [
        {
         "type": "BRIGADES_UNBROKEN",
-        "count": 2,
+        "count": 3,
         "atRound": 12
        },
        {
@@ -1513,8 +1513,14 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold a square of Saint-Amand-la-Haye at the end of round 10.",
+      "text": "Hold Wagnelée and a square of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
+       {
+        "type": "HOLD_COUNT",
+        "area": "wagnelee",
+        "count": 1,
+        "atRound": 10
+       },
        {
         "type": "HOLD_COUNT",
         "area": "la_haye",
@@ -1522,7 +1528,7 @@
         "atRound": 10
        }
       ],
-      "combinator": "any"
+      "combinator": "all"
      },
      "brigades": [
       {
@@ -3091,7 +3097,7 @@
     "Britain": {
      "start": "Columns I to M: the forward line by Gemioncourt and Bossu Wood",
      "objective": {
-      "text": "At the end of round 12: hold the crossroads square, no French unit in its approaches (columns N to Q), and all three Brigades unbroken.",
+      "text": "At the end of round 12: hold the crossroads square, no French unit in its approaches (columns N to Q), and two Brigades unbroken.",
       "conditions": [
        {
         "type": "CONTROL_AREA",
@@ -3105,7 +3111,7 @@
        },
        {
         "type": "BRIGADES_UNBROKEN",
-        "count": 3,
+        "count": 2,
         "atRound": 12
        }
       ],
@@ -4280,11 +4286,11 @@
     "Britain": {
      "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
      "objective": {
-      "text": "Have four units leave by the Brussels end by the end of round 12.",
+      "text": "Have five units leave by the Brussels end by the end of round 12.",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 4,
+        "count": 5,
         "byRound": 12
        }
       ],
@@ -5080,12 +5086,12 @@
     "Prussia": {
      "start": "Rows 5 to 10",
      "objective": {
-      "text": "Hold two squares of Wavre (N5 to Q6) at the end of round 12.",
+      "text": "Hold three squares of Wavre (N5 to Q6) at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "wavre",
-        "count": 2,
+        "count": 3,
         "atRound": 12
        }
       ],
@@ -6490,7 +6496,7 @@
     "Prussia": {
      "start": "Rows 8 to 10, out of the Bois de Paris",
      "objective": {
-      "text": "Hold the church, or three village squares, at the end of round 12.",
+      "text": "Hold the church, or two village squares, at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_AREA",
@@ -6500,7 +6506,7 @@
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 3,
+        "count": 2,
         "atRound": 12
        }
       ],
@@ -8570,12 +8576,12 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 7.",
+      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 5.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 7
+        "byRound": 5
        }
       ],
       "combinator": "any"

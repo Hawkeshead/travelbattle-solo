@@ -485,6 +485,32 @@ obj('vitoria', 'Britain', [{'type': 'ENTERED', 'area': 'arinez', 'byRound': 12},
 obj('toulouse', 'France', [{'type': 'HOLD_AREA', 'area': 'north_redoubt', 'atRound': 12}, {'type': 'BRIGADES_UNBROKEN', 'count': 3, 'atRound': 12}],
     'Hold the northern redoubt, with all three Brigades unbroken, at the end of round 12.', 'all')
 
+# Second measurement (12 more each), and what changed after it:
+# Bailen 100/42: Bailen held and both Spanish Brigades unbroken.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 1, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold Bailén, with both Brigades unbroken, at the end of round 10.', 'all')
+# Somosierra 100/33: two units on the summit, not one.
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 2, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold two squares of the summit, with both Brigades unbroken, at the end of round 10.', 'all')
+# Ocana 100/67: all three Spanish Brigades unbroken.
+obj('ocana', 'Spain', [{'type': 'BRIGADES_UNBROKEN', 'count': 3, 'atRound': 10}], 'All three Brigades unbroken at the end of round 10 (the army gets away).', 'any')
+# Coa 17/33: two across, or the bridge clear.
+obj('coa', 'Britain', [{'type': 'IN_AREA', 'area': 'far_bank', 'count': 2, 'atRound': 8}, {'type': 'CLEAR_AREA', 'area': 'bridge_far', 'atRound': 8}],
+    'Two units across the Côa, or no French unit on the far end of the bridge, at the end of round 8.', 'any')
+# Bussaco 8/92: Britain holds two squares of the crest; France needs two there, or five removed.
+obj('bussaco', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'crest', 'count': 2, 'atRound': 10}], 'Hold two squares of the crest at the end of round 10.', 'any')
+obj('bussaco', 'France', [{'type': 'HOLD_COUNT', 'area': 'crest', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 5}],
+    'Have two units on the crest at the end of round 10, or remove five Allied units.', 'any')
+# Sabugal 0/75 with both: Beckwith on the hill, or all three Allied Brigades unbroken.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 3, 'atRound': 8}],
+    "Beckwith's Brigade on the hill, or all three Allied Brigades unbroken, at the end of round 8.", 'any')
+# Albuera 100/0: the French stop at the stream; three units removed also counts.
+obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_bank', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 10}],
+    'Break one Allied Brigade, or remove three Allied units, by the end of round 10, or have two units across the Albuera stream at its end.', 'any')
+# Arroyo 8/58: two village squares, or four units removed.
+obj('arroyo', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'village', 'count': 2, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
+    'Two squares of the village held at the end of round 8, or four French units removed by then.', 'any')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)

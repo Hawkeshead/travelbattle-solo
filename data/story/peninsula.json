@@ -449,13 +449,18 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold Bailén at the end of round 10.",
-      "combinator": "any",
+      "text": "Hold Bailén, with both Brigades unbroken, at the end of round 10.",
+      "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bailen",
         "count": 1,
+        "atRound": 10
+       },
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 2,
         "atRound": 10
        }
       ]
@@ -1391,13 +1396,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold the summit, with both Brigades unbroken, at the end of round 10.",
+      "text": "Hold two squares of the summit, with both Brigades unbroken, at the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "summit",
-        "count": 1,
+        "count": 2,
         "atRound": 10
        },
        {
@@ -3524,12 +3529,12 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "At least two Brigades unbroken at the end of round 10 (the army gets away).",
+      "text": "All three Brigades unbroken at the end of round 10 (the army gets away).",
       "combinator": "any",
       "conditions": [
        {
         "type": "BRIGADES_UNBROKEN",
-        "count": 2,
+        "count": 3,
         "atRound": 10
        }
       ]
@@ -4271,8 +4276,8 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Two units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
-      "combinator": "all",
+      "text": "Two units across the Côa, or no French unit on the far end of the bridge, at the end of round 8.",
+      "combinator": "any",
       "conditions": [
        {
         "type": "IN_AREA",
@@ -5098,12 +5103,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "No French unit on the crest of the ridge at the end of round 10.",
+      "text": "Hold two squares of the crest at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
-        "type": "CLEAR_AREA",
+        "type": "HOLD_COUNT",
         "area": "crest",
+        "count": 2,
         "atRound": 10
        }
       ]
@@ -5190,19 +5196,19 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Have a unit on the crest at the end of round 10, or remove four Allied units.",
+      "text": "Have two units on the crest at the end of round 10, or remove five Allied units.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "crest",
-        "count": 1,
+        "count": 2,
         "atRound": 10
        },
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 4
+        "count": 5
        }
       ]
      }
@@ -5504,7 +5510,7 @@
      "role": "hold",
      "objective": {
       "text": "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.",
-      "combinator": "all",
+      "combinator": "any",
       "conditions": [
        {
         "type": "IN_AREA",
@@ -6329,7 +6335,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break one Allied Brigade, or have two units across the Albuera stream at the end of round 10.",
+      "text": "Break one Allied Brigade, or remove three Allied units, by the end of round 10, or have two units across the Albuera stream at its end.",
       "combinator": "any",
       "conditions": [
        {
@@ -6342,6 +6348,12 @@
         "area": "south_bank",
         "count": 2,
         "atRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 3,
+        "byRound": 10
        }
       ]
      }
@@ -7159,19 +7171,19 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "A square of the village held, and three French units removed, by the end of round 8.",
-      "combinator": "all",
+      "text": "Two squares of the village held at the end of round 8, or four French units removed by then.",
+      "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 1,
+        "count": 2,
         "atRound": 8
        },
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3
+        "count": 4
        }
       ]
      }
