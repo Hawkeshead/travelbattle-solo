@@ -433,6 +433,14 @@ B['garcia-hernandez']['turnLimit'] = 10
 obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 10}], 'Three units leave by the French end by the end of round 10.')
 obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 10}], 'Remove two French units by the end of round 10.')
 
+# ---- IN COMMAND AT THE START (6 Nov 2026) ----
+# Vimeiro: the brook loops round five squares behind the British line (row 9,
+# columns 4 to 8), and Fane's five units were spread over both banks, so the
+# 50th and 97th began cut off from him. Fane's Brigade starts on the north
+# bank, in front of the loop.
+B['vimeiro']['map']['areas']['fane_start'] = rect(4, 8, 7, 8)
+B['vimeiro']['sides']['Britain']['brigades'][0]['placement'] = {'type': 'area', 'area': 'fane_start'}
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)
