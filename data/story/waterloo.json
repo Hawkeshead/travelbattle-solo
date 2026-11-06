@@ -1519,12 +1519,12 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold four squares of Saint-Amand-la-Haye at the end of round 10.",
+      "text": "Hold all five squares of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "la_haye",
-        "count": 4,
+        "count": 5,
         "atRound": 10
        }
       ],
@@ -8581,7 +8581,7 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street), and remove two French units, by the end of round 8.",
+      "text": "Reach the carriage square (K5, in Genappe's street), and remove a French unit, by the end of round 8.",
       "conditions": [
        {
         "type": "ENTERED",
@@ -8591,7 +8591,7 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 2,
+        "count": 1,
         "byRound": 8
        }
       ],
@@ -8605,10 +8605,12 @@
         "INFANTRY",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "HEAVY_CAV"
+        "HEAVY_CAV",
+        "LIGHT_CAV",
+        "LIGHT_CAV"
        ],
        "protect": false,
-       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers)",
+       "note": "Brigadier, Light Cavalry x2, Heavy Cavalry, Infantry (Keller's fusiliers) (+Light Cav for balance) (+Light Cavalry for balance)",
        "placement": {
         "type": "area",
         "area": "prussian_start"

@@ -562,6 +562,14 @@ obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 3,
 obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 8}],
     "Beckwith's Brigade on the hill at the end of round 8, and two French units removed by then.", 'all')
 
+# Sixth measurement (Bailen 92, Somosierra 83, Sabugal 0), and what changed after it:
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 2, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 5, 'byRound': 10}],
+    'Hold two squares of Bailén, with both Brigades unbroken, and remove five French units, by the end of round 10.', 'all')
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 3, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 10}],
+    'Hold three squares of the summit, with both Brigades unbroken, and remove three attacking units, by the end of round 10.', 'all')
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 1, 'byRound': 8}],
+    "Beckwith's Brigade on the hill at the end of round 8, and a French unit removed by then.", 'all')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)
