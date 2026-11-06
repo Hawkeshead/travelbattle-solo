@@ -441,6 +441,50 @@ obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': [], 'count'
 B['vimeiro']['map']['areas']['fane_start'] = rect(4, 8, 7, 8)
 B['vimeiro']['sides']['Britain']['brigades'][0]['placement'] = {'type': 'area', 'area': 'fane_start'}
 
+# ---- BALANCE, pass 5 (6 Nov 2026): the 31-battle check ----
+# 12 matches per battle, Coalition card, sides swapped; target each side's
+# objective met in 30 to 80% of matches. Numbers are Coalition / France.
+# Bailen 100/33: either Bailen or the ridge made Spain safe; Bailen itself now.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 1, 'atRound': 10}], 'Hold Bailén at the end of round 10.', 'any')
+# Somosierra 100/8: two batteries was out of reach in the pass; one is enough.
+for n in ('Poland', 'France'):
+    obj('somosierra', n, [{'type': 'ENTERED', 'area': 'summit', 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': ['ARTILLERY'], 'count': 1, 'byRound': 10}],
+        'Get a unit onto the summit, or overrun a Spanish battery, by the end of round 10.', 'any')
+# Cacabelos 100/0: the 95th's marksman often removes Colbert, which failed the
+# French objective outright; Colbert's clause goes, and Paget needs three away.
+obj('cacabelos', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 8}], 'Remove two British units by the end of round 8.', 'any')
+obj('cacabelos', 'Britain', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 8}], 'Have three units leave by the Villafranca road by the end of round 8.', 'any')
+# Corunna 8/75: the ridge and Elvina both was too much; either now.
+obj('corunna', 'Britain', [{'type': 'CLEAR_AREA', 'area': 'monte_mero', 'atRound': 10}, {'type': 'CLEAR_AREA', 'area': 'elvina', 'atRound': 10}],
+    'No French unit on the Monte Mero ridge, or none in Elviña, at the end of round 10.', 'any')
+# Ocana 100/0: no Spanish Brigade ever broke; three units removed also counts.
+obj('ocana', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3, 'byRound': 10}],
+    'Break one Spanish Brigade, or remove three Spanish units, by the end of round 10.', 'any')
+# Coa 8/33: two units across, not three.
+obj('coa', 'Britain', [{'type': 'IN_AREA', 'area': 'far_bank', 'count': 2, 'atRound': 8}, {'type': 'CLEAR_AREA', 'area': 'bridge_far', 'atRound': 8}],
+    'Two units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.', 'all')
+# Bussaco 8/100: touching the crest once was enough for France; now it must be held at the end.
+obj('bussaco', 'France', [{'type': 'HOLD_COUNT', 'area': 'crest', 'count': 1, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
+    'Have a unit on the crest at the end of round 10, or remove four Allied units.', 'any')
+# Sabugal 92/75: Beckwith on the hill and two Brigades unbroken, both.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 8}],
+    "Beckwith's Brigade on the hill, and two Allied Brigades unbroken, at the end of round 8.", 'all')
+# Albuera 100/0: two units across the stream, not three.
+obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10}, {'type': 'IN_AREA', 'area': 'south_bank', 'count': 2, 'atRound': 10}],
+    'Break one Allied Brigade, or have two units across the Albuera stream at the end of round 10.', 'any')
+# El Bodon 75/92: five units removed, not four.
+obj('elbodon', 'France', [{'type': 'DESTROY', 'unitTypes': [], 'count': 5, 'byRound': 10}], 'Remove five Allied units by the end of round 10.', 'any')
+# Arroyo 0/58: one village square and three units removed.
+obj('arroyo', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'village', 'count': 1, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 3}],
+    'A square of the village held, and three French units removed, by the end of round 8.', 'all')
+# Vitoria 17/0: eight units away for France, one French Brigade broken for Britain.
+obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 8, 'byRound': 12}], 'Eight units leave by the road to France (the French edge) by the end of round 12.')
+obj('vitoria', 'Britain', [{'type': 'ENTERED', 'area': 'arinez', 'byRound': 12}, {'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 12}],
+    'Take the knoll of Arinez at any point, and break a French Brigade, by the end of round 12.', 'all')
+# Toulouse 75/83: all three French Brigades unbroken.
+obj('toulouse', 'France', [{'type': 'HOLD_AREA', 'area': 'north_redoubt', 'atRound': 12}, {'type': 'BRIGADES_UNBROKEN', 'count': 3, 'atRound': 12}],
+    'Hold the northern redoubt, with all three Brigades unbroken, at the end of round 12.', 'all')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)

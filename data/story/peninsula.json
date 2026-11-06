@@ -449,18 +449,12 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold Bailén, or a square of the ridge across the road, at the end of round 10.",
+      "text": "Hold Bailén at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bailen",
-        "count": 1,
-        "atRound": 10
-       },
-       {
-        "type": "HOLD_COUNT",
-        "area": "ridge",
         "count": 1,
         "atRound": 10
        }
@@ -1443,7 +1437,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.",
+      "text": "Get a unit onto the summit, or overrun a Spanish battery, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
@@ -1456,7 +1450,7 @@
         "unitTypes": [
          "ARTILLERY"
         ],
-        "count": 2,
+        "count": 1,
         "byRound": 10
        }
       ]
@@ -1494,7 +1488,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the summit, or overrun two Spanish batteries, by the end of round 10.",
+      "text": "Get a unit onto the summit, or overrun a Spanish battery, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
@@ -1507,7 +1501,7 @@
         "unitTypes": [
          "ARTILLERY"
         ],
-        "count": 2,
+        "count": 1,
         "byRound": 10
        }
       ]
@@ -1782,12 +1776,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Have two units leave by the Villafranca road by the end of round 8.",
+      "text": "Have three units leave by the Villafranca road by the end of round 8.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 2,
+        "count": 3,
         "byRound": 8
        }
       ]
@@ -1826,19 +1820,14 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove three British units by the end of round 8, with Colbert still in play.",
-      "combinator": "all",
+      "text": "Remove two British units by the end of round 8.",
+      "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 3,
+        "count": 2,
         "byRound": 8
-       },
-       {
-        "type": "COMMANDER",
-        "tag": "colbert",
-        "atRound": 8
        }
       ]
      }
@@ -2124,8 +2113,8 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "No French unit on the Monte Mero ridge, and none in Elviña, at the end of round 10.",
-      "combinator": "all",
+      "text": "No French unit on the Monte Mero ridge, or none in Elviña, at the end of round 10.",
+      "combinator": "any",
       "conditions": [
        {
         "type": "CLEAR_AREA",
@@ -3592,12 +3581,18 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break one Spanish Brigade by the end of round 10.",
+      "text": "Break one Spanish Brigade, or remove three Spanish units, by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "BREAK_BRIGADES",
         "count": 1,
+        "byRound": 10
+       },
+       {
+        "type": "DESTROY",
+        "unitTypes": [],
+        "count": 3,
         "byRound": 10
        }
       ]
@@ -4276,13 +4271,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Three units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
+      "text": "Two units across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
       "combinator": "all",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "far_bank",
-        "count": 3,
+        "count": 2,
         "atRound": 8
        },
        {
@@ -5195,13 +5190,14 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Get a unit onto the crest at any point, or remove four Allied units, by the end of round 10.",
+      "text": "Have a unit on the crest at the end of round 10, or remove four Allied units.",
       "combinator": "any",
       "conditions": [
        {
-        "type": "ENTERED",
+        "type": "HOLD_COUNT",
         "area": "crest",
-        "byRound": 10
+        "count": 1,
+        "atRound": 10
        },
        {
         "type": "DESTROY",
@@ -5508,7 +5504,7 @@
      "role": "hold",
      "objective": {
       "text": "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.",
-      "combinator": "any",
+      "combinator": "all",
       "conditions": [
        {
         "type": "IN_AREA",
@@ -6333,7 +6329,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Break one Allied Brigade, or have three units across the Albuera stream at the end of round 10.",
+      "text": "Break one Allied Brigade, or have two units across the Albuera stream at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
@@ -6344,7 +6340,7 @@
        {
         "type": "IN_AREA",
         "area": "south_bank",
-        "count": 3,
+        "count": 2,
         "atRound": 10
        }
       ]
@@ -6726,13 +6722,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove four Allied units by the end of round 10.",
+      "text": "Remove five Allied units by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 4,
+        "count": 5,
         "byRound": 10
        }
       ]
@@ -7163,19 +7159,19 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Two squares of the village held, and four French units removed, by the end of round 8.",
+      "text": "A square of the village held, and three French units removed, by the end of round 8.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 2,
+        "count": 1,
         "atRound": 8
        },
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 4
+        "count": 3
        }
       ]
      }
@@ -9040,7 +9036,7 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Take the knoll of Arinez at any point, and break two French Brigades, by the end of round 12.",
+      "text": "Take the knoll of Arinez at any point, and break a French Brigade, by the end of round 12.",
       "combinator": "all",
       "conditions": [
        {
@@ -9050,7 +9046,7 @@
        },
        {
         "type": "BREAK_BRIGADES",
-        "count": 2,
+        "count": 1,
         "byRound": 12
        }
       ]
@@ -9185,12 +9181,12 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Eleven units leave by the road to France (the French edge) by the end of round 12.",
+      "text": "Eight units leave by the road to France (the French edge) by the end of round 12.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 11,
+        "count": 8,
         "byRound": 12
        }
       ]
@@ -9759,7 +9755,7 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold the northern redoubt, and have two Brigades unbroken, at the end of round 12.",
+      "text": "Hold the northern redoubt, with all three Brigades unbroken, at the end of round 12.",
       "combinator": "all",
       "conditions": [
        {
@@ -9769,7 +9765,7 @@
        },
        {
         "type": "BRIGADES_UNBROKEN",
-        "count": 2,
+        "count": 3,
         "atRound": 12
        }
       ]

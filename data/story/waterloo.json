@@ -689,13 +689,12 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold one of Ligny's village squares at the end of round 12, or break one Prussian Brigade.",
+      "text": "Get a unit into Ligny at any point, or break one Prussian Brigade, by the end of round 12.",
       "conditions": [
        {
-        "type": "HOLD_COUNT",
+        "type": "ENTERED",
         "area": "ligny",
-        "count": 1,
-        "atRound": 12
+        "byRound": 12
        },
        {
         "type": "BREAK_BRIGADES",
@@ -1514,14 +1513,8 @@
     "Prussia": {
      "start": "Rows 5 to 10; one Brigade must start in Saint-Amand",
      "objective": {
-      "text": "Hold Wagnelée, or a square of Saint-Amand-la-Haye, at the end of round 10.",
+      "text": "Hold a square of Saint-Amand-la-Haye at the end of round 10.",
       "conditions": [
-       {
-        "type": "HOLD_COUNT",
-        "area": "wagnelee",
-        "count": 1,
-        "atRound": 10
-       },
        {
         "type": "HOLD_COUNT",
         "area": "la_haye",
@@ -3098,7 +3091,7 @@
     "Britain": {
      "start": "Columns I to M: the forward line by Gemioncourt and Bossu Wood",
      "objective": {
-      "text": "At the end of round 12: hold the crossroads square, and no French unit in its approaches (columns N to Q).",
+      "text": "At the end of round 12: hold the crossroads square, no French unit in its approaches (columns N to Q), and all three Brigades unbroken.",
       "conditions": [
        {
         "type": "CONTROL_AREA",
@@ -3108,6 +3101,11 @@
        {
         "type": "CLEAR_AREA",
         "area": "qb_approach",
+        "atRound": 12
+       },
+       {
+        "type": "BRIGADES_UNBROKEN",
+        "count": 3,
         "atRound": 12
        }
       ],
@@ -4282,11 +4280,11 @@
     "Britain": {
      "start": "Rearguard columns E to H; Uxbridge on the Heights of Genappe (columns M to P)",
      "objective": {
-      "text": "Have three units leave by the Brussels end by the end of round 12.",
+      "text": "Have four units leave by the Brussels end by the end of round 12.",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 3,
+        "count": 4,
         "byRound": 12
        }
       ],
@@ -5082,13 +5080,13 @@
     "Prussia": {
      "start": "Rows 5 to 10",
      "objective": {
-      "text": "Hold two squares of Wavre (N5 to Q6) at the end of round 8.",
+      "text": "Hold two squares of Wavre (N5 to Q6) at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "wavre",
         "count": 2,
-        "atRound": 8
+        "atRound": 12
        }
       ],
       "combinator": "any"
@@ -5134,12 +5132,12 @@
     "France": {
      "start": "Rows 1 to 3",
      "objective": {
-      "text": "Hold one of the three bridgeheads on the Prussian bank at the end of round 12.",
+      "text": "Hold two of the three bridgeheads on the Prussian bank at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bridgeheads",
-        "count": 1,
+        "count": 2,
         "atRound": 12
        }
       ],
@@ -6492,7 +6490,7 @@
     "Prussia": {
      "start": "Rows 8 to 10, out of the Bois de Paris",
      "objective": {
-      "text": "Hold the church, or four village squares, at the end of round 12.",
+      "text": "Hold the church, or three village squares, at the end of round 12.",
       "conditions": [
        {
         "type": "HOLD_AREA",
@@ -6502,7 +6500,7 @@
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 4,
+        "count": 3,
         "atRound": 12
        }
       ],
@@ -8572,12 +8570,12 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 8.",
+      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 7.",
       "conditions": [
        {
         "type": "ENTERED",
         "area": "carriage",
-        "byRound": 8
+        "byRound": 7
        }
       ],
       "combinator": "any"
