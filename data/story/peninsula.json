@@ -449,7 +449,7 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold two squares of Bailén, with both Brigades unbroken, and remove five French units, by the end of round 10.",
+      "text": "Hold two squares of Bailén, with both Brigades unbroken, and remove four French units, by the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
@@ -466,7 +466,7 @@
        {
         "type": "DESTROY",
         "unitTypes": [],
-        "count": 5,
+        "count": 4,
         "byRound": 10
        }
       ]
@@ -5522,7 +5522,7 @@
      "role": "hold",
      "objective": {
       "text": "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.",
-      "combinator": "all",
+      "combinator": "any",
       "conditions": [
        {
         "type": "IN_AREA",

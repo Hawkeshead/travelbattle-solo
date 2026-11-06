@@ -570,6 +570,15 @@ obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 3,
 obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 1, 'byRound': 8}],
     "Beckwith's Brigade on the hill at the end of round 8, and a French unit removed by then.", 'all')
 
+# Seventh measurement: Bailen 25 with five removed (92 with three): four.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 2, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4, 'byRound': 10}],
+    'Hold two squares of Bailén, with both Brigades unbroken, and remove four French units, by the end of round 10.', 'all')
+# Sabugal has no step between 0 and 92 (the British remove no French units in
+# the rain, and France breaks a Brigade in three matches of four): left as it
+# was before this pass, an open item.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 8}],
+    "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.", 'any')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)
