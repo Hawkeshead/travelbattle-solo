@@ -52,6 +52,19 @@ export async function runOneMatch({ seed, variant = 'control', variantSide = nul
 
   dice.setFastDiceMode(true);
   render.setFastAnimationMode(true);
+  /* SIM_EXTRA_GUNS=1: each Quick Battle army takes one more battery (the
+     artillery experiment, 6 Nov 2026). Patched into this process's copy of
+     the army data only: the pool both sides deploy from, and every named Army
+     (the gun joins its smallest Brigade, back rank). Nothing in js/ changes. */
+  if (process.env.SIM_EXTRA_GUNS && !globalThis.__simExtraGuns) {
+    globalThis.__simExtraGuns = true;
+    const dep = await import('../../js/ui-deployment.js');
+    dep.FULL_ARMY_POOL.push('ARTILLERY');
+    for (const army of data.TB_DATA.armyCompositions) {
+      const smallest = army.brigades.reduce((a, b) => (b.units.length < a.units.length ? b : a));
+      smallest.units.push({ type: 'ARTILLERY', rank: 'back' });
+    }
+  }
 
   /* Exactly what the Spectate button sets, and nothing else. If this list ever
      drifts from ui-menus, the runner stops testing the shipped mode. */
