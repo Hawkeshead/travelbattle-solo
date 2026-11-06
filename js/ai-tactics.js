@@ -396,7 +396,8 @@ const nearest = (pos, sqs) => sqs.length ? Math.min(...sqs.map(q => waterDistanc
    1.0 early, up to 2.5 at the deadline, enough by then to outweigh a bad
    fight estimate. Infantry and Guard lead (cavalry at half, guns not at all). */
 export const ASSAULT_PULL = 1.6;
-export const MARCH_PULL_ESCAPE = 2.0;   // per row towards the exit edge, for a side whose role is escape
+export const MARCH_PULL_ESCAPE = 2.0;
+export const DESTROY_PULL = 0.35, DESTROY_REACH = 10;   // per square nearer a target a DESTROY condition counts   // per row towards the exit edge, for a side whose role is escape
 function assaultPull(mover, side, pos, sqs, k){
   const t = UNIT_TYPES[mover.type];
   if(t.isArtillery) return 0;
@@ -529,6 +530,15 @@ function storyMoveBonus(mover, side, pos){
     } else if(c.type === 'COMMANDER_REMOVED' && !brig){
       const prey = state.units.find(o => !o.removed && o.side !== side && o.type === 'BRIGADIER' && o.storyTag === c.tag);
       if(prey){ const d = waterDistance(pos, prey); s += Math.max(0, reach - d) * (t.isCavalry ? per + 0.15 : per) * k; }
+    } else if(c.type === 'DESTROY' && !brig && !t.isArtillery){
+      /* HUNT WHAT THE OBJECTIVE NAMES (6 Nov 2026, García Hernández: the
+         objective was to remove two French units and nothing pulled the
+         British dragoons towards one; they held 56% of the time while the
+         rearguard walked off). Towards the nearest enemy unit of a kind the
+         condition counts, harder as its round comes, as an attack reaches. */
+      const prey = state.units.filter(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && o.x >= 0 &&
+        (!c.unitTypes || !c.unitTypes.length || c.unitTypes.includes(o.type)));
+      if(prey.length){ const d = Math.min(...prey.map(o => waterDistance(pos, o))); s += Math.max(0, DESTROY_REACH - d) * DESTROY_PULL * k; }
     } else if(c.type === 'MARCH_OFF'){
       const ex = sc.map.exits && sc.map.exits[key];
       if(!ex) continue;

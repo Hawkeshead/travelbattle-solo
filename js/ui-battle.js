@@ -18,7 +18,7 @@ import { COLS, SIDES, SIDE_COLOR, SIDE_LABEL, UNIT_TYPES, friendlyAiCommands, hu
 import { BRIDGE_HITS_TO_BREAK, bridgeAtSquare, recordBridgeHit, squareBlockedByWater } from './engine-water.js';
 import { flushPendingSettle, presentRollTrigger, showDice } from './dice.js';
 import { scenarioRoundEnded, endOnPoints } from './engine-objectives.js';
-import { setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets, quickRoundLimit } from './engine-rules.js';
+import { storyRule, rainNow, setTurnedAround, playFootMarch, SELECT_CUE, playChargeSabres, artilleryTargets, canAttackTarget, chebyshev, computeChargeDestinations, consumePloughEscort, currentRngSeed, enforceAmbushWoodsInvariant, inBounds, isAdjacent, isConcealedFromEnemy, isFootInfantry, isHorseArtillery, legalMoves, pickUnitAtCell, pushBack, removeUnit, resolveFight, retreatAndRally, rollD6, stackPartner, terrainAt, unitsAt, volleyDiceCount, volleyModifiers, volleyTargets, seededRandom, recordZeroing, zeroingFor, bridgeTargets, quickRoundLimit } from './engine-rules.js';
 import { log, logNarration, logReplay, pushUndoSnapshot, resetUndoStack, undoLastAction } from './engine-state.js';
 import { setUnitModels, unitModels } from './render-figures.js';
 import { CameraPref, FAST_ANIMATION_MODE, MOVE_PROFILES, addCrater, animateUnitTo, ensureAnimationLoopRunning, cameraRestorePlayerView, canvas, cellFromClient, consumeGestureFlag, displaceBrigadierIfPresent, draw, moveAnimationMs, observeBoardResize, resetMapView, recordGunfire, showActionLine, sizeCanvas, fromScreen } from './render-board.js';
@@ -640,6 +640,7 @@ export function beginFirePhase(){
   selectUnit(null);
   updateHeader();
   draw();
+  marksmanShot();
   const aiTurn = state.mode==='ai' && state.turn===state.aiSide;
   document.getElementById('endFireBtn').disabled = aiTurn;
   if(aiTurn){ if(!aiAllowedOnline(state.aiSide)) return; setTimeout(aiDoFirePhase, FAST_ANIMATION_MODE ? 0 : 400); return; }
@@ -647,6 +648,25 @@ export function beginFirePhase(){
   maybeStartAutoEnd(); // most turns have no gun with a target, so this is the common path, not the edge case
 }
 
+/* THE MARKSMAN (Cacabelos, storyRule 'marksman' { unit, range }: Plunket of
+   the 95th shot General Colbert). Once per battle, at the start of its side's
+   Firing phase, the named unit fires at an enemy Brigadier within range if it
+   has one, and removes him on a 5 or 6. Automatic for both sides: the shot is
+   always worth taking. */
+function marksmanShot(){
+  const r = storyRule('marksman');
+  if(!r || state._marksmanUsed) return;
+  const shooter = state.units.find(u => !u.removed && u.side === state.turn && u.historicalName === r.unit && u.x >= 0);
+  if(!shooter) return;
+  const prey = state.units.filter(o => !o.removed && o.side !== shooter.side && o.type === 'BRIGADIER' && o.x >= 0 && chebyshev(shooter, o) <= (r.range || 3))
+    .sort((a, b) => chebyshev(shooter, a) - chebyshev(shooter, b))[0];
+  if(!prey) return;
+  state._marksmanUsed = true;
+  const roll = rollD6(), hit = roll >= 5;
+  log(`A marksman of the ${unitLabel(shooter)} takes a long shot at ${prey.historicalName || 'the enemy Brigadier'}: rolled ${roll}, ${hit ? 'he falls' : 'a miss'}.`, 'combat');
+  logReplay('storyRule', { rule: 'marksman', unitId: shooter.id, targetId: prey.id, roll, hit });
+  if(hit) removeUnit(prey, 'shot by a marksman');
+}
 export function beginFightPhase(){
   saveAtPhaseStart('fight');   // match-save.js: a resumable point, before the phase sets itself up
   state.phase = 'fight';
@@ -1687,6 +1707,7 @@ export function resolveVolley(shooter, target, onComplete){
   const marksmen = perkVolleyBonus(shooter);   // Marksmen (perks.js): +1 effect
   const notes = [];
   if(marksmen) notes.push('+1 effect: Marksmen');
+  if(rainNow()) notes.push('Rain: needs 5 or 6');
   if(dice === 2) notes.push('Square vs Cavalry: two dice');
   if(turnedBonus)  notes.push('+1 effect: target turned around');
   if(coverPenalty) notes.push('-1 effect: target in wood/building');
@@ -1754,7 +1775,9 @@ export function resolveVolley(shooter, target, onComplete){
        waiting to happen. The MODIFIERS are untouched and matter more than
        before: +1 for a target already turned around is exactly what turns a 5
        into a knock back. */
-    const outcome = effRoll >= 6 ? 'knockback' : effRoll >= 4 ? 'disrupt' : 'none';
+    /* RAIN (storyRule 'rain'): wet powder, nothing below a 5 (a 5 turns the
+       target around, a 6 knocks it back as usual). */
+    const outcome = effRoll >= 6 ? 'knockback' : effRoll >= (rainNow() ? 5 : 4) ? 'disrupt' : 'none';
     const label = outcome==='knockback' ? 'Knocked back' : outcome==='disrupt' ? 'Turned around' : 'No effect';
     showDice([{label:'Volley', side:shooter.side, rolls, keptValue:rawRoll, notes, at:{x:shooter.x,y:shooter.y}}], label, outcome!=='none' ? 'win' : 'lose', ()=>{
       log(`${unitLabel(shooter)} volleys ${unitLabel(target)}: rolled ${rolls.join('/')}${effRoll!==rawRoll ? ` -> ${effRoll}` : ''} (${label.toLowerCase()}).`, 'combat');

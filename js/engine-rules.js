@@ -186,7 +186,12 @@ export function storyRule(k){
   return (r && r[k]) || null;
 }
 export const battleRound = () => Math.max(1, Math.ceil((state.turnNumber || 1) / 2));
-const inStoryArea = (name, x, y) => {
+/* A story rule given as { fromRound?, untilRound?, round? } is in force now. */
+export const storyWindow = r => !!r && (r === true || ((!r.fromRound || battleRound() >= r.fromRound) && (!r.untilRound || battleRound() <= r.untilRound) && (!r.round || battleRound() === r.round)));
+/* RAIN (Sabugal from round 6, Arroyo dos Molinos until round 3): wet powder,
+   a volley does nothing unless the die shows 5 or 6. { fromRound?, untilRound? } */
+export const rainNow = () => storyWindow(storyRule('rain'));
+export const inStoryArea = (name, x, y) => {
   const a = state.scenario && state.scenario.map && state.scenario.map.areas && state.scenario.map.areas[name];
   return !!a && a.some(([ax, ay]) => ax === x && ay === y);
 };
@@ -459,7 +464,15 @@ export function hasAnyLegalMove(u){
 
 export function legalMoves(u){
   if(isLocked(u)) return [];
-  if(u.formation==='square') return []; // squares don't move
+  /* SQUARES ON THE MARCH (El Bodón, storyRule 'squareMarch' { side? }): a
+     square may move one square, keeping its formation. */
+  const sqm = storyRule('squareMarch');
+  const squareMarching = u.formation==='square' && !!sqm && (!sqm.side || sqm.side === u.side);
+  if(u.formation==='square' && !squareMarching) return []; // squares don't move
+  /* THE BAGGAGE (Vitoria, storyRule 'baggage' { area, blocks, stops }): a unit
+     of the 'stops' side that ended a move on it stops there for its next turn
+     (animateUnitTo marks it). */
+  if(u._baggageTurn != null && state.turnNumber - u._baggageTurn <= 2 && state.turnNumber !== u._baggageTurn) return [];
   if(u.turnOnly) return [];
   if(state.moved && state.moved.has(u.id)) return []; // already moved (or explicitly stood pat) this phase
   const connected = movableUnitsForSide(u.side);
@@ -469,7 +482,7 @@ export function legalMoves(u){
   const jam = storyRule('jam');
   const woodsRoad = perkWoodsAsRoad(u);   // Guerrillas (perks.js): woods count as road
   const roadLike = terr => isRoadLike(terr) || (woodsRoad && terr.key === 'WOODS');
-  const startRoad = roadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y));
+  const startRoad = roadLike(terrainAt(u.x,u.y)) && !(jam && inStoryArea(jam.area, u.x, u.y)) && !squareMarching;
   const storm = storyRule('storm');
   if(storm && battleRound() <= storm.untilRound) allowance = Math.max(1, allowance - 1);   // mud: a square less, the road bonus still counts
   /* SLOW GOING: heat and thirst (a side, from a round), a marsh or a steep
@@ -480,6 +493,14 @@ export function legalMoves(u){
     if(sl.area && !inStoryArea(sl.area, u.x, u.y)) continue;
     allowance = sl.max != null ? Math.min(allowance, sl.max) : Math.max(1, allowance - 1);
   }
+  if(squareMarching) allowance = 1;
+  /* ROAD ONLY (Somosierra, storyRule 'roadOnly' { types }): those arms may move
+     only along roads. NO ENTRY (Arroyo dos Molinos' Sierra, storyRule 'noEntry'
+     [{ area, allow }]): only the arms listed may enter the area. */
+  const roadOnlyR = storyRule('roadOnly');
+  const roadBound = !!roadOnlyR && (roadOnlyR.types || []).includes(UNIT_TYPES[u.type].key);
+  const noEntry = [].concat(storyRule('noEntry') || []).filter(r => !(r.allow || []).includes(UNIT_TYPES[u.type].key));
+  const bag = storyRule('baggage');
   const cavOrHorseArty = isCavalryOrHorseArtillery(u);
   const isFootArtillery = UNIT_TYPES[u.type].isArtillery && !isHorseArtillery(u);
   const hasEscort = isFootArtillery ? brigadeHasCavalryEscort(u) : false;
@@ -514,6 +535,8 @@ export function legalMoves(u){
       const terr = terrainAt(n.x,n.y);
       const t = UNIT_TYPES[u.type];
       if(terr.restrictTo && !terr.restrictTo.includes(t.key)) continue;
+      if(roadBound && !isRoadLike(terr)) continue;
+      if(noEntry.some(r => inStoryArea(r.area, n.x, n.y))) continue;
       if(terr.plough && isFootArtillery && !hasEscort) continue; // Foot Artillery needs a Cavalry escort in its Brigade to cross a ploughed field
       // occupancy check
       const occ = unitsAt(n.x,n.y).filter(o=>o.id!==u.id && o.side===u.side);
@@ -552,6 +575,8 @@ export function legalMoves(u){
     let effAllowance = (startRoad && endRoad) ? allowance+1 : allowance;
     const endPlough = terrainAt(x,y).plough;
     if(cavOrHorseArty && (startPlough || endPlough)) effAllowance = Math.min(effAllowance, 1); // hard going for horses starting or ending on a ploughed field
+    if(bag && u.side === bag.blocks && inStoryArea(bag.area, x, y)) continue;   // the baggage blocks the road: not a place to stop
+    if(squareMarching && d > 1) continue;
     if(d <= effAllowance) results.push({x,y,steps:d});
   }
   return results;
@@ -1124,8 +1149,60 @@ export function offerCombatReroll(attacker, defender, aRoll, dRoll, aReasons, dR
   // after any defender re-roll, so an attacker who was only just barely ahead
   // can still find themselves behind and eligible in turn.
   tryOne(defender, dRoll, dReasons, dValueBonus, aRoll.value, ()=>{
-    tryOne(attacker, aRoll, aReasons, aValueBonus, dRoll.value, onComplete);
+    tryOne(attacker, aRoll, aReasons, aValueBonus, dRoll.value, ()=> deadHorse(attacker, defender, aRoll, dRoll, aReasons, aValueBonus, ()=>{
+      refreshDiceFrame(currentGroups(), leadText(), '');
+      onComplete();
+    }, ()=> dieHard(defender, dRoll, dReasons, dValueBonus, aRoll.value, ()=> dieHard(attacker, aRoll, aReasons, aValueBonus, dRoll.value, ()=>{
+      refreshDiceFrame(currentGroups(), leadText(), '');
+      onComplete();
+    }))));
   });
+}
+/* THE GUARDS' OVER-EAGER CHARGE (Talavera, storyRule 'followUp' { units }):
+   a named unit that wins a fight it started must follow up into the ground it
+   won, if that square is now empty and it may stand there. */
+function followUp(winner, attacker, sq){
+  const r = storyRule('followUp');
+  if(!r || winner !== attacker || winner.removed || !(r.units || []).includes(winner.historicalName)) return;
+  if(unitsAt(sq.x, sq.y).length || chebyshev(winner, sq) !== 1) return;
+  const terr = terrainAt(sq.x, sq.y);
+  if(terr.restrictTo && !terr.restrictTo.includes(UNIT_TYPES[winner.type].key)) return;
+  animateUnitTo(winner, sq.x, sq.y, 'advanceAfterCombat');
+  log(`${unitLabel(winner)} cannot be held and charges on after them.`, 'combat');
+  logReplay('storyRule', { rule: 'followUp', unitId: winner.id, x: sq.x, y: sq.y });
+}
+/* DIE HARD (campaign rule 'dieHard' [{ tag?, unit? }]: the Polish lancers at
+   Somosierra, the 57th at Albuera). A unit of the named Brigade (tag) or the
+   named unit that is losing a fight after every other re-roll re-rolls once
+   more, once a round per Brigade or unit (applyCombatReroll: never worse). */
+function dieHard(unit, roll, reasons, valueBonus, opponentValue, next){
+  if(roll.value >= opponentValue){ next(); return; }
+  const rule = [].concat(storyRule('dieHard') || []).find(r => (r.tag && unit.storyTag === r.tag) || (r.unit && unit.historicalName === r.unit));
+  if(!rule){ next(); return; }
+  const key = rule.tag || rule.unit;
+  state._dieHardRound = state._dieHardRound || {};
+  if(state._dieHardRound[key] === battleRound()){ next(); return; }
+  state._dieHardRound[key] = battleRound();
+  log(`${unitLabel(unit)} will not give way: a re-roll (${rule.label || 'die hard'}).`, 'combat');
+  logReplay('storyRule', { rule: 'dieHard', unitId: unit.id });
+  reasons.push(`${rule.label || 'Die hard'}: re-roll`);
+  applyCombatReroll(unit, roll, reasons, valueBonus, next);
+}
+/* THE DEAD HORSE (campaign rule 'deadHorse', García Hernández, 23 July 1812:
+   a dying French horse fell into the front of a square and Bock's dragoons
+   rode in through the gap). Once per battle, a heavy cavalry attack by the
+   rule's side on an infantry square that is losing by one point after every
+   other re-roll is re-rolled once more (applyCombatReroll: never worse). */
+function deadHorse(attacker, defender, aRoll, dRoll, aReasons, aValueBonus, rerolled, unchanged){
+  const r = storyRule('deadHorse');
+  const dk = UNIT_TYPES[defender.type].key;
+  if(!r || state._deadHorseUsed || (r.side && attacker.side !== r.side) || attacker.type !== 'HEAVY_CAV' ||
+     defender.formation !== 'square' || (dk !== 'INFANTRY' && dk !== 'GUARD') || dRoll.value - aRoll.value !== 1){ unchanged(); return; }
+  state._deadHorseUsed = true;
+  log(`A dying horse falls into the front of ${unitLabel(defender)}'s square: ${unitLabel(attacker)} re-roll (the dead horse).`, 'combat');
+  logReplay('storyRule', { rule: 'deadHorse', unitId: attacker.id, targetId: defender.id });
+  aReasons.push('The dead horse: re-roll');
+  applyCombatReroll(attacker, aRoll, aReasons, aValueBonus, rerolled);
 }
 
 export function applyCombatReroll(unit, roll, reasons, valueBonus, next){
@@ -1486,7 +1563,9 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
       const attackerSucceeded = winnerIsAttacker;
       if(diff===1){
         logNarration('melee_pushback', attackerSucceeded ? 'win' : 'loss');
+        const pushedFrom = { x: loser.x, y: loser.y };
         if(!perkStandsGround(loser)) pushBack(loser, winner);   // Stubborn (perks.js): once a turn it stands
+        followUp(winner, attacker, pushedFrom);
         onComplete();
       } else if(diff===2){
         logNarration('melee_rout', attackerSucceeded ? 'win' : 'loss');
@@ -1505,10 +1584,12 @@ export function resolveFight(attacker, defender, ambushMode, onComplete){
            is where the rule belongs: a roundshot goes through a doubled stand
            and does not care which half it hits. */
         const routedFrom = { x: loser.x, y: loser.y };
-        retreatAndRally(loser, () => { perkPursue(winner, routedFrom.x, routedFrom.y); onComplete(); });   // Pursuers (perks.js)
+        retreatAndRally(loser, () => { perkPursue(winner, routedFrom.x, routedFrom.y); followUp(winner, attacker, routedFrom); onComplete(); });   // Pursuers (perks.js)
       } else {
         logNarration('melee_destroy', attackerSucceeded ? 'win' : 'loss');
+        const destroyedAt = { x: loser.x, y: loser.y };
         removeUnit(loser, 'destroyed in combat');
+        followUp(winner, attacker, destroyedAt);
         /* NO SHARED FATE IN MELEE. Only an ARTILLERY hit takes both halves of a
            Column: a roundshot goes through a doubled stand and kills the lot, which
            is the risk of stacking. Infantry and cavalry fight one unit at a time,

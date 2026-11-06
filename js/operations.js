@@ -123,7 +123,7 @@ export function setupOperation(cardOrId, playerSide){
   }
   state.units = [];
   state.reserves = [];
-  state._wavesSent = 0; state._turncoatDone = false;
+  state._wavesSent = 0; state._turncoatDone = false; state._deadHorseUsed = false;
   for(const p of planOperationPlacement(card, state.terrain)){
     const u = newUnit(p.side, p.type, p.reserve ? -1 : p.x, p.reserve ? -1 : p.y, p.brigadeId);
     if(p.formation) u.formation = p.formation;
@@ -283,6 +283,10 @@ export function canMarchOff(u){
   if(row == null || u.y !== row) return false;
   if(state.moved && state.moved.has(u.id)) return false;
   if(u.turnOnly || u.formation === 'square' || u.noActionThisTurn) return false;
+  /* EMBARKATION (Corunna, storyRule 'embark' { side, fromRound }): the side may
+     leave by its edge only from that round (to the ships). */
+  const emb = state.scenario.storyRules && state.scenario.storyRules.rules && state.scenario.storyRules.rules.embark;
+  if(emb && emb.side === u.side && Math.ceil((state.turnNumber || 1) / 2) < emb.fromRound) return false;
   return movableUnitsForSide(u.side).has(u.id) || chainWaived(u.side);
 }
 export function marchOff(u){

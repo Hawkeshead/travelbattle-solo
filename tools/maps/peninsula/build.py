@@ -410,9 +410,60 @@ obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': [], 'count'
 B['vitoria']['map']['areas']['french_start'] = rect(0, 19, 2, 3)
 for br in B['vitoria']['sides']['France']['brigades']: br['placement'] = {'type': 'area', 'area': 'french_start'}
 obj('vitoria', 'France', [{'type': 'MARCH_OFF', 'count': 11, 'byRound': 12}], 'Eleven units leave by the road to France (the French edge) by the end of round 12.')
-# Garcia Hernandez: the AI's cavalry will not charge squares, and the French form them whenever cavalry come near; a troop of horse artillery
-an2 = B['garcia-hernandez']['sides']['Britain']['brigades'][1]; an2['units'] = an2['units'] + [ART]; an2['names'] = an2['names'] + ['Royal Horse Artillery']
-an = B['garcia-hernandez']['sides']['Britain']['brigades'][1]; an['units'] = an['units'] + [LC]; an['names'] = an['names'] + ['12th Light Dragoons']
+
+# ---- BALANCE, pass 4 (26 Oct 2026): García Hernández ----
+# 0/100 because nobody ever met: the French began two to seven squares from
+# their exit and walked off, while the British began on the far edge, ten or
+# more squares behind. Bock's dragoons caught Foy's rearguard on the slope:
+# the French now start on the lower slope and the cavalry close behind them.
+# The dead horse (storyRule deadHorse) is built.
+B['garcia-hernandez']['map']['areas']['foy_start'] = rect(5, 9, 0, 9)
+B['garcia-hernandez']['map']['areas']['british_start'] = rect(11, 13, 0, 9)
+for br in B['garcia-hernandez']['sides']['Britain']['brigades']: br['placement'] = {'type': 'area', 'area': 'british_start'}
+B['garcia-hernandez']['rules'] = {'deadHorse': {'side': 'red'}}
+B['garcia-hernandez']['needs'] = []
+# Without the extra guns and dragoons the French still got four units off in
+# only 1 of 6 (the British broke two in 3 of 6): three off by round 8 is the
+# historical outcome (Foy saved most of his division) and evens it.
+obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 8}], 'Three units leave by the French end by the end of round 8.')
+# Still short on both sides over 18 matches (Britain 3, France 5): the French
+# climb through the hills on rows 3 to 7 and the British close up for two
+# rounds first, so the battle ended before either had done its work. Ten rounds.
+B['garcia-hernandez']['turnLimit'] = 10
+obj('garcia-hernandez', 'France', [{'type': 'MARCH_OFF', 'count': 3, 'byRound': 10}], 'Three units leave by the French end by the end of round 10.')
+obj('garcia-hernandez', 'Britain', [{'type': 'DESTROY', 'unitTypes': [], 'count': 2, 'byRound': 10}], 'Remove two French units by the end of round 10.')
+
+# ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
+def built(bid, rules, done):
+    B[bid]['rules'].update(rules)
+    B[bid]['needs'] = [n for n in B[bid]['needs'] if n not in done]
+# Rain: a volley does nothing below a 5
+built('sabugal', {'rain': {'fromRound': 6}}, ['rain (volleys) from round 6'])
+built('arroyo', {'rain': {'untilRound': 3}}, ['rain until round 3'])
+# Only infantry (and Brigadiers) climb the Sierra (rows 0 and 1)
+B['arroyo']['map']['areas']['sierra'] = rect(0, 19, 0, 1)
+built('arroyo', {'noEntry': [{'area': 'sierra', 'allow': ['INFANTRY', 'GUARD', 'BRIGADIER']}]}, ['only infantry climb the Sierra'])
+# Somosierra: the Polish lancers re-roll a lost fight once a round, and the cavalry keep to the road
+B['somosierra']['sides']['Poland']['brigades'][0]['tag'] = 'poles'
+built('somosierra', {'dieHard': [{'tag': 'poles', 'label': 'The Poles'}], 'roadOnly': {'types': ['LIGHT_CAV', 'HEAVY_CAV']}},
+      ['cavalry on the road only', 'Guard re-roll for the Poles'])
+# Albuera: the 57th, "Die hard"
+built('albuera', {'dieHard': [{'unit': '57th West Middlesex', 'label': 'Die hard'}]}, ["'die hard' re-roll for the 57th"])
+# Cacabelos: Plunket's long shot
+built('cacabelos', {'marksman': {'unit': '95th Rifles', 'range': 3}}, ["the marksman (the 95th's long shot at a commander)"])
+# El Bodon: the squares retire across the plain
+built('elbodon', {'squareMarch': {'side': 'red'}}, ['squares on the march'])
+# Vitoria: the baggage in and around the town
+B['vitoria']['map']['areas']['baggage'] = sq(m['vitoria'], '#', rows=range(0, 2))
+built('vitoria', {'baggage': {'area': 'baggage', 'blocks': 'blue', 'stops': 'red'}}, ['the baggage (stops Allied units for a round)'])
+# Talavera: the Foot Guards ran on after the French they broke
+built('talavera', {'followUp': {'units': ['Coldstream Guards', '3rd Foot Guards']}}, ["the Guards' over-eager charge"])
+# Corunna: the great battery stands on the ridge (a gun on a hill already fires over units below it);
+# from round 7 the British may march off to the ships by their own edge (marched off is never lost)
+B['corunna']['map']['areas']['battery_ridge'] = sq(m['corunna'], '^', rows=range(1, 3), cols=range(6, 13))
+B['corunna']['sides']['France']['brigades'][3]['placement'] = {'type': 'area', 'area': 'battery_ridge'}
+B['corunna']['map']['exits'] = dict(B['corunna']['map'].get('exits') or {}, british='britishEdge')
+built('corunna', {'embark': {'side': 'red', 'fromRound': 7}}, ['the great battery fires over lower ground', 'embarkation from round 7'])
 obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 8}],
     "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.")
 obj('sabugal', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 8}, {'type': 'CLEAR_AREA', 'area': 'hill', 'atRound': 8}],

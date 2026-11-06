@@ -715,6 +715,12 @@ export function exportFullMatchLog(){
          0 in the deployment list), and "spent" rather than "none left": the
          Charmed Life perk gives the save back (Papelotte, 23 Oct 2026). */
       lines.push(`    Failed to rally and kept in the field. ${brigadeName(ev.side, ev.brigadeId)} has spent its Leadership Roll.`);
+    } else if(ev.type==='storyRule'){
+      /* A campaign battle's special rule at work (engine-rules storyRule). */
+      const what = { deadHorse: 'the dead horse: a re-roll against the square', dieHard: 'a re-roll that will not give way',
+        followUp: 'charges on into the ground it won', marksman: `a long shot at ${label(ev.targetId)}: rolled ${ev.roll}, ${ev.hit ? 'he falls' : 'a miss'}`,
+        baggage: 'stops to plunder the baggage' }[ev.rule] || ev.rule;
+      lines.push(`RULE (${ev.rule}): ${label(ev.unitId)}, ${what}`);
     } else if(ev.type==='perk' && PERKS[ev.perk]){
       lines.push(`PERK: ${brigadeName(ev.side, ev.brigadeId)} earns ${PERKS[ev.perk].name}: ${PERKS[ev.perk].text}`);
     } else if(ev.type==='perkUsed' && PERKS[ev.perk]){

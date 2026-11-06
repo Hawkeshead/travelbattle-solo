@@ -6,7 +6,7 @@ import { anyFiguresOn, clashActive, figuresOn, drawFigureBodies, figuresAnimatin
 import { CELL, COLS, HALF_COLS, ROWS, SIDES, SIDE_LABEL, TB_DATA, TERRAIN_STYLE, UNIT_TYPES, edgeKey, rotatePointCW, setCell, state } from './data-core.js';
 import { drawGunfire, gunfireActive, spawnDeathSmoke, spawnGunfire } from './render-gunfire.js';
 import { FARM_COUNT, GRASS_DETAIL_COUNT, HILL_COUNT, ROAD, WOODS_COUNT, buildRoadGraph, farmMirrored, farmOverlaySet, farmPicks, grassPicks, hillPick, roadChains, smoothChain, woodsPick } from './terrain-v2.js';
-import { brigadierDisplacementCell, clearAmbushIfOutOfWoods, inBounds, isVip, removeUnit, isRoadLike, movableUnitsForSide, neighbors8, reconstructPath, terrainAt } from './engine-rules.js';
+import { brigadierDisplacementCell, clearAmbushIfOutOfWoods, inBounds, inStoryArea, isVip, storyRule, removeUnit, isRoadLike, movableUnitsForSide, neighbors8, reconstructPath, terrainAt } from './engine-rules.js';
 import { pathCrossesFord } from './engine-water.js';
 import { log, logReplay } from './engine-state.js';
 import { UNIT_IMAGES, drawColumnUnitPair, drawUnit, highlightCells } from './render-units.js';
@@ -649,6 +649,14 @@ export function animateUnitTo(u, newX, newY, kind, opts){
     connected: connectedAfter,
   });
   u.x = newX; u.y = newY; // logical position updates immediately — game rules never wait on animation
+  /* THE BAGGAGE (Vitoria, storyRule 'baggage'): a unit of the 'stops' side that
+     marches onto it stops there for its next turn (engine-rules legalMoves). */
+  const bag = storyRule('baggage');
+  if(bag && u.side === bag.stops && kind !== 'pushback' && kind !== 'rout' && inStoryArea(bag.area, newX, newY) && !inStoryArea(bag.area, fromX, fromY)){
+    u._baggageTurn = state.turnNumber;
+    log(`${u.historicalName || u.type} stops to plunder the French baggage.`, 'combat');
+    logReplay('storyRule', { rule: 'baggage', unitId: u.id, x: newX, y: newY });
+  }
   if(FAST_ANIMATION_MODE){ delete unitAnimations[u.id]; return; } // test/simulation harnesses only — see setFastAnimationMode
 
   const path = displayPath(u, fromX, fromY, newX, newY);

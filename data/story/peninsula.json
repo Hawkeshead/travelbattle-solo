@@ -1394,7 +1394,8 @@
         "1st squadron",
         "2nd squadron",
         "4th squadron"
-       ]
+       ],
+       "tag": "poles"
       }
      ],
      "role": "attack",
@@ -1475,12 +1476,21 @@
    "rules": {
     "night": {
      "untilRound": 3
+    },
+    "dieHard": [
+     {
+      "tag": "poles",
+      "label": "The Poles"
+     }
+    ],
+    "roadOnly": {
+     "types": [
+      "LIGHT_CAV",
+      "HEAVY_CAV"
+     ]
     }
    },
-   "needs": [
-    "cavalry on the road only",
-    "Guard re-roll for the Poles"
-   ]
+   "needs": []
   },
   {
    "id": "cacabelos",
@@ -1793,10 +1803,13 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "the marksman (the 95th's long shot at a commander)"
-   ]
+   "rules": {
+    "marksman": {
+     "unit": "95th Rifles",
+     "range": 3
+    }
+   },
+   "needs": []
   },
   {
    "id": "corunna",
@@ -1940,7 +1953,68 @@
        9,
        6
       ]
+     ],
+     "battery_ridge": [
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ]
      ]
+    },
+    "exits": {
+     "british": "britishEdge"
     }
    },
    "sides": {
@@ -2074,7 +2148,8 @@
         "ARTILLERY"
        ],
        "placement": {
-        "type": "edge"
+        "type": "area",
+        "area": "battery_ridge"
        },
        "commander": "Soult"
       }
@@ -2100,11 +2175,13 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "the great battery fires over lower ground",
-    "embarkation from round 7"
-   ]
+   "rules": {
+    "embark": {
+     "side": "red",
+     "fromRound": 7
+    }
+   },
+   "needs": []
   },
   {
    "id": "talavera",
@@ -3269,11 +3346,15 @@
    "rules": {
     "night": {
      "round": 1
+    },
+    "followUp": {
+     "units": [
+      "Coldstream Guards",
+      "3rd Foot Guards"
+     ]
     }
    },
-   "needs": [
-    "the Guards' over-eager charge"
-   ]
+   "needs": []
   },
   {
    "id": "ocana",
@@ -5499,11 +5580,12 @@
    "rules": {
     "night": {
      "untilRound": 4
+    },
+    "rain": {
+     "fromRound": 6
     }
    },
-   "needs": [
-    "rain (volleys) from round 6"
-   ]
+   "needs": []
   },
   {
    "id": "albuera",
@@ -6243,11 +6325,15 @@
       "round": 4,
       "label": "Charging out of the hail"
      }
+    ],
+    "dieHard": [
+     {
+      "unit": "57th West Middlesex",
+      "label": "Die hard"
+     }
     ]
    },
-   "needs": [
-    "'die hard' re-roll for the 57th"
-   ]
+   "needs": []
   },
   {
    "id": "elbodon",
@@ -6612,10 +6698,12 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "squares on the march"
-   ]
+   "rules": {
+    "squareMarch": {
+     "side": "red"
+    }
+   },
+   "needs": []
   },
   {
    "id": "arroyo",
@@ -6821,6 +6909,168 @@
        14,
        4
       ]
+     ],
+     "sierra": [
+      [
+       0,
+       0
+      ],
+      [
+       1,
+       0
+      ],
+      [
+       2,
+       0
+      ],
+      [
+       3,
+       0
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       5,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       9,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       15,
+       0
+      ],
+      [
+       16,
+       0
+      ],
+      [
+       17,
+       0
+      ],
+      [
+       18,
+       0
+      ],
+      [
+       19,
+       0
+      ],
+      [
+       0,
+       1
+      ],
+      [
+       1,
+       1
+      ],
+      [
+       2,
+       1
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       19,
+       1
+      ]
      ]
     },
     "exits": {
@@ -6998,12 +7248,22 @@
     "noFire": {
      "side": "blue",
      "untilRound": 1
-    }
+    },
+    "rain": {
+     "untilRound": 3
+    },
+    "noEntry": [
+     {
+      "area": "sierra",
+      "allow": [
+       "INFANTRY",
+       "GUARD",
+       "BRIGADIER"
+      ]
+     }
+    ]
    },
-   "needs": [
-    "rain until round 3",
-    "only infantry climb the Sierra"
-   ],
+   "needs": [],
    "firstPlayer": "british"
   },
   {
@@ -7350,7 +7610,7 @@
    "date": "23 July 1812",
    "kind": "Operation",
    "layout": "corridor",
-   "turnLimit": 8,
+   "turnLimit": 10,
    "history": "The day after Salamanca, Bock's heavy dragoons of the King's German Legion caught Foy's rearguard on a slope near García Hernández. A dying French horse fell into the front of a square, the dragoons rode through the gap and broke it, then broke a second: one of the few times cavalry broke formed infantry.",
    "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Garc%C3%ADa_Hern%C3%A1ndez",
    "map": {
@@ -7401,18 +7661,6 @@
     "areas": {
      "foy_start": [
       [
-       2,
-       0
-      ],
-      [
-       3,
-       0
-      ],
-      [
-       4,
-       0
-      ],
-      [
        5,
        0
       ],
@@ -7425,16 +7673,12 @@
        0
       ],
       [
-       2,
-       1
+       8,
+       0
       ],
       [
-       3,
-       1
-      ],
-      [
-       4,
-       1
+       9,
+       0
       ],
       [
        5,
@@ -7449,16 +7693,12 @@
        1
       ],
       [
-       2,
-       2
+       8,
+       1
       ],
       [
-       3,
-       2
-      ],
-      [
-       4,
-       2
+       9,
+       1
       ],
       [
        5,
@@ -7473,16 +7713,12 @@
        2
       ],
       [
-       2,
-       3
+       8,
+       2
       ],
       [
-       3,
-       3
-      ],
-      [
-       4,
-       3
+       9,
+       2
       ],
       [
        5,
@@ -7497,16 +7733,12 @@
        3
       ],
       [
-       2,
-       4
+       8,
+       3
       ],
       [
-       3,
-       4
-      ],
-      [
-       4,
-       4
+       9,
+       3
       ],
       [
        5,
@@ -7521,16 +7753,12 @@
        4
       ],
       [
-       2,
-       5
+       8,
+       4
       ],
       [
-       3,
-       5
-      ],
-      [
-       4,
-       5
+       9,
+       4
       ],
       [
        5,
@@ -7545,16 +7773,12 @@
        5
       ],
       [
-       2,
-       6
+       8,
+       5
       ],
       [
-       3,
-       6
-      ],
-      [
-       4,
-       6
+       9,
+       5
       ],
       [
        5,
@@ -7569,16 +7793,12 @@
        6
       ],
       [
-       2,
-       7
+       8,
+       6
       ],
       [
-       3,
-       7
-      ],
-      [
-       4,
-       7
+       9,
+       6
       ],
       [
        5,
@@ -7593,16 +7813,12 @@
        7
       ],
       [
-       2,
-       8
+       8,
+       7
       ],
       [
-       3,
-       8
-      ],
-      [
-       4,
-       8
+       9,
+       7
       ],
       [
        5,
@@ -7617,16 +7833,12 @@
        8
       ],
       [
-       2,
-       9
+       8,
+       8
       ],
       [
-       3,
-       9
-      ],
-      [
-       4,
-       9
+       9,
+       8
       ],
       [
        5,
@@ -7638,6 +7850,136 @@
       ],
       [
        7,
+       9
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       9
+      ]
+     ],
+     "british_start": [
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       13,
+       0
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       11,
+       4
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       11,
+       5
+      ],
+      [
+       12,
+       5
+      ],
+      [
+       13,
+       5
+      ],
+      [
+       11,
+       6
+      ],
+      [
+       12,
+       6
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       11,
+       7
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
        9
       ]
      ]
@@ -7701,7 +8043,8 @@
         "HEAVY_CAV"
        ],
        "placement": {
-        "type": "edge"
+        "type": "area",
+        "area": "british_start"
        },
        "commander": "Bock",
        "names": [
@@ -7717,34 +8060,31 @@
         "BRIGADIER",
         "LIGHT_CAV",
         "LIGHT_CAV",
-        "ARTILLERY",
-        "ARTILLERY",
-        "LIGHT_CAV"
+        "ARTILLERY"
        ],
        "placement": {
-        "type": "edge"
+        "type": "area",
+        "area": "british_start"
        },
        "commander": "Anson",
        "names": [
         null,
         "11th Light Dragoons",
         "16th Light Dragoons",
-        "Royal Horse Artillery",
-        "Royal Horse Artillery",
-        "12th Light Dragoons"
+        "Royal Horse Artillery"
        ]
       }
      ],
      "role": "attack",
      "objective": {
-      "text": "Remove two French units by the end of round 8.",
+      "text": "Remove two French units by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "DESTROY",
         "unitTypes": [],
         "count": 2,
-        "byRound": 8
+        "byRound": 10
        }
       ]
      }
@@ -7790,13 +8130,13 @@
      ],
      "role": "escape",
      "objective": {
-      "text": "Four units leave by the French end by the end of round 8.",
+      "text": "Three units leave by the French end by the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "MARCH_OFF",
-        "count": 4,
-        "byRound": 8
+        "count": 3,
+        "byRound": 10
        }
       ]
      }
@@ -7804,10 +8144,12 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "the dead horse (one re-roll against a square)"
-   ]
+   "rules": {
+    "deadHorse": {
+     "side": "red"
+    }
+   },
+   "needs": []
   },
   {
    "id": "vitoria",
@@ -8439,6 +8781,60 @@
        19,
        3
       ]
+     ],
+     "baggage": [
+      [
+       6,
+       0
+      ],
+      [
+       7,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       10,
+       0
+      ],
+      [
+       11,
+       0
+      ],
+      [
+       12,
+       0
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       12,
+       1
+      ]
      ]
     },
     "river": {
@@ -8760,10 +9156,14 @@
    },
    "special": "",
    "balance": "",
-   "rules": {},
-   "needs": [
-    "the baggage (stops Allied units for a round)"
-   ]
+   "rules": {
+    "baggage": {
+     "area": "baggage",
+     "blocks": "blue",
+     "stops": "red"
+    }
+   },
+   "needs": []
   },
   {
    "id": "toulouse",
