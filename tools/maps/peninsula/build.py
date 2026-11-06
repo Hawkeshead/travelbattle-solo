@@ -511,6 +511,25 @@ obj('albuera', 'France', [{'type': 'BREAK_BRIGADES', 'count': 1, 'byRound': 10},
 obj('arroyo', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'village', 'count': 2, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
     'Two squares of the village held at the end of round 8, or four French units removed by then.', 'any')
 
+# Third measurement, and what changed after it:
+# Bailen 92/42: two squares of Bailen.
+obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 2, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold two squares of Bailén, with both Brigades unbroken, at the end of round 10.', 'all')
+# Somosierra 100/33 with two squares: three of the summit's four.
+obj('somosierra', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'summit', 'count': 3, 'atRound': 10}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 10}],
+    'Hold three squares of the summit, with both Brigades unbroken, at the end of round 10.', 'all')
+# Coa: 100 with either, 17 with two across and the bridge clear: one across and the bridge clear.
+obj('coa', 'Britain', [{'type': 'IN_AREA', 'area': 'far_bank', 'count': 1, 'atRound': 8}, {'type': 'CLEAR_AREA', 'area': 'bridge_far', 'atRound': 8}],
+    'A unit across the Côa, and no French unit on the far end of the bridge, at the end of round 8.', 'all')
+# Bussaco 100/50 holding two crest squares: five of its twenty.
+obj('bussaco', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'crest', 'count': 5, 'atRound': 10}], 'Hold five squares of the crest at the end of round 10.', 'any')
+# Sabugal 92 with either half: Beckwith's Brigade on the hill.
+obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}],
+    "Beckwith's Brigade on the hill at the end of round 8.", 'any')
+# Arroyo 83: three village squares, or four units removed.
+obj('arroyo', 'Britain', [{'type': 'HOLD_COUNT', 'area': 'village', 'count': 3, 'atRound': 8}, {'type': 'DESTROY', 'unitTypes': [], 'count': 4}],
+    'Three squares of the village held at the end of round 8, or four French units removed by then.', 'any')
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)

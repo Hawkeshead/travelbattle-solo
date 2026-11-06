@@ -449,13 +449,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold Bailén, with both Brigades unbroken, at the end of round 10.",
+      "text": "Hold two squares of Bailén, with both Brigades unbroken, at the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "bailen",
-        "count": 1,
+        "count": 2,
         "atRound": 10
        },
        {
@@ -1396,13 +1396,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold two squares of the summit, with both Brigades unbroken, at the end of round 10.",
+      "text": "Hold three squares of the summit, with both Brigades unbroken, at the end of round 10.",
       "combinator": "all",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "summit",
-        "count": 2,
+        "count": 3,
         "atRound": 10
        },
        {
@@ -4276,13 +4276,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Two units across the Côa, or no French unit on the far end of the bridge, at the end of round 8.",
-      "combinator": "any",
+      "text": "A unit across the Côa, and no French unit on the far end of the bridge, at the end of round 8.",
+      "combinator": "all",
       "conditions": [
        {
         "type": "IN_AREA",
         "area": "far_bank",
-        "count": 2,
+        "count": 1,
         "atRound": 8
        },
        {
@@ -5103,13 +5103,13 @@
      ],
      "role": "hold",
      "objective": {
-      "text": "Hold two squares of the crest at the end of round 10.",
+      "text": "Hold five squares of the crest at the end of round 10.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "crest",
-        "count": 2,
+        "count": 5,
         "atRound": 10
        }
       ]
@@ -7171,13 +7171,13 @@
      ],
      "role": "attack",
      "objective": {
-      "text": "Two squares of the village held at the end of round 8, or four French units removed by then.",
+      "text": "Three squares of the village held at the end of round 8, or four French units removed by then.",
       "combinator": "any",
       "conditions": [
        {
         "type": "HOLD_COUNT",
         "area": "village",
-        "count": 2,
+        "count": 3,
         "atRound": 8
        },
        {
