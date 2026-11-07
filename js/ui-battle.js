@@ -1,4 +1,5 @@
 import { showObjectivePanel } from './operation-panel.js';
+import { board3d, boardPref, figuresPref, graphicsPref, webglAvailable } from './board3d.js';
 import { perkDetails, perkGunDestroyed, perkVolley, perkVolleyBonus, resetPerks } from './perks.js';
 import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
@@ -2069,6 +2070,17 @@ export function initBattleControls(){
   }
   const cameraToggleEl = document.getElementById('cameraToggle');
   if(cameraToggleEl) cameraToggleEl.onchange = (e)=>{ CameraPref.enabled = e.target.checked; };
+  /* The board: 3D or Classic, and for 3D its graphics and figure size (js/board3d.js, kept per device). */
+  const boardEl = document.getElementById('boardSelect'), graphicsEl = document.getElementById('graphicsSelect'), figuresEl = document.getElementById('figuresSelect');
+  const show3dRows = () => document.querySelectorAll('[data-board3d-only]').forEach(r => { r.style.display = boardEl && boardEl.value === '3d' ? '' : 'none'; });
+  if(boardEl){
+    if(!webglAvailable()){ boardEl.value = 'classic'; boardEl.disabled = true; boardEl.title = 'This device cannot show the 3D board'; }
+    else boardEl.value = boardPref();
+    boardEl.onchange = (e)=>{ board3d.setBoard(e.target.value); show3dRows(); };
+    show3dRows();
+  }
+  if(graphicsEl){ graphicsEl.value = graphicsPref(); graphicsEl.onchange = (e)=> board3d.setGraphics(e.target.value); }
+  if(figuresEl){ figuresEl.value = figuresPref(); figuresEl.onchange = (e)=> board3d.setFigures(e.target.value); }
   for(const [id, category] of VOLUME_SLIDERS){
     const el = document.getElementById(id);
     if(el) el.oninput = (e)=> AudioManager.setVolume(category, e.target.value/100);

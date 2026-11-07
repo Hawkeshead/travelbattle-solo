@@ -55,9 +55,9 @@ import { SIDES, SIDE_LABEL, setBoardMode, state } from './data-core.js';
 import { NATIONS, nationKeyFor, nationsForSide } from './nations.js';
 import { setOnlineSession, setRemoteAsker, setRemoteDeployHandler, sharedArmiesEnabled } from './online-session.js';
 import { localTransport, supabaseTransport } from './online-group.js';
-import { SCOLS, SROWS } from './render-board.js';
+import { squareToClient } from './render-board.js';
 import { animateUnitTo, CAMERA_ACTION_PAN_MS, cameraParkPlayerView, cameraRestorePlayerView, cameraToAction, cameraToUnits,
-         canvas, cellFromClient, draw, fromScreen, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas, toScreen } from './render-board.js';
+         canvas, cellFromClient, draw, fromScreen, playBoardIntroAnimation, replayActionLine, replayGunfire, sizeCanvas } from './render-board.js';
 import { highlightCells } from './render-units.js';
 import { ANSWER_WINDOW_MS } from './prompt-panel.js';
 import { playMovementAudio, showLeadershipRollPrompt } from './engine-rules.js';
@@ -916,11 +916,7 @@ function updateBanner(){
 }
 
 /* A square on the board, as a point on the page. */
-function pagePoint(x, y){
-  const r = canvas.getBoundingClientRect();
-  const s = toScreen(x, y), cw = r.width / SCOLS(), ch = r.height / SROWS();
-  return { x: r.left + (s.x + 0.5) * cw, y: r.top + (s.y + 0.5) * ch, cell: cw };
-}
+function pagePoint(x, y){ return squareToClient(x, y); }   // flat or 3D board
 function markerAt(x, y, inner, cls){
   const p = pagePoint(x, y);
   const el = document.createElement('div');

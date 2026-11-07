@@ -10,9 +10,9 @@
 import { COLS, ROWS, state } from '../js/data-core.js';
 import { setupOperation } from '../js/operations.js';
 import { setFastAnimationMode } from '../js/render-board.js';
-import { buildWorld, WATER_Y } from './iso-world.js';
+import { buildWorld, WATER_Y } from '../js/board3d-world.js';
 import { Army, SETTINGS, SIZES } from './iso-figures.js';
-import { OrbitRig } from './iso-camera.js';
+import { OrbitRig } from '../js/board3d-camera.js';
 
 const THREE = globalThis.THREE;
 const $ = id => document.getElementById(id);

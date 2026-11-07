@@ -24,7 +24,7 @@
 ========================================================= */
 import { UNIT_TYPES, state, unitColor } from './data-core.js';
 import { perkLine } from './perks.js';
-import { canvas, getUnitVisualPos, SCOLS, SROWS, toScreen } from './render-board.js';
+import { getUnitVisualPos, SCOLS, squareToClient, toScreen } from './render-board.js';
 
 /* OFF, 27 Sep: the slips covered the squares a unit wanted to move to, and
    Matthew asked for the profile panel back, tighter. Kept, not deleted, so the
@@ -98,14 +98,12 @@ function openLeft(u){
 
 function place(opensLeft){
   const u = current;
-  const rect = canvas.getBoundingClientRect();
-  const cw = rect.width / SCOLS(), ch = rect.height / SROWS();
   const vp = getUnitVisualPos(u) || { x: u.x, y: u.y };
-  const sp = toScreen(vp.x, vp.y), row = sp.y;
+  const p = squareToClient(vp.x, vp.y), half = p.cell / 2;   // flat or 3D board
   const w = root.offsetWidth || 160, h = root.offsetHeight || 60;
   const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
-  let left = opensLeft ? rect.left + sp.x * cw - w - 2 : rect.left + (sp.x + 1) * cw + 2;
-  let top = rect.top + row * ch - 4;
+  let left = opensLeft ? p.x - half - w - 2 : p.x + half + 2;
+  let top = p.y - half - 4;
   left = Math.max(6, Math.min(vw - w - 6, left));
   top = Math.max(6, Math.min(vh - h - 6, top));
   root.style.left = `${Math.round(left)}px`;

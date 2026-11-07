@@ -4,7 +4,7 @@ import { getCard } from './scenario-cards.js';
 import { BUILD } from './build-info.js';
 import { formatAiDecision, formatAiDecisionSummary } from './ai-strategy.js';
 import { removeUnit, setTurnedAround, terrainAt } from './engine-rules.js';
-import { animateUnitTo, canvas, clearUnitAnimations, draw, SCOLS, SROWS, toScreen } from './render-board.js';
+import { animateUnitTo, clearUnitAnimations, draw, squareToClient } from './render-board.js';
 import { setHighlightCells } from './render-units.js';
 import { clashReplay } from './render-figures.js';
 
@@ -63,16 +63,14 @@ export function replayEventCaption(ev){
 
 export function showReplayHitRing(x,y){
   const wrap = document.getElementById('boardWrap');
-  const rect = canvas.getBoundingClientRect();
   const wrapRect = wrap.getBoundingClientRect();
-  const cellPxX = rect.width/SCOLS(), cellPxY = rect.height/SROWS();
-  const sp = toScreen(x, y), sy_ = sp.y;
+  const p = squareToClient(x, y);   // flat or 3D board
   const ring = document.createElement('div');
   ring.className = 'replay-hit-ring';
-  ring.style.left = (rect.left - wrapRect.left + sp.x*cellPxX) + 'px';
-  ring.style.top = (rect.top - wrapRect.top + sy_*cellPxY) + 'px';
-  ring.style.width = cellPxX + 'px';
-  ring.style.height = cellPxY + 'px';
+  ring.style.left = (p.x - p.cell / 2 - wrapRect.left) + 'px';
+  ring.style.top = (p.y - p.cell / 2 - wrapRect.top) + 'px';
+  ring.style.width = p.cell + 'px';
+  ring.style.height = p.cell + 'px';
   wrap.appendChild(ring);
   setTimeout(()=> ring.remove(), 1400);
 }

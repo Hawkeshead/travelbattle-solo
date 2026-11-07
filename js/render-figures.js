@@ -435,7 +435,17 @@ function doubled(src){
   }
   return d;
 }
-function blit(c, sh, frame, fx, fy){
+/* THE 3D BOARD (js/board3d.js, 7 Nov 2026). With the 3D board on, every man
+   is handed to it instead of being painted: his sheet, frame, feet (in screen
+   squares) and alpha, and who he is (so it can pick the sheet for another
+   facing as the camera turns). Everything above, who stands, falls, walks,
+   clashes and flees, runs exactly as for the 2D board. */
+let SINK = null, sinkOn = () => false;
+export function setFigureSink(fn, on){ SINK = fn || null; sinkOn = on || (() => !!SINK); bake = null; }
+/* A man's sheet for a facing (the 3D board turns figures with its camera). */
+export const figureSheet = (nation, type, anim, facing, v, uf) => sheet(nation, type, anim, facing, v, uf);
+function blit(c, sh, frame, fx, fy, who){
+  if(SINK && SINK(sh, frame, fx / CELL, fy / CELL, c.globalAlpha, who) !== false) return;   // false: not now (a rules diagram), paint as usual
   const { img, meta, f } = sh;
   const ay = meta.anchorYByFacing && meta.anchorYByFacing[f] != null ? meta.anchorYByFacing[f] : meta.anchorY;
   const h = CELL * meta.displayScale * FIGURE_SCALE, w = h * meta.frameWidth / meta.frameHeight;
@@ -495,7 +505,7 @@ function paintMen(c, men, cx, cy, alpha){
     if(!sh) continue;
     const a = sh.a, fps = a.fps || 12, n = a.frameCount || 1;
     const frame = a.loop ? (Math.floor(t / (1000 / fps)) + Math.floor(m.phase * n)) % n : Math.min(n - 1, Math.max(0, Math.floor((t - (st || 0)) / (1000 / fps))));
-    blit(c, sh, frame, cx + m.x * CELL, cy + m.y * CELL);
+    blit(c, sh, frame, cx + m.x * CELL, cy + m.y * CELL, m);
     drawn++;
   }
   c.restore();
@@ -733,6 +743,12 @@ export function drawFigureBodies(c, canvasW, canvasH, viewKey, hiddenAt){
     settled.push(b);
   }
   bodiesShown = fading.length > 0 || settled.length > 0 || falling.length > 0;
+  if(SINK && sinkOn()){   // the 3D board takes every body every frame: nothing to bake
+    for(const b of settled) paintBody(c, b, null);
+    for(const f of falling) paintBody(c, f.b, f.st);
+    for(const f of fading){ c.save(); c.globalAlpha *= Math.max(0, f.a); paintBody(c, f.b, null); c.restore(); }
+    return;
+  }
   // The first id too: the bake must be redone when the oldest body starts to fade.
   const key = [viewKey, canvasW, canvasH, CELL, settled.length, settled.length && settled[0].id, settled.length && settled[settled.length - 1].id].join('|');
   if(!bake || bake.key !== key){
@@ -756,7 +772,7 @@ function paintBody(c, b, fallStart){
   const n = sh.a.frameCount || 1;
   const frame = fallStart == null ? n - 1 : Math.min(n - 1, Math.floor((now() - fallStart) / (1000 / (sh.a.fps || 12))));
   const p = toScreen(b.bx, b.by);
-  blit(c, sh, frame, (p.x + 0.5) * CELL, (p.y + 0.5) * CELL);
+  blit(c, sh, frame, (p.x + 0.5) * CELL, (p.y + 0.5) * CELL, { nation: b.nation, type: b.type, anim, facing: b.facing, v: b.v, uf: b.uf || b.facing, body: true });
   return true;
 }
 /* Still moving: a man falling, a walk between formations, or bodies on the

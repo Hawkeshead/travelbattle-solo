@@ -121,6 +121,11 @@ async function runTier(list){
 }
 
 /* Starts the loading (boot.js, at once). Safe to call more than once. */
+/* Files a battle need not wait for on this device (the 3D board, js/board3d.js,
+   draws its own ground, so the flat board's painted tiles are only fetched in
+   the background, in case the player switches to Classic). */
+let deferred = [];
+export function deferAssets(prefixes){ deferred = prefixes || []; }
 export async function startAssetLoading(){
   if(status !== 'idle' || typeof document === 'undefined' || typeof fetch !== 'function') return;
   if(typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '')) return;
@@ -130,7 +135,8 @@ export async function startAssetLoading(){
   status = 'loading';
   manifestFiles = m.files;
   try { if(typeof caches !== 'undefined') cache = await caches.open(CACHE_NAME); } catch { cache = null; }
-  const t1 = m.files.filter(f => f.tier === 1), t2 = m.files.filter(f => f.tier === 2);
+  const later = f => deferred.some(p => f.path.startsWith(p));
+  const t1 = m.files.filter(f => f.tier === 1 && !later(f)), t2 = m.files.filter(f => f.tier === 2 || (f.tier === 1 && later(f)));
   total = t1.length + t2.length; tier1Total = t1.length;
   const t0 = performance.now();
   showProgress();

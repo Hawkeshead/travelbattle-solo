@@ -23,6 +23,7 @@ export default [
       'js/ai-strategy.bot.js',   // the sparring bot, generated (tools/spar/make-bot.mjs)
       'js/ai-strategy.gunline.js',   // the gunline bot, generated (make-bot.mjs --gunline)
       'node_modules/**',
+      'js/vendor/**',   // third-party builds, as shipped (three.js r128 for the 3D board)
       'test-results/**',
       'playwright-report/**',
       // Throwaway probes, never committed — see .gitignore.

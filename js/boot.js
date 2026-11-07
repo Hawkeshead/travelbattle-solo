@@ -8,7 +8,7 @@ import { clashResult, clashStart, initFigures } from './render-figures.js';
 import { initTelemetrySender } from './telemetry/sender.js';
 import { recVisibility } from './telemetry/recorder.js';
 import { loadCampaignProgress, resumeCampaignFromStorage } from './campaign.js';
-import { cameraToAction, canvas as boardCanvas, fctSquareToPixel, playBoardIntroAnimation, SCOLS, sizeCanvas, toScreen } from './render-board.js';
+import { cameraToAction, fctSquareToPixel, playBoardIntroAnimation, sizeCanvas, squareToClient } from './render-board.js';
 import { setDiceClash, setDiceFrame, setDiceScreenPoint } from './dice.js';
 import { initUnitMarkers } from './unit-markers.js';
 import { COLS } from './data-core.js';
@@ -19,6 +19,7 @@ import { CAMPAIGNS_ENABLED, prepareTitleBoard, replayBattleFromNote, showModeSel
 import { REPLAY_NOTE } from './engine-objectives.js';
 import { AudioManager } from './audio-manager.js';
 import { initSafeArea } from './safe-area.js';
+import { initBoard3D } from './board3d.js';
 import { FOOT_ACK, FOOT_ACK_ALT, MUSKET_VOLLEY_TAKES, TURN_THEME, VOLLEY_COMMAND } from './ui-battle.js';
 import { RALLY_CALL } from './engine-rules.js';
 import { DESPATCH_SOUNDS, initDespatch } from './despatch.js';
@@ -38,6 +39,7 @@ export function start(){
   // Input and control wiring first, so the DOM is fully live before any
   // screen is drawn.
   initDesk();
+  initBoard3D();   // the 3D board, when this device can and the player has not chosen Classic (board3d.js)
   initBoardInput();
   initBattleControls();
 
@@ -187,9 +189,8 @@ if(typeof navigator !== 'undefined' && navigator.serviceWorker && /^https?:$/.te
    is #boardWrap's, and one square's size on screen, at the current pan and zoom. */
 setDiceScreenPoint((x, y) => {
   const wrap = document.getElementById('boardWrap');
-  const wr = wrap.getBoundingClientRect(), r = boardCanvas.getBoundingClientRect();
-  const cell = r.width / SCOLS(), s = toScreen(x, y);   // the board's width AS SHOWN (a corridor is seen from the side)
-  return { x: r.left - wr.left + (s.x + 0.5) * cell, y: r.top - wr.top + (s.y + 0.5) * cell, cell };
+  const wr = wrap.getBoundingClientRect(), p = squareToClient(x, y);   // flat or 3D board, at its pan and zoom
+  return { x: p.x - wr.left, y: p.y - wr.top, cell: p.cell };
 });
 /* Framing a fight for its dice: the units themselves plus two squares either
    side across the screen, where the dice groups sit, kept on the board. */

@@ -58,7 +58,11 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
 
 /* A shot. kind 'cannon' or 'musket'; from and to are board squares.
    noSmoke: the blast only (reduced motion, fast animation mode). */
+/* Told of every shot (the 3D board, js/board3d.js: its own flash and smoke, and the camera framing it). */
+let shotListener = null;
+export function onGunfire(fn){ shotListener = fn || null; }
 export function spawnGunfire(kind, from, to, { noSmoke = false } = {}){
+  if(shotListener){ try { shotListener(kind, from, to, noSmoke); } catch { /* the 3D board's problem, never the shot's */ } }
   const t = now();
   // Blasts are only removed as they are drawn; where nothing draws (the headless
   // simulator), drop any that are long finished so they cannot pile up.

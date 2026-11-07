@@ -18,7 +18,7 @@
 import { humanOwns, nationOf, state } from './data-core.js';
 import { NATIONS } from './nations.js';
 import { PERKS, brigadePerks } from './perks.js';
-import { canvas as boardCanvas, getUnitVisualPos, SCOLS, toScreen } from './render-board.js';
+import { getUnitVisualPos, squareToClient } from './render-board.js';
 
 const ACT_MS = 2200;           // how long an enemy unit stays marked after acting
 const COCKADE_R = 9;           // cockade radius, CSS px, at every zoom
@@ -98,18 +98,17 @@ function frame(){
   const starred = state.units.filter(u => u.type === 'BRIGADIER' && !u.removed && !u.hidden && u.x >= 0 && brigadePerks(u.side, u.brigadeId).length);
   if(!marks.length && !starred.length) return;
   dirty = true;   // something drawn this frame: clear it next frame (nothing to clear when idle)
-  const wr = wrap.getBoundingClientRect(), cr = boardCanvas.getBoundingClientRect();
-  const cell = cr.width / SCOLS();   // the board's width as shown
+  const wr = wrap.getBoundingClientRect();
   const t = performance.now() / 1000;
   for(const u of starred){
-    const v = getUnitVisualPos(u), sc = toScreen(v.x, v.y);
+    const v = getUnitVisualPos(u), p = squareToClient(v.x, v.y), cell = p.cell;   // flat or 3D board
     const n = brigadePerks(u.side, u.brigadeId).length;
-    const x = cr.left - wr.left + (sc.x + 0.5) * cell, y = cr.top - wr.top + (sc.y + 0.5) * cell - cell * 0.42;
+    const x = p.x - wr.left, y = p.y - wr.top - cell * 0.42;
     for(let i = 0; i < n; i++) star(x + (i - (n - 1) / 2) * 13, Math.max(8, y));
   }
   for(const { u, word } of marks){
-    const v = getUnitVisualPos(u), s = toScreen(v.x, v.y);
-    const x = cr.left - wr.left + (s.x + 0.5) * cell, y = cr.top - wr.top + (s.y + 0.5) * cell;
+    const v = getUnitVisualPos(u), p = squareToClient(v.x, v.y), cell = p.cell;
+    const x = p.x - wr.left, y = p.y - wr.top;
     const nation = nationOf(u);
     const bob = Math.sin(t * 2.4) * 2;
     const top = y - cell * 0.62 + bob;

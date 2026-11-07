@@ -11,10 +11,11 @@
    Reads the game's state and pure helpers; writes nothing back. three.js is
    the page's global THREE (r128 from cdnjs).
 ========================================================= */
-import { COLS, ROWS, state } from '../js/data-core.js';
-import { ROAD, buildRoadGraph, grassPicks, roadChains, smoothChain } from '../js/terrain-v2.js';
+import { COLS, ROWS, state } from './data-core.js';
+import { ROAD, buildRoadGraph, grassPicks, roadChains, smoothChain } from './terrain-v2.js';
 
-const THREE = globalThis.THREE;
+/* three.js is loaded on demand (js/board3d.js loadThree), so it is read when first used, not when this module loads. */
+let THREE = globalThis.THREE;
 
 /* The game's palette (render-board.js terrainColor and the v2 art). */
 export const PALETTE = {
@@ -79,6 +80,7 @@ const inFord = (x, y, fords) => (fords || []).some(([x0, x1, y0, y1]) => x >= x0
 /* ---------- the height field ---------- */
 export class Ground {
   constructor(){
+    THREE = globalThis.THREE;
     this.cols = COLS; this.rows = ROWS;
     this.w = this.cols * HS + 1; this.h = this.rows * HS + 1;
     this.height = new Float32Array(this.w * this.h);
@@ -160,6 +162,7 @@ export class Ground {
 /* ---------- the painted ground ---------- */
 const P = 64;   // texture pixels per square
 export function paintGround(){
+  THREE = globalThis.THREE;
   const cols = COLS, rows = ROWS, T = state.terrain;
   const c = document.createElement('canvas'); c.width = cols * P; c.height = rows * P;
   const g = c.getContext('2d');
@@ -247,6 +250,7 @@ export function paintGround(){
 
 /* Three-step toon shading, as Arkside's gradient map. */
 export function gradientMap(){
+  THREE = globalThis.THREE;
   const data = new Uint8Array([90, 160, 255]);
   const t = new THREE.DataTexture(data, 3, 1, THREE.LuminanceFormat);
   t.minFilter = THREE.NearestFilter; t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;
@@ -255,6 +259,7 @@ export function gradientMap(){
 
 /* ---------- the scene ---------- */
 export function buildWorld(scene, quality){
+  THREE = globalThis.THREE;
   const out = { props: [], ground: null };
   const ground = new Ground();
   out.ground = ground;

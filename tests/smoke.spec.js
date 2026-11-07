@@ -91,7 +91,7 @@ test('every game global the inline handlers depend on is reachable', async ({ pa
 test('a match starts and reaches deployment', async ({ page }) => {
   // The board intro, the orientation dice and (since there is one AI level)
   // the Marshal's deployment take longer than the default 30 s on a loaded runner.
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   const errors = watchForErrors(page);
 
   await page.goto('/');
@@ -158,7 +158,9 @@ async function clearBoardSetup(page) {
   // 70 iterations of 400ms — up from 40 — to leave headroom for the ~10.5s
   // falling-tile intro animation that now plays before an AI match's
   // orientation sequence even begins (see playBoardIntroAnimation).
-  for (let i = 0; i < 70; i++) {
+  /* 150 polls (a minute): the 3D board (js/board3d.js) is drawn in software on
+     a runner without a graphics chip, and slows the dice and deployment there. */
+  for (let i = 0; i < 150; i++) {
     // isVisible(), not count() — renderRoster() populates the roster chips
     // before the Army Picker overlay ever gets a chance to show on top of
     // them, so the chips already exist (just hidden) the whole time the

@@ -8,13 +8,15 @@
    shift-drag orbits. A narrow perspective keeps the isometric feel; an
    orthographic camera can be switched in.
 ========================================================= */
-const THREE = globalThis.THREE;
+/* three.js is loaded on demand (js/board3d.js loadThree), so it is read when first used, not when this module loads. */
+let THREE = globalThis.THREE;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const PITCH_MIN = 25 * Math.PI / 180, PITCH_MAX = 80 * Math.PI / 180;
 const FOV = 28;
 
 export class OrbitRig {
   constructor(canvas, cols, rows){
+    THREE = globalThis.THREE;
     this.canvas = canvas;
     this.cols = cols; this.rows = rows;
     this.persp = new THREE.PerspectiveCamera(FOV, 1, 0.1, 200);
@@ -28,7 +30,7 @@ export class OrbitRig {
   reset(){
     this.target = new THREE.Vector3(this.cols / 2, 0, this.rows / 2);
     // a corridor battle (10 wide, 20 deep, France at the top) is seen from its side, as the game shows it
-    this.yaw = this.rows > this.cols ? -Math.PI / 2 : 0;
+    this.yaw = this.defaultYaw != null ? this.defaultYaw : this.rows > this.cols ? -Math.PI / 2 : 0;
     this.pitch = 52 * Math.PI / 180;
     this.dist = Math.max(this.cols, this.rows) * 1.25 + 4;
     this.distMin = 3; this.distMax = Math.max(this.cols, this.rows) * 3;
@@ -78,7 +80,10 @@ export class OrbitRig {
     const c = this.canvas;
     c.style.touchAction = 'none';
     c.addEventListener('contextmenu', e => e.preventDefault());
-    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), b: e.button, shift: e.shiftKey, two: this.pointers.size > 0 }); this.gesture = null; });
+    c.addEventListener('pointerdown', e => {
+      /* A finger something else has claimed (a unit dragged during deployment) is not a camera gesture. */
+      if(this.ignore && this.ignore(e)) return;
+      try { c.setPointerCapture(e.pointerId); } catch { /* a synthetic event */ } this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), b: e.button, shift: e.shiftKey, two: this.pointers.size > 0 }); this.gesture = null; });
     /* A tap: one finger, down and up within 350 ms, moved less than 8 px (onTap is set by the page). */
     const end = e => {
       const p = this.pointers.get(e.pointerId);
@@ -107,8 +112,9 @@ export class OrbitRig {
         this.pan((after.cx - before.cx) * 0.5, 0);
       }
       this.changed = true;
+      if(this.onUserMove && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 8) this.onUserMove();
     });
-    c.addEventListener('wheel', e => { e.preventDefault(); this.zoomBy(Math.exp(-e.deltaY * 0.0015)); this.changed = true; }, { passive: false });
-    c.addEventListener('dblclick', () => { this.reset(); this.changed = true; });
+    c.addEventListener('wheel', e => { e.preventDefault(); this.zoomBy(Math.exp(-e.deltaY * 0.0015)); this.changed = true; if(this.onUserMove) this.onUserMove(); }, { passive: false });
+    c.addEventListener('dblclick', () => { this.reset(); this.changed = true; if(this.onUserMove) this.onUserMove(); });
   }
 }

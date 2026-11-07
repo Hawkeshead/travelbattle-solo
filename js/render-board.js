@@ -14,6 +14,27 @@ import { renderAiDebugPanel } from './ui-battle.js';
 import { dragState } from './ui-deployment.js';
 
 /* =========================================================
+   THE 3D BOARD (js/board3d.js, 7 Nov 2026)
+   When it is on, the terrain and the figures are drawn in 3D and this
+   canvas draws only what lies on the ground (highlights, the grid, action
+   lines, craters, bodies, the Spyglass...), which the 3D board drapes over
+   its ground. It registers itself here, so this module imports nothing of
+   it: taps, the camera and anything placed over a square ask it through the
+   few functions below.
+========================================================= */
+let board3d = null;
+export function setBoard3D(d){ board3d = d || null; }
+// Never while the rules manual borrows the drawing code for its diagrams (beginDiagramMode).
+export const board3dOn = () => !!(board3d && board3d.active) && !diagramScopeActive;
+/* A square's centre on the screen (client px) and one square's size there, at
+   the current pan and zoom, flat or 3D. For anything placed over a square. */
+export function squareToClient(x, y){
+  if(board3dOn()) return board3d.project(x, y);
+  const r = canvas.getBoundingClientRect(), cell = r.width / SCOLS(), s = toScreen(x, y);
+  return { x: r.left + (s.x + 0.5) * cell, y: r.top + (s.y + 0.5) * cell, cell };
+}
+
+/* =========================================================
    RENDERING
 ========================================================= */
 // You always sit behind your own troops on screen, regardless of which
@@ -959,6 +980,7 @@ export function endDiagramMode(){
    CSS transform used for pinch-zoom and pan, so this needs no knowledge of
    either. Returns the UNFLIPPED screen row; callers apply sy() themselves. */
 export function cellFromClient(clientX, clientY){
+  if(board3dOn()) return board3d.pick(clientX, clientY);   // the square under the finger, through the 3D camera
   const rect = canvas.getBoundingClientRect();
   const cellPxX = rect.width / SCOLS(), cellPxY = rect.height / SROWS();
   const x = Math.floor((clientX - rect.left) / cellPxX);
@@ -1066,6 +1088,7 @@ export function observeBoardResize(){
 export function syncFctLayer(){
   const el = document.getElementById('fct-layer');
   if(!el || !canvas) return;
+  if(board3dOn()){ board3d.syncFct(el); return; }
   el.style.left   = canvas.offsetLeft + 'px';
   el.style.top    = canvas.offsetTop + 'px';
   el.style.width  = (SCOLS()*CELL) + 'px';
@@ -1079,6 +1102,7 @@ export function syncFctLayer(){
    square is drawn at the top of the board rather than whether row === 0: the
    board can be screen-flipped, and a label needs to know where the room is. */
 export function fctSquareToPixel(col, row){
+  if(board3dOn()) return board3d.fctPoint(col, row);
   const p = toScreen(col, row), r = p.y;
   return {
     centreX: (p.x + 0.5) * CELL,
@@ -1115,6 +1139,8 @@ export let renderScale = window.devicePixelRatio || 1;
 export function targetRenderScale(zoom = mapZoom){
   const dpr = window.devicePixelRatio || 1;
   const cap = Math.sqrt(backingLimit / Math.max(1, SCOLS() * CELL * SROWS() * CELL));
+  // Under the 3D board this canvas is a texture on the ground: about 64 pixels a square is plenty.
+  if(board3dOn()) return Math.max(1, Math.min(dpr, 64 / Math.max(1, CELL), cap));
   return Math.min(dpr * Math.max(1, zoom), cap);
 }
 /* Sets the backing store to a scale, checking the browser really gave it the
@@ -1201,6 +1227,7 @@ export function consumeGestureFlag(){
 }
 
 export function resetMapView(){
+  // (The 3D board keeps its camera through layout changes; it resets itself when the map changes.)
   mapZoom = 1; mapPanX = 0; mapPanY = 0;
   mapGesturePointers.clear();
   mapPinchStartDist = null; mapPanStart = null; mapGestureMoved = false;
@@ -1249,6 +1276,7 @@ function easeInOut(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2; }
    here, so callers pass a square rather than pixels. */
 export function cameraTo(cellX, cellY, opts = {}){
   if(!CameraPref.enabled) return;
+  if(board3dOn()){ board3d.cameraTo(cellX, cellY, opts); return; }
   const wrap = document.getElementById('boardWrap');
   if(!wrap || !canvas) return;
 
@@ -1309,6 +1337,7 @@ export function cameraToAction(units, opts = {}){
   if(!CameraPref.enabled) return;
   const live = (units || []).filter(u => u && !u.removed);
   if(!live.length) return;
+  if(board3dOn()){ board3d.frame(live, opts); return; }
   const wrap = document.getElementById('boardWrap');
   if(!wrap || !canvas) return;
 
@@ -1345,11 +1374,13 @@ export function cameraToUnits(units, opts){
    Following the action should never cost the player where they were looking. */
 export function cameraParkPlayerView(){
   if(!CameraPref.enabled) return;
+  if(board3dOn()){ board3d.park(); return; }
   if(playerView) return;                       // already parked; do not overwrite
   playerView = { zoom: mapZoom, x: mapPanX, y: mapPanY };
 }
 
 export function cameraRestorePlayerView(){
+  if(board3dOn()){ if(CameraPref.enabled) board3d.restore(); return; }
   const v = playerView;
   playerView = null;
   if(!v || !CameraPref.enabled) return;
@@ -1399,7 +1430,7 @@ export function syncAmbientClip(){
   const hr = host.getBoundingClientRect(), br = canvas.getBoundingClientRect();
   const top = Math.max(0, br.top - hr.top), left = Math.max(0, br.left - hr.left);
   const right = Math.max(0, hr.right - br.right), bottom = Math.max(0, hr.bottom - br.bottom);
-  const clip = `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+  const clip = board3dOn() ? 'inset(0px)' : `inset(${top}px ${right}px ${bottom}px ${left}px)`;   // the 3D board fills the wrap
   for(const id of ['ambientLayer', 'ambientShadows']){
     const el = document.getElementById(id);
     if(el && el.style.clipPath !== clip) el.style.clipPath = clip;
@@ -1411,9 +1442,14 @@ export function syncAmbientClip(){
    pointer here, and the pan gesture leaves it alone. */
 let pointerClaim = null;
 export function setPointerClaim(fn){ pointerClaim = fn; }
+let claimedPointer = null;
+/* Did the last pointerdown go to a claim (the 3D board leaves that finger alone)? */
+export const pointerClaimed = id => claimedPointer === id;
 
 canvas.addEventListener('pointerdown', (e)=>{
-  if(pointerClaim && mapGesturePointers.size === 0 && pointerClaim(e)) return;
+  claimedPointer = null;
+  if(pointerClaim && mapGesturePointers.size === 0 && pointerClaim(e)){ claimedPointer = e.pointerId; return; }
+  if(board3dOn()) return;   // the 3D board pans and zooms itself; this canvas stays put under it
   try { canvas.setPointerCapture(e.pointerId); } catch(_err) { /* not always available/needed — gesture tracking below still works without it */ }
   mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   mapGestureMoved = false;
@@ -1428,7 +1464,7 @@ canvas.addEventListener('pointerdown', (e)=>{
 });
 
 canvas.addEventListener('pointermove', (e)=>{
-  if(!mapGesturePointers.has(e.pointerId)) return;
+  if(board3dOn() || !mapGesturePointers.has(e.pointerId)) return;
   mapGesturePointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if(mapGesturePointers.size===2 && mapPinchStartDist){
     const pts = [...mapGesturePointers.values()];
@@ -1465,7 +1501,7 @@ export function mapPointerEnd(e){
 }
 canvas.addEventListener('pointerup', mapPointerEnd);
 canvas.addEventListener('pointercancel', mapPointerEnd);
-canvas.addEventListener('dblclick', resetMapView); // quick reset for anyone who finds pinch fiddly
+canvas.addEventListener('dblclick', () => { if(!board3dOn()) resetMapView(); }); // quick reset for anyone who finds pinch fiddly
 
 export function terrainColor(key){
   return { OPEN: '#3c4a34', FIELD:'#8a7d3f', PLOUGHED_FIELD:'#b89a3f', ROAD:'#8a7350', WOODS:'#26361f', BUILDING:'#6b5847', HILL:'#5a5636' }[key];
@@ -2302,6 +2338,9 @@ export function draw(){
   if(debugPanel && debugPanel.style.display==='block') renderAiDebugPanel();
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const terrain = state.terrain;
+  const in3D = board3dOn();
+  if(in3D) board3d.beforeDraw();
+  if(!in3D){   // the ground itself: the 3D board builds its own
 
   // base fill — road cells fill as open ground; Hill matches Open (elevation is
   // shown by its border, not a colour change); the ploughed-field/woods passes
@@ -2610,6 +2649,8 @@ export function draw(){
   // (an isolated stub or a genuine dead-end from excludedRoadEdges) just
   // show the grass backdrop laid down above, with no stroke over it.
 
+  }   // end of the ground (not drawn under the 3D board)
+
   // craters: every square Artillery has hit this match, above terrain, below units
   for(const c of state.craters){
     if(V2){
@@ -2887,6 +2928,8 @@ export function draw(){
   drawPromptGlow();
 
   // Gunfire and battlefield smoke: above the units and effects, below the UI.
+  // (The 3D board has its own, in the air.)
+  if(!in3D){
   drawGunfire({ ctx, CELL, toScreen, zoom: mapZoom, units: state.units.filter(u => !u.removed) });
 
   // vignette: a soft darkening toward the board's outer edge, so the map reads
@@ -2899,6 +2942,8 @@ export function draw(){
   vignette.addColorStop(1, 'rgba(10,8,4,0.30)');
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, vw, vh);
+  }   // end of the 2D board's smoke and vignette
+  if(in3D) board3d.afterDraw();
 
   // Kick the animation loop if it isn't already running and British Line
   // Infantry are on the board — draw() itself gets called from plenty of
@@ -2934,7 +2979,7 @@ export function playBoardIntroAnimation(onComplete){
      point when a person is watching and pure dead weight in a batch run, so the
      harness flag skips straight to the finished board. Inert in real play, where
      FAST_ANIMATION_MODE is never set. */
-  if(FAST_ANIMATION_MODE){ draw(); if(onComplete) onComplete(); return; }
+  if(FAST_ANIMATION_MODE || board3dOn() || (board3d && board3d.wanted)){ draw(); if(onComplete) onComplete(); return; }   // no falling tiles on the 3D board
   if(V2){
     // Start from the bare board colour while the art finishes preparing.
     ctx.clearRect(0, 0, SCOLS()*CELL, SROWS()*CELL);
