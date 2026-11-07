@@ -1,0 +1,27 @@
+{
+ "frameW": 64,
+ "frameH": 88,
+ "dirs": 8,
+ "anchorY": 1,
+ "displayScale": 0.8,
+ "anims": {
+  "idle": {
+   "frames": 6,
+   "fps": 3,
+   "loop": true
+  },
+  "march": {
+   "frames": 8,
+   "fps": 8,
+   "loop": true
+  },
+  "fall": {
+   "frames": 6,
+   "fps": 8,
+   "loop": false
+  }
+ },
+ "nation": "prussian",
+ "type": "GUARD_BEARER",
+ "madeBy": "tools/sprites/render-sheets.mjs (procedural figures)"
+}

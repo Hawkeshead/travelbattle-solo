@@ -30,9 +30,9 @@ export default [
     ],
   },
 
-  // The game itself: ES modules running in a browser.
+  // The game itself: ES modules running in a browser (and the Iso Lab prototype, lab/*.js).
   {
-    files: ['js/**/*.js'],
+    files: ['js/**/*.js', 'lab/**/*.js'],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
@@ -56,6 +56,13 @@ export default [
       'no-unused-vars': ['warn', { args: 'none', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
+  },
+
+  // The sprite tool's figure builder: a classic script run inside the tool's headless page (THREE is a global there).
+  {
+    files: ['tools/sprites/figures.js'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'script', globals: { ...globals.browser, THREE: 'readonly' } },
+    rules: { ...js.configs.recommended.rules, 'no-undef': 'error', 'no-unused-vars': ['warn', { args: 'none' }], 'no-empty': ['error', { allowEmptyCatch: true }] },
   },
 
   // The service worker (sw.js): a classic script in the worker's own scope.

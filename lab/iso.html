@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<base href="../">
+<title>Grognards: Iso Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{ --paper:#e2d6b3; --panel:#e9dfc4; --panel-3:#cfbd8c; --ink:#2e2415; --ink-dim:#7a6b4d; --brass:#a8823f; --brass-dim:#8a6a34; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#1b1f17;font-family:'IBM Plex Mono',monospace;color:var(--ink);}
+  #iso{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+  .bar{position:fixed;z-index:5;display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:6px;
+    background:rgba(233,223,196,.92);border:1px solid var(--brass-dim);border-radius:8px;max-width:calc(100vw - 24px);}
+  #top{left:max(10px,env(safe-area-inset-left));top:max(8px,env(safe-area-inset-top));}
+  #bottom{left:max(10px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));}
+  #side{right:max(10px,env(safe-area-inset-right));top:50%;transform:translateY(-50%);flex-direction:column;padding:8px 6px;}
+  #side label{font-size:9px;color:var(--ink-dim);letter-spacing:.06em;}
+  #side input[type=range]{writing-mode:vertical-lr;direction:rtl;height:120px;width:24px;accent-color:var(--brass);}
+  button,select{font-family:'IBM Plex Mono',monospace;font-size:11px;border:1px solid var(--brass-dim);background:var(--paper);color:var(--ink);
+    padding:7px 9px;cursor:pointer;letter-spacing:.03em;border-radius:5px;min-height:34px;}
+  button.on{background:var(--brass);color:#fff;}
+  button:active{transform:translateY(1px);}
+  .seg{display:inline-flex;} .seg button{border-radius:0;} .seg button:first-child{border-radius:5px 0 0 5px;} .seg button:last-child{border-radius:0 5px 5px 0;}
+  #stats{position:fixed;right:max(10px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));z-index:5;font-size:9.5px;line-height:1.5;
+    color:rgba(233,223,196,.9);background:rgba(0,0,0,.5);padding:4px 7px;border-radius:5px;max-width:30vw;text-align:right;pointer-events:none;}
+  #bottom{max-width:62vw;}
+  #note{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;font-size:12px;color:var(--paper);background:rgba(0,0,0,.6);
+    padding:8px 12px;border-radius:6px;pointer-events:none;max-width:70vw;text-align:center;}
+  #note:empty{display:none;}
+  h1{font-family:'Cinzel',serif;font-size:12px;margin:0 6px 0 2px;letter-spacing:.08em;}
+  body.folded #bottom, body.folded #side{display:none;}
+  #stand-ins{display:none;}
+  select{max-width:40vw;} #unit{max-width:30vw;}
+</style>
+</head>
+<body>
+<canvas id="iso"></canvas>
+<div id="top" class="bar">
+  <h1>Iso Lab</h1>
+  <select id="battle" aria-label="Battle"></select>
+  <span class="seg"><button data-style="A" class="on" title="The game's pixel figures">Pixel</button><button data-style="B" title="Sprites rendered from 3D models">3D sprites</button></span>
+  <span class="seg"><button data-quality="low" class="on">Low</button><button data-quality="high">High</button></span>
+  <button id="grid" class="on">Grid</button>
+  <button id="labels" class="on">Names</button>
+  <button id="ortho">Ortho</button>
+  <button id="reset">Reset view</button>
+  <button id="fold" title="Hide the other controls">Fold</button>
+</div>
+<div id="side" class="bar">
+  <label>TILT</label>
+  <input id="tilt" type="range" min="25" max="80" value="52" aria-label="Camera tilt">
+  <label>SIZE</label>
+  <input id="size" type="range" min="30" max="100" value="62" aria-label="Figure size">
+</div>
+<div id="bottom" class="bar">
+  <select id="unit" aria-label="Unit"></select>
+  <button id="march">March</button>
+  <button id="volley">Volley</button>
+  <button id="charge">Charge</button>
+  <button id="fall">Fall</button>
+  <button id="unitreset" title="Put the unit's men back">Restore</button>
+  <button id="allmarch" title="Every unit marches a square">All march</button>
+  <button id="allvolley" title="Every foot unit and battery fires">All fire</button>
+</div>
+<div id="stats">loading…</div>
+<div id="note">Loading the game's modules…</div>
+<!-- Stand-ins for the elements the game's modules reach for as they load. Hidden; nothing is drawn on them. -->
+<div id="stand-ins"><div id="aiDebugPanel"></div><div id="aiLogExportBackdrop"></div><div id="aiLogExportCloseBtn"></div><div id="aiLogExportCopyBtn"></div><div id="aiLogExportPanel"></div><div id="aiLogExportText"></div><div id="aiLogExportTitle"></div><div id="aiLogResendBtn"></div><div id="ambientToggle"></div><div id="ambushBtn"></div><div id="armyPickerBackBtn"></div><div id="armyPickerBrigadeCards"></div><div id="armyPickerCardBody"></div><div id="armyPickerDeployBtn"></div><div id="armyPickerDots"></div><div id="armyPickerFor"></div><div id="armyPickerIndex"></div><div id="armyPickerManualBtn"></div><div id="armyPickerMapBtn"></div><div id="armyPickerName"></div><div id="armyPickerNext"></div><div id="armyPickerPanel"></div><div id="armyPickerPrev"></div><div id="armyPickerPreview"></div><div id="armyPickerSummary"></div><div id="audioMuteToggle"></div><div id="audioSettingsBackdrop"></div><div id="audioSettingsBtn"></div><div id="audioSettingsCloseBtn"></div><div id="audioSettingsPanel"></div><div id="audioVolAmbience"></div><div id="audioVolEffects"></div><div id="audioVolMaster"></div><div id="audioVolMusic"></div><div id="backToMenuBtn"></div><div id="backToMenuConfirm"></div><div id="backToMenuConfirmNo"></div><div id="backToMenuConfirmYes"></div><div id="battleModeToggle"></div><div id="beginBattleBtn"></div><div id="bioText"></div><div id="bioToggleBtn"></div><canvas id="board"></canvas><div id="boardHint"></div><div id="boardWrap"></div><div id="brigadeDispatch"></div><div id="brigadeProgress"></div><div id="brigadeStatus"></div><div id="cameraToggle"></div><div id="chargeBtn"></div><canvas id="cmap"></canvas><div id="commandBtn"></div><div id="confirmBrigadeBtn"></div><canvas id="deskCanvas"></canvas><div id="despatch"></div><div id="diceLegend"></div><div id="diceOverlay"></div><div id="diceRollBtn"></div><div id="dragGhost"></div><div id="endDeployBtn"></div><div id="endFightBtn"></div><div id="endFireBtn"></div><div id="endMoveBtn"></div><div id="fcPingStyle"></div><canvas id="fct-layer"></canvas><div id="fctToggle"></div><div id="friendlyAiPill"></div><div id="howToPlayBtn"></div><div id="hudIcons"></div><div id="log"></div><div id="logCloseBtn"></div><div id="logFilter"></div><div id="logFilterRow"></div><div id="logIconBtn"></div><div id="logJump"></div><div id="logOverlay"></div><div id="logOverlayBackdrop"></div><div id="logTabDebug"></div><div id="logTabMenu"></div><div id="logTabReport"></div><div id="mapStyleToggle"></div><div id="marchOffBtn"></div><div id="menuPanel"></div><div id="modeChoices"></div><div id="muteToggle"></div><div id="onlinePill"></div><div id="overlay"></div><div id="overlayBtn"></div><div id="overlaySubtitle"></div><div id="overlayText"></div><div id="overlayTitle"></div><div id="phaseDock"></div><div id="phaseSide"></div><div id="replayEventLabel"></div><div id="replayExitBtn"></div><div id="replayOverlay"></div><div id="replayPlayPauseBtn"></div><div id="replayTurnLabel"></div><div id="resetViewBtn"></div><div id="restartDeployBtn"></div><div id="rosterList"></div><div id="rosterPanel"></div><div id="rosterTitle"></div><div id="sidebar"></div><div id="spotMenBtn"></div><div id="squareBtn"></div><div id="titleMenu"></div><div id="turnBadge"></div><div id="undoBtn"></div><div id="undoBtnBattle"></div><div id="unitInfo"></div><div id="unitModelsSelect"></div><div id="unitOverlay"></div><div id="unitOverlayPanel"></div><div id="unitPortrait"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module" src="lab/iso.js"></script>
+</body>
+</html>

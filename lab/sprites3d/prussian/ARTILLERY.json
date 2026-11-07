@@ -1,0 +1,32 @@
+{
+ "frameW": 48,
+ "frameH": 64,
+ "dirs": 8,
+ "anchorY": 1,
+ "displayScale": 0.56,
+ "anims": {
+  "idle": {
+   "frames": 4,
+   "fps": 2,
+   "loop": true
+  },
+  "march": {
+   "frames": 8,
+   "fps": 8,
+   "loop": true
+  },
+  "serve": {
+   "frames": 8,
+   "fps": 6,
+   "loop": false
+  },
+  "fall": {
+   "frames": 6,
+   "fps": 8,
+   "loop": false
+  }
+ },
+ "nation": "prussian",
+ "type": "ARTILLERY",
+ "madeBy": "tools/sprites/render-sheets.mjs (procedural figures)"
+}

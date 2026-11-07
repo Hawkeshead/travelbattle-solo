@@ -1,0 +1,37 @@
+{
+ "frameW": 72,
+ "frameH": 80,
+ "dirs": 8,
+ "anchorY": 1,
+ "displayScale": 0.64,
+ "anims": {
+  "idle": {
+   "frames": 4,
+   "fps": 2,
+   "loop": true
+  },
+  "march": {
+   "frames": 8,
+   "fps": 8,
+   "loop": true
+  },
+  "charge": {
+   "frames": 8,
+   "fps": 12,
+   "loop": true
+  },
+  "melee": {
+   "frames": 6,
+   "fps": 8,
+   "loop": true
+  },
+  "fall": {
+   "frames": 6,
+   "fps": 8,
+   "loop": false
+  }
+ },
+ "nation": "spanish",
+ "type": "BRIGADIER",
+ "madeBy": "tools/sprites/render-sheets.mjs (procedural figures)"
+}

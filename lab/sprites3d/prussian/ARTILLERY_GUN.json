@@ -1,0 +1,27 @@
+{
+ "frameW": 112,
+ "frameH": 96,
+ "dirs": 8,
+ "anchorY": 0.9,
+ "displayScale": 0.96,
+ "anims": {
+  "idle": {
+   "frames": 1,
+   "fps": 1,
+   "loop": true
+  },
+  "fire": {
+   "frames": 6,
+   "fps": 8,
+   "loop": false
+  },
+  "wreck": {
+   "frames": 1,
+   "fps": 1,
+   "loop": false
+  }
+ },
+ "nation": "prussian",
+ "type": "ARTILLERY_GUN",
+ "madeBy": "tools/sprites/render-sheets.mjs (procedural figures)"
+}
