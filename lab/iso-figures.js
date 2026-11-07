@@ -18,7 +18,9 @@ import { NATIONS, DEFAULT_NATIONS } from '../js/nations.js';
 const THREE = globalThis.THREE;
 const MAX_FIGURES = 1200;
 const GAME_SCALE = 1.25;     // render-figures FIGURE_SCALE
-export const SETTINGS = { size: 0.62, stand: 0.3, variants: 2 };
+/* Figure size: 'small' (lots of little men, the default) or 'large' (board game pieces); the slider sets anything between. */
+export const SIZES = { small: 0.4, large: 0.9 };
+export const SETTINGS = { size: SIZES.small, stand: 0.3, variants: 2 };
 const MEN = { INFANTRY: 10, GUARD: 10, LIGHT_CAV: 3, HEAVY_CAV: 3, ARTILLERY: 2, BRIGADIER: 1 };
 const FOOT = t => t === 'INFANTRY' || t === 'GUARD';
 const kind = u => (UNIT_TYPES[u.type] || {}).key;

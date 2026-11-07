@@ -25,7 +25,8 @@ export const PALETTE = {
   woodsFloor: '#2d4126',
   village: '#6b5847',
   road: ROAD.STROKES,
-  river: { bank: 'rgba(72,58,34,0.8)', channel: '#3a4a3a', water: '#4f7a7c', ford: '#b9a56a' },
+  river: { bank: 'rgba(72,58,34,0.8)', channel: '#2e4448', water: '#5e9aa6', ford: '#b9a56a' },
+  rock: ['#8a8578', '#9a9486', '#767164'],
   canopy: ['#2f4a28', '#3a5a2e', '#2a4323', '#44633a'],
   trunk: '#4a3524',
   wall: ['#cbb996', '#bfae8c', '#d6c6a4'],
@@ -35,9 +36,9 @@ export const PALETTE = {
 };
 
 export const HS = 6;              // height-field subdivisions per square
-export const HILL_H = 0.5;        // a hill's rise, in squares
+export const HILL_H = 0.62;       // a hill's rise, in squares
 export const WATER_Y = -0.075;    // the water surface
-const RIVER_DEPTH = 0.16, FORD_DEPTH = 0.09, RIVER_HALF = 0.22;
+const RIVER_DEPTH = 0.2, FORD_DEPTH = 0.09, RIVER_HALF = 0.3;
 
 /* Seeded noise, so the same battle looks the same on every load. */
 function mulberry(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -96,7 +97,7 @@ export class Ground {
       mask[j * w + i] = T[y][x] === 'HILL' ? 1 : 0;
     }
     const R = HS, k = [];
-    for(let d = -R; d <= R; d++) k.push(Math.exp(-(d * d) / (2 * (R / 2.2) ** 2)));
+    for(let d = -R; d <= R; d++) k.push(Math.exp(-(d * d) / (2 * (R / 2.8) ** 2)));
     const ks = k.reduce((a, b) => a + b, 0);
     const tmp = new Float32Array(w * h);
     for(let j = 0; j < h; j++) for(let i = 0; i < w; i++){
@@ -128,6 +129,11 @@ export class Ground {
     const H = this.height, w = this.w;
     const a = H[j * w + i], b = H[j * w + i + 1], c = H[(j + 1) * w + i], d = H[(j + 1) * w + i + 1];
     return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
+  }
+  /* How steep the ground is at a point (rise per square). */
+  slopeAt(x, z){
+    const e = 0.08;
+    return Math.hypot(this.heightAt(x + e, z) - this.heightAt(x - e, z), this.heightAt(x, z + e) - this.heightAt(x, z - e)) / (2 * e);
   }
   geometry(){
     const { w, h, cols, rows } = this;
@@ -181,6 +187,13 @@ export function paintGround(){
     g.beginPath(); g.arc(x * P + P / 2, y * P + P / 2, P * 0.9, 0, Math.PI * 2); g.fill();
   }
   g.globalAlpha = 1;
+  // hills: paler, drier grass towards the crown, so the rise reads from above too
+  for(let y = 0; y < rows; y++) for(let x = 0; x < cols; x++){
+    if(T[y][x] !== 'HILL') continue;
+    const g2 = g.createRadialGradient(x * P + P / 2, y * P + P / 2, P * 0.15, x * P + P / 2, y * P + P / 2, P * 0.95);
+    g2.addColorStop(0, 'rgba(176,170,120,0.55)'); g2.addColorStop(1, 'rgba(176,170,120,0)');
+    g.fillStyle = g2; g.fillRect(x * P - P, y * P - P, 3 * P, 3 * P);
+  }
   // speckle
   for(let n = 0; n < cols * rows * 60; n++){
     const x = rnd() * c.width, y = rnd() * c.height;
@@ -219,10 +232,10 @@ export function paintGround(){
   if(water && water.spec){
     const pts = riverPoints(water.spec.course).map(([x, y]) => [x * P, y * P]);   // line coordinates: the grid lines are at whole numbers
     const path = () => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); };
-    for(const [wd, col] of [[0.62, PALETTE.river.bank], [0.5, '#4d5a3a'], [0.4, PALETTE.river.channel], [0.26, '#2f4040']]){ path(); g.lineWidth = wd * P; g.strokeStyle = col; g.stroke(); }
+    for(const [wd, col] of [[0.8, PALETTE.river.bank], [0.66, '#5a6640'], [0.56, PALETTE.river.channel], [0.4, '#263a3e']]){ path(); g.lineWidth = wd * P; g.strokeStyle = col; g.stroke(); }
     for(const [x0, x1, y0, y1] of (water.spec.fords || [])){
       g.save(); g.beginPath(); g.rect(x0 * P, y0 * P, (x1 - x0) * P, (y1 - y0) * P); g.clip();
-      path(); g.lineWidth = 0.44 * P; g.strokeStyle = PALETTE.river.ford; g.stroke();
+      path(); g.lineWidth = 0.6 * P; g.strokeStyle = PALETTE.river.ford; g.stroke();
       for(let n = 0; n < 60; n++){ g.fillStyle = rnd() < 0.5 ? 'rgba(90,80,50,0.5)' : 'rgba(230,220,180,0.6)'; const i = Math.floor(rnd() * pts.length); g.fillRect(pts[i][0] + (rnd() - 0.5) * P * 0.4, pts[i][1] + (rnd() - 0.5) * P * 0.4, 2, 2); }
       g.restore();
     }
@@ -266,7 +279,7 @@ export function buildWorld(scene, quality){
 
   // the water: one plane, seen only in the channels the ground is cut below it
   if(state.water && state.water.spec){
-    const wm = new THREE.MeshPhongMaterial({ color: lin(PALETTE.river.water), transparent: true, opacity: 0.72, shininess: 60, specular: lin('#aaccbb') });
+    const wm = new THREE.MeshPhongMaterial({ color: lin(PALETTE.river.water), transparent: true, opacity: 0.8, shininess: 90, specular: lin('#cfe6e0'), emissive: lin('#1a3a44') });
     const wp = new THREE.Mesh(new THREE.PlaneGeometry(COLS, ROWS), wm);
     wp.rotation.x = -Math.PI / 2; wp.position.set(COLS / 2, WATER_Y, ROWS / 2);
     scene.add(wp); out.props.push(wp); out.water = wp;
@@ -278,8 +291,8 @@ export function buildWorld(scene, quality){
   const trees = [];
   for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
     if(T[y][x] === 'WOODS'){
-      const n = quality === 'high' ? 7 : 4;
-      for(let k = 0; k < n; k++) trees.push({ x: x + 0.12 + rnd() * 0.76, z: y + 0.12 + rnd() * 0.76, s: 0.75 + rnd() * 0.5 });
+      const n = quality === 'high' ? 14 : 9;
+      for(let k = 0; k < n; k++) trees.push({ x: x + 0.06 + rnd() * 0.88, z: y + 0.06 + rnd() * 0.88, s: 0.7 + rnd() * 0.6 });
     } else if(T[y][x] === 'OPEN' && picks[y][x].detail >= 0 && picks[y][x].detail < 6){
       // the oaks: single, pair or trio, kept to a corner so the square's middle is clear for units
       const n = 1 + (picks[y][x].detail % 3);
@@ -305,6 +318,32 @@ export function buildWorld(scene, quality){
     scene.add(canopies, trunks); out.props.push(canopies, trunks);
   }
 
+  // rocky outcrops where the hills' slopes are steep
+  const rocks = [];
+  for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
+    const nearHill = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => T[y + b] && T[y + b][x + a] === 'HILL');
+    if(!nearHill) continue;
+    const n = quality === 'high' ? 10 : 7;
+    for(let k = 0; k < n; k++){
+      const px = x + rnd(), pz = y + rnd();
+      const sl = ground.slopeAt(px, pz);
+      if(sl < 0.42 || rnd() > (sl - 0.3)) continue;
+      rocks.push({ x: px, z: pz, s: 0.05 + rnd() * 0.07 + sl * 0.06 });
+    }
+  }
+  if(rocks.length){
+    const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+    const rm = new THREE.InstancedMesh(rockGeo, toon({ color: '#ffffff' }), rocks.length);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+    rocks.forEach((r, i) => {
+      q.setFromEuler(new THREE.Euler(rnd() * 3, rnd() * 3, rnd() * 3));
+      m.compose(v.set(r.x, ground.heightAt(r.x, r.z) + r.s * 0.3, r.z), q, sc.set(r.s * (1 + rnd()), r.s, r.s * (1 + rnd()))); rm.setMatrixAt(i, m);
+      rm.setColorAt(i, col.set(PALETTE.rock[i % PALETTE.rock.length]).convertSRGBToLinear());
+    });
+    rm.castShadow = quality === 'high';
+    scene.add(rm); out.props.push(rm);
+  }
+
   // villages: cottages on every building square, and a church on the first square of each village
   const houses = [], churches = [];
   const seenVillage = new Set();
@@ -316,7 +355,7 @@ export function buildWorld(scene, quality){
     const n = joined ? 3 : 2;
     for(let k = 0; k < n; k++){
       const ang = (k / n) * Math.PI * 2 + rnd();
-      houses.push({ x: x + 0.5 + Math.cos(ang) * 0.3, z: y + 0.5 + Math.sin(ang) * 0.28, r: rnd() < 0.5 ? 0 : Math.PI / 2, w: 0.22 + rnd() * 0.1, d: 0.16 + rnd() * 0.06, h: 0.12 + rnd() * 0.05 });
+      houses.push({ x: x + 0.5 + Math.cos(ang) * 0.3, z: y + 0.5 + Math.sin(ang) * 0.28, r: rnd() < 0.5 ? 0 : Math.PI / 2, w: 0.3 + rnd() * 0.12, d: 0.22 + rnd() * 0.08, h: 0.16 + rnd() * 0.06 });
     }
     if(!joined) churches.push({ x: x + 0.5, z: y + 0.5 });
   }
@@ -341,14 +380,14 @@ export function buildWorld(scene, quality){
   for(const ch of churches){
     const gh = ground.heightAt(ch.x, ch.z);
     const grp = new THREE.Group();
-    const nave = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.2), toon({ color: PALETTE.wall[2] }));
-    nave.position.y = 0.08;
+    const nave = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.2, 0.26), toon({ color: PALETTE.wall[2] }));
+    nave.position.y = 0.1;
     const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 0.17, 0.1, 4, 1), toon({ color: PALETTE.roof[1] }));
-    roof.rotation.y = Math.PI / 4; roof.scale.set(1.6, 1, 1); roof.position.y = 0.21;
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), toon({ color: PALETTE.stone }));
-    tower.position.set(-0.17, 0.15, 0);
+    roof.rotation.y = Math.PI / 4; roof.scale.set(2.0, 1.2, 1.3); roof.position.y = 0.26;
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), toon({ color: PALETTE.stone }));
+    tower.position.set(-0.22, 0.2, 0);
     const spire = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.16, 4), toon({ color: '#5a4a3a' }));
-    spire.position.set(-0.17, 0.38, 0); spire.rotation.y = Math.PI / 4;
+    spire.position.set(-0.22, 0.48, 0); spire.rotation.y = Math.PI / 4;
     grp.add(nave, roof, tower, spire);
     grp.traverse(o => { if(o.isMesh) o.castShadow = quality === 'high'; });
     grp.position.set(ch.x, gh, ch.z);

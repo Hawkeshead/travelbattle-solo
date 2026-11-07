@@ -21,7 +21,7 @@
   #side label{font-size:9px;color:var(--ink-dim);letter-spacing:.06em;}
   #side input[type=range]{writing-mode:vertical-lr;direction:rtl;height:120px;width:24px;accent-color:var(--brass);}
   button,select{font-family:'IBM Plex Mono',monospace;font-size:11px;border:1px solid var(--brass-dim);background:var(--paper);color:var(--ink);
-    padding:7px 9px;cursor:pointer;letter-spacing:.03em;border-radius:5px;min-height:34px;}
+    padding:7px 7px;cursor:pointer;letter-spacing:.02em;border-radius:5px;min-height:34px;}
   button.on{background:var(--brass);color:#fff;}
   button:active{transform:translateY(1px);}
   .seg{display:inline-flex;} .seg button{border-radius:0;} .seg button:first-child{border-radius:5px 0 0 5px;} .seg button:last-child{border-radius:0 5px 5px 0;}
@@ -31,7 +31,8 @@
   #note{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;font-size:12px;color:var(--paper);background:rgba(0,0,0,.6);
     padding:8px 12px;border-radius:6px;pointer-events:none;max-width:70vw;text-align:center;}
   #note:empty{display:none;}
-  h1{font-family:'Cinzel',serif;font-size:12px;margin:0 6px 0 2px;letter-spacing:.08em;}
+  h1{font-family:'Cinzel',serif;font-size:11px;margin:0 4px 0 2px;letter-spacing:.06em;}
+  #top{gap:4px;padding:5px;}
   body.folded #bottom, body.folded #side{display:none;}
   #stand-ins{display:none;}
   select{max-width:40vw;} #unit{max-width:30vw;}
@@ -44,17 +45,18 @@
   <select id="battle" aria-label="Battle"></select>
   <span class="seg"><button data-style="A" class="on" title="The game's pixel figures">Pixel</button><button data-style="B" title="Sprites rendered from 3D models">3D sprites</button></span>
   <span class="seg"><button data-quality="low" class="on">Low</button><button data-quality="high">High</button></span>
+  <span class="seg" title="Figure size"><button data-size="small" class="on">Small</button><button data-size="large">Large</button></span>
   <button id="grid" class="on">Grid</button>
   <button id="labels" class="on">Names</button>
   <button id="ortho">Ortho</button>
-  <button id="reset">Reset view</button>
+  <button id="reset">Reset</button>
   <button id="fold" title="Hide the other controls">Fold</button>
 </div>
 <div id="side" class="bar">
   <label>TILT</label>
   <input id="tilt" type="range" min="25" max="80" value="52" aria-label="Camera tilt">
   <label>SIZE</label>
-  <input id="size" type="range" min="30" max="100" value="62" aria-label="Figure size">
+  <input id="size" type="range" min="25" max="100" value="40" aria-label="Figure size">
 </div>
 <div id="bottom" class="bar">
   <select id="unit" aria-label="Unit"></select>

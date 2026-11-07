@@ -11,7 +11,7 @@ import { COLS, ROWS, state } from '../js/data-core.js';
 import { setupOperation } from '../js/operations.js';
 import { setFastAnimationMode } from '../js/render-board.js';
 import { buildWorld, WATER_Y } from './iso-world.js';
-import { Army, SETTINGS } from './iso-figures.js';
+import { Army, SETTINGS, SIZES } from './iso-figures.js';
 import { OrbitRig } from './iso-camera.js';
 
 const THREE = globalThis.THREE;
@@ -114,7 +114,8 @@ function bindUI(){
   $('ortho').onclick = () => { app.rig.orthographic = !app.rig.orthographic; $('ortho').classList.toggle('on', app.rig.orthographic); resize(); };
   $('reset').onclick = () => { app.rig.reset(); $('tilt').value = Math.round(app.rig.pitch * 180 / Math.PI); };
   $('tilt').oninput = () => app.rig.tiltTo(Number($('tilt').value));
-  $('size').oninput = () => { SETTINGS.size = Number($('size').value) / 100; };
+  $('size').oninput = () => { SETTINGS.size = Number($('size').value) / 100; document.querySelectorAll('[data-size]').forEach(x => x.classList.remove('on')); };
+  for(const b of document.querySelectorAll('[data-size]')) b.onclick = () => { SETTINGS.size = SIZES[b.dataset.size]; $('size').value = Math.round(SETTINGS.size * 100); document.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('on', x === b)); };
   $('march').onclick = () => { const u = chosen(); if(u) app.army.march(u, 1); };
   $('volley').onclick = () => { const u = chosen(); if(u) app.army.volley(u); };
   $('charge').onclick = () => { const u = chosen(); if(u) app.army.march(u, 2, true); };
