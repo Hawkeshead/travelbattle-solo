@@ -88,14 +88,20 @@ try {
     const b = window.__board3d; if(!b || !b.active) return null;
     const g = await import('/js/render-gunfire.js');
     const st = (await import('/js/data-core.js')).state;
-    const a = st.units.find(u => !u.removed && u.x >= 0 && u.side === 'red' && u.type !== 'BRIGADIER');
-    const t = st.units.filter(u => !u.removed && u.x >= 0 && u.side === 'blue').sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y))[0];
-    const d0 = b.rig.dist;
+    // the closest pair of enemies on the field, so framing them is a real zoom
+    let a = null, t = null, best = Infinity;
+    for(const r of st.units) for(const q of st.units){
+      if(r.removed || q.removed || r.x < 0 || q.x < 0 || r.side !== 'red' || q.side !== 'blue') continue;
+      const d = Math.hypot(r.x - q.x, r.y - q.y); if(d < best){ best = d; a = r; t = q; }
+    }
+    const d0 = b.rig.dist, x0 = b.rig.target.x, z0 = b.rig.target.z;
     g.spawnGunfire('musket', { x: a.x, y: a.y }, { x: t.x, y: t.y });
     await new Promise(r => setTimeout(r, 600));
-    return { before: +d0.toFixed(1), after: +b.rig.dist.toFixed(1), smoke: b.smoke.count };
+    // framing the shot: closer in, or (when the pair is far apart, at the start of a battle) panned onto it
+    const moved = Math.abs(b.rig.dist - d0) > 0.2 || Math.hypot(b.rig.target.x - x0, b.rig.target.z - z0) > 0.2;
+    return { before: +d0.toFixed(1), after: +b.rig.dist.toFixed(1), moved, smoke: b.smoke.count };
   });
-  if(framed){ console.log('volley: camera distance', framed.before, '->', framed.after, ', smoke sprites', framed.smoke); if(!(framed.after < framed.before) || !framed.smoke) failed = true; await shot(page, '05-volley'); }
+  if(framed){ console.log('volley: camera distance', framed.before, '->', framed.after, framed.moved ? '(framed)' : '(did not move)', ', smoke sprites', framed.smoke); if(!framed.moved || !framed.smoke) failed = true; await shot(page, '05-volley'); }
   await page.waitForTimeout(4500);
   const stats = await page.evaluate(() => window.__board3d && window.__board3d.stats);
   console.log('readout:', JSON.stringify(stats));

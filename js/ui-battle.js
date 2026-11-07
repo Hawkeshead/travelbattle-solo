@@ -1,5 +1,5 @@
 import { showObjectivePanel } from './operation-panel.js';
-import { board3d, boardPref, figuresPref, graphicsPref, webglAvailable } from './board3d.js';
+import { board3d, board3dSuitable, boardPref, figuresPref, graphicsPref } from './board3d.js';
 import { perkDetails, perkGunDestroyed, perkVolley, perkVolleyBonus, resetPerks } from './perks.js';
 import { setFloatingTextEnabled } from './floating-text.js';
 import { clearSpotMen, spotMenFor, toggleSpotMen } from './spot-men.js';
@@ -2074,7 +2074,7 @@ export function initBattleControls(){
   const boardEl = document.getElementById('boardSelect'), graphicsEl = document.getElementById('graphicsSelect'), figuresEl = document.getElementById('figuresSelect');
   const show3dRows = () => document.querySelectorAll('[data-board3d-only]').forEach(r => { r.style.display = boardEl && boardEl.value === '3d' ? '' : 'none'; });
   if(boardEl){
-    if(!webglAvailable()){ boardEl.value = 'classic'; boardEl.disabled = true; boardEl.title = 'This device cannot show the 3D board'; }
+    if(!board3dSuitable()){ boardEl.value = 'classic'; boardEl.disabled = true; boardEl.title = 'This device cannot show the 3D board smoothly'; }
     else boardEl.value = boardPref();
     boardEl.onchange = (e)=>{ board3d.setBoard(e.target.value); show3dRows(); };
     show3dRows();

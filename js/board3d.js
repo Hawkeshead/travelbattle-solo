@@ -52,6 +52,24 @@ const FIGURE_SCALE = 1.25;
 export function webglAvailable(){
   try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch { return false; }
 }
+/* Drawn in software (no graphics chip, or one the browser has blocked): the
+   3D board would crawl and take the game's own timers down with it (seen on
+   CI's two-core runner: the dice and deployment slowed past the smoke
+   tests' limits). Such a device keeps the Classic board unless ?board=3d
+   asks for 3D. Every phone has a GPU, so this never stops the 3D board there. */
+let software = null;
+export function softwareRendering(){
+  if(software !== null) return software;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    const name = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : '';
+    software = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+  } catch { software = false; }
+  return software;
+}
+/* Can the 3D board run here well enough to be the default? */
+export const board3dSuitable = () => webglAvailable() && (URL_BOARD === '3d' || !softwareRendering());
 function loadThree(){
   if(globalThis.THREE) return Promise.resolve(globalThis.THREE);
   return new Promise((res, rej) => {
@@ -580,9 +598,9 @@ export const board3d = new Board3D();
 export function initBoard3D(){
   if(HEADLESS) return;
   setBoard3D(board3d);
-  board3d.wanted = boardPref() === '3d' && webglAvailable();
+  board3d.wanted = boardPref() === '3d' && board3dSuitable();
   // the flat board's painted ground is not needed to start a battle in 3D
   if(board3d.wanted) deferAssets(['assets/terrain/v2/grass', 'assets/terrain/v2/hill', 'assets/terrain/v2/farm', 'assets/terrain/v2/woods', 'assets/terrain/v2/building', 'assets/terrain/bridges']);
   try { window.__board3d = board3d; } catch { /* no window */ }   // for the checks (tools/lab/board3d-check.mjs)
-  if(boardPref() === '3d' && webglAvailable()) board3d.start().catch(e => { console.warn('3D board unavailable, Classic board kept:', e && e.message); board3d.stop(); });
+  if(board3d.wanted) board3d.start().catch(e => { console.warn('3D board unavailable, Classic board kept:', e && e.message); board3d.stop(); });
 }
