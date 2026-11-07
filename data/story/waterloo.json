@@ -8581,12 +8581,13 @@
     "Prussia": {
      "start": "Columns N to Q, close behind the French",
      "objective": {
-      "text": "Reach the carriage square (K5, in Genappe's street) by the end of round 8.",
+      "text": "Stop Napoleon getting away: at the end of round 8 he is not in the last three columns at the south end (A to C), or he has been taken.",
       "conditions": [
        {
-        "type": "ENTERED",
-        "area": "carriage",
-        "byRound": 8
+        "type": "COMMANDER_STOPPED",
+        "tag": "napoleon",
+        "area": "escape",
+        "atRound": 8
        }
       ],
       "combinator": "any"

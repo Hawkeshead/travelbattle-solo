@@ -114,6 +114,15 @@ const CONDITIONS = {
     const u = W.units.find(o => o.storyTag === c.tag && o.type === 'BRIGADIER');
     return !!u && u.removed && !u.escaped;
   },
+  /* The enemy's named commander kept out of an area (7 Nov 2026, the
+     Pursuit: a race, won by whoever is right at the end of the round): at the
+     end of round atRound he is not in it, or he has been taken. A commander
+     who left the field by marching off got away. */
+  COMMANDER_STOPPED(side, c, ctx){
+    if(!ctx.endOfRound) return false;
+    const u = W.units.find(o => o.storyTag === c.tag && o.type === 'BRIGADIER');
+    return roundGate(side, c, ctx, !!u && (u.removed ? !u.escaped : !inArea(u, c.area)));
+  },
   // At least `count` of this side's Brigades with a fighting unit left.
   BRIGADES_UNBROKEN(side, c, ctx){
     if(!ctx.endOfRound) return false;

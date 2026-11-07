@@ -27,6 +27,20 @@ test('NEXT_TO, COMMANDER and COMMANDER_REMOVED read Brigade tags', () => {
   assert.equal(C.COMMANDER_REMOVED('red', { tag: 'napoleon' }, { round: 3 }), true);
 });
 
+test('COMMANDER_STOPPED: the enemy commander not in the area at the end of the round, or taken', () => {
+  const nap = extra => u('na', 'blue', 'BRIGADIER', 5, 4, Object.assign({ storyTag: 'napoleon' }, extra));
+  const at8 = { tag: 'napoleon', area: 'farm', atRound: 8 };
+  useWorld({ card, streaks: {}, units: [nap()] });
+  assert.equal(C.COMMANDER_STOPPED('red', at8, end), false);                     // he is in the area: he got away
+  useWorld({ card, streaks: {}, units: [nap({ x: 3, y: 3 })] });
+  assert.equal(C.COMMANDER_STOPPED('red', at8, end), true);                      // not there at the end of round 8
+  assert.equal(C.COMMANDER_STOPPED('red', at8, { endOfRound: true, round: 7 }), false);   // counts at round 8 only
+  useWorld({ card, streaks: {}, units: [nap({ removed: true })] });
+  assert.equal(C.COMMANDER_STOPPED('red', at8, end), true);                      // taken
+  useWorld({ card, streaks: {}, units: [nap({ removed: true, escaped: true })] });
+  assert.equal(C.COMMANDER_STOPPED('red', at8, end), false);                     // marched off: away
+});
+
 test('BRIGADES_UNBROKEN, BREAK_BRIGADES and ENTERED', () => {
   const streaks = {};
   useWorld({ card, streaks, units: [

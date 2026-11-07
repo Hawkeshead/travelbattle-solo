@@ -248,7 +248,7 @@ export function objectiveStatusLine(side, ally = null){
         f ? `${cap(name)}: French hold ${f} square${f > 1 ? 's' : ''}` : `${cap(name)}: empty`);
     } else if(c.type === 'DESTROY'){
       parts.push(`Destroyed: ${destroyedCount(side, c.unitTypes)} of ${c.count}${c.unitTypes && c.unitTypes.length ? ' ' + c.unitTypes.map(t => t.toLowerCase().replace('_cav', ' cavalry')).join('/') : ''}`);
-    } else if(c.type === 'COMMANDER' || c.type === 'COMMANDER_REMOVED'){
+    } else if(c.type === 'COMMANDER' || c.type === 'COMMANDER_REMOVED' || c.type === 'COMMANDER_STOPPED'){
       parts.push(commanderStatus(side, c, prefix + w.conditions.indexOf(c)));
     } else if(coreProgressOf(side, c)){
       parts.push(countStatus(side, c, prefix + w.conditions.indexOf(c)));
@@ -309,6 +309,11 @@ function commanderStatus(side, c, latch){
   const done = !!(state.scenarioStreaks && state.scenarioStreaks[latch]);
   const u = commanderOf(c.tag), name = commanderName(c.tag), alive = !!u && !u.removed;
   if(c.type === 'COMMANDER_REMOVED') return alive ? `${name}: still in the field` : `${name}: taken \u2713`;
+  if(c.type === 'COMMANDER_STOPPED'){
+    if(!alive) return u && u.escaped ? `${name}: got away` : `${name}: taken \u2713`;
+    const away = (state.scenario.map && state.scenario.map.areas && state.scenario.map.areas[c.area] || []).some(([x, y]) => u.x === x && u.y === y);
+    return `${name}: ${away ? 'getting away' : 'not away yet'}${c.atRound ? ` (counts at the end of round ${c.atRound})` : ''}`;
+  }
   if(!alive) return `${name}: lost`;
   const round = currentRound();
   if(c.area){

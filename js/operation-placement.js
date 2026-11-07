@@ -143,7 +143,10 @@ export function planOperationPlacement(card, terrain){
        the board until its round; 'arrivals' holds back some of a Brigade's
        units the same way. They are planned as reserves (no square). */
     if(j.b.arrives){
-      for(const u of j.b.units) plan.push(Object.assign({}, base, { type: unitType(u), formation: unitFormation(u), reserve: { round: j.b.arrives.round, area: j.b.arrives.area || null } }));
+      /* Named as the units placed at the start are (7 Nov 2026: Picton's Brigade
+         came on at Sabugal under "Thomas Graham", its own names lost). */
+      for(const u of j.b.units) plan.push(Object.assign({}, base, { type: unitType(u), formation: unitFormation(u), reserve: { round: j.b.arrives.round, area: j.b.arrives.area || null },
+        name: (u && typeof u === 'object' && u.name) || (unitType(u) === 'BRIGADIER' && j.b.commander) || null }));
       continue;
     }
     let units0 = j.b.units.slice();

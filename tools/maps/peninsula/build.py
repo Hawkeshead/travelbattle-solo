@@ -579,6 +579,12 @@ obj('bailen', 'Spain', [{'type': 'HOLD_COUNT', 'area': 'bailen', 'count': 2, 'at
 obj('sabugal', 'Britain', [{'type': 'IN_AREA', 'area': 'hill', 'tag': 'beckwith', 'count': 1, 'atRound': 8}, {'type': 'BRIGADES_UNBROKEN', 'count': 2, 'atRound': 8}],
     "Beckwith's Brigade on the hill, or two Allied Brigades unbroken, at the end of round 8.", 'any')
 
+# ---- BALANCE, pass 6 (7 Nov 2026): Sabugal, tried and left ----
+# Beckwith starting below the hill and every pairing of objectives was tried
+# (hill and two Brigades unbroken, hill and Picton in play, hill and no
+# French on it, three of his units on it): one half alone gives 92 to 100,
+# any two give 8. Left as before; an open item.
+
 # ---- SPECIAL RULES BUILT (6 Nov 2026; engine-rules storyRule, each general) ----
 def built(bid, rules, done):
     B[bid]['rules'].update(rules)

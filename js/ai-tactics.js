@@ -527,7 +527,7 @@ function storyMoveBonus(mover, side, pos){
       const near = state.units.filter(o => !o.removed && o.side === side && o.id !== mover.id && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1).length;
       s += Math.min(near, 2) * 0.6;
       if(state.units.some(o => !o.removed && o.side !== side && o.type !== 'BRIGADIER' && chebyshev(o, pos) <= 1)) s -= 3.0;
-    } else if(c.type === 'COMMANDER_REMOVED' && !brig){
+    } else if((c.type === 'COMMANDER_REMOVED' || c.type === 'COMMANDER_STOPPED') && !brig){   // stopping him: ride him down, as for a capture
       const prey = state.units.find(o => !o.removed && o.side !== side && o.type === 'BRIGADIER' && o.storyTag === c.tag);
       if(prey){ const d = waterDistance(pos, prey); s += Math.max(0, reach - d) * (t.isCavalry ? per + 0.15 : per) * k; }
     } else if(c.type === 'DESTROY' && !brig && !t.isArtillery){

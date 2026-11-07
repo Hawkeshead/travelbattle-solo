@@ -9,7 +9,7 @@ export const UNIT_TYPES_ALLOWED = new Set(['BRIGADIER', 'GUARD', 'INFANTRY', 'HE
 /* The step 2 objective types. Step 8 adds LINK_UP, BREAK_SQUARES and VIP_SAFE
    here, and the engine's type table; nothing else should need to change. */
 export const CONDITION_TYPES = new Set(['HOLD_AREA', 'CLEAR_AREA', 'CONTROL_AREA', 'DESTROY', 'MARCH_OFF',
-  'HOLD_COUNT', 'HOLD_AREAS', 'IN_AREA', 'NEXT_TO', 'COMMANDER', 'COMMANDER_REMOVED', 'BRIGADES_UNBROKEN', 'BREAK_BRIGADES', 'ENTERED']);   // the second row: campaign battles (objective-core.js)
+  'HOLD_COUNT', 'HOLD_AREAS', 'IN_AREA', 'NEXT_TO', 'COMMANDER', 'COMMANDER_REMOVED', 'COMMANDER_STOPPED', 'BRIGADES_UNBROKEN', 'BREAK_BRIGADES', 'ENTERED']);   // the second row: campaign battles (objective-core.js)
 export const SPECIAL_RULES_ALLOWED = new Set(['chainWaivedTurn1']);
 let COLS = 20, ROWS = 10;   // the card's own map size, set per card in validateCard
 const MAP_GLYPHS = new Set(['.', ':', '*', '^', '#', '=']);
