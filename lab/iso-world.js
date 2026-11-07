@@ -412,47 +412,19 @@ export function buildWorld(scene, quality){
     const key = x + ',' + y;
     const joined = [[x - 1, y], [x, y - 1]].some(([a, b]) => seenVillage.has(a + ',' + b));
     seenVillage.add(key);
-    const n = joined ? 3 : 2;
-    for(let k = 0; k < n; k++){
-      const ang = (k / n) * Math.PI * 2 + rnd();
-      houses.push({ x: x + 0.5 + Math.cos(ang) * 0.3, z: y + 0.5 + Math.sin(ang) * 0.28, r: rnd() < 0.5 ? 0 : Math.PI / 2, w: 0.3 + rnd() * 0.12, d: 0.22 + rnd() * 0.08, h: 0.16 + rnd() * 0.06 });
+    // three or four buildings round the square's edge, the middle left clear for the troops
+    // the first square of a village keeps its back half for the church
+    const spots = joined ? [[0.22, 0.2], [0.78, 0.22], [0.2, 0.8], [0.8, 0.78]].sort(() => rnd() - 0.5).slice(0, 3 + (rnd() < 0.5 ? 1 : 0)) : [[0.2, 0.82], [0.8, 0.8]];
+    for(const [ox, oz] of spots){
+      const roll = rnd();
+      const kind = roll < 0.42 ? 'cottage' : roll < 0.68 ? 'farmhouse' : roll < 0.88 ? 'town' : 'barn';
+      const dims = { cottage: [0.3, 0.2, 0.15], farmhouse: [0.42, 0.22, 0.16], town: [0.28, 0.24, 0.27], barn: [0.44, 0.28, 0.2] }[kind];
+      houses.push({ x: x + ox + (rnd() - 0.5) * 0.05, z: y + oz + (rnd() - 0.5) * 0.05, r: (Math.abs(ox - 0.5) > Math.abs(oz - 0.5) ? Math.PI / 2 : 0) + (rnd() - 0.5) * 0.12, kind,
+        w: dims[0] * (0.9 + rnd() * 0.2), d: dims[1] * (0.9 + rnd() * 0.2), h: dims[2] * (0.9 + rnd() * 0.2), roofH: kind === 'town' ? 0.16 : kind === 'barn' ? 0.16 : 0.13 });
     }
-    if(!joined) churches.push({ x: x + 0.5, z: y + 0.5 });
+    if(!joined) churches.push({ x: x + 0.55, z: y + 0.32 });
   }
-  if(houses.length){
-    const wallGeo = new THREE.BoxGeometry(1, 1, 1);
-    const roofGeo = new THREE.CylinderGeometry(0, 0.5, 1, 4, 1);   // a pyramid; stretched into a ridge below
-    const walls = new THREE.InstancedMesh(wallGeo, toon({ color: '#ffffff' }), houses.length);
-    const roofs = new THREE.InstancedMesh(roofGeo, toon({ color: '#ffffff' }), houses.length);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
-    houses.forEach((hs, i) => {
-      const gh = ground.heightAt(hs.x, hs.z);
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), hs.r);
-      m.compose(v.set(hs.x, gh + hs.h / 2, hs.z), q, sc.set(hs.w, hs.h, hs.d)); walls.setMatrixAt(i, m);
-      walls.setColorAt(i, col.set(PALETTE.wall[i % PALETTE.wall.length]).convertSRGBToLinear());
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), hs.r + Math.PI / 4);
-      m.compose(v.set(hs.x, gh + hs.h + 0.05, hs.z), q, sc.set(hs.w * 1.5, 0.1, hs.d * 1.5)); roofs.setMatrixAt(i, m);
-      roofs.setColorAt(i, col.set(PALETTE.roof[i % PALETTE.roof.length]).convertSRGBToLinear());
-    });
-    walls.castShadow = roofs.castShadow = quality === 'high';
-    scene.add(walls, roofs); out.props.push(walls, roofs);
-  }
-  for(const ch of churches){
-    const gh = ground.heightAt(ch.x, ch.z);
-    const grp = new THREE.Group();
-    const nave = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.2, 0.26), toon({ color: PALETTE.wall[2] }));
-    nave.position.y = 0.1;
-    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 0.17, 0.1, 4, 1), toon({ color: PALETTE.roof[1] }));
-    roof.rotation.y = Math.PI / 4; roof.scale.set(2.0, 1.2, 1.3); roof.position.y = 0.26;
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.15), toon({ color: PALETTE.stone }));
-    tower.position.set(-0.22, 0.2, 0);
-    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.16, 4), toon({ color: '#5a4a3a' }));
-    spire.position.set(-0.22, 0.48, 0); spire.rotation.y = Math.PI / 4;
-    grp.add(nave, roof, tower, spire);
-    grp.traverse(o => { if(o.isMesh) o.castShadow = quality === 'high'; });
-    grp.position.set(ch.x, gh, ch.z);
-    scene.add(grp); out.props.push(grp);
-  }
+  buildVillages(scene, out, ground, houses, churches, quality, toon, rnd);
 
   // bridges: a deck across the channel between the two squares, with low parapets
   if(state.water && state.water.bridges){
@@ -512,4 +484,160 @@ function makeLabel(text, kind){
   s.scale.set(w / 1100, 40 / 1100, 1);   // screen-relative size, whatever the zoom
   s.renderOrder = 10;
   return s;
+}
+
+/* ---------- the villages ---------- */
+/* Painted once: a wall with a door, two shuttered windows and a plinth (tinted per house), a tiled
+   roof, a slate roof, thatch, and a barn's boarding. Each on a canvas, so nothing is downloaded. */
+function canvasTex(w, h, paint){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  paint(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  return t;
+}
+const TEX = {};
+function villageTextures(){
+  if(TEX.wall) return TEX;
+  TEX.wall = canvasTex(128, 64, (g, w, h) => {
+    g.fillStyle = '#f2ece0'; g.fillRect(0, 0, w, h);
+    for(let i = 0; i < 300; i++){ g.fillStyle = `rgba(120,100,80,${Math.random() * 0.08})`; g.fillRect(Math.random() * w, Math.random() * h, 3, 2); }
+    g.fillStyle = '#9a9286'; g.fillRect(0, h - 7, w, 7);                          // the plinth
+    g.fillStyle = '#4a3424'; g.fillRect(56, 26, 16, 31);                           // the door
+    g.fillStyle = '#6a4a32'; g.fillRect(58, 28, 12, 27);
+    for(const wx of [18, 92]){
+      g.fillStyle = '#2a2a30'; g.fillRect(wx, 20, 18, 18);                         // the glass
+      g.fillStyle = '#e8e2d2'; g.fillRect(wx + 8, 20, 2, 18); g.fillRect(wx, 28, 18, 2);
+      g.fillStyle = '#3f5a3a'; g.fillRect(wx - 6, 19, 5, 20); g.fillRect(wx + 19, 19, 5, 20);   // the shutters
+    }
+    g.strokeStyle = 'rgba(70,50,30,0.5)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+  });
+  TEX.town = canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = '#f2ece0'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(90,64,40,0.85)'; g.lineWidth = 4;                       // half-timbering
+    for(const x of [4, 42, 86, 124]){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+    for(const y of [4, 62, 124]){ g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+    g.beginPath(); g.moveTo(4, 62); g.lineTo(42, 4); g.moveTo(124, 62); g.lineTo(86, 4); g.stroke();
+    g.fillStyle = '#2a2a30'; for(const [wx, wy] of [[52, 18], [52, 76], [16, 76], [96, 76]]) g.fillRect(wx, wy, 22, 26);
+    g.fillStyle = '#4a3424'; g.fillRect(52, 92, 22, 32);
+  });
+  TEX.barn = canvasTex(128, 64, (g, w, h) => {
+    g.fillStyle = '#7a5a3a'; g.fillRect(0, 0, w, h);
+    for(let x = 0; x < w; x += 8){ g.fillStyle = x % 16 ? '#6e5032' : '#82603e'; g.fillRect(x, 0, 7, h); }
+    g.fillStyle = '#3e2a1a'; g.fillRect(40, 18, 48, 46);
+    g.strokeStyle = '#a8865a'; g.lineWidth = 3; g.beginPath(); g.moveTo(40, 18); g.lineTo(88, 64); g.moveTo(88, 18); g.lineTo(40, 64); g.stroke();
+  });
+  TEX.tiles = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#c87a5a'; g.fillRect(0, 0, w, h);
+    for(let y = 0; y < h; y += 8){ g.fillStyle = 'rgba(60,20,10,0.4)'; g.fillRect(0, y + 6, w, 2); for(let x = (y / 8) % 2 ? 4 : 0; x < w; x += 8){ g.fillStyle = `rgba(255,220,190,${0.06 + Math.random() * 0.1})`; g.fillRect(x, y, 7, 6); } }
+  });
+  TEX.slate = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#7a7e86'; g.fillRect(0, 0, w, h);
+    for(let y = 0; y < h; y += 6){ g.fillStyle = 'rgba(20,24,30,0.45)'; g.fillRect(0, y + 5, w, 1); for(let x = (y / 6) % 2 ? 5 : 0; x < w; x += 10){ g.fillStyle = 'rgba(20,24,30,0.35)'; g.fillRect(x, y, 1, 5); } }
+  });
+  TEX.thatch = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#b8955a'; g.fillRect(0, 0, w, h);
+    for(let i = 0; i < 500; i++){ g.strokeStyle = Math.random() < 0.5 ? 'rgba(90,64,30,0.35)' : 'rgba(240,210,150,0.3)'; g.lineWidth = 1; const x = Math.random() * w, y = Math.random() * h; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 2, y + 5 + Math.random() * 4); g.stroke(); }
+  });
+  TEX.stone = canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = '#9a9486'; g.fillRect(0, 0, w, h);
+    for(let y = 0; y < h; y += 8) for(let x = (y / 8) % 2 ? 6 : 0; x < w; x += 12){ g.fillStyle = `rgba(${90 + Math.random() * 60},${86 + Math.random() * 50},${76 + Math.random() * 40},0.6)`; g.fillRect(x + 1, y + 1, 10, 6); }
+  });
+  for(const k of ['tiles', 'slate', 'thatch', 'stone']){ TEX[k].wrapS = TEX[k].wrapT = THREE.RepeatWrapping; }
+  return TEX;
+}
+/* A gabled roof one unit wide (x, along the ridge), one deep (z) and one high (y), on y = 0: two
+   sloping faces. The gable ends are a separate geometry (the wall's material fills them). */
+function roofGeometry(){
+  const v = [
+    -0.5, 0, 0.5,   0.5, 0, 0.5,   0.5, 1, 0,   -0.5, 1, 0,     // front slope
+    0.5, 0, -0.5,  -0.5, 0, -0.5, -0.5, 1, 0,    0.5, 1, 0,     // back slope
+  ];
+  const uv = [0, 0, 2, 0, 2, 1.4, 0, 1.4, 0, 0, 2, 0, 2, 1.4, 0, 1.4];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+  g.computeVertexNormals();
+  return g;
+}
+function gableGeometry(){
+  const v = [0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 1, 0, -0.5, 0, -0.5, -0.5, 0, 0.5, -0.5, 1, 0];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 0.6, 0, 0, 1, 0, 0.5, 0.6], 2));
+  g.setIndex([0, 1, 2, 3, 4, 5]);
+  g.computeVertexNormals();
+  return g;
+}
+function buildVillages(scene, out, ground, houses, churches, quality, toon, rnd){
+  const T = villageTextures();
+  const shadow = quality === 'high';
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+  const up = new THREE.Vector3(0, 1, 0);
+  const box = new THREE.BoxGeometry(1, 1, 1), roof = roofGeometry(), gable = gableGeometry();
+  const WALLS = ['#f4eee2', '#ece2cc', '#e8dcc0', '#f0e6d8', '#e2d6bc'];
+  // which roof each house gets: barns thatch or tile; town houses slate or tile; cottages any
+  const roofOf = h => h.kind === 'barn' ? (rnd() < 0.5 ? 'thatch' : 'tiles') : h.kind === 'town' ? (rnd() < 0.5 ? 'slate' : 'tiles') : (['tiles', 'tiles', 'slate', 'thatch'][Math.floor(rnd() * 4)]);
+  houses.forEach(h => { h.roof = roofOf(h); h.wallTex = h.kind === 'barn' ? 'barn' : h.kind === 'town' ? 'town' : 'wall'; h.eave = h.roof === 'thatch' ? 0.05 : 0.03; });
+  const groups = {};
+  for(const h of houses){ (groups['wall|' + h.wallTex] = groups['wall|' + h.wallTex] || []).push(h); (groups['roof|' + h.roof] = groups['roof|' + h.roof] || []).push(h); }
+  const add = (mesh) => { mesh.castShadow = shadow; mesh.receiveShadow = shadow; scene.add(mesh); out.props.push(mesh); };
+  for(const [key, list] of Object.entries(groups)){
+    const [part, kind] = key.split('|');
+    if(part === 'wall'){
+      const walls = new THREE.InstancedMesh(box, toon({ color: '#ffffff', map: T[kind] }), list.length);
+      const gables = new THREE.InstancedMesh(gable, toon({ color: '#ffffff', map: T[kind] }), list.length);
+      list.forEach((h, i) => {
+        const gy = ground.heightAt(h.x, h.z) - 0.01;
+        q.setFromAxisAngle(up, h.r);
+        m.compose(v.set(h.x, gy + h.h / 2, h.z), q, sc.set(h.w, h.h, h.d)); walls.setMatrixAt(i, m);
+        m.compose(v.set(h.x, gy + h.h, h.z), q, sc.set(h.w, h.roofH, h.d)); gables.setMatrixAt(i, m);
+        const c = col.set(kind === 'barn' ? '#ffffff' : WALLS[Math.floor(rnd() * WALLS.length)]).convertSRGBToLinear();
+        walls.setColorAt(i, c); gables.setColorAt(i, c);
+      });
+      add(walls); add(gables);
+    } else {
+      const roofs = new THREE.InstancedMesh(roof, toon({ color: '#ffffff', map: T[kind], side: THREE.DoubleSide }), list.length);
+      list.forEach((h, i) => {
+        const gy = ground.heightAt(h.x, h.z) - 0.01;
+        q.setFromAxisAngle(up, h.r);
+        m.compose(v.set(h.x, gy + h.h - 0.004, h.z), q, sc.set(h.w + h.eave * 1.4, h.roofH + 0.01, h.d + h.eave * 2)); roofs.setMatrixAt(i, m);
+        roofs.setColorAt(i, col.setHSL(0, 0, 0.82 + rnd() * 0.18));
+      });
+      add(roofs);
+    }
+  }
+  // chimneys on the houses (not the barns)
+  const chim = houses.filter(h => h.kind !== 'barn');
+  if(chim.length){
+    const cm = new THREE.InstancedMesh(box, toon({ color: '#ffffff', map: T.stone }), chim.length);
+    chim.forEach((h, i) => {
+      const gy = ground.heightAt(h.x, h.z), side = rnd() < 0.5 ? -1 : 1;
+      const lx = side * h.w * 0.32;
+      v.set(lx, 0, 0).applyAxisAngle(up, h.r);
+      q.setFromAxisAngle(up, h.r);
+      m.compose(v.set(h.x + v.x, gy + h.h + h.roofH * 0.75, h.z + v.z), q, sc.set(0.04, 0.12, 0.04)); cm.setMatrixAt(i, m);
+      cm.setColorAt(i, col.set('#c8beb0').convertSRGBToLinear());
+    });
+    add(cm);
+  }
+  // the churches: a nave with a gabled slate roof, a stone tower with a spire, a rounded apse
+  for(const ch of churches){
+    const gy = ground.heightAt(ch.x, ch.z) - 0.01;
+    const grp = new THREE.Group();
+    const stoneMat = toon({ color: '#ffffff', map: T.stone }), slateMat = toon({ color: '#ffffff', map: T.slate, side: THREE.DoubleSide });
+    const nave = new THREE.Mesh(box, stoneMat); nave.scale.set(0.46, 0.22, 0.24); nave.position.y = 0.11;
+    const nroof = new THREE.Mesh(roof, slateMat); nroof.scale.set(0.5, 0.15, 0.3); nroof.position.y = 0.218;
+    const ngab = new THREE.Mesh(gable, stoneMat); ngab.scale.set(0.46, 0.15, 0.24); ngab.position.y = 0.22;
+    const apse = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.18, 10, 1, false, 0, Math.PI), stoneMat); apse.position.set(0.23, 0.09, 0);
+    const apseRoof = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.09, 10, 1, false, 0, Math.PI), slateMat); apseRoof.position.set(0.23, 0.22, 0);
+    const tower = new THREE.Mesh(box, stoneMat); tower.scale.set(0.15, 0.44, 0.15); tower.position.set(-0.29, 0.22, 0);
+    const belfry = new THREE.Mesh(box, toon({ color: '#2a2a30' })); belfry.scale.set(0.155, 0.05, 0.06); belfry.position.set(-0.29, 0.38, 0);
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.24, 4), slateMat); spire.rotation.y = Math.PI / 4; spire.position.set(-0.29, 0.56, 0);
+    const cross = new THREE.Mesh(box, toon({ color: '#c9a84a' })); cross.scale.set(0.01, 0.06, 0.01); cross.position.set(-0.29, 0.7, 0);
+    grp.add(nave, nroof, ngab, apse, apseRoof, tower, belfry, spire, cross);
+    grp.traverse(o => { if(o.isMesh){ o.castShadow = shadow; o.receiveShadow = shadow; } });
+    grp.position.set(ch.x, gy, ch.z);
+    scene.add(grp); out.props.push(grp);
+  }
 }
