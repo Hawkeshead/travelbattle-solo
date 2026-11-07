@@ -124,6 +124,21 @@ function bindUI(){
   $('allvolley').onclick = () => { for(const u of state.units) if(!u.removed && u.x >= 0 && /INFANTRY|GUARD|ARTILLERY/.test(u.type)) app.army.volley(u); };
   $('unitreset').onclick = () => { const u = chosen(); if(u) app.army.resetUnit(u); };
   $('fold').onclick = () => document.body.classList.toggle('folded');
+  /* A tap on the board picks the square under it (a ray into the ground), and the unit standing there. */
+  app.rig.onTap = (cx, cy) => {
+    const c = $('iso'), r = c.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    const ray = new THREE.Raycaster(); ray.setFromCamera(ndc, app.rig.camera);
+    const hit = ray.intersectObject(app.world.groundMesh)[0];
+    if(!hit){ app.world.markSquare(null); return; }
+    const x = Math.floor(hit.point.x), y = Math.floor(hit.point.z);
+    if(x < 0 || y < 0 || x >= COLS || y >= ROWS){ app.world.markSquare(null); return; }
+    app.world.markSquare(x, y);
+    const here = state.units.filter(u => !u.removed && u.x === x && u.y === y);
+    const col = String.fromCharCode(65 + x), row = y + 1;
+    if(here.length){ $('unit').value = here[0].id; toast(`${here.map(u => u.historicalName || u.type).join(' and ')} at ${col}${row}`); }
+    else toast(`${col}${row}: ${state.terrain[y][x].toLowerCase().replace('_', ' ')}`);
+  };
   window.addEventListener('resize', resize);
 }
 
@@ -150,12 +165,16 @@ function readout(){
   }
 }
 
+let toastUntil = 0;
+function toast(text){ $('note').textContent = text; toastUntil = performance.now() + 1800; }
 function loop(){
   requestAnimationFrame(loop);
   const rig = app.rig;
   rig.apply();
   if(app.world && app.world.water && app.quality === 'high') app.world.water.position.y = WATER_Y + Math.sin(performance.now() / 900) * 0.004;
   if(app.army) app.army.update(rig.camera, rig.yaw);
+  if(app.world && app.world.mills) for(const s of app.world.mills) s.rotation.z = performance.now() / 2600;
+  if(toastUntil && performance.now() > toastUntil){ toastUntil = 0; $('note').textContent = ''; }
   app.renderer.render(app.scene, rig.camera);
   readout();
 }

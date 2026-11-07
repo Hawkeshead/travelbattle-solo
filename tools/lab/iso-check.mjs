@@ -47,6 +47,14 @@ try {
       const note = await page.evaluate(() => document.getElementById('note').textContent);
       console.log(`${battle} style ${style} ${quality}: ${stats ? JSON.stringify(stats) : 'no stats'}${note ? '  note: ' + note : ''}`);
       if(!stats || !stats.figures){ failed = true; }
+      // a tap on the middle of the board picks a square (or the unit on it) and says so
+      if(quality === 'low'){
+        await page.mouse.click(426, 230);
+        await page.waitForTimeout(200);
+        const said = await page.evaluate(() => document.getElementById('note').textContent);
+        console.log(`  tap at the middle: "${said}"`);
+        if(!said) failed = true;
+      }
       if(shots && quality === 'low'){
         mkdirSync(join(root, 'lab/screenshots'), { recursive: true });
         const views = [['high', 76, 0], ['mid', 52, 0.35], ['low', 30, -0.6]];

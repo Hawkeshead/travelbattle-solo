@@ -78,8 +78,13 @@ export class OrbitRig {
     const c = this.canvas;
     c.style.touchAction = 'none';
     c.addEventListener('contextmenu', e => e.preventDefault());
-    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, shift: e.shiftKey }); this.gesture = null; });
-    const end = e => { this.pointers.delete(e.pointerId); this.gesture = null; };
+    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), b: e.button, shift: e.shiftKey, two: this.pointers.size > 0 }); this.gesture = null; });
+    /* A tap: one finger, down and up within 350 ms, moved less than 8 px (onTap is set by the page). */
+    const end = e => {
+      const p = this.pointers.get(e.pointerId);
+      if(p && e.type === 'pointerup' && !p.two && this.pointers.size === 1 && performance.now() - p.t0 < 350 && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < 8 && this.onTap) this.onTap(e.clientX, e.clientY);
+      this.pointers.delete(e.pointerId); this.gesture = null;
+    };
     c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end); c.addEventListener('pointerleave', e => { if(e.pointerType === 'mouse') end(e); });
     c.addEventListener('pointermove', e => {
       const p = this.pointers.get(e.pointerId); if(!p) return;

@@ -344,6 +344,66 @@ export function buildWorld(scene, quality){
     scene.add(rm); out.props.push(rm);
   }
 
+  // hedges and low walls round the farmland (a gap where a road crosses the edge)
+  {
+    const isField = (x, y) => T[y] && T[y][x] === 'PLOUGHED_FIELD';
+    const road = (x, y) => !!(state.roads && state.roads[y] && state.roads[y][x]);
+    const segs = [];
+    for(let y = 0; y < ROWS; y++) for(let x = 0; x < COLS; x++){
+      if(!isField(x, y)) continue;
+      for(const [dx, dy, cx, cz, r] of [[1, 0, 1, 0.5, 0], [-1, 0, 0, 0.5, 0], [0, 1, 0.5, 1, 1], [0, -1, 0.5, 0, 1]]){
+        if(isField(x + dx, y + dy)) continue;
+        if(road(x, y) && road(x + dx, y + dy)) continue;
+        const wall = hash2(x, y, 5) % 3 === 0;   // every third field is walled rather than hedged
+        segs.push({ x: x + cx, z: y + cz, r, wall });
+      }
+    }
+    if(segs.length){
+      const hedges = segs.filter(s => !s.wall), walls = segs.filter(s => s.wall);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+      const place = (mesh, list, h, w) => list.forEach((s, i) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.r ? 0 : Math.PI / 2);
+        m.compose(v.set(s.x, ground.heightAt(s.x, s.z) + h / 2, s.z), q, sc.set(0.92, h, w)); mesh.setMatrixAt(i, m);
+      });
+      if(hedges.length){ const hm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), toon({ color: '#2f4a28' }), hedges.length); place(hm, hedges, 0.09, 0.08); hm.castShadow = quality === 'high'; scene.add(hm); out.props.push(hm); }
+      if(walls.length){ const wm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), toon({ color: PALETTE.stone }), walls.length); place(wm, walls, 0.06, 0.05); wm.castShadow = quality === 'high'; scene.add(wm); out.props.push(wm); }
+    }
+  }
+
+  // windmills where a place is a mill
+  out.mills = [];
+  for(const [name, px, py] of (state.places || [])){
+    if(!/mill/i.test(name)) continue;
+    const grp = new THREE.Group();
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.34, 8), toon({ color: PALETTE.wall[1] })); tower.position.y = 0.17;
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.1, 8), toon({ color: PALETTE.roof[1] })); cap.position.y = 0.39;
+    const sails = new THREE.Group(); sails.position.set(0, 0.34, 0.11);
+    for(let k = 0; k < 4; k++){ const s = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.01), toon({ color: '#e9e4d6' })); s.position.y = 0.14; const arm = new THREE.Group(); arm.rotation.z = k * Math.PI / 2; arm.add(s); sails.add(arm); }
+    grp.add(tower, cap, sails);
+    grp.traverse(o => { if(o.isMesh) o.castShadow = quality === 'high'; });
+    grp.position.set(px, ground.heightAt(px, py), py);
+    scene.add(grp); out.props.push(grp); out.mills.push(sails);
+  }
+
+  // the selection marker: a square on the ground, hidden until a tap
+  {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'); g.strokeStyle = '#f2e6c0'; g.lineWidth = 10; g.strokeRect(8, 8, 112, 112);
+    g.fillStyle = 'rgba(242,230,192,0.18)'; g.fillRect(14, 14, 100, 100);
+    const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
+    const mk = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+    mk.rotation.x = -Math.PI / 2; mk.visible = false; mk.renderOrder = 2;
+    scene.add(mk); out.props.push(mk); out.marker = mk;
+    /* Put the marker on a square, draped on the ground. */
+    out.markSquare = (x, y) => {
+      if(x == null){ mk.visible = false; return; }
+      const pos = mk.geometry.attributes.position;
+      for(let i = 0; i < pos.count; i++){ const lx = pos.getX(i), ly = pos.getY(i); pos.setZ(i, ground.heightAt(x + 0.5 + lx, y + 0.5 - ly) + 0.015); }
+      pos.needsUpdate = true;
+      mk.position.set(x + 0.5, 0, y + 0.5); mk.visible = true;
+    };
+  }
+
   // villages: cottages on every building square, and a church on the first square of each village
   const houses = [], churches = [];
   const seenVillage = new Set();

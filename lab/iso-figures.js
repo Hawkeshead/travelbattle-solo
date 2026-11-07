@@ -436,7 +436,7 @@ function makeBlobs(scene){
 /* ---------- gun smoke: the game's own puffs and clouds, as sprites ---------- */
 class Smoke {
   constructor(scene){
-    this.scene = scene; this.pool = []; this.live = [];
+    this.scene = scene; this.pool = []; this.live = []; this.haze = [];
     const L = new THREE.TextureLoader();
     const tex = url => { const t = L.load(url); t.encoding = THREE.sRGBEncoding; return t; };
     this.mats = { musket: [1, 2, 3].map(i => new THREE.SpriteMaterial({ map: tex(`assets/terrain/v2/effects/smoke/musket_puff_${i}.webp`), transparent: true, depthWrite: false, opacity: 0.85 })),
@@ -450,16 +450,28 @@ class Smoke {
     spr.scale.set(s * 1.6, s, 1); spr.position.set(x, y, z);
     spr.renderOrder = 5;
     this.scene.add(spr);
-    this.live.push({ spr, born: now(), life: kind === 'cannon' ? 3200 : 2200, s, drift: (Math.random() - 0.5) * 0.1 });
+    this.live.push({ spr, born: now(), life: kind === 'cannon' ? 3200 : 2200, s, drift: (Math.random() - 0.5) * 0.1, kind });
   }
   update(t){
     for(let i = this.live.length - 1; i >= 0; i--){
       const p = this.live[i], a = (t - p.born) / p.life;
-      if(a >= 1){ this.scene.remove(p.spr); p.spr.material.dispose(); this.pool.push(p.spr); this.live.splice(i, 1); continue; }
+      if(a >= 1){
+        // the puff is gone; a thin haze of it lingers over the field and drifts downwind
+        if(p.kind && this.haze.length < 48){ const h = this.pool.pop() || new THREE.Sprite(); h.material = this.mats.cannon[Math.floor(Math.random() * 4)].clone(); h.position.copy(p.spr.position); h.scale.set(p.s * 4, p.s * 2.2, 1); h.renderOrder = 4; this.scene.add(h); this.haze.push({ spr: h, born: t, life: 9000 + Math.random() * 5000, s: p.s }); }
+        this.scene.remove(p.spr); p.spr.material.dispose(); this.pool.push(p.spr); this.live.splice(i, 1); continue;
+      }
       const grow = 1 + a * 1.4;
       p.spr.scale.set(p.s * 1.6 * grow, p.s * grow, 1);
       p.spr.position.y += 0.0018; p.spr.position.x += p.drift * 0.004;
       p.spr.material.opacity = (1 - a) * 0.85;
+    }
+    for(let i = this.haze.length - 1; i >= 0; i--){
+      const h = this.haze[i], a = (t - h.born) / h.life;
+      if(a >= 1){ this.scene.remove(h.spr); h.spr.material.dispose(); this.pool.push(h.spr); this.haze.splice(i, 1); continue; }
+      const g = 1 + a * 2.5;
+      h.spr.scale.set(h.s * 4 * g, h.s * 2.2 * g, 1);
+      h.spr.position.x += 0.0009; h.spr.position.y += 0.0003;    // a light wind from the west
+      h.spr.material.opacity = 0.28 * Math.sin(Math.min(1, a * 4) * Math.PI / 2) * (1 - a);
     }
   }
 }
