@@ -228,14 +228,63 @@ export const AudioManager = (function(){
     return files[idx];
   }
 
+  /* MUSIC AND AMBIENCE THROUGH WEB AUDIO (12 Nov 2026, Matthew: the volume
+     sliders in the battle menu did nothing).
+
+     The score and the ambience are <audio> elements, and their level was set
+     with element.volume. On the iPhone that property is read-only: Safari
+     plays every media element at full volume whatever it is set to, so the
+     Master, Music and Ambience sliders, and Mute, never touched either of
+     them. (Effects were already Web Audio and always followed their slider.)
+
+     Each element is now fed through a Web Audio gain node, and the level is
+     set on the gain, which the iPhone honours. element.volume stays at 1.
+     Where the browser will not do it (no Web Audio), the old element.volume
+     path is kept. One source node per element, made once (a media element
+     can only ever be connected once), and disconnected when the element is
+     dropped. */
+  function routeElement(el, category){
+    try {
+      const ctx = getAudioContext();
+      const source = ctx.createMediaElementSource(el);
+      const gain = ctx.createGain();
+      gain.gain.value = effectiveVolume(category);
+      source.connect(gain); gain.connect(ctx.destination);
+      el.volume = 1;
+      el._fcRoute = { source, gain };
+    } catch(_e){ el.volume = effectiveVolume(category); }
+  }
+  function unrouteElement(el){
+    const r = el && el._fcRoute;
+    if(!r) return;
+    try { r.source.disconnect(); r.gain.disconnect(); } catch(_e) { /* already gone */ }
+    el._fcRoute = null;
+  }
+  /* An element's level, set on its gain where it has one (rampMs: glide there). */
+  function setElementLevel(el, level, rampMs){
+    if(!el) return;
+    const r = el._fcRoute;
+    if(!r){ try { el.volume = level; } catch(_e) { /* read-only here */ } return; }
+    const p = r.gain.gain, ctx = state.audioCtx;
+    if(rampMs && ctx){
+      const t = ctx.currentTime;
+      p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(level, t + rampMs / 1000);
+    } else {
+      if(ctx) p.cancelScheduledValues(ctx.currentTime);
+      p.value = level;
+    }
+  }
+  const elementLevel = el => (el && el._fcRoute ? el._fcRoute.gain.gain.value : el ? el.volume : 0);
+
   function duck(){
     if(!state.musicEl && !state.ambienceEl) return;
     clearTimeout(state.duckTimer);
-    const targets = [state.musicEl, state.ambienceEl].filter(Boolean);
-    targets.forEach(el => el.volume = Math.min(el.volume, effectiveVolume(el===state.musicEl?'music':'ambience') * 0.35));
+    for(const [el, cat] of [[state.musicEl, 'music'], [state.ambienceEl, 'ambience']]){
+      if(el) setElementLevel(el, Math.min(elementLevel(el), effectiveVolume(cat) * 0.35), 80);
+    }
     state.duckTimer = setTimeout(()=>{
-      if(state.musicEl) state.musicEl.volume = effectiveVolume('music');
-      if(state.ambienceEl) state.ambienceEl.volume = effectiveVolume('ambience');
+      setElementLevel(state.musicEl, effectiveVolume('music'), 300);
+      setElementLevel(state.ambienceEl, effectiveVolume('ambience'), 300);
     }, 900);
   }
 
@@ -391,13 +440,14 @@ export const AudioManager = (function(){
     state.musicEl = null;
     if(!el) return;
     try { el.pause(); el.removeAttribute('src'); el.load(); } catch(_e) { /* already gone */ }
+    unrouteElement(el);
   }
 
   function playMusic(src, opts){
     opts = opts || {};
     try {
       if(state.musicEl && state.musicSrc === src){
-        state.musicEl.volume = effectiveVolume('music');   // already playing; just re-level it
+        setElementLevel(state.musicEl, effectiveVolume('music'));   // already playing; just re-level it
         if(state.unlocked && state.musicEl.paused) state.musicEl.play().catch(()=>{});
         return;
       }
@@ -407,7 +457,7 @@ export const AudioManager = (function(){
       if(opts.loop !== false && state.musicSequence) state.musicSequence = null;
       const audio = new Audio(src);
       audio.loop = opts.loop !== false;
-      audio.volume = effectiveVolume('music');
+      routeElement(audio, 'music');
       state.musicEl = audio;
       state.musicSrc = src;
       if(state.unlocked) audio.play().catch(()=>{});
@@ -464,16 +514,16 @@ export const AudioManager = (function(){
         if(state.unlocked && state.ambienceEl.paused) state.ambienceEl.play().catch(()=>{});
         return;
       }
-      if(state.ambienceEl){ state.ambienceEl.pause(); state.ambienceEl = null; }
+      if(state.ambienceEl){ state.ambienceEl.pause(); unrouteElement(state.ambienceEl); state.ambienceEl = null; }
       state.ambienceSrc = src;
       const audio = new Audio(src);
       audio.loop = true;
-      audio.volume = effectiveVolume('ambience');
+      routeElement(audio, 'ambience');
       state.ambienceEl = audio;
       if(state.unlocked) audio.play().catch(()=>{});
     } catch(_e) { /* silent failure */ }
   }
-  function stopAmbience(){ state.ambienceSrc = null; if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(_e){} state.ambienceEl = null; } }
+  function stopAmbience(){ state.ambienceSrc = null; if(state.ambienceEl){ try{ state.ambienceEl.pause(); }catch(_e){} unrouteElement(state.ambienceEl); state.ambienceEl = null; } }
 
   function setMuted(m){ state.muted = m; applyVolumes(); savePrefs(); }
   function setVolume(category, v){ state.volumes[category] = Math.max(0, Math.min(1, v)); applyVolumes(); savePrefs(); }
@@ -513,8 +563,9 @@ export const AudioManager = (function(){
   }
 
   function applyVolumes(){
-    if(state.musicEl) state.musicEl.volume = effectiveVolume('music');
-    if(state.ambienceEl) state.ambienceEl.volume = effectiveVolume('ambience');
+    clearTimeout(state.duckTimer);   // a slider moved mid-duck: its new level wins, not the duck's return
+    setElementLevel(state.musicEl, effectiveVolume('music'));
+    setElementLevel(state.ambienceEl, effectiveVolume('ambience'));
     /* Effects run through Web Audio rather than an <audio> element, and each one
        reads its gain once at the moment it starts. Without this, dragging the
        effects slider (or muting) left anything already playing at its old
@@ -543,5 +594,9 @@ export const AudioManager = (function(){
        elements themselves, so nothing outside can reassign them. */
     debugMusicElement: ()=> state.musicEl,
     debugAmbienceElement: ()=> state.ambienceEl,
+    /* The level each stream is really playing at (its Web Audio gain, or its
+       element's volume where it has no gain), for the lab and the checks. */
+    debugLevels: ()=> ({ music: state.musicEl ? elementLevel(state.musicEl) : null, ambience: state.ambienceEl ? elementLevel(state.ambienceEl) : null,
+      musicRouted: !!(state.musicEl && state.musicEl._fcRoute), ambienceRouted: !!(state.ambienceEl && state.ambienceEl._fcRoute) }),
   };
 })();

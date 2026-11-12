@@ -45,7 +45,8 @@ const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* private
 const URL_BOARD = (() => { try { const q = new URLSearchParams(location.search).get('board'); return q === '3d' || q === 'classic' ? q : null; } catch { return null; } })();
 export const boardPref = () => URL_BOARD || read(KEYS.board, '3d', ['3d', 'classic']);
 export const graphicsPref = () => read(KEYS.graphics, 'low', ['low', 'high']);
-export const figuresPref = () => read(KEYS.figures, 'small', ['small', 'large']);
+let figuresCache = null;   // read once, not every frame (the sprites ask each frame)
+export const figuresPref = () => figuresCache || (figuresCache = read(KEYS.figures, 'small', ['small', 'large']));
 const FIGURE_SIZE = { small: 0.4, large: 0.9 };   // times the 2D board's figure height (render-figures FIGURE_SCALE)
 const FIGURE_SCALE = 1.25;
 
@@ -286,7 +287,7 @@ class Board3D {
       wrap.insertBefore(c, wrap.firstChild);   // under the floating text, the dice and the clouds
       this.canvas = c;
       this.bindInput();
-      new ResizeObserver(() => this.resize()).observe(wrap);
+      if(!this._ro){ this._ro = new ResizeObserver(() => this.resize()); this._ro.observe(wrap); }   // once, whichever canvas
     }
     this.canvas.style.display = 'block';
     this.makeRenderer();
@@ -328,8 +329,18 @@ class Board3D {
     this.quality = high ? 'high' : 'low';
     this.worldKey = null;   // rebuilt for the new quality
   }
-  setGraphics(v){ write(KEYS.graphics, v); if(this.active){ this.makeRenderer(); this.resize(); } }
-  setFigures(v){ write(KEYS.figures, v); }
+  /* High and Low differ in edge smoothing (antialias), which a browser fixes
+     when a canvas's 3D context is first made: so the canvas is replaced, and
+     the board started again on the new one, keeping where the camera was. */
+  setGraphics(v){
+    write(KEYS.graphics, v);
+    if(!this.active) return;
+    const keep = this.rig ? this.view() : null;
+    this.stop();
+    if(this.canvas){ this.canvas.remove(); this.canvas = null; }
+    this.start().then(() => { if(keep && this.rig && this.ensureWorld()){ const r = this.rig; r.target.x = keep.x; r.target.z = keep.z; r.dist = keep.d; r.yaw = keep.yaw; r.pitch = keep.pitch; } });
+  }
+  setFigures(v){ write(KEYS.figures, v); figuresCache = null; }
   setBoard(v){ write(KEYS.board, v); this.wanted = v === '3d'; if(v === '3d') this.start(); else this.stop(); }
   resize(){
     if(!this.renderer || !this.canvas) return;
